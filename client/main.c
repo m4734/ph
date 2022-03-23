@@ -41,7 +41,7 @@ int main()
 			}
 			query[len] = 0;
 			fputs(query,stdout);
-			if (query[len-1] == '\n')
+			if (query[len-1] == '\n') // client believes it will end with newline
 				break;
 		}
 		if (len < 0)
