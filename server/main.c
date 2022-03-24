@@ -10,11 +10,27 @@
 
 #include <errno.h>
 
-#include "global.h"
+#include <pthread.h>
+
+/*#include "global.h"*/
+
+#include "thread.h"
+
+// temp global
+
+//extern void* thread_function(void* thread_parameter);
+
+int num_of_thread;
+int connection_per_thread;
+int total_connection;
+int port;
+
+pthread_t* pthread_list;
+struct Thread* thread_list;
 
 void temp_static_conf()
 {
-	num_of_thread = 4;
+	num_of_thread = 1;
 	connection_per_thread = 1;
 	port = 5516; // bus
 }
@@ -36,6 +52,15 @@ void conf()
 
 void init_alloc()
 {
+	pthread_list = (pthread_t*)malloc(sizeof(pthread_t) * num_of_thread);
+	thread_list = (Thread*) new Thread[num_of_thread];
+
+	int i;
+	for (i=0;i<num_of_thread;i++)
+	{
+		pthread_create(&pthread_list[i],NULL,thread_function,(void*)&thread_list[i]);
+		//detach?
+	}
 }
 void init()
 {
@@ -83,11 +108,12 @@ void run()
 
 	printf("server socket ready\n");
 
+	int thread_iterator=0;
 	while(1)
 	{
 		printf("wait client\n");
 		client_addr_size = sizeof(client_addr);
-		client_socket = accept(server_socket, (struct sockaddr*)&client_addr,&client_addr_size);
+		client_socket = accept(server_socket, (struct sockaddr*)&client_addr,(socklen_t*)&client_addr_size);
 
 		flag = fcntl(client_socket, F_GETFL, 0);
 		fcntl(client_socket, F_SETFL, flag | O_NONBLOCK); // non block socket
@@ -96,11 +122,26 @@ void run()
 
 		// give it to thread
 
+
+		thread_list[thread_iterator].new_connection_queue.push(client_socket);
+		printf("connection added\n");
+		++thread_iterator;
+		if (thread_iterator >= num_of_thread)
+			thread_iterator = 0;
+
 	}
 }
+
+void clean()
+{
+	free(pthread_list);
+	delete []thread_list;
+}
+
 int main()
 {
 	init();
 	run();
+//	clean(); // never end?? join thread first
 	return 0;
 }

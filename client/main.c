@@ -7,8 +7,8 @@
 
 int main()
 {
-	char query[1001];
-	int max = 1000;
+	char query[10001];
+	int max = 10000;
 
 	int sock;
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -24,28 +24,42 @@ int main()
 		return 0;
 	}
 
-	int len;
+	int len,rv,i;
 	while(1)
 	{
+		printf("ready\n");
 		fgets(query,max,stdin);
 		if (query[0] == 'e' && query[1] == 'x' && query[2] == 'i' && query[3] == 't')
 			break;
-		write(sock,query,strlen(query));
+		for (i=0;query[i] != '\n';i++);
+		query[i+1] = 0;
+//		printf("send query %s\n",query);
+		write(sock,query,i+2);
+		len = 0;
 		while(1)
 		{
-			len = read(sock,query,1000);
-			if (len < 0)
+			sleep(1); //too fast
+//			printf("wait\n");
+			rv = read(sock,query+len,max);
+//			printf("receive\n");
+			if (rv < 0)
 			{
 				printf("read error\n");
 				break;
 			}
-			query[len] = 0;
-			fputs(query,stdout);
-			if (query[len-1] == '\n') // client believes it will end with newline
+//			for (i=0;i<rv;i++)
+//				printf("%d ",(int)query[len+i]);
+			len+=rv;
+			if (query[len-1] == 0) // client believes it will end with zero
 				break;
 		}
-		if (len < 0)
+
+		if (rv < 0)
 			break;
+
+//			query[len] = 0;
+			fputs(query,stdout);
+
 	}
 
 	close(sock);
