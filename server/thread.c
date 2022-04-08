@@ -6,6 +6,8 @@
 #include<sys/socket.h>
 #include <unistd.h>
 
+//#include "query.h"
+
 void* thread_function(void* thread_parameter)
 {
 	struct Thread* thread = (struct Thread*)thread_parameter;
@@ -16,6 +18,8 @@ void* thread_function(void* thread_parameter)
 	int length;
 
 	char query[10001];
+	char** result;
+	int result_len;
 
 	while(1)
 	{
@@ -25,8 +29,9 @@ sleep(1); // too fast test
 		{
 			printf("new connection\n");
 			connection = (struct Connection*)malloc(sizeof(struct Connection));
-			connection->length = 0;
+			connection->query.length = 0;
 //			connection.query = connection.buffer;
+//			connection.query = alloc_query();			
 			connection->socket = thread->new_connection_queue.front();
 
 			thread->connection_list.insert(connection_list_iterator,connection);
@@ -55,7 +60,7 @@ sleep(1); // too fast test
 		//---------------------------------------------------------------------
 		
 		printf("get query\n");// get query
-		length = read(connection->socket,connection->buffer + connection->length,10000-connection->length);
+		length = read(connection->socket,connection->query.buffer + connection->query.length,10000-connection->query.length);
 		if (length < 0)
 		{
 			if (errno == EAGAIN)
@@ -73,24 +78,43 @@ sleep(1); // too fast test
 			connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
 			continue;
 		}
-		connection->length+=length;
-		if (connection->buffer[connection->length-1] != 0) // query continues
+		connection->query.length+=length;
+		if (connection->query.buffer[connection->query.length-1] != 0) // query continues
 		{
 			printf("query continue\n");
+			if (connection->query.length >= 10000)
+				printf("query length error!!!\n");
 			connection_list_iterator++;
 			continue;
 		}
-		connection->buffer[connection->length] = 0;
+		connection->query.buffer[connection->query.length] = 0;
 
 //-------------------------------------------------------------------------------
 
 		printf("process query\n");// process query
 		//
 		// temp code
+ /*
 		fputs(connection->buffer,stdout);
 		write(connection->socket,"nam nam\n",sizeof("nam nam\n"));
+*/
 
-		connection->length = 0; //initialize connection buffer
+		if (parse_query(&connection->query) < 0)
+			printf("query parse error!!!\n");
+
+		if (process_query(&connection->query,result,&result_len) < 0)
+			printf("query process error!!!\n");
+
+		write(connection->socket,result,result_len);
+
+		complete_query(&connection->query);
+
+		printf("query complete\n");
+
+//		free_query(connection->query);
+//		connection->query = alloc_query();
+
+		connection->query.length = 0; //initialize connection buffer
 		connection_list_iterator++;
 	}
 }

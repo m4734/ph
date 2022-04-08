@@ -12,32 +12,22 @@
 
 #include <pthread.h>
 
-/*#include "global.h"*/
+#include "global.h"
 
 #include "thread.h"
+#include "data.h"
 
 // temp global
 
 //extern void* thread_function(void* thread_parameter);
 
-int num_of_thread;
-int connection_per_thread;
-int total_connection;
-int port;
+extern int num_of_thread;
+extern int connection_per_thread;
+extern int total_connection;
+extern int port;
 
 pthread_t* pthread_list;
 struct Thread* thread_list;
-
-void temp_static_conf()
-{
-	num_of_thread = 1;
-	connection_per_thread = 1;
-	port = 5516; // bus
-}
-
-void print_conf()
-{
-}
 
 // config
 // alloc
@@ -45,9 +35,6 @@ void conf()
 {
 	temp_static_conf();
 
-	total_connection = num_of_thread * connection_per_thread;
-
-	print_conf();
 }
 
 void init_alloc()
@@ -66,6 +53,7 @@ void init()
 {
 	conf();
 	init_alloc();
+	data_init(); //???
 }
 
 // connection
@@ -136,6 +124,8 @@ void clean()
 {
 	free(pthread_list);
 	delete []thread_list;
+
+	data_clean();
 }
 
 int main()

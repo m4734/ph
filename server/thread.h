@@ -1,13 +1,16 @@
 #include <list>
 #include <queue>
 
+#include "query.h"
+
 using namespace std;
 
 struct Connection
 {
-	char buffer[10000];
-	int length;
+//	char buffer[10001];
+//	int length;
 //	char* query;
+	struct Query query;	
 	int socket;
 };
 
