@@ -138,6 +138,10 @@ int try_e_lock(Node* node)
 {
 	return 0;
 }
+int try_e_lock(unsigned int offset)
+{
+	return try_e_lock(offset_to_node(offset));
+}
 
 void e_lock(Node* node)
 {
@@ -145,6 +149,10 @@ void e_lock(Node* node)
 
 void e_unlock(Node* node)
 {
+}
+void e_unlock(unsigned int offset)
+{
+	e_unlock(offset_to_node(offset));
 }
 
 //delete

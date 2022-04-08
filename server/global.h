@@ -17,31 +17,37 @@ typedef u_int8_t uint8_t
 typedef u_int16_t uint16_t
 typedef u_int64_t uint64_t
 */
-int num_of_thread;
-int connection_per_thread;
-int total_connection;
-int port;
+extern int num_of_thread;
+extern int connection_per_thread;
+extern int total_connection;
+extern int port;
 
 
 // hash
 
-int point_hash_table_size;
-int range_hash_table_size;
+extern int point_hash_table_size;
+extern int range_hash_table_size;
 
 #define NODE_BUFFER 1024
-int node_size;
+extern int node_size;
 
-int key_size;
-int len_size;
-int value_size;
-int entry_size;
+extern int key_size;
+extern int len_size;
+extern int value_size;
+extern int entry_size;
 
 //data
 
-unsigned long long int pmem_size;
-char pmem_file[100] = "/mnt/pmem0/file";
+extern unsigned long long int pmem_size;
+extern char pmem_file[100];// = "/mnt/pmem0/file";
 
-void temp_static_conf()
+//query
+extern unsigned char empty[10];
+extern int empty_len;
+
+
+void temp_static_conf();
+/*
 {
 	num_of_thread = 1;
 	connection_per_thread = 1;
@@ -59,6 +65,6 @@ void temp_static_conf()
 
 	pmem_size = 1024*1024*1024;
 }
-
+*/
 
 //#endif

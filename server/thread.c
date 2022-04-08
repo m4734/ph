@@ -18,7 +18,7 @@ void* thread_function(void* thread_parameter)
 	int length;
 
 	char query[10001];
-	char** result;
+	unsigned char** result;
 	int result_len;
 
 	while(1)

@@ -12,11 +12,11 @@ struct Query
 	int offset;
 };
 
-unsigned char empty[10] = {"empty"};
-int empty_len = 5;
+//unsigned char empty[10];// = {"empty"};
+//int empty_len;// = 5;
 
 int parse_query(Query* query);
 
-int process_query(Query* query,char** result,int* result_len);
+int process_query(Query* query,unsigned char** result,int* result_len);
 
 void complete_query(Query* query);

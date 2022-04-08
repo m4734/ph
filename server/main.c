@@ -20,12 +20,12 @@
 // temp global
 
 //extern void* thread_function(void* thread_parameter);
-
+/*
 extern int num_of_thread;
 extern int connection_per_thread;
 extern int total_connection;
 extern int port;
-
+*/
 pthread_t* pthread_list;
 struct Thread* thread_list;
 
