@@ -32,7 +32,7 @@ unsigned int calc_offset(Node* node) // it will be optimized with define
 }
 Node* offset_to_node(unsigned int offset) // it will be ..
 {
-	return (Node*)(pmem_addr + offset);
+	return (Node*)(pmem_addr + offset*sizeof(Node));
 }
 void init_entry(unsigned char* entry) // need to be ...
 {
@@ -54,28 +54,6 @@ unsigned int point_to_offset(unsigned char* kv_p)
 
 
 //---------------------------------------------------------------
-
-
-int data_init()
-{
-	pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
-
-	if (pmem_addr == NULL)
-	{
-		printf("pmem error\n");
-		return -1;
-	}
-
-	pmem_used = 0;
-
-	return 0;
-}
-
-void data_clean()
-{
-	pmem_unmap(pmem_addr,pmem_len);
-}
-
 Node* alloc_node()
 {
 	Node* node;
@@ -96,6 +74,53 @@ void free_node(Node* node)
 	node_free_list.push(node);
 }
 
+
+int data_init()
+{
+	pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
+
+	if (pmem_addr == NULL)
+	{
+		printf("pmem error\n");
+		return -1;
+	}
+
+	pmem_used = 0;
+
+	//insert 0 node
+	
+	uint64_t zero=0;
+
+	//push for reserve
+	alloc_node(); // 0
+	alloc_node(); // 1
+	alloc_node(); // 2
+
+	Node* node = alloc_node();
+	node->size = 0;
+	node->prev_offset = 0;
+	node->next_offset = 0;
+	printf("node 0 %p\n",node);
+
+	insert_range_entry((unsigned char*)(&zero),0,calc_offset(node)); // the length is important!!!
+	int zero2=0;
+	if (find_range_entry((unsigned char*)(&zero),&zero2) == NULL)
+		printf("range error\n");
+	return 0;
+}
+
+void data_clean()
+{
+	/*
+	free_node(offset_to_node(0));
+	free_node(offset_to_node(1));
+	free_node(offset_to_node(2));
+*/
+	//release free list
+
+	pmem_unmap(pmem_addr,pmem_len);
+}
+
 //don't use
 /*
 int compare(unsigned char* key1,unsigned char* key2)
@@ -113,7 +138,7 @@ int compare(unsigned char* key1,unsigned char* key2)
 */
 int try_s_lock(Node* node)
 {
-	return 0;
+	return 1;
 }
 
 int try_s_lock(unsigned int offset)
@@ -136,7 +161,7 @@ void s_unlock(unsigned int offset)
 
 int try_e_lock(Node* node)
 {
-	return 0;
+	return 1;
 }
 int try_e_lock(unsigned int offset)
 {
@@ -172,12 +197,17 @@ void delete_kv(unsigned char* kv_p) // OP may need
 
 unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length)
 {
+	printf("insert kv offset %u\n",offset);
 	Node* node;
 	unsigned char* kv_p;
 
 	node = offset_to_node(offset); 
+	printf("node %p \n",node);
 	if (node->size + key_size + len_size + value_length > NODE_BUFFER)
+	{
+		printf("size %d\n",node->size);
 		return NULL;
+	}
 	*(uint64_t*)(node->buffer + node->size) = *((uint64_t*)key);
 	*(uint16_t*)(node->buffer + node->size + key_size) = value_length;
 	int i;
@@ -219,13 +249,13 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 
 	prev_node = offset_to_node(node->prev_offset);
 
-		if (try_s_lock(prev_node) < 0)
+		if (try_s_lock(prev_node) == 0)
 			return -1; // failed
 //			continue;
 //		e_lock(node); //already locked
 
 		next_node = offset_to_node(node->next_offset);
-		if (try_s_lock(next_node) < 0)
+		if (try_s_lock(next_node) == 0)
 		{
 			s_unlock(prev_node);
 			return -1;//failed

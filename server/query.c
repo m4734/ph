@@ -17,7 +17,7 @@ int parse_query(Query* query)
 //insert 4
 //update 5
 //scan 6
-
+printf("parse\n");
 	if (query->buffer[0] == 'g' && query->buffer[1] == 'e' && query->buffer[2] == 't')
 		query->op = 0;
 	else if (query->buffer[0] == 'l' && query->buffer[1] == 'o' && query->buffer[2] == 'o' && query->buffer[3] == 'k' && query->buffer[4] == 'u' && query->buffer[5] == 'p')
@@ -35,15 +35,17 @@ int parse_query(Query* query)
 	else
 		return -1;
 
-//	printf("query->op %d\n",query->op);
+	printf("query->op %d\n",query->op);
 
 
 	int i=0,ki;
 	for(;i<query->length;i++)
 	{
+		printf("[%c]",query->buffer[i]);
 		if (query->buffer[i] == ' ')
 			break;
 	}
+	printf("\n");
 	if (query->buffer[i] != ' ')
 		return -1;
 //	query->key_p = query->buffer+i+1;
@@ -59,23 +61,32 @@ int parse_query(Query* query)
 		return 0;
 	}
 
+	i++;
+	printf("len %d\n",query->length);
 	for(;i<query->length;i++)
 	{
+		printf("[%c]",query->buffer[i]);
 		if (query->buffer[i] == ' ')
 			break;
 	}
+	printf("\n");
 	if (query->buffer[i] != ' ')
 		return -1;
 	query->value_p = query->buffer+i+1;
 
-	query->key_len = query->value_p-query->key_p-1;
-	query->value_len = query->length - i; // ??
+//	query->key_len = query->value_p-query->key_p-1;
+	query->key_len = i-ki-1;	
+	query->value_len = query->length - i - 3; // ??
 
-	for (i=9;i<8-query->key_len;i++)
+	for (i=0;i<8-query->key_len;i++)
 		query->key_p[i] = 0;
-	for (;i<8-query->key_len;i++)
+	for (;i<query->key_len;i++)
 		query->key_p[i] = query->buffer[ki+i];
-
+printf("query len %d\n",query->length);
+printf("key len %d\n",query->key_len);
+printf("value len %d %c\n",query->value_len,query->value_p[0]);
+	// len = 8???
+printf("pe\n");
 	return 0;
 }
 
@@ -177,6 +188,7 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 	// e unlock
 	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
 	{
+		printf("insert\n");
 		*result = empty;
 		*result_len = empty_len;
 
@@ -187,19 +199,19 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 		unsigned int offset;
 		int continue_len;	
 			continue_len = 0;
-
+printf("i1\n");
 		point_entry = find_or_insert_point_entry(query->key_p,1); // find or create
-
+printf("i2\n");
 		while(1) // offset can be changed when retry
 		{
 		offset = 0;
 		range_entry = NULL;
-		if (point_entry)
+		if (point_entry) // always true
 		{
 			while(1)
 			{
 				kv_p = (unsigned char*)point_entry->kv_p;
-				if (kv_p == NULL) // deleted during !!!
+				if (kv_p == NULL) // deleted during !!! or doesn't exist...
 				{
 					offset = 0;
 					break;
@@ -214,11 +226,15 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 
 		if (offset == 0)
 		{
+			printf("find node\n");
 			while(1)
 			{
 				range_entry = find_range_entry(query->key_p,&continue_len);
 				if (range_entry == NULL) // spliting...
+				{
+//					sleep(1); //test
 					continue;
+				}
 				offset = range_entry->offset;
 				if (try_e_lock(offset))
 				{
@@ -227,11 +243,13 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 
 
 			}
+			printf("node found\n");
 		}
 
 		//e locked
 		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 		{
+			printf("split\n");
 			//failed and need split
 			if (range_entry == NULL)
 				range_entry = find_range_entry(query->key_p,&continue_len);
@@ -248,6 +266,7 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 		}
 
 		}
+		printf("ie\n");
 	}
 	/*
 	else if (query->op == 4) // insert

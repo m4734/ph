@@ -1,7 +1,7 @@
 server: main.o thread.o query.o data.o hash.o global.o
 	g++ -o server main.o thread.o query.o data.o hash.o global.o -lpthread -lpmem
 
-main.o: global.h thread.h data.h main.c
+main.o: global.h thread.h data.h hash.h main.c
 	g++ -c -o main.o main.c
 
 thread.o: thread.h thread.c query.h

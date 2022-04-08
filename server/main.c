@@ -16,6 +16,7 @@
 
 #include "thread.h"
 #include "data.h"
+#include "hash.h"
 
 // temp global
 
@@ -42,18 +43,25 @@ void init_alloc()
 	pthread_list = (pthread_t*)malloc(sizeof(pthread_t) * num_of_thread);
 	thread_list = (Thread*) new Thread[num_of_thread];
 
+}
+void init()
+{
+	conf();
+	init_alloc();
+
+	init_hash();
+	data_init(); //??? init data
+	//OP init thread and create thraed local
+}
+
+void create_threads()
+{
 	int i;
 	for (i=0;i<num_of_thread;i++)
 	{
 		pthread_create(&pthread_list[i],NULL,thread_function,(void*)&thread_list[i]);
 		//detach?
 	}
-}
-void init()
-{
-	conf();
-	init_alloc();
-	data_init(); //???
 }
 
 // connection
@@ -63,6 +71,8 @@ void run()
 	int flag;
 	int client_addr_size;
 	int op=1;
+
+	create_threads();
 
 	if ((server_socket = socket(AF_INET,SOCK_STREAM,0)) < 0)
 	{

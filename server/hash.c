@@ -48,11 +48,16 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 	unsigned int hash;
 	struct point_hash_entry* pep;
 	struct point_hash_entry* ppep;
+	printf("start hash\n");
 	hash = hash_function(key_p/*,key_len*/) % point_hash_table_size;
+	printf("hash %u\n",hash);
 	pep = &(point_hash_table[hash]);
 	while(pep != NULL)
 	{
 		//align 8
+		printf("kc ");
+		printf("%ld ",*((uint64_t*)key_p));
+		printf("%ld\n",*((uint64_t*)pep->key));
 		if (*((uint64_t*)key_p) == *((uint64_t*)pep->key))
 		{
 //			if (update)
@@ -62,6 +67,7 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 		ppep = pep;
 		pep = pep->next;
 	}
+	printf("not found\n");
 	if (insert) // need to check double - CAS or advance
 	{
 		if (ppep->kv_p == NULL)
@@ -101,12 +107,16 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
 
 	b = 1 << (63 -*continue_len);
+	printf("key %lu\n",*((uint64_t*)key_p));
 	for (i=*continue_len;i<64;i++)
 	{
-		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
-		b = b >> 1;
+//		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
+//		b = b >> 1;
+		printf("prefix %lu\n",*((uint64_t*)prefix));
 		hash = hash_function(prefix) % range_hash_table_size;
 		entry = &(range_hash_table_array[i][hash]);
+		printf("hash %u\n",hash);
+		printf("entry %p key %lu\n",entry,*((uint64_t*)entry->key));
 		while(entry)
 		{
 			if (*((uint64_t*)entry->key) == *((uint64_t*)prefix))
@@ -118,9 +128,14 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 			}
 			entry = entry->next;
 		}
-		if (!entry) // doesn't exist - spliting...
+		if (!entry) // doesn't exist - spliting... it will be generated next time
 			return NULL;
+		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
+		b = b >> 1;
+
 	}
+
+	//never here
 	printf("range hash error\n");
 	return NULL;
 }
@@ -143,9 +158,10 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 
 	hash = hash_function(prefix) % range_hash_table_size;
 
-	entry = &(range_hash_table_array[i][hash]);
+	entry = &(range_hash_table_array[len][hash]);
 	if (entry->offset == 0) // first
 	{
+		printf("0 hash %u\n",hash);
 		entry->offset = offset; //CAS
 		*((uint64_t*)entry->key) = *((uint64_t*)prefix);
 
@@ -186,7 +202,12 @@ void init_hash()
 		        range_hash_table_array[i][j].next = NULL;
 		}
 	}
-
+/*
+	// insert 0
+	uint64_t zero=0;
+	unsigned int hash = hash_function(&zero);
+	range_hash_table_array[0][hash]->eky
+*/
 }
 
 void clean_hash()

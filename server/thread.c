@@ -18,8 +18,12 @@ void* thread_function(void* thread_parameter)
 	int length;
 
 	char query[10001];
+	unsigned char* result_v;
 	unsigned char** result;
 	int result_len;
+
+	result_v = (unsigned char*)malloc(sizeof(unsigned char)*10000);
+	result = &result_v;
 
 	while(1)
 	{
@@ -94,10 +98,10 @@ sleep(1); // too fast test
 		printf("process query\n");// process query
 		//
 		// temp code
- /*
-		fputs(connection->buffer,stdout);
-		write(connection->socket,"nam nam\n",sizeof("nam nam\n"));
-*/
+
+		fputs((char*)((connection->query).buffer),stdout);
+//		write(connection->socket,"nam nam\n",sizeof("nam nam\n"));
+
 
 		if (parse_query(&connection->query) < 0)
 			printf("query parse error!!!\n");
@@ -105,7 +109,7 @@ sleep(1); // too fast test
 		if (process_query(&connection->query,result,&result_len) < 0)
 			printf("query process error!!!\n");
 
-		write(connection->socket,result,result_len);
+		write(connection->socket,*result,result_len);
 
 		complete_query(&connection->query);
 
@@ -117,4 +121,6 @@ sleep(1); // too fast test
 		connection->query.length = 0; //initialize connection buffer
 		connection_list_iterator++;
 	}
+
+	free(result_v);
 }
