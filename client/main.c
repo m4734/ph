@@ -41,7 +41,7 @@ int main()
 			sleep(1); //too fast
 //			printf("wait\n");
 			rv = read(sock,query+len,max);
-//			printf("receive\n");
+			printf("receive %d\n",rv);
 			if (rv < 0)
 			{
 				printf("read error\n");
@@ -49,15 +49,17 @@ int main()
 			}
 //			for (i=0;i<rv;i++)
 //				printf("%d ",(int)query[len+i]);
+//			for (i=0;i<rv;i++)
+//				printf("%c",query[len+i]);				
 			len+=rv;
-			if (query[len-1] == 0) // client believes it will end with zero
+			if (query[len-1] == '\n'/*0*/) // client believes it will end with zero
 				break;
 		}
 
 		if (rv < 0)
 			break;
 
-//			query[len] = 0;
+			query[len] = 0;
 			fputs(query,stdout);
 
 	}

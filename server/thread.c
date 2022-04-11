@@ -21,6 +21,9 @@ void* thread_function(void* thread_parameter)
 	unsigned char* result_v;
 	unsigned char** result;
 	int result_len;
+	char nl;
+	nl = '\n';
+	int i;
 
 	result_v = (unsigned char*)malloc(sizeof(unsigned char)*10000);
 	result = &result_v;
@@ -109,7 +112,13 @@ sleep(1); // too fast test
 		if (process_query(&connection->query,result,&result_len) < 0)
 			printf("query process error!!!\n");
 
+//		fputs((char*)(*result),stdout);
+//		fputs("\n",stdout);
+		for (i=0;i<result_len;i++)
+			printf("%c",i);
+		printf("\n");
 		write(connection->socket,*result,result_len);
+		write(connection->socket,&nl,1);
 
 		complete_query(&connection->query);
 

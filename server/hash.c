@@ -48,14 +48,14 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 	unsigned int hash;
 	struct point_hash_entry* pep;
 	struct point_hash_entry* ppep;
-	printf("start hash\n");
+	printf("start point hash\n");
 	hash = hash_function(key_p/*,key_len*/) % point_hash_table_size;
 	printf("hash %u\n",hash);
 	pep = &(point_hash_table[hash]);
 	while(pep != NULL)
 	{
 		//align 8
-		printf("kc ");
+		printf("key compare ");
 		printf("%ld ",*((uint64_t*)key_p));
 		printf("%ld\n",*((uint64_t*)pep->key));
 		if (*((uint64_t*)key_p) == *((uint64_t*)pep->key))
@@ -100,25 +100,27 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 	unsigned char prefix[8]={0,};
 	struct range_hash_entry* entry;
 
-	uint64_t b=0;	
-	for (i=0;i<*continue_len;i++)
-		b=(b<<1)+1;
+	uint64_t b;	
+//	for (i=0;i<*continue_len;i++)
+//		b=(b<<1)+1;
+	b = ((uint64_t)1 << *continue_len) -1;
 	b = b << (64-*continue_len);
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
 
-	b = 1 << (63 -*continue_len);
-	printf("key %lu\n",*((uint64_t*)key_p));
+	b = (uint64_t)1 << (63 -*continue_len);
+	printf("key %lx clen %d\n",*((uint64_t*)key_p),*continue_len);
 	for (i=*continue_len;i<64;i++)
 	{
 //		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
 //		b = b >> 1;
-		printf("prefix %lu\n",*((uint64_t*)prefix));
+		printf("prefix %lx\n",*((uint64_t*)prefix));
 		hash = hash_function(prefix) % range_hash_table_size;
 		entry = &(range_hash_table_array[i][hash]);
 		printf("hash %u\n",hash);
 		printf("entry %p key %lu\n",entry,*((uint64_t*)entry->key));
 		while(entry)
 		{
+			printf("entry %lx prefix %lx\n",*((uint64_t*)entry->key),*((uint64_t*)prefix));
 			if (*((uint64_t*)entry->key) == *((uint64_t*)prefix))
 			{
 				if (entry->offset == 1) // splited
@@ -151,10 +153,18 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 	struct range_hash_entry* new_entry;
 
 	uint64_t b=0;	
+	/*
 	for (i=0;i<len;i++)
 		b=(b<<1)+1;
+		*/
+
+	b = ((uint64_t)1 << len)-1;
 	b = b << (64-len);
+	
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
+
+
+	printf("key_p %lx range %lx len %d offset %d insert\n",*((uint64_t*)key_p),*((uint64_t*)prefix),len,offset);	
 
 	hash = hash_function(prefix) % range_hash_table_size;
 
@@ -176,7 +186,7 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 		entry = entry->next;
 
 	entry->next = new_entry; //CAS
-	
+
 }
 
 void init_hash()

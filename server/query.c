@@ -8,6 +8,20 @@
 
 #include <stdio.h> //test
 
+void print_query(Query* query)
+{
+	printf("print query\n");
+	int i;
+	printf("key %d ",query->key_len);
+	for (i=0;i<8;i++)
+		printf("[%c]",query->key_p[i]);
+	printf("\n");
+	printf("value %d ",query->value_len);
+	for (i=0;i<query->value_len;i++)
+		printf("[%c]",query->value_p[i]);
+	printf("\n");
+}
+
 int parse_query(Query* query)
 {
 //get 0
@@ -35,13 +49,13 @@ printf("parse\n");
 	else
 		return -1;
 
-	printf("query->op %d\n",query->op);
+//	printf("query->op %d\n",query->op);
 
 
 	int i=0,ki;
 	for(;i<query->length;i++)
 	{
-		printf("[%c]",query->buffer[i]);
+//		printf("[%c]",query->buffer[i]);
 		if (query->buffer[i] == ' ')
 			break;
 	}
@@ -49,44 +63,52 @@ printf("parse\n");
 	if (query->buffer[i] != ' ')
 		return -1;
 //	query->key_p = query->buffer+i+1;
+	i++;
 	ki = i;
+//	printf("len %d\n",query->length);
 
 	if (query->op <= 2)
 	{
-		query->key_len = query->length - i; // ??
+		query->key_len = query->length - i-2; // ??
+
+//		printf("key len %d\n",query->key_len);
 		for (i=0;i<8-query->key_len;i++)
 					query->key_p[i] = 0;
-		for (;i<8-query->key_len;i++)
-					query->key_p[i] = query->buffer[ki+i];
+		for (;i<8;i++)
+		{
+					query->key_p[i] = query->buffer[ki+i-(8-query->key_len)];
+//					printf("%c",query->key_p[i]);
+		}
+//		printf("\n");
+		print_query(query);		
 		return 0;
 	}
-
-	i++;
-	printf("len %d\n",query->length);
 	for(;i<query->length;i++)
 	{
-		printf("[%c]",query->buffer[i]);
+//		printf("[%c]",query->buffer[i]);
 		if (query->buffer[i] == ' ')
 			break;
 	}
-	printf("\n");
+//	printf("\n");
+
 	if (query->buffer[i] != ' ')
 		return -1;
 	query->value_p = query->buffer+i+1;
 
 //	query->key_len = query->value_p-query->key_p-1;
-	query->key_len = i-ki-1;	
+	query->key_len = i-ki;	
 	query->value_len = query->length - i - 3; // ??
 
 	for (i=0;i<8-query->key_len;i++)
 		query->key_p[i] = 0;
-	for (;i<query->key_len;i++)
-		query->key_p[i] = query->buffer[ki+i];
-printf("query len %d\n",query->length);
-printf("key len %d\n",query->key_len);
-printf("value len %d %c\n",query->value_len,query->value_p[0]);
+	for (;i<8;i++)
+		query->key_p[i] = query->buffer[ki+i-(8-query->key_len)];
+//printf("query len %d\n",query->length);
+//printf("key len %d\n",query->key_len);
+//printf("value len %d %c\n",query->value_len,query->value_p[0]);
 	// len = 8???
-printf("pe\n");
+//printf("pe\n");
+	print_query(query);
 	return 0;
 }
 
@@ -110,6 +132,8 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 			kv_p = (unsigned char*)entry->kv_p;
 			if (kv_p == NULL) // deleted
 				break;
+			// lock version
+			printf("kv_p %p\n",kv_p);	
 			offset = point_to_offset(kv_p);
 			if (try_s_lock(offset))
 			{
@@ -119,11 +143,16 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 				if (*result_len == 0) // deleted
 					break;
 				*result = kv_p+key_size+len_size;
-//				s_unlock(offset);
+//				s_unlock(offset); // it will be released after result
 				
 //				break;
 				return 0;				
 			}
+			
+
+
+//			if (kv_p == (unsigned char*)entry->kv_p)
+//				break;
 		}
 		//deleted
 		*result = empty;
@@ -206,6 +235,7 @@ printf("i2\n");
 		{
 		offset = 0;
 		range_entry = NULL;
+		printf("s1\n");
 		if (point_entry) // always true
 		{
 			while(1)
@@ -223,7 +253,7 @@ printf("i2\n");
 				}
 			}
 		}
-
+printf("s2\n");
 		if (offset == 0)
 		{
 			printf("find node\n");
@@ -233,6 +263,7 @@ printf("i2\n");
 				if (range_entry == NULL) // spliting...
 				{
 //					sleep(1); //test
+//					return -1; //test
 					continue;
 				}
 				offset = range_entry->offset;
@@ -245,7 +276,7 @@ printf("i2\n");
 			}
 			printf("node found\n");
 		}
-
+printf("s3\n");
 		//e locked
 		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 		{
@@ -255,16 +286,22 @@ printf("i2\n");
 				range_entry = find_range_entry(query->key_p,&continue_len);
 			range_entry->offset = 1; //splited
 			if (split(offset,query->key_p,continue_len)<0)
+			{
+				printf("split lock failed\n");
 				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
+			}
 //			continue; // try again after split
+			continue_len++;		
+int t;
+					scanf("%d",&t);// test
 		}
-		else
+		else // inserted
 		{
 			point_entry->kv_p = kv_p;
 			e_unlock(offset);
 			break;
 		}
-
+printf("s4\n");
 		}
 		printf("ie\n");
 	}
