@@ -49,7 +49,7 @@ void init_entry(unsigned char* entry) // need to be ...
 
 unsigned int point_to_offset(unsigned char* kv_p)
 {
-	return (kv_p - pmem_addr)/node_size;
+	return (kv_p - pmem_addr)/sizeof(Node);
 }
 
 
@@ -187,6 +187,41 @@ void e_unlock(unsigned int offset)
 	e_unlock(offset_to_node(offset));
 }
 
+void print_kv(unsigned char* kv_p)
+{
+	int i,value_len;
+	unsigned char* v_p;
+	printf("key ");
+	for (i=0;i<8;i++)
+		printf("%c",((char*)kv_p)[i]);
+	value_len = *((uint16_t*)(kv_p+key_size));
+	if (value_len & (1 << 15))
+	{
+		printf(" invalidated\n");
+		return;
+	}
+	printf(" value len %d ",value_len);
+	v_p = kv_p + key_size + len_size;
+	for (i=0;i<value_len;i++)
+		printf("%c",((char*)v_p)[i]);
+	printf("\n");
+}
+
+void print_node(Node* node)
+{
+	int cur=0,value_len;
+	printf("node size %d\n",node->size);
+	while (cur < node->size)
+	{
+		print_kv(&node->buffer[cur]);
+		value_len = *((uint16_t*)(node->buffer+cur+key_size));
+		if ((value_len & (1 <<15)) != 0)
+			value_len-= (1<<15);
+		cur+=value_len+key_size+len_size;
+	}
+}
+
+
 //delete
 //1 find point
 //2 e lock
@@ -197,7 +232,7 @@ void e_unlock(unsigned int offset)
 
 void delete_kv(unsigned char* kv_p) // OP may need
 {
-	*((uint16_t*)(kv_p+key_size)) = 0;
+	*((uint16_t*)(kv_p+key_size))|= (1<<15); // invalidate
 }
 
 //insert
@@ -223,6 +258,7 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 	kv_p = node->buffer + node->size;
 	node->size += key_size + len_size + value_length;
 	printf("kv_p %p\n",kv_p);
+	print_kv(kv_p);
 	return kv_p;
 }
 
@@ -244,7 +280,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 	printf("start split offset %d len %d\n",offset,continue_len);
 
 	int i;
-	uint8_t size,size1,size2;
+	uint16_t size,size1,size2;
 	unsigned char* buffer;
 	unsigned char buffer1[NODE_BUFFER],buffer2[NODE_BUFFER];
 	Node* new_node1;
@@ -303,7 +339,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 //		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
 		value_len = *((uint16_t*)(buffer+cur+key_size));
 
-		if (*((uint16_t*)(buffer+cur+key_size)) != 0) // valid length		
+		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
 		printf("pivot %lx key %lx\n",prefix_64,*((uint64_t*)(buffer+cur)));
 
@@ -313,15 +349,20 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 		{
 			// rehash later
 			memcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
+			print_kv(buffer1+size1); // test
 			size1+= key_size + len_size + value_len;
 		}
 		else
 		{
 			// rehash later
 			memcpy(buffer2+size2,buffer+cur,key_size + len_size + value_len);
+			print_kv(buffer2+size2); // test
 			size2+= key_size + len_size + value_len;
 		}
+//		print_kv(buffer+cur);//test
 		}
+		else
+			value_len-= (1 << 15);
 		cur+=key_size+len_size+value_len;
 	}
 
@@ -376,9 +417,8 @@ printf("rehash\n");
 		// 8 align
 //		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid
 		value_len = *((uint16_t*)(buffer+cur+key_size));
-
-		if (*((uint16_t*)(buffer+cur+key_size)) != 0) // valid length	
-		{	
+		if ((value_len & (1 << 15)) == 0) // valid length	
+		{
 		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
 
 //		if (compare(buffer+i*entry_size,prefix) < 0) //insert1		
@@ -386,18 +426,21 @@ printf("rehash\n");
 			// rehash later
 //			strcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
 			point_entry = find_or_insert_point_entry(buffer+cur,0);
-			point_entry->kv_p = buffer1+size1;
+			point_entry->kv_p = new_node1->buffer+size1;
 			size1+= key_size + len_size + value_len;
 		}
 		else
 		{
-			// rehash later
+			// rehash 
 //			strcpy(buffer2+size2,buffer+cur,key_size + len_size + value_len);
 			point_entry = find_or_insert_point_entry(buffer+cur,0);
-			point_entry->kv_p = buffer2+size2;	
+			point_entry->kv_p = new_node2->buffer+size2;	
 			size2+= key_size + len_size + value_len;
 		}
 		}
+		else
+			value_len-= (1 << 15);
+
 		cur+=key_size+len_size+value_len;
 	}
 
@@ -414,6 +457,130 @@ printf("rehash\n");
 	sp|=v;
 	insert_range_entry((unsigned char*)&sp,continue_len+1,calc_offset(new_node2));
 
+	print_node(new_node1);
+	print_node(new_node2);
+
+
 	free_node(node);//???
 	return 0;
+}
+
+int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
+{
+//	printf("start compaction offset %d len %d\n",offset,continue_len);
+	printf("compaction offset %d\n",offset);	
+
+	int i;
+	uint8_t size,size1;
+	unsigned char* buffer;
+	unsigned char buffer1[NODE_BUFFER];
+	Node* new_node1;
+	Node* prev_node;
+	Node* next_node;
+	Node* node;
+
+	node = offset_to_node(offset);
+
+	new_node1 = alloc_node();
+
+	prev_node = offset_to_node(node->prev_offset);
+
+		if (try_s_lock(prev_node) == 0)
+			return -1; // failed
+//			continue;
+//		e_lock(node); //already locked
+
+		next_node = offset_to_node(node->next_offset);
+		if (try_s_lock(next_node) == 0)
+		{
+			s_unlock(prev_node);
+			return -1;//failed
+		}
+		
+		printf("locked\n");
+
+	size = node->size;
+	buffer = node->buffer;
+//	size = meta & 63; // 00111111
+
+	size1 = 0;
+
+	int value_len,cur;
+	cur = 0;
+	while(cur < size)
+	{
+		// 8 align
+//		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
+			value_len = *((uint16_t*)(buffer+cur+key_size));
+		if ((value_len & (1 << 15)) == 0) // valid length		
+		{
+			memcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
+			size1+= key_size + len_size + value_len;
+		}
+		else
+			value_len-= (1 << 15);
+		cur+=key_size+len_size+value_len;
+	}
+
+	//why?? fill zero?
+	/*
+	if (size1 + entry_size < NODE_BUFFER)
+		init_entry(buffer1 + size1*entry_size);
+	if (size2 + entry_size < NODE_BUFFER)
+		init_entry(buffer2 + size2*entry_size);
+*/
+	//init node meta
+	new_node1->lock = 0; // ??
+
+	new_node1->size = size1;
+	memcpy(new_node1->buffer,buffer1,size1);
+
+	new_node1->next_offset = node->next_offset;
+	new_node1->prev_offset = node->prev_offset;
+
+
+	next_node->prev_offset = calc_offset(new_node1);
+
+	// flush
+	//
+	prev_node->next_offset = calc_offset(new_node1);
+
+	// flush
+
+	s_unlock(prev_node);
+	s_unlock(next_node);
+//	e_unlock(node); never release e lock!!!
+
+printf("rehash\n");
+	// rehash
+	cur = 0;
+	size1 = 0;
+	struct point_hash_entry* point_entry;
+
+	while(cur < size)
+	{
+		// 8 align
+//		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid
+		value_len = *((uint16_t*)(buffer+cur+key_size));
+
+		if ((value_len & (1 << 15)) == 0) // valid length	
+		{	
+			// rehash later
+//			strcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
+			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			point_entry->kv_p = new_node1->buffer+size1;
+			size1+= key_size + len_size + value_len;
+		}
+		else
+			value_len -= (1 << 15);
+		cur+=key_size+len_size+value_len;
+	}
+
+//	printf("insert range\n");
+//	insert_range_entry((unsigned char*)prefix,continue_len,calc_offset(new_node1));
+
+	range_entry->offset = calc_offset(new_node1);
+	free_node(node);//???
+	return 0;
+
 }

@@ -16,5 +16,5 @@ data.o: data.h hash.h data.c global.h
 hash.o: global.h hash.h hash.c
 	g++ -c -o hash.o hash.c
 
-global.o: global.h global.c
+global.o: global.h global.c data.h
 	g++ -c -o global.o global.c

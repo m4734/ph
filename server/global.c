@@ -2,6 +2,8 @@
 
 #include "global.h"
 
+#include "data.h"
+
 int num_of_thread;
 int connection_per_thread;
 int total_connection;
@@ -38,7 +40,7 @@ void temp_static_conf()
 	port = 5516;
 	total_connection = num_of_thread * connection_per_thread;
 
-	node_size = 1024; // ??
+	node_size = sizeof(Node); // ??
 	key_size = 8; // ???
 	len_size = 2;
 	value_size = 100; //YCSB?

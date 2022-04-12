@@ -112,11 +112,8 @@ printf("parse\n");
 	return 0;
 }
 
-
-int process_query(Query* query,unsigned char** result,int* result_len)
+int lookup_query(Query* query,unsigned char** result,int* result_len)
 {
-	if (query->op == 0 || query->op == 1) // get // lookup
-	{
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
@@ -137,14 +134,15 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 			offset = point_to_offset(kv_p);
 			if (try_s_lock(offset))
 			{
-				query->offset = offset;
+				query->offset = offset; // lock ref
+
+				print_kv(kv_p);	
 
 				*result_len = *((uint16_t*)(kv_p+key_size));
-				if (*result_len == 0) // deleted
+				if ((*result_len & (1 << 15)) != 0) // deleted
 					break;
 				*result = kv_p+key_size+len_size;
 //				s_unlock(offset); // it will be released after result
-				
 //				break;
 				return 0;				
 			}
@@ -158,22 +156,11 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 		*result = empty;
 		*result_len = empty_len;
 		return 0;
-	}
-	/*
-	else if (query->op == 1) // lookup
-	{
-	}
-	*/
+}
 
-//delete
-//1 find point
-//2 e lock
-//3 pointer NULL
-//4 length 0
-//5 e unlock
 
-	else if (query->op == 2) // delete
-	{
+int delete_query(Query* query,unsigned char** result,int* result_len)
+{
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
@@ -206,17 +193,11 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 			}
 		}
 
-	}
-	// insert
-	// find point entry
-	// calc node and e lock or fail
-	// find range entry and e lock
-	// insert kv
-	// fail and split
-	// delete old?
-	// e unlock
-	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
-	{
+}
+
+
+int insert_query(Query* query,unsigned char** result,int* result_len)
+{
 		printf("insert\n");
 		*result = empty;
 		*result_len = empty_len;
@@ -274,16 +255,18 @@ printf("s2\n");
 
 
 			}
-			printf("node found\n");
+			printf("node found offset %d\n",offset);
 		}
 printf("s3\n");
 		//e locked
 		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 		{
-			printf("split\n");
 			//failed and need split
 			if (range_entry == NULL)
 				range_entry = find_range_entry(query->key_p,&continue_len);
+			if (continue_len < 64) // split
+			{
+			printf("split\n");
 			range_entry->offset = 1; //splited
 			if (split(offset,query->key_p,continue_len)<0)
 			{
@@ -292,6 +275,13 @@ printf("s3\n");
 			}
 //			continue; // try again after split
 			continue_len++;		
+			}
+			else if(compact(offset,range_entry) < 0)
+// compaction
+			{
+				printf("compaction lock failed\n");
+				e_unlock(offset);
+			}
 int t;
 					scanf("%d",&t);// test
 		}
@@ -304,6 +294,45 @@ int t;
 printf("s4\n");
 		}
 		printf("ie\n");
+		return 0;
+
+}
+
+
+int process_query(Query* query,unsigned char** result,int* result_len)
+{
+	if (query->op == 0 || query->op == 1) // get // lookup
+	{
+		return lookup_query(query,result,result_len);
+	}
+	/*
+	else if (query->op == 1) // lookup
+	{
+	}
+	*/
+
+//delete
+//1 find point
+//2 e lock
+//3 pointer NULL
+//4 length 0
+//5 e unlock
+
+	else if (query->op == 2) // delete
+	{
+		delete_query(query,result,result_len);
+	}
+	// insert
+	// find point entry
+	// calc node and e lock or fail
+	// find range entry and e lock
+	// insert kv
+	// fail and split
+	// delete old?
+	// e unlock
+	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
+	{
+		insert_query(query,result,result_len);
 	}
 	/*
 	else if (query->op == 4) // insert
@@ -352,5 +381,6 @@ void complete_query(Query* query)
 	}
 	else
 		printf("complete query error\n");
+	query->op = -1;
 
 }
