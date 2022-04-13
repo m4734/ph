@@ -62,6 +62,7 @@ Node* alloc_node()
 	{
 		node = node_free_list.front();
 		node_free_list.pop();
+		while(node->ref > 0); //wait
 		return node;
 	}
 
@@ -72,6 +73,7 @@ Node* alloc_node()
 }
 void free_node(Node* node)
 {
+	node->state = 2; // free
 	node_free_list.push(node);
 	printf("free node %p\n",node);
 }
@@ -101,9 +103,11 @@ int data_init()
 	tail_node = alloc_node(); // 2 tail
 
 	Node* node = alloc_node();
+	node->state = 0;
 	node->size = 0;
 	node->prev_offset = 1;
 	node->next_offset = 2;
+	pthread_mutex_init(&node->mutex,NULL);
 	printf("node 0 %p\n",node);
 
 	head_node->next_offset = 3;
@@ -186,6 +190,42 @@ void e_unlock(unsigned int offset)
 {
 	e_unlock(offset_to_node(offset));
 }
+
+int inc_ref(Node* node,uint16_t limit)
+{
+	printf("inc_ref\n");
+	pthread_mutex_lock(&node->mutex);
+			//node->m.lock();
+	if (node->state > limit)
+	{
+//		node->m.unlock(); // fail
+	pthread_mutex_unlock(&node->mutex);	
+
+		return 0;
+	}
+	node->ref++;
+//	node->m.unlock();
+	pthread_mutex_unlock(&node->mutex);	
+	return 1;
+}
+void dec_ref(Node* node)
+{
+	printf("dec_ref\n");
+//	node->m.lock();
+	pthread_mutex_lock(&node->mutex);	
+	node->ref--;
+//	node->m.unlock();
+	pthread_mutex_unlock(&node->mutex);	
+}
+int inc_ref(unsigned int offset,uint16_t limit)
+{
+	return inc_ref(offset_to_node(offset),limit);
+}
+void dec_ref(unsigned int offset)
+{
+	return dec_ref(offset_to_node(offset));
+}
+
 
 void print_kv(unsigned char* kv_p)
 {
@@ -295,20 +335,63 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 	new_node2 = alloc_node();
 
 	prev_node = offset_to_node(node->prev_offset);
+		next_node = offset_to_node(node->next_offset);
 
-		if (try_s_lock(prev_node) == 0)
+//------------------------------------------------------------ check
+
+//	node->m.lock(); // order?
+	pthread_mutex_lock(&node->mutex);	
+	node->state = 1; // split
+	pthread_mutex_unlock(&node->mutex);
+//	node->m.unlock();
+	while(node->ref > 0); // spin... wait
+
+//	prev_node->m.lock();
+	pthread_mutex_lock(&prev_node->mutex);	
+
+
+		if (prev_node->state > 0)
+		{
+//			prev_node->m.unlock();
+			pthread_mutex_unlock(&prev_node->mutex);
+
+//			node->m.lock();
+			pthread_mutex_lock(&node->mutex);	
+			node->state = 0;
+//			node->m.unlock();
+			pthread_mutex_unlock(&node->mutex);
+
 			return -1; // failed
+		}
+//			prev_node->m.unlock();
+				pthread_mutex_unlock(&prev_node->mutex);
+
+
 //			continue;
 //		e_lock(node); //already locked
 
-		next_node = offset_to_node(node->next_offset);
-		if (try_s_lock(next_node) == 0)
+//		next_node->m.lock();
+			pthread_mutex_lock(&next_node->mutex);	
+
+		if (next_node->state > 0)
 		{
-			s_unlock(prev_node);
+//			next_node->m.unlock();
+			pthread_mutex_unlock(&next_node->mutex);
+//			node->m.lock();
+			pthread_mutex_lock(&node->mutex);	
+			node->state = 0;
+//			node->m.unlock();
+			pthread_mutex_unlock(&node->mutex);
+
 			return -1;//failed
 		}
-		
+//			next_node->m.unlock();
+			pthread_mutex_unlock(&next_node->mutex);
+
+
 		printf("locked\n");
+
+		//----------------------------------------------------------
 
 	size = node->size;
 	buffer = node->buffer;
@@ -377,8 +460,12 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 */
 	//init node meta
 	printf("nn1 %p nn2 %p\n",new_node1,new_node2);
-	new_node1->lock = 0; // ??
-	new_node2->lock = 0; // ??
+	new_node1->state = 0; // 
+	new_node1->ref = 0;
+	new_node2->state = 0; // 
+	new_node2->ref = 0;
+	pthread_mutex_init(&new_node1->mutex,NULL);
+	pthread_mutex_init(&new_node2->mutex,NULL);
 
 	new_node1->size = size1;
 	memcpy(new_node1->buffer,buffer1,size1);
@@ -402,8 +489,8 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 
 	// flush
 
-	s_unlock(prev_node);
-	s_unlock(next_node);
+//	s_unlock(prev_node);
+//	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
 
 printf("rehash\n");
@@ -484,20 +571,61 @@ int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigne
 	new_node1 = alloc_node();
 
 	prev_node = offset_to_node(node->prev_offset);
+		next_node = offset_to_node(node->next_offset);
+	
+		//------------------------------------------------
 
-		if (try_s_lock(prev_node) == 0)
+		pthread_mutex_lock(&node->mutex);	
+	node->state = 1; // split
+	pthread_mutex_unlock(&node->mutex);
+//	node->m.unlock();
+	while(node->ref > 0); // spin... wait
+
+//	prev_node->m.lock();
+	pthread_mutex_lock(&prev_node->mutex);	
+
+
+		if (prev_node->state > 0)
+		{
+//			prev_node->m.unlock();
+			pthread_mutex_unlock(&prev_node->mutex);
+
+//			node->m.lock();
+			pthread_mutex_lock(&node->mutex);	
+			node->state = 0;
+//			node->m.unlock();
+			pthread_mutex_unlock(&node->mutex);
+
 			return -1; // failed
+		}
+//			prev_node->m.unlock();
+				pthread_mutex_unlock(&prev_node->mutex);
+
+
 //			continue;
 //		e_lock(node); //already locked
 
-		next_node = offset_to_node(node->next_offset);
-		if (try_s_lock(next_node) == 0)
+//		next_node->m.lock();
+			pthread_mutex_lock(&next_node->mutex);	
+
+		if (next_node->state > 0)
 		{
-			s_unlock(prev_node);
+//			next_node->m.unlock();
+			pthread_mutex_unlock(&next_node->mutex);
+//			node->m.lock();
+			pthread_mutex_lock(&node->mutex);	
+			node->state = 0;
+//			node->m.unlock();
+			pthread_mutex_unlock(&node->mutex);
+
 			return -1;//failed
 		}
-		
+//			next_node->m.unlock();
+			pthread_mutex_unlock(&next_node->mutex);
+
 		printf("locked\n");
+
+	//-------------------------------------------------------------------	
 
 	size = node->size;
 	buffer = node->buffer;
@@ -530,7 +658,9 @@ int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigne
 		init_entry(buffer2 + size2*entry_size);
 */
 	//init node meta
-	new_node1->lock = 0; // ??
+	new_node1->state = 0; // ??
+	new_node1->ref = 0;
+	pthread_mutex_init(&new_node1->mutex,NULL);
 
 	new_node1->size = size1;
 	memcpy(new_node1->buffer,buffer1,size1);
@@ -547,8 +677,8 @@ int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigne
 
 	// flush
 
-	s_unlock(prev_node);
-	s_unlock(next_node);
+//	s_unlock(prev_node);
+//	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
 
 printf("rehash\n");

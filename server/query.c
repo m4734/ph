@@ -132,7 +132,7 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 			// lock version
 			printf("kv_p %p\n",kv_p);	
 			offset = point_to_offset(kv_p);
-			if (try_s_lock(offset))
+			if (inc_ref(offset,1)) // split state ok
 			{
 				query->offset = offset; // lock ref
 
@@ -177,13 +177,17 @@ int delete_query(Query* query,unsigned char** result,int* result_len)
 			if (kv_p == NULL) // deleted!!!
 				return 0;
 			offset = point_to_offset(kv_p);
-			if (try_e_lock(offset))
+			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
+				continue;
+			if (inc_ref(offset,0)) //init state ok
 			{
+//				query->offset = offset; // restore ref cnt
 
 				entry->kv_p = NULL; // what should be first?
 				delete_kv(kv_p);
 
-				e_unlock(offset);
+//				e_unlock(offset);
+				dec_ref(offset);				
 				
 				*result = empty;
 				*result_len = empty_len;
@@ -228,7 +232,7 @@ printf("i2\n");
 					break;
 				}
 				offset = point_to_offset(kv_p);
-				if (try_e_lock(offset))
+				if (inc_ref(offset,0)) // init ok
 				{
 					break;
 				}
@@ -248,7 +252,7 @@ printf("s2\n");
 					continue;
 				}
 				offset = range_entry->offset;
-				if (try_e_lock(offset))
+				if (inc_ref(offset,0))
 				{
 					break;
 				}
@@ -271,7 +275,7 @@ printf("s3\n");
 			if (split(offset,query->key_p,continue_len)<0)
 			{
 				printf("split lock failed\n");
-				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
+//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
 			}
 //			continue; // try again after split
 			continue_len++;		
@@ -280,7 +284,7 @@ printf("s3\n");
 // compaction
 			{
 				printf("compaction lock failed\n");
-				e_unlock(offset);
+//				e_unlock(offset);
 			}
 int t;
 					scanf("%d",&t);// test
@@ -288,7 +292,7 @@ int t;
 		else // inserted
 		{
 			point_entry->kv_p = kv_p;
-			e_unlock(offset);
+//			e_unlock(offset);
 			break;
 		}
 printf("s4\n");
@@ -355,7 +359,8 @@ void complete_query(Query* query)
 {
 	if (query->op == 0 || query->op == 1) // get // lookup
 	{
-				s_unlock(query->offset);
+//				s_unlock(query->offset);
+		dec_ref(query->offset);				
 	}
 	/*
 	else if (query->op == 1) // lookup
@@ -364,6 +369,7 @@ void complete_query(Query* query)
 	*/
 	else if (query->op == 2) // delete
 	{
+//		dec_ref(query->offset);
 	}
 	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
 	{
