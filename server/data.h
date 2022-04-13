@@ -1,7 +1,7 @@
 // Node needs alignment to(?) data find lock
 
 #include <pthread.h>
-#include <atomic>
+//#include <atomic>
 //#include <mutex>
 
 #include "global.h"
