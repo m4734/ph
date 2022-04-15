@@ -62,9 +62,10 @@ unsigned int point_to_offset(unsigned char* kv_p);
 
 void delete_kv(unsigned char* kv_p); // e lock needed
 
-unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length);
+unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length,int old_size);
 int split(unsigned int offset, unsigned char* prefix, int continue_len);
 
 int compact(unsigned int offset, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 void print_kv(unsigned char* kv_p);
+int check_size(unsigned int offset,int value_length);
 

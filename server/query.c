@@ -213,6 +213,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 		unsigned int offset;
 		int continue_len;	
 			continue_len = 0;
+			int rv;
 printf("i1\n");
 		point_entry = find_or_insert_point_entry(query->key_p,1); // find or create
 printf("i2\n");
@@ -232,10 +233,12 @@ printf("i2\n");
 					break;
 				}
 				offset = point_to_offset(kv_p);
-				if (inc_ref(offset,0)) // init ok
+//				if (inc_ref(offset,0) != 0) // init ok
+				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
 				{
 					break;
 				}
+				printf("node is spliting??\n");
 			}
 		}
 printf("s2\n");
@@ -249,10 +252,12 @@ printf("s2\n");
 				{
 //					sleep(1); //test
 //					return -1; //test
+					int t;
+					scanf("%d",&t); // test		
 					continue;
 				}
 				offset = range_entry->offset;
-				if (inc_ref(offset,0))
+				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
 				{
 					break;
 				}
@@ -263,7 +268,16 @@ printf("s2\n");
 		}
 printf("s3\n");
 		//e locked
-		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
+//		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
+		if (rv >= 0) // node is not spliting we will insert
+		{
+			insert_kv(offset,query->key_p,query->value_p,query->value_len,rv); // never fail
+			point_entry->kv_p = kv_p;
+			dec_ref(offset);
+			break;
+		}
+		else // rv == -1 and it means we will split
+
 		{
 			//failed and need split
 			if (range_entry == NULL)
@@ -288,12 +302,6 @@ printf("s3\n");
 			}
 int t;
 					scanf("%d",&t);// test
-		}
-		else // inserted
-		{
-			point_entry->kv_p = kv_p;
-//			e_unlock(offset);
-			break;
 		}
 printf("s4\n");
 		}

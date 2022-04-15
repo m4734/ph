@@ -56,8 +56,8 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 	{
 		//align 8
 		printf("key compare ");
-		printf("%ld ",*((uint64_t*)key_p));
-		printf("%ld\n",*((uint64_t*)pep->key));
+		printf("%lu ",*((uint64_t*)key_p));
+		printf("%lu\n",*((uint64_t*)pep->key));
 		if (*((uint64_t*)key_p) == *((uint64_t*)pep->key))
 		{
 //			if (update)
@@ -121,6 +121,8 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 		while(entry)
 		{
 			printf("entry %lx prefix %lx\n",*((uint64_t*)entry->key),*((uint64_t*)prefix));
+//			int t;
+//			scanf("%d",&t);
 			if (*((uint64_t*)entry->key) == *((uint64_t*)prefix))
 			{
 				if (entry->offset == 1) // splited

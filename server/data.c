@@ -22,6 +22,8 @@ size_t pmem_used;
 
 std::queue <Node*> node_free_list;
 
+pthread_mutex_t alloc_mutex;
+
 //----------------------------------------------------------------
 
 // OP all
@@ -57,30 +59,36 @@ unsigned int point_to_offset(unsigned char* kv_p)
 Node* alloc_node()
 {
 	Node* node;
-
+	pthread_mutex_lock(&alloc_mutex);
 	if (!node_free_list.empty()) // need lock
 	{
 		node = node_free_list.front();
 		node_free_list.pop();
+		pthread_mutex_unlock(&alloc_mutex);
 		while(node->ref > 0); //wait
 		return node;
 	}
 
 	node = (Node*)(pmem_addr + pmem_used);
 	pmem_used += sizeof(Node);
+	pthread_mutex_unlock(&alloc_mutex);
 	printf("alloc node %p\n",node); //test
 	return node;
 }
 void free_node(Node* node)
 {
 	node->state = 2; // free
+	pthread_mutex_lock(&alloc_mutex);
 	node_free_list.push(node);
+	pthread_mutex_unlock(&alloc_mutex);
 	printf("free node %p\n",node);
 }
 
 
 int data_init()
 {
+	pthread_mutex_init(&alloc_mutex,NULL);
+
 	pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
 
 	if (pmem_addr == NULL)
@@ -105,6 +113,7 @@ int data_init()
 	Node* node = alloc_node();
 	node->state = 0;
 	node->size = 0;
+	node->ref = 0;
 	node->prev_offset = 1;
 	node->next_offset = 2;
 	pthread_mutex_init(&node->mutex,NULL);
@@ -112,6 +121,12 @@ int data_init()
 
 	head_node->next_offset = 3;
 	tail_node->prev_offset = 3;
+	head_node->ref = 0;
+	head_node->state = 0;
+	tail_node->ref = 0;
+	tail_node->state = 0;
+	pthread_mutex_init(&head_node->mutex,NULL);
+	pthread_mutex_init(&tail_node->mutex,NULL);
 
 	insert_range_entry((unsigned char*)(&zero),0,calc_offset(node)); // the length is important!!!
 	int zero2=0;
@@ -130,6 +145,7 @@ void data_clean()
 	//release free list
 
 	pmem_unmap(pmem_addr,pmem_len);
+	pthread_mutex_destroy(&alloc_mutex);
 }
 
 //don't use
@@ -277,26 +293,55 @@ void delete_kv(unsigned char* kv_p) // OP may need
 
 //insert
 
-unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length)
+int check_size(unsigned int offset,int value_length)
+{
+	int ns;
+	Node* node = offset_to_node(offset);
+	pthread_mutex_lock(&node->mutex);
+	if (node->state > 0)
+	{
+	pthread_mutex_unlock(&node->mutex);	
+		return -2; // node is spliting
+	}
+	if (node->size + value_length > NODE_BUFFER)
+	{
+		pthread_mutex_unlock(&node->mutex);
+		return -1; // node need split
+	}
+	node->ref++;
+	ns = node->size;
+	node->size+=key_size+len_size+value_length;
+	*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
+	// fence and flush?
+	pthread_mutex_unlock(&node->mutex);	
+	printf("inc ref - insert\n");
+	return ns;
+
+}
+
+unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length,int old_size)
 {
 	printf("insert kv offset %u\n",offset);
 	Node* node;
 	unsigned char* kv_p;
 
 	node = offset_to_node(offset); 
-	printf("node %p size %d \n",node,(int)node->size);
+	printf("node %p size %d \n",node,(int)old_size);
+	/*
 	if ((int)node->size + key_size + len_size + value_length > NODE_BUFFER)
 	{
 		printf("size %d\n",(int)node->size);
 		return NULL;
 	}
-	*(uint64_t*)(node->buffer + node->size) = *((uint64_t*)key);
-	*(uint16_t*)(node->buffer + node->size + key_size) = value_length;
+	*/
+	*(uint64_t*)(node->buffer + old_size) = *((uint64_t*)key);
 	int i;
 	for (i=0;i<value_length;i++)
-		node->buffer[node->size+key_size+len_size+i] = value[i];
-	kv_p = node->buffer + node->size;
-	node->size += key_size + len_size + value_length;
+		node->buffer[old_size+key_size+len_size+i] = value[i];
+//fence and flush
+	*(uint16_t*)(node->buffer + old_size + key_size) = value_length;
+	kv_p = node->buffer + old_size;
+//	node->size += key_size + len_size + value_length;
 	printf("kv_p %p\n",kv_p);
 	print_kv(kv_p);
 	return kv_p;
@@ -330,9 +375,6 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 	Node* node;
 
 	node = offset_to_node(offset);
-
-	new_node1 = alloc_node();
-	new_node2 = alloc_node();
 
 	prev_node = offset_to_node(node->prev_offset);
 		next_node = offset_to_node(node->next_offset);
@@ -396,6 +438,9 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 	size = node->size;
 	buffer = node->buffer;
 //	size = meta & 63; // 00111111
+
+	new_node1 = alloc_node();
+	new_node2 = alloc_node();
 
 	size1 = size2 = 0;
 

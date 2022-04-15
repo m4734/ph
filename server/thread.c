@@ -33,11 +33,11 @@ void* thread_function(void* thread_parameter)
 	{
 		if (idle)
 sleep(1); // too fast test
-		if (idle)
-		printf("add connection\n");// add connection
+//		if (idle)
+//		printf("check connection\n");// add connection
 		while (!thread->new_connection_queue.empty())
 		{
-			if (idle)
+//			if (idle)
 			printf("new connection\n");
 			connection = (struct Connection*)malloc(sizeof(struct Connection));
 			connection->query.length = 0;
@@ -88,7 +88,7 @@ if (idle)
 		}
 		if (length == 0)
 		{
-			if (idle)
+//			if (idle)
 			printf("disconnected\n");
 			close(connection->socket);
 			free(*connection_list_iterator);
@@ -111,8 +111,13 @@ if (idle)
 		printf("process query\n");// process query
 		//
 		// temp code
-
-		fputs((char*)((connection->query).buffer),stdout);
+		printf("query length %d\n",connection->query.length);
+		int i;
+		for (i=0;i<connection->query.length;i++)
+		{
+			printf("[%d]",(unsigned int)connection->query.buffer[i]);
+		}
+//		fputs((char*)((connection->query).buffer),stdout);
 //		write(connection->socket,"nam nam\n",sizeof("nam nam\n"));
 
 
@@ -125,7 +130,8 @@ if (idle)
 		write(connection->socket,&nl,1);
 continue;
 		}
-
+		int t;
+scanf("%d",&t);
 		if (process_query(&connection->query,result,&result_len) < 0)
 			printf("query process error!!!\n");
 
