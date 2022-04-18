@@ -4,7 +4,7 @@ server: main.o thread.o query.o data.o hash.o global.o
 main.o: global.h thread.h data.h hash.h main.c
 	g++ -c -o main.o main.c
 
-thread.o: thread.h thread.c query.h
+thread.o: thread.h thread.c query.h global.h
 	g++ -c -o thread.o thread.c
 
 query.o: query.h data.h hash.h query.c

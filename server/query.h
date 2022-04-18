@@ -1,15 +1,25 @@
 #pragma once
 
+#define QUERY_BUFFER 10000
+
 struct Query
 {
-	unsigned char buffer[10000];
+	unsigned char buffer_o[QUERY_BUFFER+10];
+	int buffer_offset,cur,buffer_len; // buffer_offset + buffer_len // cur < len
+	int n32;	
 //	char* key_p;
+	// ----------------------------------------------	
+	unsigned char* buffer;	
+	int length;
+
+	// -----------------------------------------------
+
 	unsigned char key_p[8];	
 	unsigned char* value_p;
 	int op;
 	int key_len,value_len;
-	int length;
-	int offset;
+	//------------------------------------------
+	int offset; // node offset - unlock
 };
 
 //unsigned char empty[10];// = {"empty"};

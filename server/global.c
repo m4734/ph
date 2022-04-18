@@ -59,8 +59,8 @@ void temp_static_conf()
 	empty[4] = 'y';
 	empty[5] = 0;
 	*/
-	empty_len = strlen("empty");
-	memcpy(empty,"empty",empty_len);
+	empty_len = strlen("empty\n");
+	memcpy(empty,"empty\n",empty_len);
 	empty[empty_len] = 0;
 
 	memcpy(pmem_file,"/mnt/pmem0/file",strlen("/mnt/pmem0/file"));

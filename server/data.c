@@ -14,6 +14,8 @@
 
 // we need to traverse linked list when we recover and if it is never visited, it is garbage
 
+#define print 1
+//#define print 0
 
 unsigned char* pmem_addr;
 int is_pmem;
@@ -66,12 +68,17 @@ Node* alloc_node()
 		node_free_list.pop();
 		pthread_mutex_unlock(&alloc_mutex);
 		while(node->ref > 0); //wait
+		if (print)
+	printf("alloc node %p\n",node); //test
 		return node;
 	}
+	if (pmem_size < pmem_used + sizeof(Node))
+		printf("error!!! need more memory]n");
 
 	node = (Node*)(pmem_addr + pmem_used);
 	pmem_used += sizeof(Node);
 	pthread_mutex_unlock(&alloc_mutex);
+	if (print)
 	printf("alloc node %p\n",node); //test
 	return node;
 }
@@ -81,6 +88,7 @@ void free_node(Node* node)
 	pthread_mutex_lock(&alloc_mutex);
 	node_free_list.push(node);
 	pthread_mutex_unlock(&alloc_mutex);
+	if (print)
 	printf("free node %p\n",node);
 }
 
@@ -117,6 +125,7 @@ int data_init()
 	node->prev_offset = 1;
 	node->next_offset = 2;
 	pthread_mutex_init(&node->mutex,NULL);
+	if (print)
 	printf("node 0 %p\n",node);
 
 	head_node->next_offset = 3;
@@ -209,6 +218,7 @@ void e_unlock(unsigned int offset)
 
 int inc_ref(Node* node,uint16_t limit)
 {
+	if (print)
 	printf("inc_ref\n");
 	pthread_mutex_lock(&node->mutex);
 			//node->m.lock();
@@ -226,6 +236,7 @@ int inc_ref(Node* node,uint16_t limit)
 }
 void dec_ref(Node* node)
 {
+	if (print)
 	printf("dec_ref\n");
 //	node->m.lock();
 	pthread_mutex_lock(&node->mutex);	
@@ -249,7 +260,7 @@ void print_kv(unsigned char* kv_p)
 	unsigned char* v_p;
 	printf("key ");
 	for (i=0;i<8;i++)
-		printf("%c",((char*)kv_p)[i]);
+		printf("[%d]",(int)(kv_p[i]));
 	value_len = *((uint16_t*)(kv_p+key_size));
 	if (value_len & (1 << 15))
 	{
@@ -259,7 +270,7 @@ void print_kv(unsigned char* kv_p)
 	printf(" value len %d ",value_len);
 	v_p = kv_p + key_size + len_size;
 	for (i=0;i<value_len;i++)
-		printf("%c",((char*)v_p)[i]);
+		printf("[%d]",(int)(v_p[i]));
 	printf("\n");
 }
 
@@ -295,6 +306,8 @@ void delete_kv(unsigned char* kv_p) // OP may need
 
 int check_size(unsigned int offset,int value_length)
 {
+	if (print)
+		printf("check_size\n");
 	int ns;
 	Node* node = offset_to_node(offset);
 	pthread_mutex_lock(&node->mutex);
@@ -314,6 +327,7 @@ int check_size(unsigned int offset,int value_length)
 	*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
 	// fence and flush?
 	pthread_mutex_unlock(&node->mutex);	
+	if (print)
 	printf("inc ref - insert\n");
 	return ns;
 
@@ -321,11 +335,13 @@ int check_size(unsigned int offset,int value_length)
 
 unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length,int old_size)
 {
+	if (print)
 	printf("insert kv offset %u\n",offset);
 	Node* node;
 	unsigned char* kv_p;
 
 	node = offset_to_node(offset); 
+	if (print)
 	printf("node %p size %d \n",node,(int)old_size);
 	/*
 	if ((int)node->size + key_size + len_size + value_length > NODE_BUFFER)
@@ -342,8 +358,9 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 	*(uint16_t*)(node->buffer + old_size + key_size) = value_length;
 	kv_p = node->buffer + old_size;
 //	node->size += key_size + len_size + value_length;
+	if (print)
 	printf("kv_p %p\n",kv_p);
-	print_kv(kv_p);
+//	print_kv(kv_p);
 	return kv_p;
 }
 
@@ -361,7 +378,7 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 
 int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 {
-
+if (print)
 	printf("start split offset %d len %d\n",offset,continue_len);
 
 	int i;
@@ -430,7 +447,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 //			next_node->m.unlock();
 			pthread_mutex_unlock(&next_node->mutex);
 
-
+if (print)
 		printf("locked\n");
 
 		//----------------------------------------------------------
@@ -456,7 +473,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 
 	m = ~(((uint64_t)1 << (63-continue_len))-1);
 	prefix_64 = (prefix_64 & m) | ((uint64_t)1 << (63-continue_len));
-
+if (print)
 	printf("pivot %lx m %lx size %d\n",prefix_64,m,size);
 
 	int value_len,cur;
@@ -469,7 +486,11 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 
 		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
+			if (print)
 		printf("pivot %lx key %lx\n",prefix_64,*((uint64_t*)(buffer+cur)));
+
+			if (value_len != 100)
+				print_kv(buffer+cur);
 
 			// we use double copy why?
 		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
@@ -477,14 +498,14 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 		{
 			// rehash later
 			memcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
-			print_kv(buffer1+size1); // test
+//			print_kv(buffer1+size1); // test
 			size1+= key_size + len_size + value_len;
 		}
 		else
 		{
 			// rehash later
 			memcpy(buffer2+size2,buffer+cur,key_size + len_size + value_len);
-			print_kv(buffer2+size2); // test
+//			print_kv(buffer2+size2); // test
 			size2+= key_size + len_size + value_len;
 		}
 //		print_kv(buffer+cur);//test
@@ -493,8 +514,15 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 			value_len-= (1 << 15);
 		cur+=key_size+len_size+value_len;
 	}
-
+if (print)
+{
 	printf("size %d size1 %d size2 %d\n",size,size1,size2);
+	if (size != 220)
+	{
+		int t;
+		scanf("%d",&t);
+	}
+}
 
 	//why?? fill zero?
 	/*
@@ -504,6 +532,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 		init_entry(buffer2 + size2*entry_size);
 */
 	//init node meta
+	if (print)
 	printf("nn1 %p nn2 %p\n",new_node1,new_node2);
 	new_node1->state = 0; // 
 	new_node1->ref = 0;
@@ -537,7 +566,7 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 //	s_unlock(prev_node);
 //	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
-
+if (print)
 printf("rehash\n");
 	// rehash
 	cur = 0;
@@ -575,7 +604,7 @@ printf("rehash\n");
 
 		cur+=key_size+len_size+value_len;
 	}
-
+if (print)
 	printf("insert range\n");
 //	b = b << 1 +1;
 //	unsigned char sp[8];
@@ -589,17 +618,19 @@ printf("rehash\n");
 	sp|=v;
 	insert_range_entry((unsigned char*)&sp,continue_len+1,calc_offset(new_node2));
 
-	print_node(new_node1);
-	print_node(new_node2);
+//	print_node(new_node1);
+//	print_node(new_node2);
 
 
 	free_node(node);//???
+	printf("splitend0\n");
 	return 0;
 }
 
 int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
 {
 //	printf("start compaction offset %d len %d\n",offset,continue_len);
+if(print)	
 	printf("compaction offset %d\n",offset);	
 
 	int i;
@@ -667,7 +698,7 @@ int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigne
 		}
 //			next_node->m.unlock();
 			pthread_mutex_unlock(&next_node->mutex);
-
+if (print)
 		printf("locked\n");
 
 	//-------------------------------------------------------------------	
@@ -725,7 +756,7 @@ int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigne
 //	s_unlock(prev_node);
 //	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
-
+if (print)
 printf("rehash\n");
 	// rehash
 	cur = 0;
