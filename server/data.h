@@ -3,6 +3,7 @@
 #include <pthread.h>
 //#include <atomic>
 //#include <mutex>
+#include <sys/mman.h>
 
 #include "global.h"
 

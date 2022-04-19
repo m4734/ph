@@ -14,7 +14,7 @@
 
 // we need to traverse linked list when we recover and if it is never visited, it is garbage
 
-#define print 1
+#define print 0
 //#define print 0
 
 unsigned char* pmem_addr;
@@ -73,18 +73,25 @@ Node* alloc_node()
 		return node;
 	}
 	if (pmem_size < pmem_used + sizeof(Node))
+	{
 		printf("error!!! need more memory]n");
+		int t;
+		scanf("%d",&t);
+	}
 
 	node = (Node*)(pmem_addr + pmem_used);
 	pmem_used += sizeof(Node);
 	pthread_mutex_unlock(&alloc_mutex);
 	if (print)
 	printf("alloc node %p\n",node); //test
+
+	pthread_mutex_init(&node->mutex,NULL);
+
 	return node;
 }
 void free_node(Node* node)
 {
-	node->state = 2; // free
+	node->state = 2; // free // without mutex??
 	pthread_mutex_lock(&alloc_mutex);
 	node_free_list.push(node);
 	pthread_mutex_unlock(&alloc_mutex);
@@ -97,7 +104,11 @@ int data_init()
 {
 	pthread_mutex_init(&alloc_mutex,NULL);
 
-	pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
+	if (USE_DRAM)
+		pmem_addr=(unsigned char*)mmap(NULL,pmem_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
+
+	else
+		pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
 
 	if (pmem_addr == NULL)
 	{
@@ -124,7 +135,7 @@ int data_init()
 	node->ref = 0;
 	node->prev_offset = 1;
 	node->next_offset = 2;
-	pthread_mutex_init(&node->mutex,NULL);
+//	pthread_mutex_init(&node->mutex,NULL);
 	if (print)
 	printf("node 0 %p\n",node);
 
@@ -134,8 +145,8 @@ int data_init()
 	head_node->state = 0;
 	tail_node->ref = 0;
 	tail_node->state = 0;
-	pthread_mutex_init(&head_node->mutex,NULL);
-	pthread_mutex_init(&tail_node->mutex,NULL);
+//	pthread_mutex_init(&head_node->mutex,NULL);
+//	pthread_mutex_init(&tail_node->mutex,NULL);
 
 	insert_range_entry((unsigned char*)(&zero),0,calc_offset(node)); // the length is important!!!
 	int zero2=0;
@@ -153,8 +164,13 @@ void data_clean()
 */
 	//release free list
 
-	pmem_unmap(pmem_addr,pmem_len);
+	if (USE_DRAM)
+		munmap(pmem_addr,pmem_size);
+	else
+		pmem_unmap(pmem_addr,pmem_size);
 	pthread_mutex_destroy(&alloc_mutex);
+
+	//destroy all node mutex
 }
 
 //don't use
@@ -423,7 +439,7 @@ if (print)
 			return -1; // failed
 		}
 //			prev_node->m.unlock();
-				pthread_mutex_unlock(&prev_node->mutex);
+	pthread_mutex_unlock(&prev_node->mutex);
 
 
 //			continue;
@@ -445,7 +461,7 @@ if (print)
 			return -1;//failed
 		}
 //			next_node->m.unlock();
-			pthread_mutex_unlock(&next_node->mutex);
+	pthread_mutex_unlock(&next_node->mutex);
 
 if (print)
 		printf("locked\n");
@@ -489,8 +505,8 @@ if (print)
 			if (print)
 		printf("pivot %lx key %lx\n",prefix_64,*((uint64_t*)(buffer+cur)));
 
-			if (value_len != 100)
-				print_kv(buffer+cur);
+//			if (value_len != 100)
+//				print_kv(buffer+cur);
 
 			// we use double copy why?
 		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
@@ -515,14 +531,7 @@ if (print)
 		cur+=key_size+len_size+value_len;
 	}
 if (print)
-{
 	printf("size %d size1 %d size2 %d\n",size,size1,size2);
-	if (size != 220)
-	{
-		int t;
-		scanf("%d",&t);
-	}
-}
 
 	//why?? fill zero?
 	/*
@@ -533,13 +542,13 @@ if (print)
 */
 	//init node meta
 	if (print)
-	printf("nn1 %p nn2 %p\n",new_node1,new_node2);
+	printf("nn1 %p nn2 %p next %p prev %p\n",new_node1,new_node2,next_node,prev_node);
 	new_node1->state = 0; // 
 	new_node1->ref = 0;
 	new_node2->state = 0; // 
 	new_node2->ref = 0;
-	pthread_mutex_init(&new_node1->mutex,NULL);
-	pthread_mutex_init(&new_node2->mutex,NULL);
+//	pthread_mutex_init(&new_node1->mutex,NULL);
+//	pthread_mutex_init(&new_node2->mutex,NULL);
 
 	new_node1->size = size1;
 	memcpy(new_node1->buffer,buffer1,size1);
@@ -621,9 +630,7 @@ if (print)
 //	print_node(new_node1);
 //	print_node(new_node2);
 
-
 	free_node(node);//???
-	printf("splitend0\n");
 	return 0;
 }
 
@@ -736,7 +743,7 @@ if (print)
 	//init node meta
 	new_node1->state = 0; // ??
 	new_node1->ref = 0;
-	pthread_mutex_init(&new_node1->mutex,NULL);
+//	pthread_mutex_init(&new_node1->mutex,NULL);
 
 	new_node1->size = size1;
 	memcpy(new_node1->buffer,buffer1,size1);

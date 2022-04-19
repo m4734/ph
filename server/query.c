@@ -9,7 +9,7 @@
 #include <stdio.h> //test
 
 //#define print 0
-#define print 1
+#define print 0
 
 void print_query(Query* query)
 {
@@ -187,8 +187,8 @@ int delete_query(Query* query,unsigned char** result,int* result_len)
 			if (kv_p == NULL) // deleted!!!
 				return 0;
 			offset = point_to_offset(kv_p);
-			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
-				continue;
+//			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
+//				continue;
 			if (inc_ref(offset,0)) //init state ok
 			{
 //				query->offset = offset; // restore ref cnt

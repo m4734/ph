@@ -1,3 +1,4 @@
+#include <pthread.h>
 
 struct point_hash_entry
 {

@@ -10,9 +10,13 @@ extern int range_hash_table_size;
 
 point_hash_entry* point_hash_table;
 range_hash_entry** range_hash_table_array;
+
+pthread_mutex_t* point_hash_mutex;
+pthread_mutex_t* range_hash_mutex;
+
 // OP it will be no hash until 16
 
-#define print 1
+#define print 0
 //#define print 0
 
 static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test hash from hiredis
@@ -82,19 +86,29 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 		if (ppep->kv_p == NULL)
 		{
 //			ppep->kv_p = update; //CAS
-
-			*((uint64_t*)ppep->key) = *((uint64_t*)key_p);
-			return ppep;
+			pthread_mutex_lock(&point_hash_mutex[hash]);
+			if (ppep->kv_p == NULL)
+			{			
+				*((uint64_t*)ppep->key) = *((uint64_t*)key_p);
+				pthread_mutex_unlock(&point_hash_mutex[hash]);
+				return ppep;
+			}
+			pthread_mutex_unlock(&point_hash_mutex[hash]);
 		}
 		struct point_hash_entry* new_entry;
 		new_entry = (point_hash_entry*)malloc(sizeof(point_hash_entry));
 		*((uint64_t*)new_entry->key) = *((uint64_t*)key_p);
+		new_entry->kv_p = NULL;
 //		new_entry->kv_p = update;
 		new_entry->next = NULL;
 
 		// need CAS
+		pthread_mutex_lock(&point_hash_mutex[hash]);
+		while(ppep->next)
+			ppep = ppep->next;
 		ppep->next = new_entry;
 
+		pthread_mutex_unlock(&point_hash_mutex[hash]);
 
 		return new_entry;
 	}
@@ -186,15 +200,24 @@ if (print)
 	hash = hash_function(prefix) % range_hash_table_size;
 
 	entry = &(range_hash_table_array[len][hash]);
+
+
 	if (entry->offset == 0) // first
 	{
+		pthread_mutex_lock(&range_hash_mutex[hash]);
+		if (entry->offset == 0)
+		{
 		if (print)
 		printf("0 hash %u\n",hash);
-		entry->offset = offset; //CAS
+		entry->offset = offset; //CAS??
 		*((uint64_t*)entry->key) = *((uint64_t*)prefix);
-
+		pthread_mutex_unlock(&range_hash_mutex[hash]);
 		return;
+		}
+		pthread_mutex_unlock(&range_hash_mutex[hash]);
 	}
+
+	new_entry = (struct range_hash_entry*)malloc(sizeof(struct range_hash_entry));
 
 	new_entry->next = NULL;
 	*((uint64_t*)new_entry->key) = *((uint64_t*)prefix);
@@ -203,7 +226,11 @@ if (print)
 	while(entry->next)
 		entry = entry->next;
 
+	pthread_mutex_lock(&range_hash_mutex[hash]);
+	while(entry->next)
+		entry = entry->next;
 	entry->next = new_entry; //CAS
+	pthread_mutex_unlock(&range_hash_mutex[hash]);
 
 }
 
@@ -214,10 +241,12 @@ void init_hash()
 
 	// init point hash
 	point_hash_table = (point_hash_entry*)malloc(sizeof(point_hash_entry)*point_hash_table_size);
+	point_hash_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*point_hash_table_size);
 	for (i=0;i<point_hash_table_size;i++)
 	{
 		point_hash_table[i].kv_p = NULL;
 		point_hash_table[i].next = NULL;
+		pthread_mutex_init(&point_hash_mutex[i],NULL);
 	}
 
 	range_hash_table_array = (range_hash_entry**)malloc(sizeof(range_hash_entry*)*64);
@@ -230,6 +259,10 @@ void init_hash()
 		        range_hash_table_array[i][j].next = NULL;
 		}
 	}
+
+	range_hash_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*range_hash_table_size);
+	for (i=0;i<range_hash_table_size;i++)
+		pthread_mutex_init(&range_hash_mutex[i],NULL);
 /*
 	// insert 0
 	uint64_t zero=0;
