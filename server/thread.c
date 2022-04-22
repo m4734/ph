@@ -29,17 +29,20 @@ void* thread_function(void* thread_parameter)
 	nl = '\n';
 	int i;
 	int idle=0;
-	int print_limit=1000000;
+	int print_limit=1000000,ms=1000;
 	int change_connection;
 	int rv;
+
+//	ms = 0;
 
 	result_v = (unsigned char*)malloc(sizeof(unsigned char)*QUERY_BUFFER);
 	result = &result_v;
 
 	while(1)
 	{
-//		if (idle >= print_limit)
-//		usleep(idle); // too fast test
+//		usleep(1);
+		if (idle >= print_limit)		
+			usleep(idle); // too fast test
 //		if (idle)
 //		printf("check connection\n");// add connection
 		while (!thread->new_connection_queue.empty())
@@ -59,7 +62,7 @@ void* thread_function(void* thread_parameter)
 			thread->connection_list.insert(connection_list_iterator,connection);
 			thread->new_connection_queue.pop();
 
-			printf("socket %d\n",connection->socket);
+//			printf("socket %d\n",connection->socket);
 		}
 
 		//-------------------------------------------------------------------
@@ -78,7 +81,8 @@ void* thread_function(void* thread_parameter)
 				printf("no connection\n");
 //				usleep(idle);
 				if (idle < print_limit)
-					idle*=2;
+//					idle*=2;
+					idle+=ms;					
 				continue;
 			}
 		}
@@ -114,7 +118,8 @@ void* thread_function(void* thread_parameter)
 				if (idle >= print_limit)
 				printf("nothing %d %d %d\n",connection->query.buffer_offset,connection->query.cur,connection->query.buffer_len);
 						if (idle < print_limit)
-						idle*= 2;
+//						idle*= 2;
+							idle+=ms;			
 						connection_list_iterator++; //next connection
 					}
 					else
@@ -126,15 +131,14 @@ void* thread_function(void* thread_parameter)
 				if (length == 0)
 				{
 //			if (idle)
-					printf("disconnected %d\n",connection->socket); // unkown bug fix later
-	//				printf("disconnected\n");
+//					printf("disconnected %d\n",connection->socket); // unkown bug fix later
+				printf("disconnected\n");
 					connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
 					close(connection->socket);
 //					free(*connection_list_iterator);
 					free(connection);					
 					change_connection = 1;
 //			continue;
-			printf("d2\n");
 					break;
 				}
 
@@ -255,8 +259,7 @@ continue;
 if (idle >= print_limit)
 		printf("query complete\n");
 //idle = 1;
-//		free_query(connection->query);
-//		connection->query = alloc_query();
+		idle/=2;
 
 		connection_list_iterator++;
 }

@@ -1,5 +1,8 @@
 #include <pthread.h>
 
+#define INIT_OFFSET 0
+#define SPLIT_OFFSET 1
+
 struct point_hash_entry
 {
 	/*
@@ -8,7 +11,7 @@ struct point_hash_entry
 	*/
 	unsigned char key[8];
 	volatile unsigned char* kv_p; // kv pointer
-	struct point_hash_entry* next;
+	struct point_hash_entry* volatile next;
 };
 struct range_hash_entry
 {
@@ -19,9 +22,13 @@ struct range_hash_entry
 	unsigned char key[8];
 //	volatile char* entry_p; // node pointer
 	volatile unsigned int offset; // 0 - init / 1 - splited	
-	struct range_hash_entry* next;
+	struct range_hash_entry* volatile next;
 	//OP ancestor
 	//OP local_depth
+	
+	// debug!!!
+//	struct range_hash_entry* c1;
+//	struct range_hash_entry* c2;
 };
 
 //OP need entry allocator

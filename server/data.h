@@ -7,8 +7,8 @@
 
 #include "global.h"
 
-#define split_bit (1<<15)
-#define free_bit (1<14)
+//#define split_bit (1<<15)
+//#define free_bit (1<14)
 
 struct Node
 //class Node
@@ -66,7 +66,7 @@ void delete_kv(unsigned char* kv_p); // e lock needed
 unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length,int old_size);
 int split(unsigned int offset, unsigned char* prefix, int continue_len);
 
-int compact(unsigned int offset, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
+int compact(unsigned int offset);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 void print_kv(unsigned char* kv_p);
 int check_size(unsigned int offset,int value_length);
 

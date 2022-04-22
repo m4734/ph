@@ -40,7 +40,7 @@ extern int entry_size;
 
 //data
 
-extern unsigned long long int pmem_size;
+extern uint64_t pmem_size;
 extern char pmem_file[100];// = "/mnt/pmem0/file";
 
 //query

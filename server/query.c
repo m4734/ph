@@ -144,6 +144,11 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 			offset = point_to_offset(kv_p);
 			if (inc_ref(offset,1)) // split state ok
 			{
+				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
+				{
+					dec_ref(offset);
+					continue;
+				}
 				query->offset = offset; // lock ref
 
 				print_kv(kv_p);	
@@ -191,6 +196,11 @@ int delete_query(Query* query,unsigned char** result,int* result_len)
 //				continue;
 			if (inc_ref(offset,0)) //init state ok
 			{
+				if (kv_p != (unsigned char*)entry->kv_p)
+				{
+					dec_ref(offset);
+					continue;
+				}
 //				query->offset = offset; // restore ref cnt
 
 				entry->kv_p = NULL; // what should be first?
@@ -233,6 +243,9 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 	int continue_len;	
 	continue_len = 0;
 	int rv;
+
+	int test=0;
+
 	point_entry = find_or_insert_point_entry(query->key_p,1); // find or create
 	while(1) // offset can be changed when retry
 	{
@@ -251,35 +264,60 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 					break;
 				}
 				offset = point_to_offset(kv_p);
-//				if (inc_ref(offset,0) != 0) // init ok
+				if (inc_ref(offset,0))
+				{
+				if (kv_p != (unsigned char*)point_entry->kv_p)
+				{
+					dec_ref(offset);
+					printf("value is moved\n");
+					continue;
+				}
+								
 				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
 				{
 					break;
+				}
+
+					dec_ref(offset); // node is spliting
 				}
 //				if (print)
 				printf("node is spliting??\n");
 			}
 		}
-		if (offset == 0)
+		if (offset == 0) // the key doesn't exist
 		{
 			if (print)
 			printf("find node\n");
 			while(1)
 			{
-				range_entry = find_range_entry(query->key_p,&continue_len);
-				if (range_entry == NULL) // spliting...
+				if ((range_entry = find_range_entry(query->key_p,&continue_len)) == NULL)
+//				if (range_entry == NULL) // spliting...
 				{
-//					sleep(1); //test
-//					return -1; //test
-//					int t;
-//					scanf("%d",&t); // test		
-					printf("split collision\n");					
+//
+					printf("---------------split collision\n");
+					
+					test++;
+				if (test > 1000)
+				{
+				printf("too many fail %lu\n",*((uint64_t*)query->key_p));
+					}
 					continue;
 				}
 				offset = range_entry->offset;
+				if (inc_ref(offset,0))
+				{
+				if (range_entry->offset == SPLIT_OFFSET)
+				{
+					dec_ref(offset);
+					continue;
+				}
+
 				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
 				{
 					break;
+				}
+
+					dec_ref(offset); // node is spliting
 				}
 
 
@@ -302,27 +340,43 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 		{
 			//failed and need split
 			if (range_entry == NULL)
+			{
 				range_entry = find_range_entry(query->key_p,&continue_len);
+				if (range_entry == NULL)
+				{
+					printf("---------------split collision2\n");
+					continue;
+				}
+			}
 			if (continue_len < 64) // split
 			{
 				if (print)
 				printf("split\n");
-				range_entry->offset = 1; //splited
 				if (split(offset,query->key_p,continue_len)<0)
 				{
 					printf("split lock failed\n");
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
+					dec_ref(offset);
+				}
+				else
+				{
+					range_entry->offset = SPLIT_OFFSET; //splited
+					// may need fence
+ 					dec_ref(offset); // have to be after offset 1
+					continue_len++;		
 				}
 //				continue; // try again after split
 				if (print)
 					printf("split end\n");				
-				continue_len++;		
 			}
-			else if(compact(offset,range_entry) < 0)
-// compaction
+			else// compaction
 			{
-				printf("compaction lock failed\n");
+				if ((rv=compact(offset)) < 0)
+					printf("compaction lock failed\n");
+				else
+					range_entry->offset = rv;
 //				e_unlock(offset);
+				dec_ref(offset);				
 			}
 //int t;
 //					scanf("%d",&t);// test

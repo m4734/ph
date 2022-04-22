@@ -7,6 +7,7 @@
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 #include <errno.h>
 
@@ -81,6 +82,13 @@ void run()
 	}
 
 	if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &op, sizeof(op)) < 0)
+	{
+		printf("%d\n",server_socket);
+		fprintf(stderr,"sockopt error %d\n",errno);
+		return;
+	}
+
+	if (setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, &op, sizeof(op)) < 0)
 	{
 		printf("%d\n",server_socket);
 		fprintf(stderr,"sockopt error %d\n",errno);

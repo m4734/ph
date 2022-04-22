@@ -28,28 +28,6 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 	return hash;
 }
 
-#if 0
-char* find_entry_pointer(char* key_p,int key_len)
-{
-	/*
-	unsigned int hash;
-	hash = hash_function(key_p,len);
-	return point_hash_table[hash%point_hash_table_size]
-	*/
-}
-char* find_node_pointer(char* key_p,int key_len)
-{
-}
-
-void insert_entry_pointer(char* key_p,int key_len,char* p,int update)
-{
-}
-
-void insert_node_pointer(char* key_p,int key_len,char* p,int update)
-{
-}
-#endif
-
 struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int key_len*/,int insert)
 {
 	unsigned int hash;
@@ -71,11 +49,7 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 		printf("%lu\n",*((uint64_t*)pep->key));
 		}
 		if (*((uint64_t*)key_p) == *((uint64_t*)pep->key))
-		{
-//			if (update)
-//				pep->kv_p = update;
 			return pep;
-		}
 		ppep = pep;
 		pep = pep->next;
 	}
@@ -103,6 +77,8 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 		new_entry->next = NULL;
 
 		// need CAS
+		while(ppep->next)
+			ppep = ppep->next;	
 		pthread_mutex_lock(&point_hash_mutex[hash]);
 		while(ppep->next)
 			ppep = ppep->next;
@@ -123,7 +99,8 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 	unsigned char prefix[8]={0,};
 	struct range_hash_entry* entry;
 
-	uint64_t b;	
+	uint64_t b;
+
 //	for (i=0;i<*continue_len;i++)
 //		b=(b<<1)+1;
 	b = ((uint64_t)1 << *continue_len) -1;
@@ -154,15 +131,29 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 //			scanf("%d",&t);
 			if (*((uint64_t*)entry->key) == *((uint64_t*)prefix))
 			{
-				if (entry->offset == 1) // splited
+				if (entry->offset == SPLIT_OFFSET) // splited
+				{
 					break;
+				}
 				*continue_len = i;
+/*
+				inc_ref(entry->offset);
+				if (entry->offset == 1)
+				{
+					dec_ref(entry->offset);
+					break;
+				}
+				*/
 				return entry;
 			}
 			entry = entry->next;
 		}
 		if (!entry) // doesn't exist - spliting... it will be generated next time
+		{
+			*continue_len=i; // retry same len
+
 			return NULL;
+		}
 		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
 		b = b >> 1;
 
@@ -200,19 +191,31 @@ if (print)
 	hash = hash_function(prefix) % range_hash_table_size;
 
 	entry = &(range_hash_table_array[len][hash]);
+#if 0
+	// DEBUG!!!
+	while (entry != NULL)
+	{
+		if ((entry->offset != INIT_OFFSET) && (*((uint64_t*)entry->key) == *((uint64_t*)prefix)))
+		{
+			printf("i--------------------------------elfnelnfelknrlk\n");
+			scanf("%d",&i);
+		}
+		entry = entry->next;
+	}
+#endif
+	entry = &(range_hash_table_array[len][hash]);
 
-
-	if (entry->offset == 0) // first
+	if (entry->offset == INIT_OFFSET) // first
 	{
 		pthread_mutex_lock(&range_hash_mutex[hash]);
-		if (entry->offset == 0)
+		if (entry->offset == INIT_OFFSET)
 		{
-		if (print)
-		printf("0 hash %u\n",hash);
-		entry->offset = offset; //CAS??
-		*((uint64_t*)entry->key) = *((uint64_t*)prefix);
-		pthread_mutex_unlock(&range_hash_mutex[hash]);
-		return;
+			if (print)
+				printf("0 hash %u\n",hash);
+			entry->offset = offset;
+			*((uint64_t*)entry->key) = *((uint64_t*)prefix);
+			pthread_mutex_unlock(&range_hash_mutex[hash]);
+			return;
 		}
 		pthread_mutex_unlock(&range_hash_mutex[hash]);
 	}
@@ -222,6 +225,15 @@ if (print)
 	new_entry->next = NULL;
 	*((uint64_t*)new_entry->key) = *((uint64_t*)prefix);
 	new_entry->offset = offset;
+
+	//DEBUG
+//	new_entry->c1 = NULL;
+
+
+//	pthread_mutex_lock(&range_hash_mutex[hash]);
+
+
+	// USE TAIL!
 
 	while(entry->next)
 		entry = entry->next;
@@ -255,7 +267,7 @@ void init_hash()
 		range_hash_table_array[i] = (range_hash_entry*)malloc(sizeof(range_hash_entry)*range_hash_table_size); // OP it will be no hash until 16
 		for (j=0;j<range_hash_table_size;j++)
 		{
-			range_hash_table_array[i][j].offset = 0;
+			range_hash_table_array[i][j].offset = INIT_OFFSET;
 		        range_hash_table_array[i][j].next = NULL;
 		}
 	}

@@ -67,7 +67,7 @@ Node* alloc_node()
 		node = node_free_list.front();
 		node_free_list.pop();
 		pthread_mutex_unlock(&alloc_mutex);
-		while(node->ref > 0); //wait
+		while(node->ref > 0); //wait		
 		if (print)
 	printf("alloc node %p\n",node); //test
 		return node;
@@ -332,12 +332,13 @@ int check_size(unsigned int offset,int value_length)
 	pthread_mutex_unlock(&node->mutex);	
 		return -2; // node is spliting
 	}
-	if (node->size + value_length > NODE_BUFFER)
+	if (node->size + key_size + len_size + value_length > NODE_BUFFER)
 	{
+//		node->ref++; // i will try split
 		pthread_mutex_unlock(&node->mutex);
 		return -1; // node need split
 	}
-	node->ref++;
+//	node->ref++;
 	ns = node->size;
 	node->size+=key_size+len_size+value_length;
 	*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
@@ -410,17 +411,23 @@ if (print)
 	node = offset_to_node(offset);
 
 	prev_node = offset_to_node(node->prev_offset);
-		next_node = offset_to_node(node->next_offset);
+	next_node = offset_to_node(node->next_offset);
 
 //------------------------------------------------------------ check
 
 //	node->m.lock(); // order?
 	pthread_mutex_lock(&node->mutex);	
+	if (node->state > 0)
+	{
+		pthread_mutex_unlock(&node->mutex);
+		return -1;
+	}
 	node->state = 1; // split
 	pthread_mutex_unlock(&node->mutex);
 //	node->m.unlock();
-	while(node->ref > 0); // spin... wait
+	while(node->ref > 1); // spin... wait except me
 
+// may not need lock
 //	prev_node->m.lock();
 	pthread_mutex_lock(&prev_node->mutex);	
 
@@ -446,7 +453,7 @@ if (print)
 //		e_lock(node); //already locked
 
 //		next_node->m.lock();
-			pthread_mutex_lock(&next_node->mutex);	
+	pthread_mutex_lock(&next_node->mutex);	
 
 		if (next_node->state > 0)
 		{
@@ -470,7 +477,6 @@ if (print)
 
 	size = node->size;
 	buffer = node->buffer;
-//	size = meta & 63; // 00111111
 
 	new_node1 = alloc_node();
 	new_node2 = alloc_node();
@@ -486,8 +492,14 @@ if (print)
 		*/
 
 //	point_hash_entry* point_entry;
+/*
+	if (continue_len == 0)
+		m = 0;
+	else
+		m = ~(((uint64_t)1 << (64-continue_len))-1);
+		*/
+	m = ~(((uint64_t)1 << (63-continue_len))-1); // it seems wrong but ok because of next line it is always overwrited
 
-	m = ~(((uint64_t)1 << (63-continue_len))-1);
 	prefix_64 = (prefix_64 & m) | ((uint64_t)1 << (63-continue_len));
 if (print)
 	printf("pivot %lx m %lx size %d\n",prefix_64,m,size);
@@ -575,6 +587,9 @@ if (print)
 //	s_unlock(prev_node);
 //	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
+
+#if 0
+	
 if (print)
 printf("rehash\n");
 	// rehash
@@ -589,13 +604,20 @@ printf("rehash\n");
 		value_len = *((uint16_t*)(buffer+cur+key_size));
 		if ((value_len & (1 << 15)) == 0) // valid length	
 		{
-		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
+			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			if (point_entry == NULL)
+			{
+				printf("eeererereee333333333------------\n");
+						scanf("%d",&i);
 
+			}
+
+		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
 //		if (compare(buffer+i*entry_size,prefix) < 0) //insert1		
 		{
 			// rehash later
 //			strcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
-			point_entry = find_or_insert_point_entry(buffer+cur,0);
+//			point_entry = find_or_insert_point_entry(buffer+cur,0);
 			point_entry->kv_p = new_node1->buffer+size1;
 			size1+= key_size + len_size + value_len;
 		}
@@ -603,7 +625,7 @@ printf("rehash\n");
 		{
 			// rehash 
 //			strcpy(buffer2+size2,buffer+cur,key_size + len_size + value_len);
-			point_entry = find_or_insert_point_entry(buffer+cur,0);
+//			point_entry = find_or_insert_point_entry(buffer+cur,0);
 			point_entry->kv_p = new_node2->buffer+size2;	
 			size2+= key_size + len_size + value_len;
 		}
@@ -613,32 +635,127 @@ printf("rehash\n");
 
 		cur+=key_size+len_size+value_len;
 	}
+
+#endif
 if (print)
 	printf("insert range\n");
 //	b = b << 1 +1;
 //	unsigned char sp[8];
-	uint64_t sp;	//split prefix??
+//	uint64_t sp;	//split prefix??
 	uint64_t v;
-	sp = *((uint64_t*)prefix);
+//	sp = *((uint64_t*)prefix);
+//	sp = prefix_64;	
 	v = (uint64_t)1 <<(63-continue_len);
-	if (sp & v)
-		sp-=v;
-	insert_range_entry((unsigned char*)&sp,continue_len+1,calc_offset(new_node1));
-	sp|=v;
-	insert_range_entry((unsigned char*)&sp,continue_len+1,calc_offset(new_node2));
+//	if (sp & v)
+//		sp-=v;
+	prefix_64-=v;		
+	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,calc_offset(new_node1));
+	prefix_64+=v;
+	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,calc_offset(new_node2));
+
+#if 0
+	// debug!!!!
+	struct range_hash_entry* p;
+	struct range_hash_entry* c1;
+	struct range_hash_entry* c2;
+
+	int cl = continue_len;
+
+	p = find_range_entry((unsigned char*)&prefix_64,&cl);
+	cl = continue_len+1;
+	c2 = find_range_entry((unsigned char*)&prefix_64,&cl);
+	prefix_64-=v;
+	cl = continue_len+1;
+	c1 = find_range_entry((unsigned char*)&prefix_64,&cl);
+	prefix_64+=v;
+
+	p->c1 = c1;
+	p->c2 = c2;
+
+	if (p == NULL || c1 == NULL || c2 == NULL)
+	{
+		printf("-------------------------debug error1 %p %p %p\n",p,c1,c2);
+		int t;
+		scanf("%d",&t);
+
+	cl = continue_len;
+	p = find_range_entry((unsigned char*)&prefix_64,&cl);
+	cl = continue_len+1;
+	c2 = find_range_entry((unsigned char*)&prefix_64,&cl);
+	prefix_64-=v;
+	cl - continue_len+1;
+	c1 = find_range_entry((unsigned char*)&prefix_64,&cl);
+
+	}
+#endif
 
 //	print_node(new_node1);
 //	print_node(new_node2);
 
+
+
+if (print)
+printf("rehash\n");
+	// rehash
+	cur = 0;
+	size1 = size2 = 0;
+	struct point_hash_entry* point_entry;
+
+	while(cur < size)
+	{
+		// 8 align
+//		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid
+		value_len = *((uint16_t*)(buffer+cur+key_size));
+		if ((value_len & (1 << 15)) == 0) // valid length	
+		{
+			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			if (point_entry == NULL)
+			{
+				printf("eeererereee333333333------------\n");
+						scanf("%d",&i);
+
+			}
+
+		if (*((uint64_t*)(buffer+cur)) < prefix_64) 
+//		if (compare(buffer+i*entry_size,prefix) < 0) //insert1		
+		{
+			// rehash later
+//			strcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
+//			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			point_entry->kv_p = new_node1->buffer+size1;
+			size1+= key_size + len_size + value_len;
+		}
+		else
+		{
+			// rehash 
+//			strcpy(buffer2+size2,buffer+cur,key_size + len_size + value_len);
+//			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			point_entry->kv_p = new_node2->buffer+size2;	
+			size2+= key_size + len_size + value_len;
+		}
+		}
+		else
+			value_len-= (1 << 15);
+
+		cur+=key_size+len_size+value_len;
+	}
+
+
+
+//	dec_ref(offset);
 	free_node(node);//???
 	return 0;
 }
 
-int compact(unsigned int offset, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
+int compact(unsigned int offset)//, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
 {
 //	printf("start compaction offset %d len %d\n",offset,continue_len);
 if(print)	
-	printf("compaction offset %d\n",offset);	
+	printf("compaction offset %d\n",offset);
+
+printf("compaction code is not ready!!!\n");
+int t;
+scanf("%d",&t);
 
 	int i;
 	uint8_t size,size1;
@@ -792,8 +909,9 @@ printf("rehash\n");
 //	printf("insert range\n");
 //	insert_range_entry((unsigned char*)prefix,continue_len,calc_offset(new_node1));
 
-	range_entry->offset = calc_offset(new_node1);
+//	range_entry->offset = calc_offset(new_node1);
 	free_node(node);//???
-	return 0;
+	return calc_offset(new_node1);
+//	return 0;
 
 }
