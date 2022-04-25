@@ -25,20 +25,36 @@ void print_query(Query* query)
 	printf("\n");
 }
 
+void init_query(Query* query)
+{
+	query->length = 0;
+	query->op = 0;
+	query->key_p = NULL;
+	query->value_p = NULL;
+	query->key_len = query->value_len = query->offset = 0;
+	query->cur = 0;
+}
+
 int parse_query(Query* query)
 {
-//get 0
-//lookup 1
+//lookup 1 read get
 //delete 2
 //put 3
 //insert 4
 //update 5
 //scan 6
-if (print)
-printf("parse\n");
+	int i;
+	if (print)
+		printf("parse\n");
+	if (query->op == 0)
+	{
+		if (query->length < 7)
+			return 1;
 	if (query->buffer[0] == 'g' && query->buffer[1] == 'e' && query->buffer[2] == 't')
-		query->op = 0;
+		query->op = 1;
 	else if (query->buffer[0] == 'l' && query->buffer[1] == 'o' && query->buffer[2] == 'o' && query->buffer[3] == 'k' && query->buffer[4] == 'u' && query->buffer[5] == 'p')
+		query->op = 1;
+	else if (query->buffer[0] == 'r' && query->buffer[1] == 'e' && query->buffer[2] == 'a' && query->buffer[3] == 'd')
 		query->op = 1;
 	else if (query->buffer[0] == 'd' && query->buffer[1] == 'e' && query->buffer[2] == 'l' && query->buffer[3] == 'e' && query->buffer[4] == 't' && query->buffer[5] == 'e')
 		query->op = 2;
@@ -52,7 +68,52 @@ printf("parse\n");
 		query->op = 6;
 	else
 		return -1;
+	for (i=0;i<query->length;i++)
+	{
+		if (query->buffer[i] == ' ')
+			break;
+	}
+	if (query->buffer[i] == ' ')
+		query->cur = i+1;
+	else
+		return -1;
+	}
+	if (query->key_p == NULL)
+	{
+		if (query->length - query->cur < 8)
+			return 1;
+		query->key_p = query->buffer+query->cur;
+		query->key_len = 8;
 
+		if (query->op <= 2)
+			return 0;
+
+		query->cur+=8+1;
+	}
+	if (query->value_len == 0)
+	{
+		if (query->length - query->cur < 8)
+			return 1;
+		for (i=0;i<8;i++)
+			query->value_len = query->value_len*256 + query->buffer[query->cur+i];
+		query->cur+=8;
+	}
+	if (query->value_p == NULL)
+	{
+		if (query->length - query->cur < query->value_len)
+			return 1;
+		query->value_p = query->buffer+query->cur;
+	}
+	/*
+	print_query(query);
+	if (query->value_len != 114)
+	{
+		int t;
+		scanf("%d",&t);
+	}
+	*/
+	return 0;
+#if 0
 //	printf("query->op %d\n",query->op);
 
 
@@ -119,6 +180,7 @@ printf("parse\n");
 if (print)
 	print_query(query);
 	return 0;
+#endif
 }
 
 int lookup_query(Query* query,unsigned char** result,int* result_len)
@@ -151,7 +213,7 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 				}
 				query->offset = offset; // lock ref
 
-				print_kv(kv_p);	
+//				print_kv(kv_p);	
 
 				*result_len = *((uint16_t*)(kv_p+key_size));
 				if ((*result_len & (1 << 15)) != 0) // deleted
@@ -344,7 +406,8 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 				range_entry = find_range_entry(query->key_p,&continue_len);
 				if (range_entry == NULL)
 				{
-					printf("---------------split collision2\n");
+//					printf("---------------split collision2\n");
+					dec_ref(offset);
 					continue;
 				}
 			}

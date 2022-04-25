@@ -752,13 +752,13 @@ int compact(unsigned int offset)//, struct range_hash_entry* range_entry)//,unsi
 //	printf("start compaction offset %d len %d\n",offset,continue_len);
 if(print)	
 	printf("compaction offset %d\n",offset);
-
+/*
 printf("compaction code is not ready!!!\n");
 int t;
 scanf("%d",&t);
-
+*/
 	int i;
-	uint8_t size,size1;
+	uint16_t size,size1;
 	unsigned char* buffer;
 	unsigned char buffer1[NODE_BUFFER];
 	Node* new_node1;
@@ -768,18 +768,22 @@ scanf("%d",&t);
 
 	node = offset_to_node(offset);
 
-	new_node1 = alloc_node();
 
 	prev_node = offset_to_node(node->prev_offset);
 		next_node = offset_to_node(node->next_offset);
 	
 		//------------------------------------------------
 
-		pthread_mutex_lock(&node->mutex);	
+	pthread_mutex_lock(&node->mutex);	
+	if (node->state > 0)
+	{
+		pthread_mutex_unlock(&node->mutex);
+		return -1;
+	}
 	node->state = 1; // split
 	pthread_mutex_unlock(&node->mutex);
 //	node->m.unlock();
-	while(node->ref > 0); // spin... wait
+	while(node->ref > 1); // spin... wait
 
 //	prev_node->m.lock();
 	pthread_mutex_lock(&prev_node->mutex);	
@@ -831,15 +835,23 @@ if (print)
 	buffer = node->buffer;
 //	size = meta & 63; // 00111111
 
+	new_node1 = alloc_node();
+
 	size1 = 0;
 
 	int value_len,cur;
 	cur = 0;
+
+	uint64_t k = *((uint64_t*)(buffer+cur));
+
+
 	while(cur < size)
 	{
 		// 8 align
 //		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
-			value_len = *((uint16_t*)(buffer+cur+key_size));
+		if (*((uint64_t*)(buffer+cur)) != k)
+			printf("compaction error\n");		
+		value_len = *((uint16_t*)(buffer+cur+key_size));
 		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
 			memcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
@@ -898,6 +910,12 @@ printf("rehash\n");
 			// rehash later
 //			strcpy(buffer1+size1,buffer+cur,key_size + len_size + value_len);
 			point_entry = find_or_insert_point_entry(buffer+cur,0);
+			if (point_entry == NULL)
+			{
+				printf("point entry NULL error\n");
+				int t;
+				scanf("&t");
+			}
 			point_entry->kv_p = new_node1->buffer+size1;
 			size1+= key_size + len_size + value_len;
 		}

@@ -13,6 +13,8 @@
 #define print 0
 //#define print 0
 
+#define ST 1000
+
 void* thread_function(void* thread_parameter)
 {
 	struct Thread* thread = (struct Thread*)thread_parameter;
@@ -29,8 +31,9 @@ void* thread_function(void* thread_parameter)
 	nl = '\n';
 	int i;
 	int idle=0;
-	int print_limit=1000000,ms=1000;
-	int change_connection;
+	int idle2=0;
+	int print_limit=10000,ms=1000,sleep_limit=100000;
+//	int change_connection;
 	int rv;
 
 //	ms = 0;
@@ -41,8 +44,11 @@ void* thread_function(void* thread_parameter)
 	while(1)
 	{
 //		usleep(1);
-		if (idle >= print_limit)		
+		if (idle >= sleep_limit)		
+		{
 			usleep(idle); // too fast test
+			printf("sleep %d\n",idle);
+		}
 //		if (idle)
 //		printf("check connection\n");// add connection
 		while (!thread->new_connection_queue.empty())
@@ -50,10 +56,12 @@ void* thread_function(void* thread_parameter)
 //			if (idle)
 			printf("new connection\n");
 			connection = (struct Connection*)malloc(sizeof(struct Connection));
-			connection->query.buffer_len = 0;
-			connection->query.buffer_offset = 0;
-			connection->query.cur = 0;
-			connection->query.n32=-1;
+
+			init_query(&connection->query);
+//			connection->query.buffer_len = 0;
+//			connection->query.buffer_offset = 0;
+//			connection->query.cur = 0;
+//			connection->query.n32=-1;
 //			connection->query.buffer = connection->query.buffer_o;
 //			connection.query = connection.buffer;
 //			connection.query = alloc_query();			
@@ -66,32 +74,44 @@ void* thread_function(void* thread_parameter)
 		}
 
 		//-------------------------------------------------------------------
-		if (idle >= print_limit)
-		printf("select connection\n");//select connection
+//		if (idle >= print_limit)i
+//		printf("select connection\n");//select connection
 //		if (connection_list_lterator != connection_list.end())
 //			connection_list_iterator++;
 		if (connection_list_iterator == thread->connection_list.end())
 		{
-			if (idle >= print_limit)
-			printf("list loop\n");
+//			if (idle >= print_limit)
+//			printf("list loop\n");
+			/*
+				if (!idle2)
+					usleep(ST);
+				idle2=0;
+				*/
+
 			connection_list_iterator = thread->connection_list.begin();
 			if (connection_list_iterator == thread->connection_list.end()) // empty
 			{
-				if (idle >= print_limit)
-				printf("no connection\n");
+//				if (idle >= print_limit)
+//				printf("no connection\n");
 //				usleep(idle);
 				if (idle < print_limit)
 //					idle*=2;
 					idle+=ms;					
+
+				if (!idle2)
+					usleep(ST);
+				idle2=0;
+
 				continue;
 			}
 		}
 
 		connection = *connection_list_iterator;
-		change_connection = 0;
+//		change_connection = 0;
 		//---------------------------------------------------------------------
-		if (idle >= print_limit)
-		printf("get query\n");// get query
+//		if (idle >= print_limit)
+//		printf("get query\n");// get query
+#if 0
 //		length = read(connection->socket,connection->query.buffer + connection->query.length,10000-connection->query.length);
 		while(1) // read until fail or end of query
 		{		
@@ -151,7 +171,7 @@ void* thread_function(void* thread_parameter)
 			{
 				if (connection->query.buffer_o[connection->query.cur] == 32 && connection->query.n32 == -1)
 					connection->query.n32 = connection->query.cur;
-				if (connection->query.buffer_o[connection->query.cur] == 0) // not in key
+				if (connection->query.buffer_o[connection->query.cur] == 0 && connection->query.buffer_o[connection->query.cur-1] == '\n') // not in key
 				{
 					if (connection->query.cur - connection->query.n32 <= key_size+1) // if key size is not 8???
 					{
@@ -217,25 +237,84 @@ if (idle >= print_limit)
 		if (parse_query(&connection->query) < 0)
 		{
 			printf("query parse error!!!\n");
-printf("------------------------------------\n");
-		printf("query length %d\n",connection->query.length);
-		int i;
-		for (i=0;i<connection->query.length;i++)
+			printf("------------------------------------\n");
+			printf("query length %d\n",connection->query.length);
+			int i;
+			for (i=0;i<connection->query.length;i++)
+			{
+				printf("[%d]",(unsigned int)connection->query.buffer[i]);
+			}
+	printf("------------------------------------\n");
+			connection->query.length = 0; //initialize connection buffer
+			connection_list_iterator++;
+			if ((rv = write(connection->socket,"error",sizeof("error"))) < 0)
+				printf("wee %d\n",rv);
+			write(connection->socket,&nl,1);
+			continue;
+		}
+#endif
+		int rv;
+		length = read(connection->socket,connection->query.buffer + connection->query.length,QUERY_BUFFER-connection->query.length);
+		/*
+		if (connection->query.length+length >= 23 && connection->query.buffer[23] != 114)
 		{
-			printf("[%d]",(unsigned int)connection->query.buffer[i]);
+			printf("eesfesf\n");
 		}
-printf("------------------------------------\n");
-
-
-		connection->query.length = 0; //initialize connection buffer
-		connection_list_iterator++;
-		if ((rv = write(connection->socket,"error\n",sizeof("error\n"))) < 0)
-			printf("wee %d\n",rv);
-//		write(connection->socket,&nl,1);
-continue;
+		*/
+		if (length == 0) // disconnect
+		{
+//			if (idle)
+//					printf("disconnected %d\n",connection->socket); // unkown bug fix later
+			printf("disconnected\n");
+			connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
+			close(connection->socket);
+//			free(*connection_list_iterator);
+			free(connection);					
+//			change_connection = 1;
+			continue;
+//			break;
 		}
-//		int t;
-//scanf("%d",&t);
+		if (length < 0) // nothing
+		{
+			if (errno == EAGAIN)
+			{
+//				if (idle >= print_limit)
+//					printf("nothing\n");
+//i				printf("nothing %d %d %d\n",connection->query.buffer_offset,connection->query.cur,connection->query.buffer_len);
+				if (idle < print_limit)
+//					idle*= 2;
+					idle+=ms;			
+				connection_list_iterator++; //next connection
+			}
+			else
+				printf("errno %d\n",errno);
+//			change_connection = 1;
+			continue;
+//			break;			
+		}
+		else
+		{
+			connection->query.length+=length;
+		rv = parse_query(&connection->query);
+		if (rv == -1) // error
+		{
+			printf("query parse error\n");
+			connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
+			close(connection->socket);
+			free(connection);					
+			continue;
+		}
+		if (rv == 0) // normal
+		{
+			/*
+			printf("query length %d\n",connection->query.length);
+			int i;
+			for (i=0;i<connection->query.length;i++)
+			{
+				printf("[%d]",(unsigned int)connection->query.buffer[i]);
+			}
+			printf("\n");
+			*/
 		if (process_query(&connection->query,result,&result_len) < 0)
 			printf("query process error!!!\n");
 
@@ -252,19 +331,26 @@ continue;
 //		scanf("%d",&t);
 		if ((rv = write(connection->socket,*result,result_len)) < 0)
 			printf("we %d\n",rv);
-//		write(connection->socket,&nl,1);
+		write(connection->socket,&nl,1);
 //int t;
 //scanf("%d",&t);
 		complete_query(&connection->query);
-if (idle >= print_limit)
-		printf("query complete\n");
+//if (idle >= print_limit)
+//		printf("query complete\n");
 //idle = 1;
 		idle/=2;
 
+		// init query
+		init_query(&connection->query);
+ 
+		}
+		//else need more rv == 1
+
 		connection_list_iterator++;
-}
+		idle2=1;
+//}
 //		connection->query.length = 0; //initialize connection buffer
-//		conneciton->query.buffer_offset
+		}
 	}
 
 	free(result_v);

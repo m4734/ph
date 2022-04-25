@@ -110,7 +110,7 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 	b = (uint64_t)1 << (63 -*continue_len);
 	if (print)
 	printf("key %lx clen %d\n",*((uint64_t*)key_p),*continue_len);
-	for (i=*continue_len;i<64;i++)
+	for (i=*continue_len;i<=64;i++)
 	{
 //		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
 //		b = b >> 1;
@@ -261,8 +261,8 @@ void init_hash()
 		pthread_mutex_init(&point_hash_mutex[i],NULL);
 	}
 
-	range_hash_table_array = (range_hash_entry**)malloc(sizeof(range_hash_entry*)*64);
-	for (i=0;i<64;i++)
+	range_hash_table_array = (range_hash_entry**)malloc(sizeof(range_hash_entry*)*(64+1));
+	for (i=0;i<64+1;i++)
 	{
 		range_hash_table_array[i] = (range_hash_entry*)malloc(sizeof(range_hash_entry)*range_hash_table_size); // OP it will be no hash until 16
 		for (j=0;j<range_hash_table_size;j++)
