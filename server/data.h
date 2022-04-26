@@ -10,6 +10,9 @@
 //#define split_bit (1<<15)
 //#define free_bit (1<14)
 
+#define HEAD_OFFSET 1
+#define TAIL_OFFSET 2
+
 struct Node
 //class Node
 {
@@ -58,7 +61,7 @@ int try_e_lock(unsigned int offset); // when e lock fail
 int inc_ref(unsigned int offset,uint16_t limit);
 void dec_ref(unsigned int offset);
 
-
+Node* offset_to_node(unsigned int offset); // it will be ..
 unsigned int point_to_offset(unsigned char* kv_p);
 
 void delete_kv(unsigned char* kv_p); // e lock needed
@@ -69,4 +72,7 @@ int split(unsigned int offset, unsigned char* prefix, int continue_len);
 int compact(unsigned int offset);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 void print_kv(unsigned char* kv_p);
 int check_size(unsigned int offset,int value_length);
+
+int advance(unsigned char** kv_pp,int* offset,Node* node_p);
+void copy_node(Node* node1,Node* node2);
 

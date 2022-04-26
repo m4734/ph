@@ -32,11 +32,14 @@ void* thread_function(void* thread_parameter)
 	int i;
 	int idle=0;
 	int idle2=0;
+	int idle3=1;
 	int print_limit=10000,ms=1000,sleep_limit=100000;
 //	int change_connection;
 	int rv;
 
 //	ms = 0;
+
+	unsigned char len_string[2];	
 
 	result_v = (unsigned char*)malloc(sizeof(unsigned char)*QUERY_BUFFER);
 	result = &result_v;
@@ -65,6 +68,9 @@ void* thread_function(void* thread_parameter)
 //			connection->query.buffer = connection->query.buffer_o;
 //			connection.query = connection.buffer;
 //			connection.query = alloc_query();			
+			connection->query.node = NULL; // scan setting
+			connection->query.kv_p = NULL;
+			connection->query.offset = 2; // TAIL
 			connection->socket = thread->new_connection_queue.front();
 
 			thread->connection_list.insert(connection_list_iterator,connection);
@@ -89,6 +95,12 @@ void* thread_function(void* thread_parameter)
 				*/
 
 			connection_list_iterator = thread->connection_list.begin();
+			if (false && idle3)
+			{
+				printf("idle\n");
+				usleep(1000*500);
+			}
+			idle3 = 1;
 			if (connection_list_iterator == thread->connection_list.end()) // empty
 			{
 //				if (idle >= print_limit)
@@ -99,7 +111,9 @@ void* thread_function(void* thread_parameter)
 					idle+=ms;					
 
 				if (!idle2)
+				{
 					usleep(ST);
+				}
 				idle2=0;
 
 				continue;
@@ -247,9 +261,16 @@ if (idle >= print_limit)
 	printf("------------------------------------\n");
 			connection->query.length = 0; //initialize connection buffer
 			connection_list_iterator++;
+
+			len_string[0] = 0;
+			len_string[1] = sizeof("error");
+
+			if ((rv = write(connection->socket,len_string,2)) < 0)
+				printf("wee1 %d\n",rv);
+
 			if ((rv = write(connection->socket,"error",sizeof("error"))) < 0)
-				printf("wee %d\n",rv);
-			write(connection->socket,&nl,1);
+				printf("wee2 %d\n",rv);
+//			write(connection->socket,&nl,1);
 			continue;
 		}
 #endif
@@ -268,7 +289,10 @@ if (idle >= print_limit)
 			printf("disconnected\n");
 			connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
 			close(connection->socket);
+//			connection->query.offset = 0;
 //			free(*connection_list_iterator);
+//			free(connection->query.node);			
+			free_query(&connection->query);
 			free(connection);					
 //			change_connection = 1;
 			continue;
@@ -294,19 +318,31 @@ if (idle >= print_limit)
 		}
 		else
 		{
+			/*
+		//test	
+			for (i=0;i<length;i++)
+				printf("[%d]",connection->query.buffer[connection->query.length+i]);
+			printf("\n");
+*/
 			connection->query.length+=length;
+		connection->query.buffer[connection->query.length] = 0;
 		rv = parse_query(&connection->query);
 		if (rv == -1) // error
 		{
 			printf("query parse error\n");
+			printf("length %d\n",connection->query.length);
+			for (i=0;i<connection->query.length;i++)
+				printf("[%d]",connection->query.buffer[i]);
+			printf("\n");
 			connection_list_iterator = thread->connection_list.erase(connection_list_iterator);
 			close(connection->socket);
+			free(connection->query.node);
 			free(connection);					
 			continue;
 		}
 		if (rv == 0) // normal
 		{
-			/*
+/*			
 			printf("query length %d\n",connection->query.length);
 			int i;
 			for (i=0;i<connection->query.length;i++)
@@ -314,7 +350,7 @@ if (idle >= print_limit)
 				printf("[%d]",(unsigned int)connection->query.buffer[i]);
 			}
 			printf("\n");
-			*/
+*/			
 		if (process_query(&connection->query,result,&result_len) < 0)
 			printf("query process error!!!\n");
 
@@ -329,9 +365,15 @@ if (idle >= print_limit)
 		}
 //		int t;
 //		scanf("%d",&t);
+		len_string[0] = result_len/256;
+		len_string[1] = result_len%256;
+
+		if ((rv = write(connection->socket,len_string,2)) < 0)
+			printf("we1 %d\n",rv);
+
 		if ((rv = write(connection->socket,*result,result_len)) < 0)
-			printf("we %d\n",rv);
-		write(connection->socket,&nl,1);
+			printf("we2 %d\n",rv);
+//		write(connection->socket,&nl,1);
 //int t;
 //scanf("%d",&t);
 		complete_query(&connection->query);
@@ -348,6 +390,7 @@ if (idle >= print_limit)
 
 		connection_list_iterator++;
 		idle2=1;
+		idle3=0;
 //}
 //		connection->query.length = 0; //initialize connection buffer
 		}

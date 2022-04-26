@@ -24,7 +24,11 @@ struct Query
 	int op;
 	int key_len,value_len;
 	//------------------------------------------
-	int offset; // node offset - unlock
+	int ref_offset; // node offset - unlock
+	//----------------------------------------- scan/next
+	int offset;
+	void* node;
+	unsigned char* kv_p;
 };
 
 //unsigned char empty[10];// = {"empty"};
@@ -37,3 +41,5 @@ int parse_query(Query* query);
 int process_query(Query* query,unsigned char** result,int* result_len);
 
 void complete_query(Query* query);
+
+void free_query(Query* query);

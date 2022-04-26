@@ -67,7 +67,7 @@ Node* alloc_node()
 		node = node_free_list.front();
 		node_free_list.pop();
 		pthread_mutex_unlock(&alloc_mutex);
-		while(node->ref > 0); //wait		
+//		while(node->ref > 0); //wait		
 		if (print)
 	printf("alloc node %p\n",node); //test
 		return node;
@@ -92,9 +92,12 @@ Node* alloc_node()
 void free_node(Node* node)
 {
 	node->state = 2; // free // without mutex??
-	pthread_mutex_lock(&alloc_mutex);
-	node_free_list.push(node);
-	pthread_mutex_unlock(&alloc_mutex);
+	if (node->ref == 0)
+	{
+		pthread_mutex_lock(&alloc_mutex);
+		node_free_list.push(node);
+		pthread_mutex_unlock(&alloc_mutex);
+	}
 	if (print)
 	printf("free node %p\n",node);
 }
@@ -133,8 +136,8 @@ int data_init()
 	node->state = 0;
 	node->size = 0;
 	node->ref = 0;
-	node->prev_offset = 1;
-	node->next_offset = 2;
+	node->prev_offset = HEAD_OFFSET;
+	node->next_offset = TAIL_OFFSET;
 //	pthread_mutex_init(&node->mutex,NULL);
 	if (print)
 	printf("node 0 %p\n",node);
@@ -147,6 +150,9 @@ int data_init()
 	tail_node->state = 0;
 //	pthread_mutex_init(&head_node->mutex,NULL);
 //	pthread_mutex_init(&tail_node->mutex,NULL);
+
+	inc_ref(HEAD_OFFSET,0);
+	inc_ref(TAIL_OFFSET,0); //don't free these node	
 
 	insert_range_entry((unsigned char*)(&zero),0,calc_offset(node)); // the length is important!!!
 	int zero2=0;
@@ -259,6 +265,12 @@ void dec_ref(Node* node)
 	node->ref--;
 //	node->m.unlock();
 	pthread_mutex_unlock(&node->mutex);	
+	if (node->state == 2 && node->ref == 0)
+	{
+		pthread_mutex_lock(&alloc_mutex);
+		node_free_list.push(node);
+		pthread_mutex_unlock(&alloc_mutex);
+	}
 }
 int inc_ref(unsigned int offset,uint16_t limit)
 {
@@ -268,7 +280,6 @@ void dec_ref(unsigned int offset)
 {
 	return dec_ref(offset_to_node(offset));
 }
-
 
 void print_kv(unsigned char* kv_p)
 {
@@ -932,4 +943,58 @@ printf("rehash\n");
 	return calc_offset(new_node1);
 //	return 0;
 
+}
+
+int advance(unsigned char** kv_pp,int* offset,Node* node_p)
+{
+	uint16_t size;
+	int old_offset,new_offset,inv;
+	while(1)
+	{
+		while (1)
+		{
+			inv = 0;
+			size = *((uint16_t*)(*kv_pp+key_size));
+			if (size & (1 << 15))
+			{
+				inv = 1;
+				size-=(1<<15);
+			}
+			*kv_pp+=size+key_size+len_size;
+			if (*kv_pp >= node_p->buffer+node_p->size)
+				break;
+			if (inv == 0)
+				return 0;
+		}
+
+		old_offset = *offset;
+		while(1)
+		{
+			new_offset = offset_to_node(old_offset)->next_offset;
+			if (new_offset == TAIL_OFFSET)
+			{
+				*offset = TAIL_OFFSET;
+				dec_ref(old_offset);
+				*kv_pp = NULL;
+				return -1;
+			}
+			if (inc_ref(new_offset,0))
+			{
+				copy_node(node_p,offset_to_node(new_offset));
+				break;
+			}
+		}
+		dec_ref(old_offset);
+		*offset = new_offset;
+		*kv_pp = node_p->buffer;
+	}
+	return 0;
+}
+
+void copy_node(Node* node1,Node* node2)
+{
+	pthread_mutex_lock(&node2->mutex);
+	while(node2->ref > 1); // except me
+	pthread_mutex_unlock(&node2->mutex);
+	*node1 = *node2;
 }

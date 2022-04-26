@@ -7,6 +7,7 @@
 #endif
 
 #include <stdio.h> //test
+#include <stdlib.h>
 
 //#define print 0
 #define print 0
@@ -31,8 +32,10 @@ void init_query(Query* query)
 	query->op = 0;
 	query->key_p = NULL;
 	query->value_p = NULL;
-	query->key_len = query->value_len = query->offset = 0;
+	query->key_len = query->value_len=0;//query->offset = 0;
 	query->cur = 0;
+//	query->node = NULL:
+//	query->offset = TAIL_OFFSET; // NOT HERE!!!
 }
 
 int parse_query(Query* query)
@@ -43,13 +46,14 @@ int parse_query(Query* query)
 //insert 4
 //update 5
 //scan 6
+//next 7
 	int i;
 	if (print)
 		printf("parse\n");
 	if (query->op == 0)
 	{
-		if (query->length < 7)
-			return 1;
+//		if (query->length < 2)
+//			return 1;
 	if (query->buffer[0] == 'g' && query->buffer[1] == 'e' && query->buffer[2] == 't')
 		query->op = 1;
 	else if (query->buffer[0] == 'l' && query->buffer[1] == 'o' && query->buffer[2] == 'o' && query->buffer[3] == 'k' && query->buffer[4] == 'u' && query->buffer[5] == 'p')
@@ -66,8 +70,17 @@ int parse_query(Query* query)
 		query->op = 5;
 	else if (query->buffer[0] == 's' && query->buffer[1] == 'c' && query->buffer[2] == 'a' && query->buffer[3] == 'n')
 		query->op = 6;
+	else if (query->buffer[0] == 'n' && query->buffer[1] == 'e' && query->buffer[2] == 'x' && query->buffer[3] == 't')
+	{
+		query->op = 7;
+		return 0;
+	}
 	else
+	{
+		if (query->length < 7)
+			return 1;
 		return -1;
+	}
 	for (i=0;i<query->length;i++)
 	{
 		if (query->buffer[i] == ' ')
@@ -76,7 +89,10 @@ int parse_query(Query* query)
 	if (query->buffer[i] == ' ')
 		query->cur = i+1;
 	else
-		return -1;
+	{
+		query->op = 0;
+		return 1;
+	}
 	}
 	if (query->key_p == NULL)
 	{
@@ -85,7 +101,7 @@ int parse_query(Query* query)
 		query->key_p = query->buffer+query->cur;
 		query->key_len = 8;
 
-		if (query->op <= 2)
+		if (query->op != 3 && query->op != 4 && query->op != 5)
 			return 0;
 
 		query->cur+=8+1;
@@ -211,7 +227,7 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 					dec_ref(offset);
 					continue;
 				}
-				query->offset = offset; // lock ref
+				query->ref_offset = offset; // lock ref
 
 //				print_kv(kv_p);	
 
@@ -451,6 +467,120 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 
 }
 
+int scan_query(Query* query,unsigned char** result,int* result_len)
+{
+	*result = empty;
+	*result_len = empty_len;
+
+	point_hash_entry* entry;
+	range_hash_entry* range_entry;
+	unsigned char* kv_p;
+	unsigned int offset;
+	int continue_len;
+
+	if (query->node == NULL)
+		query->node = (Node*)malloc(sizeof(Node));
+
+	if (query->offset != TAIL_OFFSET)
+		dec_ref(query->offset);
+
+	Node* node = (Node*)query->node;
+
+	offset = 0;
+	entry = find_or_insert_point_entry(query->key_p,0); // don't create
+	if (entry != NULL)
+	{
+		while(1)
+		{
+			kv_p = (unsigned char*)entry->kv_p;
+			if (kv_p == NULL)
+				break;
+			offset = point_to_offset(kv_p);
+
+			if (inc_ref(offset,0))
+			{
+				if (kv_p != (unsigned char*)entry->kv_p)
+				{
+					dec_ref(offset);
+					continue;
+				}
+
+			copy_node(node,offset_to_node(offset));
+		
+			query->kv_p = node->buffer;
+			query->offset = offset;
+
+			while (*((uint64_t*)query->kv_p) < *((uint64_t*)query->key_p))
+			{
+				if (advance(&(query->kv_p),&(query->offset),node) < 0)
+					return 0;
+			}
+
+			return 0;
+			}
+
+		}
+	}
+	continue_len = 0;
+	while(1)
+	{
+			range_entry = find_range_entry(query->key_p,&continue_len);
+			if (range_entry == NULL)
+				continue;
+			offset = range_entry->offset;
+		if (inc_ref(offset,0))
+		{
+			if (offset != range_entry->offset)
+			{
+				dec_ref(offset);
+				offset = 0;
+				continue;
+			}
+//			*(query->node) = *(offset_to_node(offset));
+			copy_node(node,offset_to_node(offset));
+		
+			query->kv_p = node->buffer;
+			query->offset = offset;
+
+			while (*((uint64_t*)query->kv_p) < *((uint64_t*)query->key_p))
+			{
+				if (advance(&(query->kv_p),&(query->offset),node) < 0)
+					return 0;
+			}
+
+			return 0;
+		}
+//		dec_ref(offset);
+
+	}
+	printf("never should come here\b");
+	return 0;
+}
+
+int next_query(Query* query,unsigned char** result,int* result_len)
+{
+	if (query->kv_p == NULL)
+	{
+		*result = empty;
+		*result_len = empty_len;
+		return 0;
+	}
+	*result_len = *((uint16_t*)(query->kv_p+key_size));
+	if ((*result_len & (1 << 15)) != 0) // deleted
+		advance(&(query->kv_p),&(query->offset),(Node*)query->node);	
+
+	if (query->kv_p == NULL)
+	{
+		*result = empty;
+		*result_len = empty_len;
+		return 0;
+	}
+	*result = query->kv_p; // we need all kv_p
+	*result_len+=8+2;
+
+	advance(&(query->kv_p),&(query->offset),(Node*)query->node);
+	return 0;
+}
 
 int process_query(Query* query,unsigned char** result,int* result_len)
 {
@@ -489,7 +619,11 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 	*/
 	else if (query->op == 6) // scan
 	{
-		range_hash_entry* range_entry;
+		scan_query(query,result,result_len);
+	}
+	else if (query->op == 7) // next
+	{
+		next_query(query,result,result_len);
 	}
 	else
 		return -1;
@@ -498,10 +632,10 @@ int process_query(Query* query,unsigned char** result,int* result_len)
 
 void complete_query(Query* query)
 {
-	if (query->op == 0 || query->op == 1) // get // lookup
+	if (query->op == 1 || query->op == 1) // get // lookup
 	{
 //				s_unlock(query->offset);
-		dec_ref(query->offset);				
+		dec_ref(query->ref_offset);				
 	}
 	/*
 	else if (query->op == 1) // lookup
@@ -526,8 +660,18 @@ void complete_query(Query* query)
 	else if (query->op == 6) // scan
 	{
 	}
+	else if (query->op == 7)
+	{
+	}
 	else
 		printf("complete query error\n");
 	query->op = -1;
 
+}
+
+void free_query(Query* query)
+{
+	if (query->offset > TAIL_OFFSET)
+		dec_ref(query->offset);
+	free(query->node);
 }
