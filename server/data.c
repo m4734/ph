@@ -3,9 +3,13 @@
 
 #include <stdio.h> //test
 #include <string.h>
+#include <stdlib.h> // malloc
+#include <x86intrin.h> // mm fence
 
 #include "data.h"
 #include "hash.h"
+
+#include "query.h"
 
 //extern unsigned long long int pmem_size;
 //extern char pmem_file[100];
@@ -91,7 +95,9 @@ Node* alloc_node()
 }
 void free_node(Node* node)
 {
+	pthread_mutex_lock(&node->mutex);
 	node->state = 2; // free // without mutex??
+	pthread_mutex_unlock(&node->mutex);
 	if (node->ref == 0)
 	{
 		pthread_mutex_lock(&alloc_mutex);
@@ -136,6 +142,7 @@ int data_init()
 	node->state = 0;
 	node->size = 0;
 	node->ref = 0;
+	node->scan_list = NULL;
 	node->prev_offset = HEAD_OFFSET;
 	node->next_offset = TAIL_OFFSET;
 //	pthread_mutex_init(&node->mutex,NULL);
@@ -146,8 +153,10 @@ int data_init()
 	tail_node->prev_offset = 3;
 	head_node->ref = 0;
 	head_node->state = 0;
+	head_node->scan_list = NULL;
 	tail_node->ref = 0;
 	tail_node->state = 0;
+	tail_node->scan_list = NULL;
 //	pthread_mutex_init(&head_node->mutex,NULL);
 //	pthread_mutex_init(&tail_node->mutex,NULL);
 
@@ -251,6 +260,11 @@ int inc_ref(Node* node,uint16_t limit)
 
 		return 0;
 	}
+	if (node->state >= 2)
+	{
+		while(1)
+		printf("fkenslfksenf");
+	}
 	node->ref++;
 //	node->m.unlock();
 	pthread_mutex_unlock(&node->mutex);	
@@ -262,6 +276,12 @@ void dec_ref(Node* node)
 	printf("dec_ref\n");
 //	node->m.lock();
 	pthread_mutex_lock(&node->mutex);	
+	if (node->ref == 0)
+	{
+		printf("ref error\n");
+		int t;
+		scanf("%d",&t);
+	}
 	node->ref--;
 //	node->m.unlock();
 	pthread_mutex_unlock(&node->mutex);	
@@ -279,6 +299,39 @@ int inc_ref(unsigned int offset,uint16_t limit)
 void dec_ref(unsigned int offset)
 {
 	return dec_ref(offset_to_node(offset));
+}
+
+int try_hard_lock(Node* node)
+{
+	pthread_mutex_lock(&node->mutex);
+	if (node->state > 0)
+		return 0;
+	while(node->ref>0);
+	return 1;
+}
+void hard_unlock(Node* node)
+{
+	pthread_mutex_unlock(&node->mutex);
+}
+
+int try_hard_lock(unsigned int offset)
+{
+	return try_hard_lock(offset_to_node(offset));
+}
+
+void hard_unlock(unsigned int offset)
+{
+	hard_unlock(offset_to_node(offset));
+}
+
+void soft_lock(Node* node)
+{
+	pthread_mutex_lock(&node->mutex);
+}
+
+void soft_lock(unsigned int offset)
+{
+	soft_lock(offset_to_node(offset));
 }
 
 void print_kv(unsigned char* kv_p)
@@ -336,6 +389,7 @@ int check_size(unsigned int offset,int value_length)
 	if (print)
 		printf("check_size\n");
 	int ns;
+	uint16_t new_size,vl16;
 	Node* node = offset_to_node(offset);
 	pthread_mutex_lock(&node->mutex);
 	if (node->state > 0)
@@ -351,9 +405,20 @@ int check_size(unsigned int offset,int value_length)
 	}
 //	node->ref++;
 	ns = node->size;
-	node->size+=key_size+len_size+value_length;
-	*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
+	new_size = node->size + key_size+len_size+value_length;
 	// fence and flush?
+	if (!USE_DRAM)
+	{
+//		*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
+		vl16 = value_length | (1 << 15);		
+		pmem_memcpy(node->buffer+ns+key_size,&vl16,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+		pmem_memcpy((void*)&node->size,&new_size,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+	}
+	else
+		node->size = new_size;
+
 	pthread_mutex_unlock(&node->mutex);	
 	if (print)
 	printf("inc ref - insert\n");
@@ -367,6 +432,7 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 	printf("insert kv offset %u\n",offset);
 	Node* node;
 	unsigned char* kv_p;
+	uint16_t vl16 = value_length;
 
 	node = offset_to_node(offset); 
 	if (print)
@@ -378,12 +444,29 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 		return NULL;
 	}
 	*/
-	*(uint64_t*)(node->buffer + old_size) = *((uint64_t*)key);
-	int i;
-	for (i=0;i<value_length;i++)
-		node->buffer[old_size+key_size+len_size+i] = value[i];
+	if (!USE_DRAM)
+	{
+		pmem_memcpy(node->buffer + old_size,key,sizeof(uint64_t),PMEM_F_MEM_NONTEMPORAL);
+		pmem_memcpy(node->buffer + old_size + key_size + len_size, value, value_length, PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+		pmem_memcpy(node->buffer + old_size + key_size,&vl16,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+	}
+	else
+	{
+		*(uint64_t*)(node->buffer + old_size) = *((uint64_t*)key);
+		/*
+		int i;
+		for (i=0;i<value_length;i++)
+			node->buffer[old_size+key_size+len_size+i] = value[i];
+			*/
+		memcpy(node->buffer + old_size + key_size + len_size, value, value_length);
+		*((uint16_t*)(node->buffer + old_size + key_size)) = vl16;
+	}
 //fence and flush
-	*(uint16_t*)(node->buffer + old_size + key_size) = value_length;
+//fence
+//	*(uint16_t*)(node->buffer + old_size + key_size) = value_length;
+//fence flush
 	kv_p = node->buffer + old_size;
 //	node->size += key_size + len_size + value_length;
 	if (print)
@@ -392,6 +475,43 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 	return kv_p;
 }
 
+void move_scan_list(Node* node_old,Node* node_new)
+{
+	if (node_old->scan_list == NULL)
+	{
+		node_new->scan_list = NULL;
+		return;
+	}
+	Scan_list* sl;
+	Scan_list** slp;
+	int old_offset,new_offset;
+	Query* query;
+	old_offset = point_to_offset((unsigned char*)node_old);
+	new_offset = point_to_offset((unsigned char*)node_new);
+	sl = node_old->scan_list;
+	slp = &(node_old->scan_list);
+	while(sl)
+	{
+		query = (Query*)(sl->query);
+		pthread_mutex_lock(&query->scan_mutex);
+		if (query->scan_offset == old_offset)
+		{
+			query->scan_offset = new_offset;
+			pthread_mutex_unlock(&query->scan_mutex);
+			slp = &(sl->next);
+			sl = sl->next;
+		}
+		else
+		{
+			pthread_mutex_unlock(&query->scan_mutex);
+			printf("abandoned scan entry??\n");
+			*slp = sl->next;
+			free(sl);
+			sl = *slp;
+		}
+	}
+	node_new->scan_list = node_old->scan_list;
+}
 // 1 prev s lock / e lock / next s lock
 // 2 copy to new1 new2
 // 3 link
@@ -431,13 +551,20 @@ if (print)
 	if (node->state > 0)
 	{
 		pthread_mutex_unlock(&node->mutex);
+//		printf("ref1 %d %d %d\n",offset,node->state,node->ref);
 		return -1;
 	}
 	node->state = 1; // split
 	pthread_mutex_unlock(&node->mutex);
 //	node->m.unlock();
 	while(node->ref > 1); // spin... wait except me
-
+/*
+	if (node->ref > 1) // read may
+	{
+		while(1)
+			printf("xxxxxx");
+	}
+	*/
 // may not need lock
 //	prev_node->m.lock();
 	pthread_mutex_lock(&prev_node->mutex);	
@@ -453,7 +580,7 @@ if (print)
 			node->state = 0;
 //			node->m.unlock();
 			pthread_mutex_unlock(&node->mutex);
-
+//printf("ref2 %d\n",node->prev_offset);
 			return -1; // failed
 		}
 //			prev_node->m.unlock();
@@ -475,7 +602,7 @@ if (print)
 			node->state = 0;
 //			node->m.unlock();
 			pthread_mutex_unlock(&node->mutex);
-
+//printf("ref3 %d\n",node->next_offset);
 			return -1;//failed
 		}
 //			next_node->m.unlock();
@@ -566,10 +693,58 @@ if (print)
 	//init node meta
 	if (print)
 	printf("nn1 %p nn2 %p next %p prev %p\n",new_node1,new_node2,next_node,prev_node);
+	if (!USE_DRAM)
+	{
+		struct Node_meta nm;
+	nm.state = 0; // 
+	nm.ref = 0;
+	nm.size = size1;
+	nm.next_offset = calc_offset(new_node2);
+	nm.prev_offset = node->prev_offset;
+
+	pmem_memcpy(new_node1+sizeof(pthread_mutex_t),&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy(new_node1->buffer,buffer1,size1,PMEM_F_MEM_NONTEMPORAL);
+
+	nm.state = 0; // 
+	nm.ref = 0;
+	nm.size = size2;
+	nm.next_offset = node->next_offset;
+	nm.prev_offset = calc_offset(new_node1);
+
+	pmem_memcpy(new_node2+sizeof(pthread_mutex_t),&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy(new_node2->buffer,buffer2,size2,PMEM_F_MEM_NONTEMPORAL);
+
+	unsigned int to;
+	to = calc_offset(new_node2);
+	pmem_memcpy(&next_node->prev_offset,&to,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+//	next_node->prev_offset = calc_offset(new_node2);
+
+	// flush
+	
+	_mm_sfence();
+	
+	to = calc_offset(new_node1);
+	pmem_memcpy(&prev_node->next_offset,&to,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+
+	_mm_sfence();
+	// no fence?
+//	prev_node->next_offset = calc_offset(new_node1);
+
+	// flush
+
+	new_node1->scan_list = NULL;
+
+	move_scan_list(node,new_node2); // i don't want to do this
+
+	}
+	else
+	{
 	new_node1->state = 0; // 
 	new_node1->ref = 0;
+	new_node1->scan_list = NULL;
 	new_node2->state = 0; // 
 	new_node2->ref = 0;
+	new_node2->scan_list = NULL;
 //	pthread_mutex_init(&new_node1->mutex,NULL);
 //	pthread_mutex_init(&new_node2->mutex,NULL);
 
@@ -595,6 +770,9 @@ if (print)
 
 	// flush
 
+
+	move_scan_list(node,new_node2);
+	}
 //	s_unlock(prev_node);
 //	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
@@ -723,6 +901,8 @@ printf("rehash\n");
 			if (point_entry == NULL)
 			{
 				printf("eeererereee333333333------------\n");
+			point_entry = find_or_insert_point_entry(buffer+cur,0);
+
 						scanf("%d",&i);
 
 			}
@@ -781,7 +961,7 @@ scanf("%d",&t);
 
 
 	prev_node = offset_to_node(node->prev_offset);
-		next_node = offset_to_node(node->next_offset);
+	next_node = offset_to_node(node->next_offset);
 	
 		//------------------------------------------------
 
@@ -789,6 +969,8 @@ scanf("%d",&t);
 	if (node->state > 0)
 	{
 		pthread_mutex_unlock(&node->mutex);
+//		printf("ref4 %d\n",offset);
+
 		return -1;
 	}
 	node->state = 1; // split
@@ -810,6 +992,7 @@ scanf("%d",&t);
 			node->state = 0;
 //			node->m.unlock();
 			pthread_mutex_unlock(&node->mutex);
+//		printf("ref5 %d\n",node->prev_offset);
 
 			return -1; // failed
 		}
@@ -832,6 +1015,7 @@ scanf("%d",&t);
 			node->state = 0;
 //			node->m.unlock();
 			pthread_mutex_unlock(&node->mutex);
+//		printf("ref6 %d\n",node->next_offset);
 
 			return -1;//failed
 		}
@@ -853,15 +1037,15 @@ if (print)
 	int value_len,cur;
 	cur = 0;
 
-	uint64_t k = *((uint64_t*)(buffer+cur));
+//	uint64_t k = *((uint64_t*)(buffer+cur));
 
 
 	while(cur < size)
 	{
 		// 8 align
 //		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
-		if (*((uint64_t*)(buffer+cur)) != k)
-			printf("compaction error\n");		
+//		if (*((uint64_t*)(buffer+cur)) != k)
+//			printf("compaction error\n");		
 		value_len = *((uint16_t*)(buffer+cur+key_size));
 		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
@@ -880,6 +1064,39 @@ if (print)
 	if (size2 + entry_size < NODE_BUFFER)
 		init_entry(buffer2 + size2*entry_size);
 */
+	if (!USE_DRAM)
+	{
+		Node_meta nm;
+	//init node meta
+//	pthread_mutex_init(&new_node1->mutex,NULL);
+
+	nm.state = 0;
+	nm.ref = 0;
+	nm.size =size1;
+	nm.next_offset = node->next_offset;
+	nm.prev_offset = node->prev_offset;
+
+	pmem_memcpy(new_node1+sizeof(pthread_mutex_t),&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+
+	pmem_memcpy(new_node1->buffer, buffer1, size1, PMEM_F_MEM_NONTEMPORAL);
+
+	int to;
+	to = calc_offset(new_node1);
+	pmem_memcpy(&next_node->prev_offset,&to,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+
+	_mm_sfence();
+	// flush
+	//
+	to = calc_offset(new_node1);
+	pmem_memcpy(&prev_node->next_offset,&to,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+
+	_mm_sfence();
+	// flush
+	move_scan_list(node,new_node1);
+
+	}
+	else
+	{
 	//init node meta
 	new_node1->state = 0; // ??
 	new_node1->ref = 0;
@@ -899,6 +1116,8 @@ if (print)
 	prev_node->next_offset = calc_offset(new_node1);
 
 	// flush
+	move_scan_list(node,new_node1);
+	}
 
 //	s_unlock(prev_node);
 //	s_unlock(next_node);
@@ -944,7 +1163,7 @@ printf("rehash\n");
 //	return 0;
 
 }
-
+#if 0
 int advance(unsigned char** kv_pp,int* offset,Node* node_p)
 {
 	uint16_t size;
@@ -990,11 +1209,192 @@ int advance(unsigned char** kv_pp,int* offset,Node* node_p)
 	}
 	return 0;
 }
+#endif
 
+int advance_offset(Query* query)
+{
+	int old_offset,new_offset,inv;
+	Node* node;
+	Node* next_node;
+
+	pthread_mutex_lock(&query->scan_mutex);
+
+	old_offset = query->scan_offset;
+	while(1)
+	{
+		node = offset_to_node(old_offset);
+			/*
+			if (inc_ref(new_offset,0))
+			{
+				copy_node(node_p,offset_to_node(new_offset));
+				break;
+			}
+			*/
+
+		pthread_mutex_lock(&node->mutex);
+		if (node->state > 0)
+		{
+			pthread_mutex_unlock(&node->mutex);
+			continue;
+		}
+
+		new_offset = node->next_offset;
+		if (new_offset == TAIL_OFFSET)
+		{
+			delete_scan_entry(old_offset,query);
+			pthread_mutex_unlock(&node->mutex);
+			query->scan_offset = TAIL_OFFSET;
+//				dec_ref(old_offset);
+//				*kv_pp = NULL;
+			pthread_mutex_unlock(&query->scan_mutex);		
+			return -1;
+		}
+
+		next_node = offset_to_node(new_offset);
+
+		pthread_mutex_lock(&next_node->mutex);
+
+		if (next_node->state > 0)
+		{
+			pthread_mutex_unlock(&next_node->mutex);
+			pthread_mutex_unlock(&node->mutex);
+			continue;
+		}
+		break;
+	}
+
+	/*
+	sl = (Scan_list)malloc(sizeof(Scan_list));
+	sl->query = query;
+	sl->next = next_node->scan_list;
+	next_node->scan_list = sl;
+	*/
+
+	Scan_list* sl;
+	Scan_list** slp;
+	//move scan list
+	sl = node->scan_list;
+	slp = &(node->scan_list);
+	while(sl)
+	{
+		if (sl->query == query)
+		{
+			*slp = sl->next;
+			break;
+		}
+		slp = &(sl->next);
+		sl = sl->next;
+	}
+	pthread_mutex_unlock(&node->mutex);
+
+	sl->next = next_node->scan_list;
+	next_node->scan_list = sl;
+
+
+	next_node->state = 1; // not split it is copy ....
+//	insert_scan_list(next_node,query);
+	pthread_mutex_unlock(&next_node->mutex);
+
+	while(next_node->ref > 0); // remove insert
+	*((Node*)query->node) = *next_node; // copy_node
+
+
+	pthread_mutex_lock(&next_node->mutex);
+	next_node->state = 0; // not split it is copy ....
+	pthread_mutex_unlock(&next_node->mutex);
+
+
+//		dec_ref(old_offset);
+		
+//		dec_ref(new_offset);		
+	query->scan_offset = new_offset;
+//		*kv_pp = node_p->buffer;
+	pthread_mutex_unlock(&query->scan_mutex);		
+	return 0;
+}
+
+
+int advance_offset(void* query)
+{
+	return advance_offset((Query*)query);
+}
+
+/*
 void copy_node(Node* node1,Node* node2)
 {
 	pthread_mutex_lock(&node2->mutex);
 	while(node2->ref > 1); // except me
-	pthread_mutex_unlock(&node2->mutex);
 	*node1 = *node2;
+	pthread_mutex_unlock(&node2->mutex);
+}
+*/
+void sort_node(Node* node,int* sorted_index,int* max)
+{
+	unsigned char* kv;
+	uint16_t v_size;
+	kv = node->buffer;
+	*max = 0;
+	while (kv < node->buffer + node->size)
+	{
+		v_size = *((uint16_t*)(kv+key_size));
+		if (v_size & (1 << 15))
+			v_size-=(1<<15);
+		else
+			(sorted_index)[(*max)++] = kv-node->buffer;
+		kv+=key_size+len_size+v_size;
+	}
+
+	// sort
+	int i,j,t;
+	for (i=0;i<*max;i++)
+	{
+		for (j=i+1;j<*max;j++)
+		{
+			if (*((uint64_t*)(node->buffer+(sorted_index)[i])) > *((uint64_t*)(node->buffer+(sorted_index)[j])))
+			{
+				t = (sorted_index)[i];
+				(sorted_index)[i] = (sorted_index)[j];
+				(sorted_index)[j] = t;
+			}
+		}
+	}	
+}
+
+void insert_scan_list(Node* node,void* query)
+{
+	Scan_list* sl;
+	sl = (Scan_list*)malloc(sizeof(Scan_list));
+	sl->query = query;
+	sl->next = node->scan_list;
+	node->scan_list = sl;
+}
+
+void delete_scan_entry(unsigned int scan_offset,void* query)
+{
+	Node* node;
+	Scan_list* sl;
+	Scan_list** slp;
+//	Query* query_p;
+//	query_p = (Query*)query;
+//	pthread_mutex_lock(&query_p->scan_mutex);
+	node = offset_to_node(scan_offset);
+//	pthread_mutex_lock(&node->mutex);
+	sl = node->scan_list;
+	slp = &(node->scan_list);
+	while(sl != NULL)
+	{
+		if (sl->query == query)
+		{
+
+			*slp = sl->next;
+			free(sl);
+			break;
+		}
+		slp = &(sl->next);
+		sl = sl->next;
+	}
+
+//	pthread_mutex_unlock(&node->mutex);
+//	pthread_mutex_unlock(&query_p->scan_mutex);
+
 }

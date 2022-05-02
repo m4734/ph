@@ -6,12 +6,19 @@
 #include <sys/mman.h>
 
 #include "global.h"
+//#include "query.h"
 
 //#define split_bit (1<<15)
 //#define free_bit (1<14)
 
 #define HEAD_OFFSET 1
 #define TAIL_OFFSET 2
+
+struct Scan_list
+{
+	void* query; //need offset and mutex
+	struct Scan_list* next;
+};
 
 struct Node
 //class Node
@@ -29,12 +36,30 @@ struct Node
 	volatile uint8_t state;
 	volatile uint8_t ref;	
 	volatile uint16_t size; //size // needed cas but replaced to double check...
+
 	unsigned int prev_offset; // should be removed
 	unsigned int next_offset; //	2^32
+
+	Scan_list* scan_list;
+
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
 
 // 8byte atomic --- 8byte align
+
+struct Node_meta
+{
+	pthread_mutex_t mutex;	
+	uint8_t state;
+	uint8_t ref;	
+	uint16_t size; //size // needed cas but replaced to double check...
+
+	unsigned int prev_offset; // should be removed
+	unsigned int next_offset; //	2^32
+
+//	Scan_list* scan_list;
+};
+
 
 
 /*
@@ -60,6 +85,9 @@ int try_s_lock(unsigned int offset); // it will s lock??? // when e lock fail
 int try_e_lock(unsigned int offset); // when e lock fail
 int inc_ref(unsigned int offset,uint16_t limit);
 void dec_ref(unsigned int offset);
+int try_hard_lock(unsigned int offset);
+void hard_unlock(unsigned int offset);
+void soft_lock(unsigned int offset);
 
 Node* offset_to_node(unsigned int offset); // it will be ..
 unsigned int point_to_offset(unsigned char* kv_p);
@@ -73,6 +101,10 @@ int compact(unsigned int offset);//, struct range_hash_entry* range_entry);//,un
 void print_kv(unsigned char* kv_p);
 int check_size(unsigned int offset,int value_length);
 
-int advance(unsigned char** kv_pp,int* offset,Node* node_p);
-void copy_node(Node* node1,Node* node2);
+//int advance(unsigned char** kv_pp,int* offset,Node* node_p);
+int advance_offset(void* query);
+//void copy_node(Node* node1,Node* node2);
+void sort_node(Node* node,int* sorted_index,int* max);
+void insert_scan_list(Node* node,void* query);
+void delete_scan_entry(unsigned int scan_offset,void* query);
 

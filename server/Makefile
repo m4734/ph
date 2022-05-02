@@ -11,7 +11,7 @@ thread.o: thread.h thread.c query.h global.h
 query.o: query.h data.h hash.h query.c
 	g++ -c -g -o query.o query.c
 
-data.o: data.h hash.h data.c global.h
+data.o: data.h hash.h data.c global.h query.h
 	g++ -c -g -o data.o data.c
 
 hash.o: global.h hash.h hash.c

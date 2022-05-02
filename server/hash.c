@@ -57,18 +57,39 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 	printf("not found\n");
 	if (insert) // need to check double - CAS or advance
 	{
-		if (ppep->kv_p == NULL)
+//		if (ppep->kv_p == NULL)
+		if (ppep->kv_p == (unsigned char*)ppep) // init
 		{
 //			ppep->kv_p = update; //CAS
 			pthread_mutex_lock(&point_hash_mutex[hash]);
-			if (ppep->kv_p == NULL)
-			{			
+			if (ppep->kv_p == (unsigned char*)ppep)
+			{		
+				ppep->kv_p = NULL;
 				*((uint64_t*)ppep->key) = *((uint64_t*)key_p);
 				pthread_mutex_unlock(&point_hash_mutex[hash]);
 				return ppep;
 			}
 			pthread_mutex_unlock(&point_hash_mutex[hash]);
 		}
+
+		// need CAS
+		while(ppep->next)
+		{
+			ppep = ppep->next;	
+			if (*((uint64_t*)key_p) == *((uint64_t*)ppep->key))
+				return ppep;
+		}
+		pthread_mutex_lock(&point_hash_mutex[hash]);
+		while(ppep->next)
+		{
+			ppep = ppep->next;
+			if (*((uint64_t*)key_p) == *((uint64_t*)ppep->key))
+			{
+				pthread_mutex_unlock(&point_hash_mutex[hash]);
+				return ppep;
+			}
+		}
+
 		struct point_hash_entry* new_entry;
 		new_entry = (point_hash_entry*)malloc(sizeof(point_hash_entry));
 		*((uint64_t*)new_entry->key) = *((uint64_t*)key_p);
@@ -76,12 +97,6 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 //		new_entry->kv_p = update;
 		new_entry->next = NULL;
 
-		// need CAS
-		while(ppep->next)
-			ppep = ppep->next;	
-		pthread_mutex_lock(&point_hash_mutex[hash]);
-		while(ppep->next)
-			ppep = ppep->next;
 		ppep->next = new_entry;
 
 		pthread_mutex_unlock(&point_hash_mutex[hash]);
@@ -103,9 +118,15 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 
 //	for (i=0;i<*continue_len;i++)
 //		b=(b<<1)+1;
+//
+	if (*continue_len < 64)
+	{
 	b = ((uint64_t)1 << *continue_len) -1;
 	b = b << (64-*continue_len);
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
+	}
+	else
+		*((uint64_t*)prefix) = (*((uint64_t*)key_p));
 
 	b = (uint64_t)1 << (63 -*continue_len);
 	if (print)
@@ -168,6 +189,9 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 // there will be no double because it use e lock on the split node but still need cas
 void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // need to check double
 {
+//	if (len >= 64)
+//		return;
+
 	unsigned char prefix[8] = {0,};
 	int i;
 	unsigned int hash;
@@ -180,10 +204,16 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 		b=(b<<1)+1;
 		*/
 
+	if (len < 64)
+	{
 	b = ((uint64_t)1 << len)-1;
 	b = b << (64-len);
 	
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
+	}
+	else
+		*((uint64_t*)prefix) = (*((uint64_t*)key_p));
+
 
 if (print)
 	printf("key_p %lx range %lx len %d offset %d insert\n",*((uint64_t*)key_p),*((uint64_t*)prefix),len,offset);	
@@ -256,7 +286,8 @@ void init_hash()
 	point_hash_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*point_hash_table_size);
 	for (i=0;i<point_hash_table_size;i++)
 	{
-		point_hash_table[i].kv_p = NULL;
+//		point_hash_table[i].kv_p = NULL;
+		point_hash_table[i].kv_p = (unsigned char*)&(point_hash_table[i]);		
 		point_hash_table[i].next = NULL;
 		pthread_mutex_init(&point_hash_mutex[i],NULL);
 	}

@@ -61,6 +61,7 @@ void* thread_function(void* thread_parameter)
 			connection = (struct Connection*)malloc(sizeof(struct Connection));
 
 			init_query(&connection->query);
+			reset_query(&connection->query);
 //			connection->query.buffer_len = 0;
 //			connection->query.buffer_offset = 0;
 //			connection->query.cur = 0;
@@ -68,9 +69,10 @@ void* thread_function(void* thread_parameter)
 //			connection->query.buffer = connection->query.buffer_o;
 //			connection.query = connection.buffer;
 //			connection.query = alloc_query();			
-			connection->query.node = NULL; // scan setting
-			connection->query.kv_p = NULL;
-			connection->query.offset = 2; // TAIL
+//			connection->query.node = NULL; // scan setting
+//			connection->query.kv_p = NULL;
+//			connection->query.offset = 2; // TAIL
+//			pthread_mutex_init(&connection->query.scan_mutex);
 			connection->socket = thread->new_connection_queue.front();
 
 			thread->connection_list.insert(connection_list_iterator,connection);
@@ -383,7 +385,7 @@ if (idle >= print_limit)
 		idle/=2;
 
 		// init query
-		init_query(&connection->query);
+		reset_query(&connection->query);
  
 		}
 		//else need more rv == 1

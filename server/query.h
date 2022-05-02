@@ -2,6 +2,8 @@
 
 #define QUERY_BUFFER 10000
 
+#include <pthread.h>
+
 struct Query
 {
 	unsigned char buffer[QUERY_BUFFER+10];
@@ -24,17 +26,23 @@ struct Query
 	int op;
 	int key_len,value_len;
 	//------------------------------------------
-	int ref_offset; // node offset - unlock
+	unsigned int ref_offset; // node offset - unlock
 	//----------------------------------------- scan/next
-	int offset;
+	int scan_offset; // volatile???
 	void* node;
-	unsigned char* kv_p;
+//	unsigned char* kv_p;
+
+	int sorted_index[100];
+	int index_num,index_max;
+
+	pthread_mutex_t scan_mutex; // offset
 };
 
 //unsigned char empty[10];// = {"empty"};
 //int empty_len;// = 5;
 
 void init_query(Query* query);
+void reset_query(Query* query);
 
 int parse_query(Query* query);
 
