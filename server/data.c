@@ -167,6 +167,15 @@ int data_init()
 	int zero2=0;
 	if (find_range_entry((unsigned char*)(&zero),&zero2) == NULL)
 		printf("range error\n");
+
+	if (USE_DRAM)
+		printf("USE_DRAM\n");
+	else
+		printf("USE_PM\n");
+	printf("size of node %ld\n",sizeof(Node));
+
+
+
 	return 0;
 }
 
