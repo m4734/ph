@@ -22,7 +22,7 @@ extern int connection_per_thread;
 extern int total_connection;
 extern int port;
 
-#define USE_DRAM 1
+#define USE_DRAM 0
 
 // hash
 
