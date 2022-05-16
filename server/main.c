@@ -88,7 +88,7 @@ void run()
 		return;
 	}
 
-	if (setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, &op, sizeof(op)) < 0)
+	if (setsockopt(server_socket, IPPROTO_TCP, /*TCP_QUICKACK*/TCP_NODELAY, &op, sizeof(op)) < 0)
 	{
 		printf("%d\n",server_socket);
 		fprintf(stderr,"sockopt error %d\n",errno);

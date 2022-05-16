@@ -711,7 +711,7 @@ if (print)
 	nm.next_offset = calc_offset(new_node2);
 	nm.prev_offset = node->prev_offset;
 
-	pmem_memcpy(new_node1+sizeof(pthread_mutex_t),&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy((unsigned char*)new_node1+sizeof(pthread_mutex_t),(unsigned char*)&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
 	pmem_memcpy(new_node1->buffer,buffer1,size1,PMEM_F_MEM_NONTEMPORAL);
 
 	nm.state = 0; // 
@@ -720,7 +720,7 @@ if (print)
 	nm.next_offset = node->next_offset;
 	nm.prev_offset = calc_offset(new_node1);
 
-	pmem_memcpy(new_node2+sizeof(pthread_mutex_t),&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy((unsigned char*)new_node2+sizeof(pthread_mutex_t),(unsigned char*)&nm+sizeof(pthread_mutex_t),sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint16_t)+sizeof(unsigned int)+sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
 	pmem_memcpy(new_node2->buffer,buffer2,size2,PMEM_F_MEM_NONTEMPORAL);
 
 	unsigned int to;

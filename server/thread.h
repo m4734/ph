@@ -1,10 +1,14 @@
 #include <list>
 #include <queue>
 
-#include "query.h"
+//#include "query.h"
+//#include "connection.h"
+#include "writeThread.h"
+
+#define WRITE_THREAD_MAX 10
 
 using namespace std;
-
+/*
 struct Connection
 {
 //	char buffer[10001];
@@ -12,8 +16,10 @@ struct Connection
 //	char* query;
 	struct Query query;	
 	int socket;
+	unsigned char result[10000];
+	unsigned int result_len;
 };
-
+*/
 class Thread
 {
 	public:
@@ -30,6 +36,10 @@ class Thread
 	*/
 
 	// not now and just use round-robin
+	//
+	pthread_t* write_pthread_array[WRITE_THREAD_MAX];
+	WriteThread* write_thread_array[WRITE_THREAD_MAX]; //??
+	int write_thread_num;
 };
 
 void* thread_function(void* thread_parameter);
