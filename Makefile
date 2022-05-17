@@ -1,5 +1,8 @@
-test: test.o
-	g++ -o test src/test.o -lpthread
+test: test/test.o
+	g++ -o bin/test test/test.o -lpthread
 
-test.o: test/test.c test/test.h
-	g++ -o test/test.o test/test.c test/test.h
+test/test.o: test/test.c test/test.h
+	g++ -c -o test/test.o test/test.c
+
+clean:
+	rm -rf test/*.o bin/*

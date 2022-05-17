@@ -4,6 +4,8 @@ class KVS
 	int key_size;
 	int value_size;
 
+	public:
+
 	void insert_op(unsigned char* key,unsigned char* value)
 	{
 	}
@@ -20,4 +22,4 @@ class KVS
 	{
 	}
 
-}
+};

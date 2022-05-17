@@ -3,6 +3,8 @@
 #include<stdlib.h>
 #include<pthread.h>
 
+#include <time.h>
+
 #include "test.h"
 
 struct Query
@@ -108,9 +110,13 @@ void load_workload()
 	fclose(in);
 }
 
-void worker_function()
+void* worker_function(void* thread_parameter)
 {
 	int i,tn;
+	Thread_parameter* tp;
+	tp = (Thread_parameter*)thread_parameter;
+	tn = tp->tn;
+
 	for (i=0;i<tops;i++)
 	{
 		if (queries[tn][i].op == 0)
@@ -126,17 +132,23 @@ void worker_function()
 		if (queries[tn][i].op == 5)
 			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt);
 	}
+	return NULL;
 }
 
 void run()
 {
+	int i;
+
 	pthread_t* pthread_array;
 	struct Thread_parameter* thread_parameter_array;
-	int i;
+
+	struct timespec ts1,ts2;
+	unsigned long long int t;
 
 	pthread_array = (pthread_t*)malloc(sizeof(pthread_t) * num_of_threads);
 	thread_parameter_array = (Thread_parameter*)malloc(sizeof(Thread_parameter) * num_of_threads);
 
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	for (i=0;i<num_of_threads;i++)
 	{
 		thread_parameter_array[i].tn = i;
@@ -147,9 +159,16 @@ void run()
 	{
 		pthread_join(pthread_array[i],NULL);
 	}
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	t = (ts2.tv_sec-ts1.tv_sec)*1000000000 + ts2.tv_nsec-ts1.tv_nsec;
 
 	free(thread_parameter_array);
 	free(pthread_array);
+
+	printf("thread %d\n",num_of_threads);
+	printf("ops %d\n",ops);
+	printf("time %lld %lld\n",t/1000000000,t%1000000000);
+
 }
 
 void clean()
@@ -188,7 +207,6 @@ int main()
 
 	// init here
 
-
 	while(1)
 	{
 		printf("workload file name or exit\n");
@@ -202,14 +220,13 @@ int main()
 
 		printf("run\n");
 		run();
-		
+
+		printf("clean\n");	
 		clean();
 
 		printf("end\n");
 
 	}
-
-
 
 	return 0;
 }
