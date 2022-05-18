@@ -8,6 +8,7 @@
 
 #include <stdio.h> //test
 #include <stdlib.h>
+#include <string.h>
 
 //#define print 0
 #define print 0
@@ -25,7 +26,7 @@ void print_query(Query* query)
 		printf("[%d]",(int)query->value_p[i]);
 	printf("\n");
 }
-
+/*
 void reset_query(Query* query)
 {
 	query->length = 0;
@@ -37,172 +38,12 @@ void reset_query(Query* query)
 //	query->node = NULL:
 //	query->offset = TAIL_OFFSET; // NOT HERE!!!
 }
+*/
 void init_query(Query* query)
 {
 	query->node = NULL;
 	query->scan_offset = TAIL_OFFSET;
 	pthread_mutex_init(&query->scan_mutex,NULL);
-}
-
-int parse_query(Query* query)
-{
-//lookup 1 read get
-//delete 2
-//put 3
-//insert 4
-//update 5
-//scan 6
-//next 7
-	int i;
-	if (print)
-		printf("parse\n");
-	if (query->op == 0)
-	{
-//		if (query->length < 2)
-//			return 1;
-	if (query->buffer[0] == 'g' && query->buffer[1] == 'e' && query->buffer[2] == 't')
-		query->op = 1;
-	else if (query->buffer[0] == 'l' && query->buffer[1] == 'o' && query->buffer[2] == 'o' && query->buffer[3] == 'k' && query->buffer[4] == 'u' && query->buffer[5] == 'p')
-		query->op = 1;
-	else if (query->buffer[0] == 'r' && query->buffer[1] == 'e' && query->buffer[2] == 'a' && query->buffer[3] == 'd')
-		query->op = 1;
-	else if (query->buffer[0] == 'd' && query->buffer[1] == 'e' && query->buffer[2] == 'l' && query->buffer[3] == 'e' && query->buffer[4] == 't' && query->buffer[5] == 'e')
-		query->op = 2;
-	else if (query->buffer[0] == 'p' && query->buffer[1] == 'u' && query->buffer[2] == 't')
-		query->op = 3;
-	else if (query->buffer[0] == 'i' && query->buffer[1] == 'n' && query->buffer[2] == 's' && query->buffer[3] == 'e' && query->buffer[4] == 'r' && query->buffer[5] == 't')
-		query->op = 4;
-	else if (query->buffer[0] == 'u' && query->buffer[1] == 'p' && query->buffer[2] == 'd' && query->buffer[3] == 'a' && query->buffer[4] == 't' && query->buffer[5] == 'e')
-		query->op = 5;
-	else if (query->buffer[0] == 's' && query->buffer[1] == 'c' && query->buffer[2] == 'a' && query->buffer[3] == 'n')
-		query->op = 6;
-	else if (query->buffer[0] == 'n' && query->buffer[1] == 'e' && query->buffer[2] == 'x' && query->buffer[3] == 't')
-	{
-		query->op = 7;
-		return 0;
-	}
-	else
-	{
-		if (query->length < 7)
-			return 1;
-		return -1;
-	}
-	for (i=0;i<query->length;i++)
-	{
-		if (query->buffer[i] == ' ')
-			break;
-	}
-	if (query->buffer[i] == ' ')
-		query->cur = i+1;
-	else
-	{
-		query->op = 0;
-		return 1;
-	}
-	}
-	if (query->key_p == NULL)
-	{
-		if (query->length - query->cur < 8)
-			return 1;
-		query->key_p = query->buffer+query->cur;
-		query->key_len = 8;
-
-		if (query->op != 3 && query->op != 4 && query->op != 5)
-			return 0;
-
-		query->cur+=8+1;
-	}
-	if (query->value_len == 0)
-	{
-		if (query->length - query->cur < 8)
-			return 1;
-		for (i=0;i<8;i++)
-			query->value_len = query->value_len*256 + query->buffer[query->cur+i];
-		query->cur+=8;
-	}
-	if (query->value_p == NULL)
-	{
-		if (query->length - query->cur < query->value_len)
-			return 1;
-		query->value_p = query->buffer+query->cur;
-	}
-	/*
-	print_query(query);
-	if (query->value_len != 114)
-	{
-		int t;
-		scanf("%d",&t);
-	}
-	*/
-	return 0;
-#if 0
-//	printf("query->op %d\n",query->op);
-
-
-	int i=0,ki;
-	for(;i<query->length;i++)
-	{
-//		printf("[%c]",query->buffer[i]);
-		if (query->buffer[i] == ' ')
-			break;
-	}
-//	printf("\n");
-	if (query->buffer[i] != ' ')
-		return -1;
-//	query->key_p = query->buffer+i+1;
-	i++;
-	ki = i;
-//	printf("len %d\n",query->length);
-
-	if (query->op <= 2)
-	{
-		query->key_len = query->length - i-2; // ??
-
-//		printf("key len %d\n",query->key_len);
-		for (i=0;i<8-query->key_len;i++)
-					query->key_p[i] = 0;
-		for (;i<8;i++)
-		{
-					query->key_p[i] = query->buffer[ki+i-(8-query->key_len)];
-//					printf("%c",query->key_p[i]);
-		}
-//		printf("\n");
-		if (print)
-		print_query(query);		
-		return 0;
-	}
-	/*
-	for(;i<query->length;i++)
-	{
-//		printf("[%c]",query->buffer[i]);
-		if (query->buffer[i] == ' ')
-			break;
-	}
-//	printf("\n");
-//	*/
-	i+=key_size;
-
-	if (query->buffer[i] != ' ')
-		return -1;
-	query->value_p = query->buffer+i+1;
-
-//	query->key_len = query->value_p-query->key_p-1;
-	query->key_len = i-ki;	
-	query->value_len = query->length - i - 3; // ??
-
-	for (i=0;i<8-query->key_len;i++)
-		query->key_p[i] = 0;
-	for (;i<8;i++)
-		query->key_p[i] = query->buffer[ki+i-(8-query->key_len)];
-//printf("query len %d\n",query->length);
-//printf("key len %d\n",query->key_len);
-//printf("value len %d %c\n",query->value_len,query->value_p[0]);
-	// len = 8???
-//printf("pe\n");
-if (print)
-	print_query(query);
-	return 0;
-#endif
 }
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
@@ -372,7 +213,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 					continue;
 				}
 								
-				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
+				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
 				{
 					break;
 				}
@@ -395,7 +236,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			printf("find node\n");
 			while(1)
 			{
-				if ((range_entry = find_range_entry(query->key_p,&continue_len)) == NULL)
+				if ((range_entry = find_range_entry(key_p,&continue_len)) == NULL)
 //				if (range_entry == NULL) // spliting...
 				{
 //
@@ -713,13 +554,13 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 }
 
 //int next_query(Query* query,unsigned char** result,int* result_len)
-int next_query(Query* query,unsigned char* result_p,int* result_len_p);
+int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 {
 	if (query->scan_offset == TAIL_OFFSET)
 	{
 //		*result = empty;
 		memcpy(result_p,empty,empty_len);		
-		*result_len = empty_len;
+		*result_len_p = empty_len;
 		return 0;
 	}
 	Node* node = (Node*)query->node;
@@ -736,9 +577,10 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p);
 		return 0;
 	}
 	*/
-	*result = node->buffer+query->sorted_index[query->index_num];
+
+	*result_len_p+=8+2;
+	memcpy(result_p,node->buffer+query->sorted_index[query->index_num],*result_len_p);
 //	*result = query->kv_p; // we need all kv_p
-	*result_len+=8+2;
 
 //	advance(&(query->kv_p),&(query->offset),(Node*)query->node);
 	query->index_num++;
@@ -757,93 +599,6 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p);
 	}
 
 	return 0;
-}
-
-int process_query(Query* query,unsigned char** result,int* result_len)
-{
-	if (query->op == 0 || query->op == 1) // get // lookup
-	{
-		return lookup_query(query,result,result_len);
-	}
-	/*
-	else if (query->op == 1) // lookup
-	{
-	}
-	*/
-
-//delete
-//1 find point
-//2 e lock
-//3 pointer NULL
-//4 length 0
-//5 e unlock
-
-	else if (query->op == 2) // delete
-	{
-		delete_query(query,result,result_len);
-	}
-	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
-	{
-		insert_query(query,result,result_len);
-	}
-	/*
-	else if (query->op == 4) // insert
-	{
-	}
-	else if (query->op == 5) // update
-	{
-	}
-	*/
-	else if (query->op == 6) // scan
-	{
-		scan_query(query,result,result_len);
-	}
-	else if (query->op == 7) // next
-	{
-		next_query(query,result,result_len);
-	}
-	else
-		return -1;
-	return 0;
-}
-
-void complete_query(Query* query)
-{
-	if (query->op == 1 || query->op == 1) // get // lookup
-	{
-//				s_unlock(query->offset);
-		dec_ref(query->ref_offset);				
-	}
-	/*
-	else if (query->op == 1) // lookup
-	{
-	}
-	*/
-	else if (query->op == 2) // delete
-	{
-//		dec_ref(query->offset);
-	}
-	else if (query->op == 3 || query->op == 4 || query->op == 5) // put // insert //update
-	{
-	}
-	/*
-	else if (query->op == 4) // insert
-	{
-	}
-	else if (query->op == 5) // update
-	{
-	}
-	*/
-	else if (query->op == 6) // scan
-	{
-	}
-	else if (query->op == 7)
-	{
-	}
-	else
-		printf("complete query error\n");
-	query->op = -1;
-
 }
 
 void free_query(Query* query)

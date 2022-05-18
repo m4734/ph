@@ -36,25 +36,34 @@ struct TestQuery** queries;
 unsigned char* key_array;
 unsigned char* value_array;
 
-unsigned char* result;
-unsigned char** scan_result;
+unsigned char** result_array;
+unsigned char*** scan_result_array;
 
 struct KVS* kvs;
+
+unsigned char* dummy_ptr;
+
+#define LINE_LENGTH 2000
 
 void load_workload(char* path)
 {
 	FILE* in;
 	char op[100];
-	int i,t,o;
+	char line[LINE_LENGTH];
+	int i,t,o,j;
 	unsigned char* key_ptr;
 	unsigned char* value_ptr;
+	int key_type;
+	int n32;
 
 	in = fopen(path,"r");
 
 	if (in == NULL)
 		printf("file open fail\n");
 
-	fscanf(in,"%d\n",&ops);
+//	fscanf(in,"%d %d\n",&ops,&key_type);
+	fgets(line,LINE_LENGTH,in);
+	sscanf(line,"%d %d\n",&ops,&key_type);
 
 	tops = ops/num_of_threads+1;
 
@@ -64,14 +73,24 @@ void load_workload(char* path)
 
 	key_array = (unsigned char*)malloc(workload_key_size * ops);
 	value_array = (unsigned char*)malloc(workload_value_size * ops);
+	dummy_ptr = (unsigned char*)malloc(workload_value_size);
 
 	memset(key_array,0,workload_key_size * ops);
 	memset(value_array,0,workload_key_size * ops);
 
-	result = (unsigned char*)malloc(workload_value_size);
-	scan_result = (unsigned char**)malloc(100 * sizeof(unsigned char*));
-	for (i=0;i<100;i++)
-		scan_result[i] = (unsigned char*)malloc(workload_key_size + workload_value_size);
+	for (i=0;i<workload_value_size;i++)
+		dummy_ptr[i] = i%256;
+
+	result_array = (unsigned char**)malloc(sizeof(unsigned char*) * num_of_threads);
+	scan_result_array = (unsigned char***)malloc(sizeof(unsigned char**) * num_of_threads);
+	for (i=0;i<num_of_threads;i++)
+	{
+		result_array[i] = (unsigned char*)malloc(workload_value_size);
+		scan_result_array[i] = (unsigned char**)malloc(100 * sizeof(unsigned char*));
+	
+		for (j=0;j<100;j++)
+			scan_result_array[i][j] = (unsigned char*)malloc(workload_key_size + workload_value_size);
+	}
 
 	t = 0;
 	o = 0;
@@ -80,7 +99,17 @@ void load_workload(char* path)
 
 	for (i=0;i<ops;i++)
 	{
-		fscanf(in,"%s",op);
+		fgets(line,LINE_LENGTH,in);
+		if (key_type == 0)
+		{
+			sscanf(line,"%s %s",op,key_ptr);
+		}
+		else if (key_type == 1 || key_type == 2)
+		{
+			sscanf(line,"%s %ld",op,(uint64_t*)key_ptr);
+			//test
+//			printf("%ld\n",*((uint64_t*)key_ptr));
+		}
 		if (strcmp(op,"INSERT") == 0)
 			queries[t][o].op = 1;
 		else if (strcmp(op,"READ") == 0)
@@ -90,24 +119,47 @@ void load_workload(char* path)
 		else if (strcmp(op,"DELETE") == 0)
 			queries[t][o].op = 4;
 		else if (strcmp(op,"SCAN") == 0)
+		{
 			queries[t][o].op = 5;
+			queries[t][o].cnt = 100; //??
+		}
 		else
 		{
 			printf("op error\n");
 			queries[t][o].op = 0;
 		}
 
-		// can be changed
-		// i will use string this time
-
-		fscanf(in,"%s",key_ptr);
-		fscanf(in,"%s",value_ptr);
-
 		queries[t][o].key = key_ptr;
-		queries[t][o].value = value_ptr;
-
 		key_ptr+=workload_key_size;
-		value_ptr+=workload_value_size;
+
+		if (queries[t][o].op == 1 || queries[t][o].op == 3)
+		{
+			if (key_type == 2)
+			{
+				queries[t][o].value = dummy_ptr;
+			}
+			else
+			{
+				n32 = 0;
+				for (j=0;j<LINE_LENGTH;j++)
+				{
+					if (line[j] == ' ')
+					{
+						n32++;
+						if (n32 == 2)
+							break;
+					}
+				}
+				j++;
+				memcpy(value_ptr,line+j,workload_value_size);
+				queries[t][o].value = value_ptr;
+				value_ptr+=workload_value_size;
+			}
+		
+		}
+
+//		if (strlen((char*)value_ptr) < value_size)
+//			printf("data short %ld\n",strlen((char*)value_ptr));
 
 		t++;
 		if (t == num_of_threads)
@@ -118,10 +170,10 @@ void load_workload(char* path)
 	}
 
 
-	for (;i<tops;i++)
+	for (;i<tops*num_of_threads;i++)
 	{
 		queries[t][o].op = 0;
-		o++;
+		t++;
 	}
 
 
@@ -143,13 +195,13 @@ void* worker_function(void* thread_parameter)
 		if (queries[tn][i].op == 1)
 			kvs->insert_op(queries[tn][i].key,queries[tn][i].value);
 		if (queries[tn][i].op == 2)
-			kvs->read_op(queries[tn][i].key,result);
+			kvs->read_op(queries[tn][i].key,result_array[tn]);
 		if (queries[tn][i].op == 3)
 			kvs->update_op(queries[tn][i].key,queries[tn][i].value);
 		if (queries[tn][i].op == 4)
 			kvs->delete_op(queries[tn][i].key);
 		if (queries[tn][i].op == 5)
-			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt,scan_result);
+			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt,scan_result_array[tn]);
 	}
 	return NULL;
 }
@@ -197,7 +249,7 @@ void clean()
 {
 
 	// free workload
-	int i;
+	int i,j;
 	for (i=0;i<num_of_threads;i++)
 		free(queries[i]);
 	free(queries);
@@ -205,10 +257,15 @@ void clean()
 	free(key_array);
 	free(value_array);
 
-	free(result);
-	for (i=0;i<100;i++)
-		free(scan_result[i]);
-	free(scan_result);
+	for (i=9;i<num_of_threads;i++)
+	{
+		free(result_array[i]);
+		for (j=0;j<100;j++)
+			free(scan_result_array[i][j]);
+		free(scan_result_array[i]);
+	}
+	free(result_array);
+	free(scan_result_array);
 
 	// free thread???
 }
@@ -243,6 +300,7 @@ int main()
 	else if (type == 1)
 	{
 #ifdef PH
+		printf("kvs_ph\n");
 		kvs = new KVS_ph();
 #else
 		printf("ph?\n");
@@ -263,7 +321,10 @@ int main()
 		printf("loaded\n");
 
 		if (init == 0)
+		{
 			kvs->init(num_of_threads,workload_key_size,workload_value_size,ops*2); // *2
+			init = 1;
+		}
 
 		printf("run\n");
 		run();

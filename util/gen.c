@@ -35,7 +35,7 @@ int main()
 
 
 	printf("ops\n");
-	scanf("%d",&ops);
+	scanf("%d",&ops); // string
 	printf("key_size\n");
 	scanf("%d",&key_size);
 	printf("value_size\n");
@@ -54,7 +54,7 @@ int main()
 
 	printf("insert\n");
 	out = fopen("insert","w");
-	fprintf(out,"%d\n",ops);
+	fprintf(out,"%d 0\n",ops);
 	for (i=0;i<ops;i++)
 	{
 		rand_gen(key_array[i],key_size);

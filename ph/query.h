@@ -46,12 +46,6 @@ struct Query
 void init_query(Query* query);
 void reset_query(Query* query);
 
-int parse_query(Query* query);
-
-int process_query(Query* query,unsigned char** result,int* result_len);
-
-void complete_query(Query* query);
-
 void free_query(Query* query);
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p);

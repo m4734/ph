@@ -109,7 +109,7 @@ void free_node(Node* node)
 }
 
 
-int init_data()
+int init_data() // init hash first!!!
 {
 	pthread_mutex_init(&alloc_mutex,NULL);
 
