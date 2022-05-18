@@ -6,10 +6,12 @@
 
 struct Query
 {
+	// test will not use query buffer
+	/*
 	unsigned char buffer[QUERY_BUFFER+10];
 	int length;
 	int cur;
-
+*/
 
 //	int buffer_offset,cur,buffer_len; // buffer_offset + buffer_len // cur < len
 //	int n32;	
@@ -51,3 +53,9 @@ int process_query(Query* query,unsigned char** result,int* result_len);
 void complete_query(Query* query);
 
 void free_query(Query* query);
+
+int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p);
+int delete_query(unsigned char* key_p);
+int insert_query(unsigned char* key_p, unsigned char* value_p);
+int scan_query(Query* query);
+int next_query(Query* query,unsigned char* result_p,int* result_len_p);

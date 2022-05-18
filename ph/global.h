@@ -49,6 +49,8 @@ extern int empty_len;
 
 
 void temp_static_conf();
+
+// multiple definition
 /*
 {
 	num_of_thread = 1;

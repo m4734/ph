@@ -7,7 +7,11 @@
 
 #include "test.h"
 
-struct Query
+#ifdef PH
+#include "../ph/kvs.h"
+#endif
+
+struct TestQuery
 {
 	int op;
 	int cnt;
@@ -21,20 +25,23 @@ struct Thread_parameter
 };
 
 int type;
-char path[1000];
+//char path[1000];
 int num_of_threads;
-int key_size;
-int value_size;
+int workload_key_size;
+int workload_value_size;
 int ops,tops;
 
-struct Query** queries;
+struct TestQuery** queries;
 
 unsigned char* key_array;
 unsigned char* value_array;
 
+unsigned char* result;
+unsigned char** scan_result;
+
 struct KVS* kvs;
 
-void load_workload()
+void load_workload(char* path)
 {
 	FILE* in;
 	char op[100];
@@ -44,16 +51,27 @@ void load_workload()
 
 	in = fopen(path,"r");
 
+	if (in == NULL)
+		printf("file open fail\n");
+
 	fscanf(in,"%d\n",&ops);
 
 	tops = ops/num_of_threads+1;
 
-	queries = (struct Query**)malloc(sizeof(struct Query*) * num_of_threads);
+	queries = (struct TestQuery**)malloc(sizeof(struct TestQuery*) * num_of_threads);
 	for (i=0;i<num_of_threads;i++)
-		queries[i] = (struct Query*)malloc(sizeof(struct Query) * tops);
+		queries[i] = (struct TestQuery*)malloc(sizeof(struct TestQuery) * tops);
 
-	key_array = (unsigned char*)malloc(key_size * ops);
-	value_array = (unsigned char*)malloc(value_size * ops);
+	key_array = (unsigned char*)malloc(workload_key_size * ops);
+	value_array = (unsigned char*)malloc(workload_value_size * ops);
+
+	memset(key_array,0,workload_key_size * ops);
+	memset(value_array,0,workload_key_size * ops);
+
+	result = (unsigned char*)malloc(workload_value_size);
+	scan_result = (unsigned char**)malloc(100 * sizeof(unsigned char*));
+	for (i=0;i<100;i++)
+		scan_result[i] = (unsigned char*)malloc(workload_key_size + workload_value_size);
 
 	t = 0;
 	o = 0;
@@ -88,8 +106,8 @@ void load_workload()
 		queries[t][o].key = key_ptr;
 		queries[t][o].value = value_ptr;
 
-		key_ptr+=key_size;
-		value_ptr+=value_size;
+		key_ptr+=workload_key_size;
+		value_ptr+=workload_value_size;
 
 		t++;
 		if (t == num_of_threads)
@@ -114,6 +132,7 @@ void* worker_function(void* thread_parameter)
 {
 	int i,tn;
 	Thread_parameter* tp;
+
 	tp = (Thread_parameter*)thread_parameter;
 	tn = tp->tn;
 
@@ -124,13 +143,13 @@ void* worker_function(void* thread_parameter)
 		if (queries[tn][i].op == 1)
 			kvs->insert_op(queries[tn][i].key,queries[tn][i].value);
 		if (queries[tn][i].op == 2)
-			kvs->read_op(queries[tn][i].key);
+			kvs->read_op(queries[tn][i].key,result);
 		if (queries[tn][i].op == 3)
 			kvs->update_op(queries[tn][i].key,queries[tn][i].value);
 		if (queries[tn][i].op == 4)
 			kvs->delete_op(queries[tn][i].key);
 		if (queries[tn][i].op == 5)
-			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt);
+			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt,scan_result);
 	}
 	return NULL;
 }
@@ -165,9 +184,12 @@ void run()
 	free(thread_parameter_array);
 	free(pthread_array);
 
+	printf("result\n");
+	printf("---------------------------------\n");
 	printf("thread %d\n",num_of_threads);
 	printf("ops %d\n",ops);
-	printf("time %lld %lld\n",t/1000000000,t%1000000000);
+	printf("run time %lld %lld\n",t/1000000000,t%1000000000);
+	printf("---------------------------------\n");
 
 }
 
@@ -183,6 +205,11 @@ void clean()
 	free(key_array);
 	free(value_array);
 
+	free(result);
+	for (i=0;i<100;i++)
+		free(scan_result[i]);
+	free(scan_result);
+
 	// free thread???
 }
 
@@ -191,8 +218,10 @@ int main()
 
 	int type;
 	char path[1000];
+	int init;
 
 	printf("type\n");
+	printf("0.test\n");
 	printf("1.PH\n");
 	scanf("%d",&type);
 
@@ -200,13 +229,28 @@ int main()
 	scanf("%d",&num_of_threads);
 
 	printf("key_size\n");
-	scanf("%d",&key_size);
+	scanf("%d",&workload_key_size);
 
 	printf("value_size\n");
-	scanf("%d",&value_size);
+	scanf("%d",&workload_value_size);
 
 	// init here
 
+
+	// new KVS
+	if (type == 0)
+		kvs = new KVS();
+	else if (type == 1)
+	{
+#ifdef PH
+		kvs = new KVS_ph();
+#else
+		printf("ph?\n");
+		kvs = new KVS();
+#endif
+	}
+
+	init = 0;
 	while(1)
 	{
 		printf("workload file name or exit\n");
@@ -215,8 +259,11 @@ int main()
 			break;
 
 		printf("loading workload\n");
-		load_workload();
+		load_workload(path);
 		printf("loaded\n");
+
+		if (init == 0)
+			kvs->init(num_of_threads,workload_key_size,workload_value_size,ops*2); // *2
 
 		printf("run\n");
 		run();
@@ -227,6 +274,11 @@ int main()
 		printf("end\n");
 
 	}
+
+	printf("clean2\n");
+	if (init)
+		kvs->clean();
+	delete kvs;
 
 	return 0;
 }

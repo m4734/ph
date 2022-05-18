@@ -205,16 +205,18 @@ if (print)
 #endif
 }
 
-int lookup_query(Query* query,unsigned char** result,int* result_len)
+int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
 {
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
-		entry = find_or_insert_point_entry(query->key_p,0); // don't create
+		entry = find_or_insert_point_entry(key_p,0); // don't create
 		if (entry == NULL)
 		{
-			*result = empty;
-			*result_len = empty_len;
+//			result_p = empty;
+			memcpy(result_p,empty,empty_len);			
+			*result_len_p = empty_len;
+//			*result_len_p = 0;
 			return 0;
 		}
 		while(1)
@@ -233,18 +235,20 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 					dec_ref(offset);
 					continue;
 				}
-				query->ref_offset = offset; // lock ref
+//				query->ref_offset = offset; // lock ref
 
 //				print_kv(kv_p);	
 
-				*result_len = *((uint16_t*)(kv_p+key_size));
-				if ((*result_len & (1 << 15)) != 0) // deleted
+				*result_len_p = *((uint16_t*)(kv_p+key_size));
+				if ((*result_len_p & (1 << 15)) != 0) // deleted
 				{
 //					dec_ref(offset);
 					break;
 				}
-				*result = kv_p+key_size+len_size;
+//				*result = kv_p+key_size+len_size;
+				memcpy(result_p,kv_p+key_size+len_size,value_size);				
 //				s_unlock(offset); // it will be released after result
+				dec_ref(offset);				
 //				break;
 				return 0;				
 			}
@@ -255,22 +259,27 @@ int lookup_query(Query* query,unsigned char** result,int* result_len)
 //				break;
 		}
 		//deleted
-		*result = empty;
-		*result_len = empty_len;
+//		*result_p = empty;
+		memcpy(result_p,empty,empty_len);		
+		*result_len_p = empty_len;
+//		*result_len_p = 0;		
 		return 0;
 }
 
 
-int delete_query(Query* query,unsigned char** result,int* result_len)
+int delete_query(unsigned char* key_p)
 {
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
-		entry = find_or_insert_point_entry(query->key_p,0); // don't create
+		entry = find_or_insert_point_entry(key_p,0); // don't create
 		if (entry == NULL || entry->kv_p == NULL)
 		{
-			*result = empty;
+			/*
+//			*result = empty;
+			memcpy(result_p,empty,empty_len);			
 			*result_len = empty_len;
+			*/
 			return 0;
 		}
 		while(1)
@@ -297,10 +306,10 @@ int delete_query(Query* query,unsigned char** result,int* result_len)
 
 //				e_unlock(offset);
 				dec_ref(offset);				
-				
+			/*	
 				*result = empty;
 				*result_len = empty_len;
-
+*/
 //				break;
 				return 0;				
 			}
@@ -317,13 +326,14 @@ int delete_query(Query* query,unsigned char** result,int* result_len)
 	// delete old?
 	// e unlock
 
-int insert_query(Query* query,unsigned char** result,int* result_len)
+int insert_query(unsigned char* key_p, unsigned char* value_p)
 {
 	if (print)
 		printf("insert\n");
+	/*
 	*result = empty;
 	*result_len = empty_len;
-
+*/
 
 	point_hash_entry* point_entry;
 	range_hash_entry* range_entry;
@@ -335,7 +345,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 
 	int test=0;
 
-	point_entry = find_or_insert_point_entry(query->key_p,1); // find or create
+	point_entry = find_or_insert_point_entry(key_p,1); // find or create
 	while(1) // offset can be changed when retry
 	{
 		if (print)
@@ -394,7 +404,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 					test++;
 				if (test > 1000)
 				{
-				printf("too many fail %lu\n",*((uint64_t*)query->key_p));
+				printf("too many fail %lu\n",*((uint64_t*)key_p));
 					}
 					continue;
 				}
@@ -408,7 +418,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 					continue;
 				}
 
-				if ((rv = check_size(offset,query->value_len)) >= -1) // node is not spliting
+				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
 				{
 					break;
 				}
@@ -427,7 +437,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 		{
 			unsigned char* rp;
 			unsigned char* tp;
-			rp = insert_kv(offset,query->key_p,query->value_p,query->value_len,rv); // never fail
+			rp = insert_kv(offset,key_p,value_p,value_size,rv); // never fail
 			soft_lock(offset); // not this! use hash lock
 			tp = (unsigned char*)point_entry->kv_p;
 			point_entry->kv_p = rp;
@@ -446,7 +456,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 			
 			if (range_entry == NULL)
 			{
-				range_entry = find_range_entry(query->key_p,&continue_len);
+				range_entry = find_range_entry(key_p,&continue_len);
 //				if (range_entry != NULL && range_entry->offset != offset)
 //					printf("flksjeflsekf %d %d\n",offset_to_node(offset)->state,offset_to_node(offset)->ref);
 				// it could happen because split change range entry fisrt					
@@ -476,7 +486,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 				}
 				*/
 
-				if (split(offset,query->key_p,continue_len)<0)
+				if (split(offset,key_p,continue_len)<0)
 				{
 					printf("split lock failed\n");
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
@@ -509,7 +519,7 @@ int insert_query(Query* query,unsigned char** result,int* result_len)
 					if (range_entry == NULL)
 					{
 						continue_len = 64;
-						range_entry = find_range_entry(query->key_p,&continue_len);
+						range_entry = find_range_entry(key_p,&continue_len);
 						if (range_entry == NULL)
 						{
 							printf("error!!!! %d\n",continue_len);
@@ -564,11 +574,12 @@ void delete_query_scan_entry(Query* query)
 
 }
 
-int scan_query(Query* query,unsigned char** result,int* result_len)
+int scan_query(Query* query)//,unsigned char** result,int* result_len)
 {
+	/*
 	*result = empty;
 	*result_len = empty_len;
-
+*/
 	point_hash_entry* entry;
 	range_hash_entry* range_entry;
 	unsigned char* kv_p;
@@ -701,17 +712,19 @@ int scan_query(Query* query,unsigned char** result,int* result_len)
 	return 0;
 }
 
-int next_query(Query* query,unsigned char** result,int* result_len)
+//int next_query(Query* query,unsigned char** result,int* result_len)
+int next_query(Query* query,unsigned char* result_p,int* result_len_p);
 {
 	if (query->scan_offset == TAIL_OFFSET)
 	{
-		*result = empty;
+//		*result = empty;
+		memcpy(result_p,empty,empty_len);		
 		*result_len = empty_len;
 		return 0;
 	}
 	Node* node = (Node*)query->node;
 
-	*result_len = *((uint16_t*)(node->buffer+query->sorted_index[query->index_num]+key_size));
+	*result_len_p = *((uint16_t*)(node->buffer+query->sorted_index[query->index_num]+key_size));
 	/*
 	if ((*result_len & (1 << 15)) != 0) // deleted
 		advance(&(query->kv_p),&(query->offset),(Node*)query->node);	

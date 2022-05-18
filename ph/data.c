@@ -109,7 +109,7 @@ void free_node(Node* node)
 }
 
 
-int data_init()
+int init_data()
 {
 	pthread_mutex_init(&alloc_mutex,NULL);
 
@@ -179,7 +179,7 @@ int data_init()
 	return 0;
 }
 
-void data_clean()
+void clean_data()
 {
 	/*
 	free_node(offset_to_node(0));

@@ -76,8 +76,8 @@ struct Data
 
 };
 */
-int data_init();
-void data_clean();
+int init_data();
+void clean_data();
 
 void s_unlock(unsigned int offset);
 void e_unlock(unsigned int offset);
