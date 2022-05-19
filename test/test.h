@@ -10,6 +10,7 @@ struct TestQuery
 	unsigned char* value;
 };
 
+//template <typename K, typename V>
 class KVS
 {
 	int num_of_threads;

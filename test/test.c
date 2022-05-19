@@ -35,7 +35,7 @@ unsigned char* value_array;
 //unsigned char** result_array;
 //unsigned char*** scan_result_array;
 
-struct KVS* kvs;
+KVS* kvs;
 
 unsigned char* dummy_ptr;
 
@@ -274,13 +274,13 @@ int main()
 	int type;
 	char path[1000];
 	int init;
-
+/*
 	printf("type\n");
 	printf("0.test\n");
 	printf("1.PH\n");
 	printf("2.Viper\n");
 	scanf("%d",&type);
-
+*/
 	printf("num_of_threads\n");
 	scanf("%d",&num_of_threads);
 
@@ -292,7 +292,7 @@ int main()
 
 	// init here
 
-
+/*
 	// new KVS
 	if (type == 0)
 		kvs = new KVS();
@@ -303,13 +303,13 @@ int main()
 		kvs = new KVS_ph();
 #elif BUILD_Viper
 		printf("kvs_viper\n");
-		kvs = new KVS_viper();
+		kvs = new KVS_viper<uint64_t,uint64_t>();
 #else
 		printf("ph?\n");
 		kvs = new KVS();
 #endif
 	}
-
+*/
 	init = 0;
 	while(1)
 	{
@@ -324,6 +324,20 @@ int main()
 
 		if (init == 0)
 		{
+#ifdef BUILD_PH
+		printf("kvs_ph\n");
+		kvs = new KVS_ph();
+#elif BUILD_Viper
+		printf("kvs_viper\n");
+		if (workload_value_size == 100)
+			kvs = new KVS_viper<Byte_8,Byte_100>();
+		else if(workload_value_size == 200)
+			kvs = new KVS_viper<Byte_8,Byte_200>();
+#else
+		printf("ph?\n");
+		kvs = new KVS();
+#endif
+
 			kvs->init(num_of_threads,workload_key_size,workload_value_size,ops*2); // *2
 			init = 1;
 		}
@@ -340,8 +354,10 @@ int main()
 
 	printf("clean2\n");
 	if (init)
+	{
 		kvs->clean();
-	delete kvs;
+		delete kvs;
+	}
 
 	return 0;
 }
