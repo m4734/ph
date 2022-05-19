@@ -8,7 +8,7 @@ clean:
 
 ph: kvs_ph test/test.h test/test.c
 	g++ -c -o test/test.o test/test.c -DBUILD_PH -O3
-	g++ -o bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o -lpthread -O3
+	g++ -o bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o -lpthread -lpmem -O3
 
 kvs_ph: ph/kvs.h ph/global.h ph/global.c ph/data.h ph/data.c ph/hash.h ph/hash.c
 	g++ -c -o ph/data.o ph/data.c -O3
@@ -27,7 +27,7 @@ debug_viper: test/test.h test/test.c viper/kvs.h viper/viper.hpp viper/cceh.hpp 
 
 debug_ph: debug_kvs_ph test/test.h test/test.c
 	g++ -g -c -o test/test.o test/test.c -DBUILD_PH
-	g++ -g -o bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o -lpthread
+	g++ -g -o bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o -lpthread -lpmem
 
 debug_kvs_ph: ph/kvs.h ph/global.h ph/global.c ph/data.h ph/data.c ph/hash.h ph/hash.c
 	g++ -g -c -o ph/data.o ph/data.c

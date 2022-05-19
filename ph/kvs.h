@@ -12,7 +12,7 @@ class KVS_ph : public KVS
 	virtual void init(int num,int key,int value,int record)
 	{
 		KVS::init(num,key,value,record); // will need this
-		temp_static_conf();
+		temp_static_conf(num,key,value);
 		init_hash();
 		init_data();
 		printf("kvs_ph init\n");
@@ -61,7 +61,7 @@ class KVS_ph : public KVS
 	virtual void run(TestQuery* tqa, int ops)
 	{
 		int i,len,j;
-		char result[1000];
+		unsigned char result[1000];
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
@@ -76,13 +76,13 @@ class KVS_ph : public KVS
 			{
 		Query query;
 		init_query(&query);
-		query.key_p = key;
+		query.key_p = tqa[i].key;
 		query.op = 6;
 		scan_query(&query);
 
 		int len;
 		query.op = 7;
-		for (j=0;j<cnt;j++)
+		for (j=0;j<tqa[i].cnt;j++)
 		{
 			next_query(&query,result,&len);
 		}

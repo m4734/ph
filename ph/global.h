@@ -22,14 +22,14 @@ extern int connection_per_thread;
 extern int total_connection;
 extern int port;
 
-#define USE_DRAM 1
+#define USE_DRAM 0
 
 // hash
 
 extern int point_hash_table_size;
 extern int range_hash_table_size;
 
-#define NODE_BUFFER 1024-64
+#define NODE_BUFFER 1024-64+1024
 //#define NODE_BUFFER 256 // test
 extern int node_size;
 
@@ -48,7 +48,7 @@ extern unsigned char empty[10];
 extern int empty_len;
 
 
-void temp_static_conf();
+void temp_static_conf(int tn,int ks,int vs);
 
 // multiple definition
 /*

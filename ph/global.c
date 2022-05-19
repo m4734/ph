@@ -33,17 +33,20 @@ unsigned char empty[10];
 int empty_len;
 
 
-void temp_static_conf()
+void temp_static_conf(int tn, int ks,int vs)
 {
-	num_of_thread = 1;
+//	num_of_thread = 1;
+	num_of_thread = tn;	
 	connection_per_thread = 1;
 	port = 5516;
 	total_connection = num_of_thread * connection_per_thread;
 
 //	node_size = sizeof(Node); // ?? data header
-	key_size = 8; // ???
+//	key_size = 8; // ???
 	len_size = 2;
-	value_size = 100; //YCSB?
+//	value_size = 100; //YCSB?
+	key_size = ks;
+	value_size = vs;
 	entry_size = key_size + len_size + value_size; //no meta?
 
 	point_hash_table_size = 20*1000*1000; // 1 entry = 32byte 10M = 320MB
