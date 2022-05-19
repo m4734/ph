@@ -31,7 +31,7 @@ struct Query
 	unsigned int ref_offset; // node offset - unlock
 	//----------------------------------------- scan/next
 	int scan_offset; // volatile???
-	void* node;
+	void* node_data;
 //	unsigned char* kv_p;
 
 	int sorted_index[100];

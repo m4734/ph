@@ -41,7 +41,7 @@ void reset_query(Query* query)
 */
 void init_query(Query* query)
 {
-	query->node = NULL;
+	query->node_data = NULL;
 	query->scan_offset = TAIL_OFFSET;
 	pthread_mutex_init(&query->scan_mutex,NULL);
 }
@@ -386,7 +386,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 
 void delete_query_scan_entry(Query* query)
 {
-	Node* node;
+	Node_meta* node;
 	while(1)
 	{
 	pthread_mutex_lock(&query->scan_mutex);
@@ -426,14 +426,14 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	unsigned char* kv_p;
 	unsigned int offset;
 	int continue_len;
-	Node* node;
+	Node* node_data;
 
-	if (query->node == NULL)
-		query->node = (Node*)malloc(sizeof(Node));
+	if (query->node_data == NULL)
+		query->node_data = (Node*)malloc(sizeof(Node));
 
 	delete_query_scan_entry(query);
 
-	node = (Node*)query->node;
+	node_data = (Node*)query->node_data;
 
 	offset = 0;
 	entry = find_or_insert_point_entry(query->key_p,0); // don't create
@@ -455,10 +455,10 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 				}
 
 //			copy_node(node,offset_to_node(offset));
-			*node = *offset_to_node(offset); //copy node			
+			*node_data = *offset_to_node_data(offset); //copy node
 			insert_scan_list(offset_to_node(offset),(void*)query);
 			hard_unlock(offset);
-			sort_node(node,(int*)(query->sorted_index),&(query->index_max));
+			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
@@ -472,7 +472,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 					return 0;
 			}
 */
-			while (*((uint64_t*)(node->buffer+query->sorted_index[query->index_num])) < *((uint64_t*)query->key_p))
+			while (*((uint64_t*)(node_data->buffer+query->sorted_index[query->index_num])) < *((uint64_t*)query->key_p))
 			{
 				query->index_num++;
 				if (query->index_num >= query->index_max)
@@ -483,7 +483,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 						return 0;
 					}
 //					copy_node(node,offset_to_node(query->scan_offset));
-					sort_node(node,(int*)(query->sorted_index),&(query->index_max));
+					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 					query->index_num=0;
 				}
 			}
@@ -510,10 +510,10 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 			}
 
 //			copy_node(node,offset_to_node(offset));
-			*node = *offset_to_node(offset); //copy node			
+			*node_data = *offset_to_node_data(offset); //copy node
 			insert_scan_list(offset_to_node(offset),(void*)query);
 			hard_unlock(offset);
-			sort_node(node,(int*)(query->sorted_index),&(query->index_max));
+			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
@@ -527,7 +527,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 					return 0;
 			}
 */
-			while (*((uint64_t*)(node->buffer+query->sorted_index[query->index_num])) < *((uint64_t*)query->key_p))
+			while (*((uint64_t*)(node_data->buffer+query->sorted_index[query->index_num])) < *((uint64_t*)query->key_p))
 			{
 				query->index_num++;
 				if (query->index_num >= query->index_max)
@@ -538,7 +538,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 						return 0;
 					}
 //					copy_node(node,offset_to_node(query->scan_offset));
-					sort_node(node,(int*)(query->sorted_index),&(query->index_max));
+					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 					query->index_num=0;
 				}
 			}
@@ -563,9 +563,9 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 		*result_len_p = empty_len;
 		return 0;
 	}
-	Node* node = (Node*)query->node;
+	Node* node_data = (Node*)query->node_data;
 
-	*result_len_p = *((uint16_t*)(node->buffer+query->sorted_index[query->index_num]+key_size));
+	*result_len_p = *((uint16_t*)(node_data->buffer+query->sorted_index[query->index_num]+key_size));
 	/*
 	if ((*result_len & (1 << 15)) != 0) // deleted
 		advance(&(query->kv_p),&(query->offset),(Node*)query->node);	
@@ -579,7 +579,7 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 	*/
 
 	*result_len_p+=8+2;
-	memcpy(result_p,node->buffer+query->sorted_index[query->index_num],*result_len_p);
+	memcpy(result_p,node_data->buffer+query->sorted_index[query->index_num],*result_len_p);
 //	*result = query->kv_p; // we need all kv_p
 
 //	advance(&(query->kv_p),&(query->offset),(Node*)query->node);
@@ -594,7 +594,7 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 		}
 //					copy_node(node,offset_to_node(query->scan_offset));
 //					pthread_mutex_unlock(&query->scan_mutex);
-		sort_node(node,(int*)(query->sorted_index),&(query->index_max));
+		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 		query->index_num=0;
 	}
 
@@ -617,5 +617,5 @@ void free_query(Query* query)
 		pthread_mutex_unlock(&query->scan_mutex);
 		*/
 	delete_query_scan_entry(query);
-	free(query->node);
+	free(query->node_data);
 }

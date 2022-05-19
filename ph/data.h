@@ -32,15 +32,8 @@ struct Node
 //	std::atomic<uint8_t> state; // 0-init	1-split	2-free + ref
 //	std::atomic<uint8_t> ref;
 //	std::mutex m;		
-	pthread_mutex_t mutex;	
-	volatile uint8_t state;
-	volatile uint8_t ref;	
 	volatile uint16_t size; //size // needed cas but replaced to double check...
-
-	unsigned int prev_offset; // should be removed
 	unsigned int next_offset; //	2^32
-
-	Scan_list* scan_list;
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
@@ -49,15 +42,21 @@ struct Node
 
 struct Node_meta
 {
+	volatile uint16_t size; //size // needed cas but replaced to double check...
+	unsigned int next_offset; //	2^32
+
 	pthread_mutex_t mutex;	
 	uint8_t state;
 	uint8_t ref;	
-	uint16_t size; //size // needed cas but replaced to double check...
+
+	/*
+	volatile uint16_t size; //size // needed cas but replaced to double check...
+	unsigned int next_offset; //	2^32
+	*/
 
 	unsigned int prev_offset; // should be removed
-	unsigned int next_offset; //	2^32
 
-//	Scan_list* scan_list;
+	Scan_list* scan_list;
 };
 
 
@@ -89,7 +88,8 @@ int try_hard_lock(unsigned int offset);
 void hard_unlock(unsigned int offset);
 void soft_lock(unsigned int offset);
 
-Node* offset_to_node(unsigned int offset); // it will be ..
+Node_meta* offset_to_node(unsigned int offset); // it will be .. use macro
+Node* offset_to_node_data(unsigned int offset);
 unsigned int point_to_offset(unsigned char* kv_p);
 
 void delete_kv(unsigned char* kv_p); // e lock needed
@@ -105,6 +105,6 @@ int check_size(unsigned int offset,int value_length);
 int advance_offset(void* query);
 //void copy_node(Node* node1,Node* node2);
 void sort_node(Node* node,int* sorted_index,int* max);
-void insert_scan_list(Node* node,void* query);
+void insert_scan_list(Node_meta* node,void* query);
 void delete_scan_entry(unsigned int scan_offset,void* query);
 
