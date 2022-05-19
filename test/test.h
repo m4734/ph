@@ -2,6 +2,14 @@
 #ifndef kvs_h
 #define kvs_h
 
+struct TestQuery
+{
+	int op;
+	int cnt;
+	unsigned char* key;
+	unsigned char* value;
+};
+
 class KVS
 {
 	int num_of_threads;
@@ -38,6 +46,10 @@ class KVS
 	}
 
 	virtual void clean()
+	{
+	}
+
+	virtual void run(TestQuery* tqa, int ops)
 	{
 	}
 

@@ -7,17 +7,13 @@
 
 #include "test.h"
 
-#ifdef PH
+#ifdef BUILD_PH
 #include "../ph/kvs.h"
 #endif
 
-struct TestQuery
-{
-	int op;
-	int cnt;
-	unsigned char* key;
-	unsigned char* value;
-};
+#ifdef BUILD_Viper
+#include "../viper/kvs.h"
+#endif
 
 struct Thread_parameter
 {
@@ -36,8 +32,8 @@ struct TestQuery** queries;
 unsigned char* key_array;
 unsigned char* value_array;
 
-unsigned char** result_array;
-unsigned char*** scan_result_array;
+//unsigned char** result_array;
+//unsigned char*** scan_result_array;
 
 struct KVS* kvs;
 
@@ -80,7 +76,7 @@ void load_workload(char* path)
 
 	for (i=0;i<workload_value_size;i++)
 		dummy_ptr[i] = i%256;
-
+/*
 	result_array = (unsigned char**)malloc(sizeof(unsigned char*) * num_of_threads);
 	scan_result_array = (unsigned char***)malloc(sizeof(unsigned char**) * num_of_threads);
 	for (i=0;i<num_of_threads;i++)
@@ -91,7 +87,7 @@ void load_workload(char* path)
 		for (j=0;j<100;j++)
 			scan_result_array[i][j] = (unsigned char*)malloc(workload_key_size + workload_value_size);
 	}
-
+*/
 	t = 0;
 	o = 0;
 	key_ptr = key_array;
@@ -187,7 +183,7 @@ void* worker_function(void* thread_parameter)
 
 	tp = (Thread_parameter*)thread_parameter;
 	tn = tp->tn;
-
+/*
 	for (i=0;i<tops;i++)
 	{
 		if (queries[tn][i].op == 0)
@@ -203,6 +199,8 @@ void* worker_function(void* thread_parameter)
 		if (queries[tn][i].op == 5)
 			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt,scan_result_array[tn]);
 	}
+	*/
+	kvs->run(queries[tn],ops);
 	return NULL;
 }
 
@@ -256,7 +254,7 @@ void clean()
 
 	free(key_array);
 	free(value_array);
-
+/*
 	for (i=9;i<num_of_threads;i++)
 	{
 		free(result_array[i]);
@@ -266,7 +264,7 @@ void clean()
 	}
 	free(result_array);
 	free(scan_result_array);
-
+*/
 	// free thread???
 }
 
@@ -280,6 +278,7 @@ int main()
 	printf("type\n");
 	printf("0.test\n");
 	printf("1.PH\n");
+	printf("2.Viper\n");
 	scanf("%d",&type);
 
 	printf("num_of_threads\n");
@@ -299,9 +298,12 @@ int main()
 		kvs = new KVS();
 	else if (type == 1)
 	{
-#ifdef PH
+#ifdef BUILD_PH
 		printf("kvs_ph\n");
 		kvs = new KVS_ph();
+#elif BUILD_Viper
+		printf("kvs_viper\n");
+		kvs = new KVS_viper();
 #else
 		printf("ph?\n");
 		kvs = new KVS();
