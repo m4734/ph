@@ -94,5 +94,8 @@ class KVS_ph : public KVS
 			}
 		}
 	}
-
+	void reset()
+	{
+		reset_thread();
+	}
 };

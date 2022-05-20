@@ -337,10 +337,11 @@ int main()
 		printf("ph?\n");
 		kvs = new KVS();
 #endif
-
 			kvs->init(num_of_threads,workload_key_size,workload_value_size,ops*2); // *2
 			init = 1;
 		}
+
+		kvs->reset();
 
 		printf("run\n");
 		run();

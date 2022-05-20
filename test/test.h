@@ -54,6 +54,10 @@ class KVS
 	{
 	}
 
+	virtual void reset()
+	{
+	}
+
 };
 
 #endif

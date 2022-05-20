@@ -4,56 +4,65 @@
 
 #include <stdlib.h>
 
+#define FCCT 1000 // free cnt check threshold
+
 PH_Thread* thread_list;
 
 extern unsigned int free_cnt;
 extern int num_of_thread;
 
-mtx_t m;
+pthread_mutex_t m;
+
+void reset_thread()
+{
+	int i;
+	for (i=0;i<num_of_thread;i++)
+		thread_list[i].free_cnt = 999999999;
+}
 
 void init_thread()
 {
 	int i;
 
-	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread));
+	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
 	for (i=0;i<num_of_thread;i++)
 		thread_list[i].free_cnt = 999999999; // ignore until new
-	mtx_init(&m,mtx_plain);
+	pthread_mutex_init(&m,NULL);
 }
 
 void clean_thread()
 {
-	mtx_destroy(&m);
+	pthread_mutex_destroy(&m);
 	free(thread_list);
 }
 
 void new_thread()
 {
 	int i;
-	thrd_t tid;
-	tid = thrd_current();
-	mtx_lock(&m);
+	pthread_t pt;
+	pt = pthread_self();
+	pthread_mutex_lock(&m);
 	for (i=0;i<num_of_thread;i++)
 	{
 		if (thread_list[i].free_cnt == 999999999)
 		{
-			thread_list[i].tid = tid;
+			thread_list[i].tid = pt;
 			thread_list[i].free_cnt = free_cnt;
 			break;
 		}
 	}
-	mtx_unlock(&m);
+	pthread_mutex_unlock(&m);
 }
 
 void update_free_cnt()
 {
 	int i;
-	thrd_t tid;
+	pthread_t pt;
 
-	tid = thrd_current();
+	pt = pthread_self();
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].tid == tid)
+		if (pthread_equal(thread_list[i].tid,pt))
 		{
 			thread_list[i].free_cnt = free_cnt;
 			return;
