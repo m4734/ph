@@ -10,6 +10,7 @@
 #include "hash.h"
 
 #include "query.h"
+#include "thread.h"
 
 //extern unsigned long long int pmem_size;
 //extern char pmem_file[100];
@@ -33,6 +34,10 @@ uint64_t meta_used;
 std::queue <Node_meta*> node_free_list;
 
 pthread_mutex_t alloc_mutex;
+
+unsigned int free_cnt; // free_max
+unsigned int free_min;
+unsigned int free_index;
 
 //----------------------------------------------------------------
 
@@ -87,7 +92,14 @@ void flush_meta(unsigned int offset)
 Node_meta* alloc_node()
 {
 	Node_meta* node;
+
 	pthread_mutex_lock(&alloc_mutex);
+
+	if (free_index == free_min)
+		free_min = min_free_cnt();
+
+	if (free_index < free_min)
+	{
 	if (!node_free_list.empty()) // need lock
 	{
 		node = node_free_list.front();
@@ -97,6 +109,7 @@ Node_meta* alloc_node()
 		if (print)
 	printf("alloc node %p\n",node); //test
 		return node;
+	}
 	}
 	if (meta_size < meta_used + sizeof(Node_meta))
 	{
@@ -121,12 +134,13 @@ void free_node(Node_meta* node)
 	pthread_mutex_lock(&node->mutex);
 	node->state = 2; // free // without mutex??
 	pthread_mutex_unlock(&node->mutex);
-	if (node->ref == 0)
-	{
+//	if (node->ref == 0)
+//	{
 		pthread_mutex_lock(&alloc_mutex);
 		node_free_list.push(node);
+		++free_cnt;
 		pthread_mutex_unlock(&alloc_mutex);
-	}
+//	}
 	if (print)
 	printf("free node %p\n",node);
 }
@@ -154,7 +168,10 @@ int init_data() // init hash first!!!
 	meta_used = 0;
 
 	//insert 0 node
-	
+	//
+
+	free_cnt = free_min = free_index = 0;
+
 	uint64_t zero=0;
 
 	Node_meta* head_node;
@@ -326,14 +343,16 @@ void dec_ref(Node_meta* node)
 	node->ref--;
 //	node->m.unlock();
 	pthread_mutex_unlock(&node->mutex);	
+	/*
 	if (node->state == 2 && node->ref == 0)
 	{
 		pthread_mutex_lock(&alloc_mutex);
 		node_free_list.push(node);
 		pthread_mutex_unlock(&alloc_mutex);
 	}
+	*/
 }
-int inc_ref(unsigned int offset,uint16_t limit)
+int inc_ref(unsigned int offset,uint16_t limit) // nobody use this
 {
 	return inc_ref(offset_to_node(offset),limit);
 }
@@ -974,6 +993,7 @@ printf("rehash\n");
 	}
 
 
+	_mm_sfence(); // for free after rehash
 
 //	dec_ref(offset);
 	free_node(node);//???
@@ -1191,6 +1211,10 @@ printf("rehash\n");
 //	insert_range_entry((unsigned char*)prefix,continue_len,calc_offset(new_node1));
 
 //	range_entry->offset = calc_offset(new_node1);
+//
+//
+	_mm_sfence(); // for free after rehash
+//
 	free_node(node);//???
 	return calc_offset(new_node1);
 //	return 0;

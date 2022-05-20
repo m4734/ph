@@ -1,6 +1,7 @@
 #include "query.h"
 #include "hash.h"
 #include "data.h"
+#include "thread.h"
 
 #ifndef NULL
 #define NULL 0
@@ -51,6 +52,9 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
+
+		update_free_cnt();
+
 		entry = find_or_insert_point_entry(key_p,0); // don't create
 		if (entry == NULL)
 		{
@@ -69,11 +73,11 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 			if (print)
 			printf("kv_p %p\n",kv_p);	
 			offset = data_point_to_offset(kv_p);
-			if (inc_ref(offset,1)) // split state ok
+//			if (inc_ref(offset,1)) // split state ok
 			{
 				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
 				{
-					dec_ref(offset);
+//					dec_ref(offset);
 					continue;
 				}
 //				query->ref_offset = offset; // lock ref
@@ -83,13 +87,13 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 				*result_len_p = *((uint16_t*)(kv_p+key_size));
 				if ((*result_len_p & (1 << 15)) != 0) // deleted
 				{
-					dec_ref(offset);
+//					dec_ref(offset);
 					break;
 				}
 //				*result = kv_p+key_size+len_size;
 				memcpy(result_p,kv_p+key_size+len_size,value_size);				
 //				s_unlock(offset); // it will be released after result
-				dec_ref(offset);				
+//				dec_ref(offset);				
 //				break;
 				return 0;				
 			}
@@ -110,6 +114,9 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 
 int delete_query(unsigned char* key_p)
 {
+
+	update_free_cnt();
+
 		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
@@ -185,6 +192,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	int rv;
 
 	int test=0;
+
+	update_free_cnt();
 
 	point_entry = find_or_insert_point_entry(key_p,1); // find or create
 	while(1) // offset can be changed when retry
@@ -428,6 +437,8 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	int continue_len;
 	Node* node_data;
 
+	update_free_cnt();
+
 	if (query->node_data == NULL)
 		query->node_data = (Node*)malloc(sizeof(Node));
 
@@ -556,6 +567,8 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 //int next_query(Query* query,unsigned char** result,int* result_len)
 int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 {
+	update_free_cnt();
+
 	if (query->scan_offset == TAIL_OFFSET)
 	{
 //		*result = empty;

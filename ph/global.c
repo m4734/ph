@@ -2,7 +2,10 @@
 
 #include "global.h"
 
-//#include "data.h"
+// init
+#include "data.h"
+#include "thread.h"
+#include "hash.h"
 
 int num_of_thread;
 int connection_per_thread;
@@ -68,5 +71,9 @@ void temp_static_conf(int tn, int ks,int vs)
 
 	memcpy(pmem_file,"/mnt/pmem0/file",strlen("/mnt/pmem0/file"));
 	pmem_file[strlen("/mnt/pmem0/file")] = 0;
+
+	init_hash();
+	init_thread();
+	init_data();
 }
 

@@ -4,6 +4,7 @@
 #include "global.h"
 #include "data.h"
 #include "hash.h"
+#include "thread.h"
 
 class KVS_ph : public KVS
 {
@@ -13,8 +14,9 @@ class KVS_ph : public KVS
 	{
 		KVS::init(num,key,value,record); // will need this
 		temp_static_conf(num,key,value);
-		init_hash();
-		init_data();
+//		init_hash();
+//		init_thread();
+//		init_data();
 		printf("kvs_ph init\n");
 	}
 
@@ -56,6 +58,7 @@ class KVS_ph : public KVS
 	{
 		clean_data();
 		clean_hash();
+		clean_thread();
 	}
 
 	virtual void run(TestQuery* tqa, int ops)
