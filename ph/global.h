@@ -29,7 +29,7 @@ extern int port;
 extern int point_hash_table_size;
 extern int range_hash_table_size;
 
-#define NODE_BUFFER 1024-64+1024
+#define NODE_BUFFER 1024-64+1024+56
 //#define NODE_BUFFER 256 // test
 extern int node_size;
 
@@ -41,7 +41,7 @@ extern int entry_size;
 //data
 
 extern uint64_t pmem_size;
-extern char pmem_file[100];// = "/mnt/pmem0/file";
+extern char pmem_file[100];// = "/mnt/pmem0/ph_data";
 
 //query
 extern unsigned char empty[10];

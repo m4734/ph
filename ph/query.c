@@ -68,7 +68,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 			// lock version
 			if (print)
 			printf("kv_p %p\n",kv_p);	
-			offset = point_to_offset(kv_p);
+			offset = data_point_to_offset(kv_p);
 			if (inc_ref(offset,1)) // split state ok
 			{
 				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
@@ -83,7 +83,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 				*result_len_p = *((uint16_t*)(kv_p+key_size));
 				if ((*result_len_p & (1 << 15)) != 0) // deleted
 				{
-//					dec_ref(offset);
+					dec_ref(offset);
 					break;
 				}
 //				*result = kv_p+key_size+len_size;
@@ -128,7 +128,7 @@ int delete_query(unsigned char* key_p)
 			kv_p = (unsigned char*)entry->kv_p;
 			if (kv_p == NULL) // deleted!!!
 				return 0;
-			offset = point_to_offset(kv_p);
+			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
 //				continue;
 			if (inc_ref(offset,0)) //init state ok
@@ -203,7 +203,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 					offset = 0;
 					break;
 				}
-				offset = point_to_offset(kv_p);
+				offset = data_point_to_offset(kv_p);
 				if (inc_ref(offset,0))
 				{
 				if (kv_p != (unsigned char*)point_entry->kv_p)
@@ -444,7 +444,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 			kv_p = (unsigned char*)entry->kv_p;
 			if (kv_p == NULL)
 				break;
-			offset = point_to_offset(kv_p);
+			offset = data_point_to_offset(kv_p);
 
 			if (try_hard_lock(offset))
 			{

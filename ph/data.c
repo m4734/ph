@@ -68,6 +68,11 @@ unsigned int point_to_offset(unsigned char* kv_p)
 	return (kv_p - meta_addr)/sizeof(Node_meta);
 }
 
+unsigned int data_point_to_offset(unsigned char* kv_p)
+{
+	return (kv_p - pmem_addr)/sizeof(Node);
+}
+
 
 //---------------------------------------------------------------
 
@@ -446,6 +451,8 @@ int check_size(unsigned int offset,int value_length)
 	if (!USE_DRAM)
 	{
 //		*((uint16_t*)(node->buffer+ns+key_size)) = value_length | (1 << 15); // invalidate first
+		if (print)
+			printf("PM size first\n");
 		Node* node_data = offset_to_node_data(offset);		
 		vl16 = value_length | (1 << 15);		
 		pmem_memcpy(node_data->buffer+ns+key_size,&vl16,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL);

@@ -91,6 +91,7 @@ void soft_lock(unsigned int offset);
 Node_meta* offset_to_node(unsigned int offset); // it will be .. use macro
 Node* offset_to_node_data(unsigned int offset);
 unsigned int point_to_offset(unsigned char* kv_p);
+unsigned int data_point_to_offset(unsigned char* kv_p);
 
 void delete_kv(unsigned char* kv_p); // e lock needed
 
