@@ -7,6 +7,11 @@
 #include "thread.h"
 #include "hash.h"
 
+//using namespace PH;
+//
+namespace PH
+{
+
 int num_of_thread;
 int connection_per_thread;
 int total_connection;
@@ -73,7 +78,8 @@ void temp_static_conf(int tn, int ks,int vs)
 	pmem_file[strlen("/mnt/pmem0/file")] = 0;
 
 	init_hash();
-	init_thread();
+	init_thread(); // need alloc mutex later
 	init_data();
 }
 
+}

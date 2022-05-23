@@ -58,6 +58,10 @@ class KVS
 	{
 	}
 
+	virtual void exit_thread()
+	{
+	}
+
 };
 
 #endif

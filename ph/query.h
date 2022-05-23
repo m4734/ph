@@ -4,6 +4,9 @@
 
 #include <pthread.h>
 
+namespace PH
+{
+
 struct Query
 {
 	// test will not use query buffer
@@ -53,3 +56,5 @@ int delete_query(unsigned char* key_p);
 int insert_query(unsigned char* key_p, unsigned char* value_p);
 int scan_query(Query* query);
 int next_query(Query* query,unsigned char* result_p,int* result_len_p);
+
+}

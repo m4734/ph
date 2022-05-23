@@ -3,6 +3,9 @@
 #define INIT_OFFSET 0
 #define SPLIT_OFFSET 1
 
+namespace PH
+{
+
 struct point_hash_entry
 {
 	/*
@@ -45,3 +48,5 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset);
 
 void init_hash();
 void clean_hash();
+
+}

@@ -14,6 +14,11 @@
 #define HEAD_OFFSET 1
 #define TAIL_OFFSET 2
 
+namespace PH
+{
+
+extern pthread_mutex_t alloc_mutex;
+
 struct Scan_list
 {
 	void* query; //need offset and mutex
@@ -109,3 +114,5 @@ void sort_node(Node* node,int* sorted_index,int* max);
 void insert_scan_list(Node_meta* node,void* query);
 void delete_scan_entry(unsigned int scan_offset,void* query);
 
+
+}

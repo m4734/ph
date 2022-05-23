@@ -14,6 +14,10 @@
 //#define print 0
 #define print 0
 
+//using namespace PH;
+namespace PH
+{
+
 void print_query(Query* query)
 {
 	printf("print query\n");
@@ -631,4 +635,6 @@ void free_query(Query* query)
 		*/
 	delete_query_scan_entry(query);
 	free(query->node_data);
+}
+
 }

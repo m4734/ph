@@ -6,6 +6,8 @@
 #include "hash.h"
 #include "thread.h"
 
+//using namespace PH;
+
 class KVS_ph : public KVS
 {
 	public:
@@ -13,7 +15,7 @@ class KVS_ph : public KVS
 	virtual void init(int num,int key,int value,int record)
 	{
 		KVS::init(num,key,value,record); // will need this
-		temp_static_conf(num,key,value);
+		PH::temp_static_conf(num,key,value);
 //		init_hash();
 //		init_thread();
 //		init_data();
@@ -22,43 +24,43 @@ class KVS_ph : public KVS
 
 	virtual void insert_op(unsigned char* key,unsigned char* value)
 	{
-		insert_query(key,value);
+		PH::insert_query(key,value);
 	}
 	virtual void read_op(unsigned char* key,unsigned char* result)
 	{
 		int len;
-		lookup_query(key,result,&len);
+		PH::lookup_query(key,result,&len);
 	}
 	virtual void update_op(unsigned char* key,unsigned char* value)
 	{
-		insert_query(key,value);
+		PH::insert_query(key,value);
 	}
 	virtual void delete_op(unsigned char* key)
 	{
-		delete_query(key);
+		PH::delete_query(key);
 	}
 	virtual void scan_op(unsigned char* key,int cnt,unsigned char** scan_result)
 	{
-		Query query;
-		init_query(&query);
+		PH::Query query;
+		PH::init_query(&query);
 		query.key_p = key;
 		query.op = 6;
-		scan_query(&query);
+		PH::scan_query(&query);
 
 		int i,len;
 		query.op = 7;
 		for (i=0;i<cnt;i++)
 		{
-			next_query(&query,scan_result[i],&len);
+			PH::next_query(&query,scan_result[i],&len);
 		}
-		free_query(&query);
+		PH::free_query(&query);
 	}
 
 	virtual void clean()
 	{
-		clean_data();
-		clean_hash();
-		clean_thread();
+		PH::clean_data();
+		PH::clean_hash();
+		PH::clean_thread();
 	}
 
 	virtual void run(TestQuery* tqa, int ops)
@@ -68,34 +70,38 @@ class KVS_ph : public KVS
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
-				insert_query(tqa[i].key,tqa[i].value);
+				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 2) // read
-				lookup_query(tqa[i].key,result,&len);
+				PH::lookup_query(tqa[i].key,result,&len);
 			else if (tqa[i].op == 3) // update
-				insert_query(tqa[i].key,tqa[i].value);
+				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 4) //delete
-				delete_query(tqa[i].key);
+				PH::delete_query(tqa[i].key);
 			else if (tqa[i].op == 5) //scan
 			{
-		Query query;
-		init_query(&query);
+				PH::Query query;
+				PH::init_query(&query);
 		query.key_p = tqa[i].key;
 		query.op = 6;
-		scan_query(&query);
+		PH::scan_query(&query);
 
 		int len;
 		query.op = 7;
 		for (j=0;j<tqa[i].cnt;j++)
 		{
-			next_query(&query,result,&len);
+			PH::next_query(&query,result,&len);
 		}
-		free_query(&query);
+		PH::free_query(&query);
 
 			}
 		}
 	}
-	void reset()
+	virtual void reset()
 	{
-		reset_thread();
+		PH::reset_thread();
+	}
+	virtual void exit_thread()
+	{
+		PH::exit_thread();
 	}
 };

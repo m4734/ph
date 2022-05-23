@@ -17,6 +17,10 @@ typedef u_int8_t uint8_t
 typedef u_int16_t uint16_t
 typedef u_int64_t uint64_t
 */
+
+namespace PH
+{
+
 extern int num_of_thread;
 extern int connection_per_thread;
 extern int total_connection;
@@ -72,3 +76,5 @@ void temp_static_conf(int tn,int ks,int vs);
 */
 
 //#endif
+//
+}

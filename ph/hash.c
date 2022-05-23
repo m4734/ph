@@ -5,6 +5,9 @@
 #include "global.h"
 #include "hash.h"
 
+namespace PH
+{
+
 extern int point_hash_table_size;
 extern int range_hash_table_size;
 
@@ -352,4 +355,6 @@ void clean_hash()
 		free(range_hash_table_array[i]);
 	}
 	free(range_hash_table_array);
+}
+
 }

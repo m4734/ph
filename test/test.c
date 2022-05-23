@@ -201,6 +201,7 @@ void* worker_function(void* thread_parameter)
 	}
 	*/
 	kvs->run(queries[tn],ops);
+	kvs->exit_thread();
 	return NULL;
 }
 
@@ -341,7 +342,7 @@ int main()
 			init = 1;
 		}
 
-		kvs->reset();
+//		kvs->reset();
 
 		printf("run\n");
 		run();

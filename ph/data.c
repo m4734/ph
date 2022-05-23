@@ -22,6 +22,11 @@
 #define print 0
 //#define print 0
 
+//using namespace PH;
+
+namespace PH
+{
+
 unsigned char* pmem_addr;
 int is_pmem;
 size_t pmem_len;
@@ -148,7 +153,7 @@ void free_node(Node_meta* node)
 
 int init_data() // init hash first!!!
 {
-	pthread_mutex_init(&alloc_mutex,NULL);
+//	pthread_mutex_init(&alloc_mutex,NULL); // moved to thread.c
 
 	if (USE_DRAM)
 		pmem_addr=(unsigned char*)mmap(NULL,pmem_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
@@ -176,6 +181,9 @@ int init_data() // init hash first!!!
 
 	Node_meta* head_node;
 	Node_meta* tail_node;
+
+	update_free_cnt(); // temp main thread
+
 	//push for reserve
 	alloc_node(); // 0
 	head_node = alloc_node(); // 1 head
@@ -210,6 +218,13 @@ int init_data() // init hash first!!!
 	inc_ref(TAIL_OFFSET,0); //don't free these node	
 
 	insert_range_entry((unsigned char*)(&zero),0,calc_offset(node)); // the length is important!!!
+
+
+	exit_thread(); // remove main thread
+
+	//test code-------------------
+
+
 	int zero2=0;
 	if (find_range_entry((unsigned char*)(&zero),&zero2) == NULL)
 		printf("range error\n");
@@ -240,7 +255,7 @@ void clean_data()
 	else
 		pmem_unmap(pmem_addr,pmem_size);
 	munmap(meta_addr,meta_size);
-	pthread_mutex_destroy(&alloc_mutex);
+//	pthread_mutex_destroy(&alloc_mutex); // moved to ...
 
 	//destroy all node mutex
 }
@@ -1464,5 +1479,7 @@ void delete_scan_entry(unsigned int scan_offset,void* query)
 
 //	pthread_mutex_unlock(&node->mutex);
 //	pthread_mutex_unlock(&query_p->scan_mutex);
+
+}
 
 }
