@@ -193,13 +193,16 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	unsigned int offset;
 	int continue_len;	
 	continue_len = 0;
+//	continue_len = -1;	
 	int rv;
 
 	int test=0;
+	int z = 0;
 
 	update_free_cnt();
 
 	point_entry = find_or_insert_point_entry(key_p,1); // find or create
+
 	while(1) // offset can be changed when retry
 	{
 		if (print)
@@ -249,7 +252,13 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			printf("find node\n");
 			while(1)
 			{
-				if ((range_entry = find_range_entry(key_p,&continue_len)) == NULL)
+				/*
+				if (find_range_entry(key_p,&z) != find_range_entry2(key_p,&continue_len))
+				{
+					range_entry = find_range_entry2(key_p,&continue_len);
+				}
+				*/
+				if ((range_entry = find_range_entry2(key_p,&continue_len)) == NULL)
 //				if (range_entry == NULL) // spliting...
 				{
 //
@@ -310,7 +319,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			
 			if (range_entry == NULL)
 			{
-				range_entry = find_range_entry(key_p,&continue_len);
+				range_entry = find_range_entry2(key_p,&continue_len);
 //				if (range_entry != NULL && range_entry->offset != offset)
 //					printf("flksjeflsekf %d %d\n",offset_to_node(offset)->state,offset_to_node(offset)->ref);
 				// it could happen because split change range entry fisrt					
@@ -322,7 +331,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				}
 			}
 			
-			if (continue_len < 64) // split
+			if (continue_len < key_bit)//64) // split
 			{
 				if (print)
 				printf("split\n");
@@ -372,8 +381,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				{
 					if (range_entry == NULL)
 					{
-						continue_len = 64;
-						range_entry = find_range_entry(key_p,&continue_len);
+						continue_len = key_bit;//64;
+						range_entry = find_range_entry2(key_p,&continue_len);
 						if (range_entry == NULL)
 						{
 							printf("error!!!! %d\n",continue_len);
@@ -509,9 +518,10 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 		}
 	}
 	continue_len = 0;
+//	continue_len = -1;
 	while(1)
 	{
-		range_entry = find_range_entry(query->key_p,&continue_len);
+		range_entry = find_range_entry2(query->key_p,&continue_len);
 		if (range_entry == NULL)
 			continue;
 		offset = range_entry->offset;

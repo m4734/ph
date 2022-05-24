@@ -24,6 +24,8 @@
 
 //using namespace PH;
 
+//#define ttt
+
 namespace PH
 {
 
@@ -43,6 +45,8 @@ pthread_mutex_t alloc_mutex;
 unsigned int free_cnt; // free_max
 unsigned int free_min;
 unsigned int free_index;
+
+uint64_t tt1,tt2,tt3,tt4; //test
 
 //----------------------------------------------------------------
 
@@ -225,9 +229,9 @@ int init_data() // init hash first!!!
 	//test code-------------------
 
 
-	int zero2=0;
-	if (find_range_entry((unsigned char*)(&zero),&zero2) == NULL)
-		printf("range error\n");
+//	int zero2=0;
+//	if (find_range_entry((unsigned char*)(&zero),&zero2) == NULL)
+//		printf("range error\n");
 
 	if (USE_DRAM)
 		printf("USE_DRAM\n");
@@ -236,6 +240,10 @@ int init_data() // init hash first!!!
 	printf("size of node %ld\n",sizeof(Node));
 	printf("size of node_meta %ld\n",sizeof(Node_meta));
 
+	tt1 = 0;
+	tt2 = 0;
+	tt3 = 0;
+	tt4 = 0;
 
 
 	return 0;
@@ -258,6 +266,15 @@ void clean_data()
 //	pthread_mutex_destroy(&alloc_mutex); // moved to ...
 
 	//destroy all node mutex
+	//
+#ifdef ttt
+	printf("data\n");
+	printf("insert %ld %ld\n",tt1/1000000000,tt1%1000000000);
+	printf("split %ld %ld\n",tt2/1000000000,tt2%1000000000);
+	printf("compact %ld %ld\n",tt3/1000000000,tt3%1000000000);
+	printf("check_size %ld %ld\n",tt4/1000000000,tt4%1000000000);
+#endif
+
 }
 
 //don't use
@@ -461,6 +478,11 @@ void delete_kv(unsigned char* kv_p) // OP may need
 
 int check_size(unsigned int offset,int value_length)
 {
+#ifdef ttt
+	timespec ts1,ts2; // test
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+
 	if (print)
 		printf("check_size\n");
 	int ns;
@@ -469,13 +491,23 @@ int check_size(unsigned int offset,int value_length)
 	pthread_mutex_lock(&node->mutex);
 	if (node->state > 0)
 	{
-	pthread_mutex_unlock(&node->mutex);	
+	pthread_mutex_unlock(&node->mutex);
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt4 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+
 		return -2; // node is spliting
 	}
 	if (node->size + key_size + len_size + value_length > NODE_BUFFER)
 	{
 //		node->ref++; // i will try split
 		pthread_mutex_unlock(&node->mutex);
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt4 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+
 		return -1; // node need split
 	}
 //	node->ref++;
@@ -500,12 +532,22 @@ int check_size(unsigned int offset,int value_length)
 	pthread_mutex_unlock(&node->mutex);	
 	if (print)
 	printf("inc ref - insert\n");
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt4 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+
 	return ns;
 
 }
 
 unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* value,int value_length,int old_size)
 {
+#ifdef ttt
+	timespec ts1,ts2; // test
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+
 	if (print)
 	printf("insert kv offset %u\n",offset);
 	Node* node_data;
@@ -550,6 +592,12 @@ unsigned char* insert_kv(unsigned int offset,unsigned char* key,unsigned char* v
 	if (print)
 	printf("kv_p %p\n",kv_p);
 //	print_kv(kv_p);
+//
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt1+= (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+//
 	return kv_p;
 }
 
@@ -604,6 +652,11 @@ void move_scan_list(Node_meta* node_old,Node_meta* node_new)
 
 int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 {
+#ifdef ttt
+	timespec ts1,ts2;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+
 if (print)
 	printf("start split offset %d len %d\n",offset,continue_len);
 
@@ -1012,11 +1065,23 @@ printf("rehash\n");
 
 //	dec_ref(offset);
 	free_node(node);//???
+
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+
 	return 0;
 }
 
 int compact(unsigned int offset)//, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
 {
+#ifdef ttt
+	timespec ts1,ts2;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+//	tt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+
 //	printf("start compaction offset %d len %d\n",offset,continue_len);
 if(print)	
 	printf("compaction offset %d\n",offset);
@@ -1231,6 +1296,12 @@ printf("rehash\n");
 	_mm_sfence(); // for free after rehash
 //
 	free_node(node);//???
+
+#ifdef ttt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	tt3+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+
 	return calc_offset(new_node1);
 //	return 0;
 

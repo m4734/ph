@@ -30,6 +30,7 @@ int key_size;
 int len_size;
 int value_size;
 int entry_size;
+int key_bit;
 
 //data
 
@@ -56,6 +57,7 @@ void temp_static_conf(int tn, int ks,int vs)
 	key_size = ks;
 	value_size = vs;
 	entry_size = key_size + len_size + value_size; //no meta?
+	key_bit = ks * 8;
 
 	point_hash_table_size = 20*1000*1000; // 1 entry = 32byte 10M = 320MB
 	range_hash_table_size = 32*1024; // total range = point / per node * 2

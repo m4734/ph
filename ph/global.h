@@ -41,6 +41,7 @@ extern int key_size;
 extern int len_size;
 extern int value_size;
 extern int entry_size;
+extern int key_bit;
 
 //data
 

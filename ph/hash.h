@@ -43,6 +43,7 @@ struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int k
 //struct range_hash_entry* find_or_insert_range_entry(char* key_p,int key_len,char* p,int update);
 
 struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len);
+struct range_hash_entry* find_range_entry2(unsigned char* key_p,int* continue_len); // binary
 
 void insert_range_entry(unsigned char* key_p,int len,unsigned int offset);
 
