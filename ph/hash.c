@@ -30,7 +30,7 @@ uint64_t htt1,htt2;
 static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test hash from hiredis
 {
 	unsigned int hash = 5381;
-	int len=key_size;//8;
+	int len=8;//key_size;//8; // can't change need function OP
 	while (len--)
 		hash = ((hash << 5) + hash) + (*buf++);
 	return hash;
