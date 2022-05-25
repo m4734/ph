@@ -252,12 +252,6 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			printf("find node\n");
 			while(1)
 			{
-				/*
-				if (find_range_entry(key_p,&z) != find_range_entry2(key_p,&continue_len))
-				{
-					range_entry = find_range_entry2(key_p,&continue_len);
-				}
-				*/
 				if ((range_entry = find_range_entry2(key_p,&continue_len)) == NULL)
 //				if (range_entry == NULL) // spliting...
 				{

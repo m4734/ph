@@ -9,7 +9,7 @@ namespace PH
 {
 
 extern int point_hash_table_size;
-extern int range_hash_table_size;
+extern int* range_hash_table_size;
 
 point_hash_entry* point_hash_table;
 range_hash_entry** range_hash_table_array;
@@ -23,9 +23,11 @@ pthread_mutex_t* range_hash_mutex;
 //#define print 0
 //
 //
-//#define ttt 0
+//#define ttt 
 
 uint64_t htt1,htt2;
+
+uint64_t pre_bit_mask[65];
 
 static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test hash from hiredis
 {
@@ -203,13 +205,16 @@ struct range_hash_entry* find_range_entry2(unsigned char* key_p,int* continue_le
 	unsigned int hash;
 	unsigned char prefix[8]={0,}; // 8?
 	struct range_hash_entry* entry;
-
-	max = key_bit;//key_size * 8; // 64
-
-	
+/*
+static int cnt=0;
+cnt++;
+if (cnt % 1000000 == 0)
+	printf("cnt %d\n",cnt);
+*/	
 	if (*continue_len > 0)
 		return find_range_entry(key_p,continue_len);
 
+	max = key_bit;//key_size * 8; // 64
 	min = 0;
 	mid = (min+max)/2;
 	
@@ -224,25 +229,19 @@ struct range_hash_entry* find_range_entry2(unsigned char* key_p,int* continue_le
 		min = mid = *continue_len;
 	}
 */
-	bit_flush(prefix,key_p,0,mid-1);	
 
-	if (print)
-	printf("key %lx clen %d\n",*((uint64_t*)key_p),*continue_len);
+	//	bit_flush(prefix,key_p,0,mid-1);	
+
 	while(1)	
 	{
-		if (print)		
-		printf("prefix %lx\n",*((uint64_t*)prefix));
-		hash = hash_function(prefix) % range_hash_table_size;
+	
+		*(uint64_t*)prefix = *(uint64_t*)key_p & pre_bit_mask[mid];
+
+		hash = hash_function(prefix) % range_hash_table_size[mid];
 		entry = &(range_hash_table_array[mid][hash]);
-		if (print)
-		{
-		printf("hash %u\n",hash);
-		printf("entry %p key %lu\n",entry,*((uint64_t*)entry->key));
-		}
+
 		while(entry)
 		{
-			if (print)
-			printf("entry %lx prefix %lx\n",*((uint64_t*)entry->key),*((uint64_t*)prefix));
 			if (*((uint64_t*)entry->key) == *((uint64_t*)prefix) && entry->offset != INIT_OFFSET)
 			{
 				if (entry->offset == SPLIT_OFFSET) // splited
@@ -261,10 +260,11 @@ struct range_hash_entry* find_range_entry2(unsigned char* key_p,int* continue_le
 		if (!entry)
 		{
 			max = mid;// - 1;	
-			bit_flush(prefix,NULL,(min+max)/2,mid-1);
+//			bit_flush(prefix,NULL,(min+max)/2,mid-1);
 // aaaaaaaaaaaaa ... 32 0000000 ... 32
 // aaaaaaaa ... 15 000000000000 ... 49
 
+//			*(uint64_t*)prefix = *(uint64_t*)key_p & pre_bit_mask[
 		}
 		else
 		{
@@ -274,7 +274,7 @@ struct range_hash_entry* find_range_entry2(unsigned char* key_p,int* continue_le
 				min = mid+1;
 			else
 				min = mid;// + 1;
-			bit_flush(prefix,key_p,mid,(min+max)/2-1);
+//			bit_flush(prefix,key_p,mid,(min+max)/2-1);
 		}
 
 		if (mid == (min+max)/2)
@@ -331,7 +331,7 @@ struct range_hash_entry* find_range_entry(unsigned char* key_p,int* continue_len
 //		b = b >> 1;
 		if (print)		
 		printf("prefix %lx\n",*((uint64_t*)prefix));
-		hash = hash_function(prefix) % range_hash_table_size;
+		hash = hash_function(prefix) % range_hash_table_size[i];
 		entry = &(range_hash_table_array[i][hash]);
 		if (print)
 		{
@@ -419,7 +419,7 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 if (print)
 	printf("key_p %lx range %lx len %d offset %d insert\n",*((uint64_t*)key_p),*((uint64_t*)prefix),len,offset);	
 
-	hash = hash_function(prefix) % range_hash_table_size;
+	hash = hash_function(prefix) % range_hash_table_size[len];
 
 	entry = &(range_hash_table_array[len][hash]);
 #if 0
@@ -493,20 +493,35 @@ void init_hash()
 		pthread_mutex_init(&point_hash_mutex[i],NULL);
 	}
 
+	range_hash_table_size = (int*)malloc(sizeof(int)*(64+1));
+	range_hash_table_size[64] = point_hash_table_size;
+	for (i=63;i>=0;i--)
+	{
+		range_hash_table_size[i] = range_hash_table_size[i+1];
+	}
+
 	range_hash_table_array = (range_hash_entry**)malloc(sizeof(range_hash_entry*)*(64+1));
 	for (i=0;i<64+1;i++)
 	{
-		range_hash_table_array[i] = (range_hash_entry*)malloc(sizeof(range_hash_entry)*range_hash_table_size); // OP it will be no hash until 16
-		for (j=0;j<range_hash_table_size;j++)
+		range_hash_table_array[i] = (range_hash_entry*)malloc(sizeof(range_hash_entry)*range_hash_table_size[i]); // OP it will be no hash until 16
+		for (j=0;j<range_hash_table_size[i];j++)
 		{
 			range_hash_table_array[i][j].offset = INIT_OFFSET;
 		        range_hash_table_array[i][j].next = NULL;
 		}
 	}
 
-	range_hash_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*range_hash_table_size);
-	for (i=0;i<range_hash_table_size;i++)
+	range_hash_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*range_hash_table_size[64]);
+	for (i=0;i<range_hash_table_size[64];i++)
 		pthread_mutex_init(&range_hash_mutex[i],NULL);
+
+
+	pre_bit_mask[0] = 0;
+//	pre_bit_mask[1] = (uint64_t)1 << 63;
+	for (i=1;i<=64;i++)
+		pre_bit_mask[i] = (pre_bit_mask[i-1] >> 1) + ((uint64_t)1 << 63);
+
+
 /*
 	// insert 0
 	uint64_t zero=0;
@@ -541,7 +556,7 @@ void clean_hash()
 
 	for (i=0;i<64;i++)
 	{
-		for (j=0;j<range_hash_table_size;j++)
+		for (j=0;j<range_hash_table_size[i];j++)
 		{
 //			re = (range_hash_entry[i]+j*sizeof(range_hash_entry)).next;
 			re = range_hash_table_array[i][j].next;			
@@ -555,6 +570,7 @@ void clean_hash()
 		free(range_hash_table_array[i]);
 	}
 	free(range_hash_table_array);
+	free(range_hash_table_size);
 
 #ifdef ttt
 	printf("hash\n");

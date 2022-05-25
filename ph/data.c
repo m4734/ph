@@ -24,8 +24,6 @@
 
 //using namespace PH;
 
-//#define ttt
-
 namespace PH
 {
 

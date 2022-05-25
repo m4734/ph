@@ -31,7 +31,7 @@ extern int port;
 // hash
 
 extern int point_hash_table_size;
-extern int range_hash_table_size;
+extern int* range_hash_table_size;
 
 #define NODE_BUFFER 1024-64+1024+56
 //#define NODE_BUFFER 256 // test

@@ -21,7 +21,7 @@ int port;
 // hash
 
 int point_hash_table_size;
-int range_hash_table_size;
+int* range_hash_table_size;
 
 //#define NODE_BUFFER 1024
 int node_size;
@@ -59,8 +59,8 @@ void temp_static_conf(int tn, int ks,int vs)
 	entry_size = key_size + len_size + value_size; //no meta?
 	key_bit = ks * 8;
 
-	point_hash_table_size = 20*1000*1000; // 1 entry = 32byte 10M = 320MB
-	range_hash_table_size = 32*1024; // total range = point / per node * 2
+	point_hash_table_size = 10*1000*1000; // 1 entry = 32byte 10M = 320MB
+//	range_hash_table_size = 10*1000*1000; //32*1024; // total range = point / per node * 2
 
 	pmem_size = (uint64_t)1024*1024*1024*10;
 
