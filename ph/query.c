@@ -53,14 +53,12 @@ void init_query(Query* query)
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
 {
-		point_hash_entry* entry;
 		unsigned char* kv_p;
-		unsigned int offset;
-
+//		unsigned int offset;
 		update_free_cnt();
 
-		entry = find_or_insert_point_entry(key_p,0); // don't create
-		if (entry == NULL)
+		kv_p = find_point_entry(key_p); // don't create
+		if (kv_p == NULL)
 		{
 //			result_p = empty;
 			memcpy(result_p,empty,empty_len);			
@@ -68,22 +66,24 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //			*result_len_p = 0;
 			return 0;
 		}
-		while(1)
+//		while(1)
 		{
-			kv_p = (unsigned char*)entry->kv_p;
-			if (kv_p == NULL) // deleted
-				break;
+//			if (kv_p == NULL) // deleted
+//				break;
 			// lock version
 			if (print)
 			printf("kv_p %p\n",kv_p);	
-			offset = data_point_to_offset(kv_p);
+//			offset = data_point_to_offset(kv_p);
 //			if (inc_ref(offset,1)) // split state ok
 			{
+				// it will not happen
+ /*
 				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
 				{
 //					dec_ref(offset);
 					continue;
 				}
+				*/
 //				query->ref_offset = offset; // lock ref
 
 //				print_kv(kv_p);	
@@ -92,10 +92,19 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 				if ((*result_len_p & (1 << 15)) != 0) // deleted
 				{
 //					dec_ref(offset);
-					break;
+		memcpy(result_p,empty,empty_len);		
+		*result_len_p = empty_len;
+		*result_len_p = 0;		
+		return 0;
+
+//					break;
 				}
+
 //				*result = kv_p+key_size+len_size;
-				memcpy(result_p,kv_p+key_size+len_size,value_size);				
+//				memcpy(result_p,kv_p+key_size+len_size,value_size);
+				memcpy(result_p,kv_p+key_size+len_size,*result_len_p);
+//				memcpy(result_p,kv_p+key_size+len_size,200);
+			
 //				s_unlock(offset); // it will be released after result
 //				dec_ref(offset);				
 //				break;
@@ -109,10 +118,12 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 		}
 		//deleted
 //		*result_p = empty;
+/*		
 		memcpy(result_p,empty,empty_len);		
 		*result_len_p = empty_len;
 //		*result_len_p = 0;		
 		return 0;
+		*/
 }
 
 
@@ -121,22 +132,16 @@ int delete_query(unsigned char* key_p)
 
 	update_free_cnt();
 
-		point_hash_entry* entry;
+//		point_hash_entry* entry;
 		unsigned char* kv_p;
 		unsigned int offset;
-		entry = find_or_insert_point_entry(key_p,0); // don't create
-		if (entry == NULL || entry->kv_p == NULL)
-		{
-			/*
-//			*result = empty;
-			memcpy(result_p,empty,empty_len);			
-			*result_len = empty_len;
-			*/
-			return 0;
-		}
+//		entry = find_or_insert_point_entry(key_p,0); // don't create
 		while(1)
 		{
-			kv_p = (unsigned char*)entry->kv_p;
+
+//			kv_p = point_hash.find(key_p);
+//			kv_p = (unsigned char*)entry->
+			kv_p = find_point_entry(key_p);
 			if (kv_p == NULL) // deleted!!!
 				return 0;
 			offset = data_point_to_offset(kv_p);
@@ -144,17 +149,26 @@ int delete_query(unsigned char* key_p)
 //				continue;
 			if (inc_ref(offset,0)) //init state ok
 			{
+				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved
+				{
+					dec_ref(offset);
+					continue;
+				}
+				/*
 				if (kv_p != (unsigned char*)entry->kv_p)
 				{
 					dec_ref(offset);
 					continue;
 				}
+				*/
 //				query->offset = offset; // restore ref cnt
 
-				soft_lock(offset);
-				entry->kv_p = NULL; // what should be first?
+//				soft_lock(offset);
+//				entry->kv_p = NULL; // what should be first?
 				delete_kv(kv_p);
-				hard_unlock(offset);
+				remove_point_entry(key_p);
+//				point_hash.remove(key_p); // hash twice??
+//				hard_unlock(offset);
 
 //				e_unlock(offset);
 				dec_ref(offset);				
@@ -187,8 +201,6 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	*result_len = empty_len;
 */
 
-	point_hash_entry* point_entry;
-	range_hash_entry* range_entry;
 	unsigned char* kv_p;
 	unsigned int offset;
 	int continue_len;	
@@ -201,31 +213,28 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 
 	update_free_cnt();
 
-	point_entry = find_or_insert_point_entry(key_p,1); // find or create
 
 	while(1) // offset can be changed when retry
 	{
 		if (print)
 			printf("insert loop\n");
 		offset = 0;
-		range_entry = NULL;
-		if (point_entry) // always true
+		while(1)
 		{
-			while(1)
+//			kv_p = point_hash.find(key_p); // find or create
+			kv_p = find_point_entry(key_p);			
+			if (kv_p == NULL) // deleted during !!! or doesn't exist...
 			{
-				kv_p = (unsigned char*)point_entry->kv_p;
-				if (kv_p == NULL) // deleted during !!! or doesn't exist...
-				{
-					offset = 0;
-					break;
-				}
-				offset = data_point_to_offset(kv_p);
-				if (inc_ref(offset,0))
-				{
-				if (kv_p != (unsigned char*)point_entry->kv_p)
+				offset = 0;
+				break;
+			}
+			offset = data_point_to_offset(kv_p);
+			if (inc_ref(offset,0))
+			{
+				if (*((uint64_t*)key_p) != *((uint64_t*)kv_p))
 				{
 					dec_ref(offset);
-//					printf("value is moved\n");
+					printf("value is moved\n");
 					continue;
 				}
 								
@@ -235,16 +244,9 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				}
 
 					dec_ref(offset); // node is spliting
-				}
+			}
 //				if (print)
 //				printf("node is spliting??\n");
-			}
-		}
-		else
-		{
-			int t;
-			printf("efefsefesf\n");
-			scanf("%d",&t);
 		}
 		if (offset == 0) // the key doesn't exist
 		{
@@ -252,35 +254,38 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			printf("find node\n");
 			while(1)
 			{
-				if ((range_entry = find_range_entry2(key_p,&continue_len)) == NULL)
+				if ((offset = find_range_entry2(key_p,&continue_len)) == 0)
 //				if (range_entry == NULL) // spliting...
 				{
 //
 					printf("---------------split collision\n");
 					
 					test++;
-				if (test > 1000)
+				if (test > 100)
 				{
 				printf("too many fail %lu\n",*((uint64_t*)key_p));
+				int t;
+				scanf("%d",&t);
 					}
 					continue;
 				}
-				offset = range_entry->offset;
 				if (inc_ref(offset,0))
 				{
 //				if (range_entry->offset == SPLIT_OFFSET)
+				/* // it can't be now because of free cnt
 				if (range_entry->offset != offset)				
 				{
 					dec_ref(offset);
 					continue;
 				}
+				*/
 
 				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
 				{
 					break;
 				}
 
-					dec_ref(offset); // node is spliting
+				dec_ref(offset); // node is spliting
 				}
 
 
@@ -295,13 +300,16 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			unsigned char* rp;
 			unsigned char* tp;
 			rp = insert_kv(offset,key_p,value_p,value_size,rv); // never fail
-			soft_lock(offset); // not this! use hash lock
-			tp = (unsigned char*)point_entry->kv_p;
-			point_entry->kv_p = rp;
-			hard_unlock(offset);
+//			soft_lock(offset); // not this! use hash lock
+			tp = kv_p;
+//			point_hash.insert(key_p,rp);
+			insert_point_entry(key_p,rp);
+//			hard_unlock(offset);
 
 			if (tp != NULL) // old key
-				*((uint16_t*)(tp+key_size)) |= (1<<15); // invalidate
+			{
+				delete_kv(tp);
+			}
 //			point_entry->kv_p = kv_p;
 
 			dec_ref(offset);
@@ -310,7 +318,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 		else // rv == -1 and it means we will split
 		{
 			//failed and need split
-			
+		/* //it may not happen because of free cnt
 			if (range_entry == NULL)
 			{
 				range_entry = find_range_entry2(key_p,&continue_len);
@@ -324,9 +332,20 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 					continue;
 				}
 			}
-			
-			if (continue_len < key_bit)//64) // split
+		*/	
+			if (continue_len == 0)
 			{
+				rv = find_range_entry2(key_p,&continue_len);
+//				if (rv != offset)
+//					printf("??? offset error\n");
+				if (rv == 0)
+					printf("rv == 0\n");
+
+			}
+//			if (continue_len >= 60)
+//				rv = 0;
+			if (continue_len < key_bit)//64) // split
+			{	
 				if (print)
 				printf("split\n");
 				// we need compaction continue len before get in here!!!!
@@ -343,7 +362,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				}
 				*/
 
-				if (split(offset,key_p,continue_len)<0)
+				if ((rv = split(offset,key_p,continue_len))<0)
 				{
 					printf("split lock failed\n");
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
@@ -354,7 +373,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				}
 				else
 				{
-					range_entry->offset = SPLIT_OFFSET; //splited
+//					range_entry->offset = SPLIT_OFFSET; //splited
+//					insert_range_entry // in split function	
 					// may need fence
  					dec_ref(offset); // have to be after offset 1
 					continue_len++;		
@@ -363,7 +383,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				if (print)
 					printf("split end\n");				
 			}
-			else// compaction
+//			if (0)// compaction
+			else
 			{
 			/*	
 				if ((rv=compact(offset)) < 0)
@@ -371,6 +392,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 //				else
 //					range_entry->offset = rv;
 					*/
+				compact(offset);
+				/*
 				if ((rv=compact(offset)) >= 0)
 				{
 					if (range_entry == NULL)
@@ -383,10 +406,11 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 							scanf("%d\n",&test);
 						}
 					}
-					range_entry->offset = rv;
+//					range_entry->offset = rv;// in split function
 				}
-//				else
-//					printf("compaction lock failed\n");
+				else
+					printf("compaction lock failed\n");
+					*/
 //				e_unlock(offset);
 				dec_ref(offset);				
 			}
@@ -437,8 +461,8 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	*result = empty;
 	*result_len = empty_len;
 */
-	point_hash_entry* entry;
-	range_hash_entry* range_entry;
+//	point_hash_entry* entry;
+//	range_hash_entry* range_entry;
 	unsigned char* kv_p;
 	unsigned int offset;
 	int continue_len;
@@ -454,23 +478,27 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	node_data = (Node*)query->node_data;
 
 	offset = 0;
-	entry = find_or_insert_point_entry(query->key_p,0); // don't create
-	if (entry != NULL)
+//	entry = find_or_insert_point_entry(query->key_p,0); // don't create
+//	
 	{
 		while(1)
 		{
-			kv_p = (unsigned char*)entry->kv_p;
+			kv_p = find_point_entry(query->key_p);
+//			kv_p = (unsigned char*)entry->kv_p;
 			if (kv_p == NULL)
 				break;
 			offset = data_point_to_offset(kv_p);
 
 			if (try_hard_lock(offset))
 			{
+				// it will not happen
+				/*
 				if (kv_p != (unsigned char*)entry->kv_p)
 				{
 					hard_unlock(offset);
 					continue;
 				}
+				*/
 
 //			copy_node(node,offset_to_node(offset));
 			*node_data = *offset_to_node_data(offset); //copy node
@@ -513,15 +541,22 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	}
 	continue_len = 0;
 //	continue_len = -1;
+	unsigned int offset2;	
 	while(1)
 	{
-		range_entry = find_range_entry2(query->key_p,&continue_len);
+//		range_entry = find_range_entry2(query->key_p,&continue_len);
+		offset = find_range_entry2(query->key_p,&continue_len);		
+		/*
 		if (range_entry == NULL)
 			continue;
 		offset = range_entry->offset;
+		*/
+		if (offset == 0) // spliting
+			continue;
 		if (try_hard_lock(offset))
 		{
-			if (offset != range_entry->offset)
+			offset2 = find_range_entry2(query->key_p,&continue_len);
+			if (offset != offset2)
 			{
 				hard_unlock(offset);
 				offset = 0;

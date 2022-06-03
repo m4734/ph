@@ -12,8 +12,10 @@ namespace PH
 
 PH_Thread* thread_list;
 
-extern unsigned int free_cnt;
+extern volatile unsigned int free_cnt;
 extern int num_of_thread;
+
+extern volatile unsigned int seg_free_cnt;
 
 extern pthread_mutex_t alloc_mutex;
 //pthread_mutex_t m;
@@ -22,7 +24,7 @@ void reset_thread()
 {
 	int i;
 	for (i=0;i<num_of_thread;i++)
-		thread_list[i].free_cnt = 999999999;
+		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
 }
 
 void exit_thread()
@@ -32,9 +34,10 @@ void exit_thread()
 	pt = pthread_self();
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].tid == pt)
+		if (pthread_equal(thread_list[i].tid,pt))
+//	if (thread_list[i].tid == pt)
 		{
-			thread_list[i].free_cnt = 999999999;
+			thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
 			break;
 		}
 	}
@@ -46,7 +49,7 @@ void init_thread()
 
 	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
 	for (i=0;i<num_of_thread;i++)
-		thread_list[i].free_cnt = 999999999; // ignore until new
+		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
 	pthread_mutex_init(&alloc_mutex,NULL);
 }
 
@@ -68,6 +71,7 @@ void new_thread()
 		{
 			thread_list[i].tid = pt;
 			thread_list[i].free_cnt = free_cnt;
+			thread_list[i].seg_free_cnt = seg_free_cnt;
 			break;
 		}
 	}
@@ -85,6 +89,7 @@ void update_free_cnt()
 		if (pthread_equal(thread_list[i].tid,pt))
 		{
 			thread_list[i].free_cnt = free_cnt;
+			thread_list[i].seg_free_cnt = seg_free_cnt;
 			return;
 		}
 	}
@@ -100,6 +105,22 @@ unsigned int min_free_cnt()
 		if (min > thread_list[i].free_cnt)
 			min = thread_list[i].free_cnt;
 	}
+	if (min == 999999999)
+		return free_cnt;
+	return min;
+}
+
+unsigned int min_seg_free_cnt()
+{
+	int i;
+	unsigned int min=999999999;
+	for (i=0;i<num_of_thread;i++)
+	{
+		if (min > thread_list[i].seg_free_cnt)
+			min = thread_list[i].seg_free_cnt;
+	}
+	if (min == 999999999)
+		return seg_free_cnt;
 	return min;
 }
 

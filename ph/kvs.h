@@ -81,18 +81,17 @@ class KVS_ph : public KVS
 			{
 				PH::Query query;
 				PH::init_query(&query);
-		query.key_p = tqa[i].key;
-		query.op = 6;
-		PH::scan_query(&query);
+				query.key_p = tqa[i].key;
+				query.op = 6;
+				PH::scan_query(&query);
 
-		int len;
-		query.op = 7;
-		for (j=0;j<tqa[i].cnt;j++)
-		{
-			PH::next_query(&query,result,&len);
-		}
-		PH::free_query(&query);
-
+				int len;
+				query.op = 7;
+				for (j=0;j<tqa[i].cnt;j++)
+				{
+					PH::next_query(&query,result,&len);
+				}
+				PH::free_query(&query);
 			}
 		}
 	}
