@@ -9,7 +9,7 @@
 namespace PH
 {
 
-	CCEH point_hash;
+	CCEH* point_hash;
 	CCEH* range_hash_array;
 
 // OP it will be no hash until 16
@@ -56,7 +56,7 @@ unsigned char* find_point_entry(unsigned char* key_p)
 	fpc++;
 #endif
 	unsigned char* rv;
-	rv = point_hash.find(key_p);
+	rv = point_hash->find(key_p);
 #ifdef ttt
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
@@ -70,7 +70,7 @@ void insert_point_entry(unsigned char* key_p,unsigned char* value)
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 #endif
-	point_hash.insert(key_p,value);
+	point_hash->insert(key_p,value);
 #ifdef ttt
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt3+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
@@ -79,7 +79,7 @@ void insert_point_entry(unsigned char* key_p,unsigned char* value)
 
 void remove_point_entry(unsigned char* key_p)
 {
-	point_hash.remove(key_p);
+	point_hash->remove(key_p);
 }
 
 
@@ -334,6 +334,7 @@ void init_hash()
 
 	init_cceh();
 
+	point_hash = new CCEH(20);
 	range_hash_array = new CCEH[64+1];
 
 
@@ -351,6 +352,7 @@ void clean_hash()
 {
 	// clean point hash
 
+	delete point_hash;
 	delete[] range_hash_array;
 
 	clean_cceh();

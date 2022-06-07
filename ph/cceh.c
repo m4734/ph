@@ -7,6 +7,9 @@
 #include <stdlib.h> //free
 #include <x86intrin.h> // mm fence
 //#include <mutex> //dir lock
+
+#include <time.h> //test
+
 namespace PH
 {
 std::queue <SEG*> seg_free_list;
@@ -62,7 +65,7 @@ uint64_t MurmurHash64A_L8 ( const void * key )
   return h;
 }
 
-uint64_t hf(unsigned char* key) // len 8?
+uint64_t hf(const unsigned char* key) // len 8?
 {
 /*	
 	unsigned int hash = 5381;
@@ -71,8 +74,8 @@ uint64_t hf(unsigned char* key) // len 8?
 		hash = ((hash << 5) + hash) + (*key++);
 	return hash;
 */	
-	return MurmurHash64A_L8 (key);
-//	return std::_Hash_bytes(key,8,5516);	
+//	return MurmurHash64A_L8 (key);
+	return std::_Hash_bytes(key,8,5516);	
 }
 
 void inv_seg(SEG* seg)//,int sn)
@@ -109,34 +112,36 @@ SEG* alloc_seg() // use free list
 	if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
 		printf("posix_memalign error2\n");
 
-	seg->seg_lock = new std::mutex;
+//	seg->seg_lock = new std::mutex;
 //	printf("al %p\n",seg->seg_lock);
 	return seg;
 }
 
 void free_seg(SEG* seg)
 {
-	delete seg->seg_lock;
-	free(seg);
-//	seg_free_list.push(seg);
-//	seg_free_cnt++;
+//	delete seg->seg_lock;
+//	free(seg);
+	seg_free_list.push(seg);
+	seg_free_cnt++;
 }
-
 CCEH::CCEH()
 {
-	init();
+	init(1);
+}
+CCEH::CCEH(int in_depth)
+{
+	init(in_depth);
 }
 CCEH::~CCEH()
 {
 	clean();
 }
 
-void CCEH::init()
+void CCEH::init(int in_depth)
 {
 
 	int i;
-
-	depth = 1;
+	depth = in_depth;
 	seg_cnt = 1 << depth;
 
 //	seg_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt);
@@ -152,12 +157,14 @@ void CCEH::init()
 //			printf("posix memalign error\n");
 		seg_list[i] = alloc_seg();			
 		inv_seg(seg_list[i]);//,i);
-//		seg_list[i]->lock = 0;
+		seg_list[i]->lock = 0;
 		seg_list[i]->depth = depth;
 	}
 
 	inv0_value = NULL;
 
+	//test
+	pic = sc = ctt1 = ctt3 = ctt2 = 0;
 }
 
 void CCEH::clean()
@@ -181,6 +188,10 @@ void CCEH::clean()
 		}
 	}
 	free(seg_list);
+
+#ifdef ctt
+	printf("d %d sc %d insert %ld split %ld hf %ld pic %d \n",depth,sc,ctt1,ctt2,ctt3,pic);
+#endif
 }
 
 unsigned char* CCEH::find(unsigned char* key)
@@ -189,6 +200,7 @@ unsigned char* CCEH::find(unsigned char* key)
 	KVP* kvp_p;
 	uint64_t hk;
 	const int cl_shift = 64-CL_BIT;
+	int l;
 
 	if (*(uint64_t*)key == INV0)
 		return (unsigned char*)inv0_value;
@@ -203,12 +215,16 @@ unsigned char* CCEH::find(unsigned char* key)
 //	cn = hk >> (64-CL_BIT);	
 	cn = hk >> cl_shift;	
 
-	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
+//	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
+	kvp_p = (KVP*)seg_list[sn]->cl;	
+	l = cn*KVP_PER_CL;
 
-	for (i=0;i<KVP_PER_CL;i++)
+	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 	{
-		if ((uint64_t)kvp_p[i].key == *(uint64_t*)key)
-			return (unsigned char*)kvp_p[i].value;
+		l%=CL_PER_SEG*KVP_PER_CL;
+		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
+			return (unsigned char*)kvp_p[l].value;
+		l++;
 	}
 	return NULL;
 }
@@ -222,6 +238,7 @@ void CCEH::remove(unsigned char* key)
 	unsigned char* rv;
 	int z = 0;
 	uint64_t hk;
+	int l;
 
 	if (*(uint64_t*)key == INV0)
 	{
@@ -242,34 +259,37 @@ retry:
 
 	seg = seg_list[sn];
 
-//	while(seg->lock.compare_exchange_weak(z,1) == 0);
-	seg->seg_lock->lock();	
+	while(seg->lock.compare_exchange_weak(z,1) == 0);
+//	seg->seg_lock->lock();	
 	
 //	if (sn != *(uint64_t*)key >> (64-depth)) // didn't fixed?
-	if (sn != hk >> (64-CL_BIT))
+	if (sn != hk % ((uint64_t)1 << depth))
 	{
-//		seg->lock = 0;
-		seg->seg_lock->unlock();
+		seg->lock = 0;
+//		seg->seg_lock->unlock();
 		goto retry;
 	}
 
-	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
+//	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
+	kvp_p = (KVP*)seg_list[sn]->cl;
+	l = cn*KVP_PER_CL;	
 
-
-	for (i=0;i<KVP_PER_CL;i++)
+	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 	{
-		if ((uint64_t)kvp_p[i].key == *(uint64_t*)key)
+		l%=KVP_PER_CL*CL_PER_SEG;
+		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
 		{
-			kvp_p[i].value = NULL;
+			kvp_p[l].value = NULL;
 //			(uint64_t)(kvp_p[i].key) = inv;
-			seg->seg_lock->unlock();
-//			seg->lock = 0;			
+//			seg->seg_lock->unlock();
+			seg->lock = 0;			
 			return;
 		}
+		l++;
 	}
 
-//	seg->lock = 0;
-	seg->seg_lock->unlock();
+	seg->lock = 0;
+//	seg->seg_lock->unlock();
 
 	// not found
 	return;
@@ -283,7 +303,7 @@ void seg_gc()
 	{
 		seg = seg_free_list.front();
 //		printf("fl %p\n",seg->seg_lock);
-		delete seg->seg_lock;
+//		delete seg->seg_lock;
 		free(seg);
 		seg_free_list.pop();
 	}
@@ -296,8 +316,11 @@ void CCEH::dir_double()
 	        SEG** old_list;
 		old_list = seg_list;
 	        new_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt*2);
-		memcpy(new_list,seg_list,sizeof(SEG*) * seg_cnt);
-		memcpy((unsigned char*)new_list+sizeof(SEG*)*seg_cnt,seg_list,sizeof(SEG*) * seg_cnt);
+//		memcpy(new_list,seg_list,sizeof(SEG*) * seg_cnt);
+//		memcpy((unsigned char*)new_list+sizeof(SEG*)*seg_cnt,seg_list,sizeof(SEG*) * seg_cnt);
+int i;
+for (i=0;i<seg_cnt;i++)
+	new_list[i] = new_list[seg_cnt+i] = old_list[i];
 
 //		memset(new_list+sizeof(SEG*)*seg_cnt,0,sizeof(SEG*)*seg_cnt);
 
@@ -361,6 +384,7 @@ void CCEH::split(int sn) // seg locked
 
 //		dir_lock = 0;
 	}
+	//print_seg(seg,sn);
 /*
 	if (sn%2 == 0)
 		inv = INV1;
@@ -378,10 +402,10 @@ void CCEH::split(int sn) // seg locked
 	inv_seg(new_seg1);//,sn);
 	inv_seg(new_seg2);//,sn);
 
-//	new_seg1->lock = 0;
+	new_seg1->lock = 0;
 	new_seg1->depth = seg->depth+1;
 
-//	new_seg2->lock = 0;
+	new_seg2->lock = 0;
 	new_seg2->depth = seg->depth+1;
 
 	new_kvp_p1 = (KVP*)new_seg1->cl;
@@ -391,8 +415,11 @@ void CCEH::split(int sn) // seg locked
 	mask = (uint64_t)1 << seg->depth;	
 
 	int j,l,nl1,nl2;
+	int nll1[CL_PER_SEG],nll2[CL_PER_SEG],kc;
 	uint64_t hk;
-
+//	l = 0;
+	for (i=0;i<CL_PER_SEG;i++)
+		nll1[i] = nll2[i] = KVP_PER_CL*i;	
 	for (i=0;i<CL_PER_SEG;i++)
 	{
 		nl1 = i*KVP_PER_CL;
@@ -403,7 +430,12 @@ void CCEH::split(int sn) // seg locked
 		{
 			if ((uint64_t)kvp_p[l].key == INV0)
 			{
-				break;
+//				if (kvp_p[l].value == 0)
+//					break;
+//					//if we don't push old seg, there can be inv0 in the middle
+				l++;
+				continue;
+//				break;
 			}
 			if (kvp_p[l].value == NULL)
 			{
@@ -411,16 +443,39 @@ void CCEH::split(int sn) // seg locked
 				continue;
 			}
 			hk = hf((unsigned char*)(&kvp_p[l].key));
+			kc = hk >> (64-CL_BIT);
 			if (hk & mask)
 			{
-				new_kvp_p2[nl2] = kvp_p[l];
-				nl2++;
+				while(new_kvp_p2[nll2[kc]].key != INV0)
+				{
+					nll2[kc]++;
+					nll2[kc]%=KVP_PER_CL*CL_PER_SEG;
+				}
+				new_kvp_p2[nll2[kc]] = kvp_p[l];
+				nll2[kc]++;
+				nll2[kc]%=KVP_PER_CL*CL_PER_SEG;
+				kvp_p[l].key = INV0;
 			}
+			else
+			{
+				while(new_kvp_p1[nll1[kc]].key != INV0)
+				{
+					nll1[kc]++;
+					nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
+				}
+				new_kvp_p1[nll1[kc]] = kvp_p[l];
+				nll1[kc]++;
+				nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
+				kvp_p[l].key = INV0;
+
+			}
+			/*
 			else
 			{
 				new_kvp_p1[nl1] = kvp_p[l];
 				nl1++;
 			}
+			*/
 			l++;
 		}
 	}
@@ -434,13 +489,17 @@ void CCEH::split(int sn) // seg locked
 
 	l = 1 << (seg->depth+1);
 //	print_seg(new_seg1,sn);
+	
 	for (i=sn;i<seg_cnt;i+=l)
 		seg_list[i] = new_seg1;
+//		seg_list[i] = seg;		
+		
 //	seg_list[sn + (1 << seg->depth)] = new_seg2;
 //	print_seg(new_seg2,sn + (1 << seg->depth));
 	for (i=sn + (1 << seg->depth);i<seg_cnt;i+=l)
 		seg_list[i] = new_seg2;
 //	seg_cnt*=2;
+	seg->depth++;
 	dir_lock.unlock();	
 
 /*
@@ -473,50 +532,66 @@ void CCEH::split(int sn) // seg locked
 //	free_seg(seg);
 }
 
-void CCEH::insert(unsigned char* key,unsigned char* value)
+void CCEH::insert(const unsigned char* key,unsigned char* value)
 {
-	int sn,cn,i;
+	int sn,i;
 //	uint64_t inv;
-	KVP* kvp_p;
+//	KVP* kvp_p;
 	SEG* seg;
 	int z = 0;
-	uint64_t hk;
+	const uint64_t hk = hf(key);
+	const uint64_t k64 = *(uint64_t*)key;
+	const int cn = hk >>(64-CL_BIT);
+	int l,d;
 
-	if (*(uint64_t*)key == INV0)
+#ifdef ctt
+	pic++;
+	struct timespec ts1,ts2,ts3,ts4;
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+#endif
+	if (k64 == INV0)
 	{
 		inv0_value = value;
 		return;
 	}
 
-
-	hk = hf(key);
-
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+//	hk = hf(key);
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	ctt3+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
 retry:
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
 //	sn = *(uint64_t*)key % ((uint64_t)1 << depth);	
 //	cn = *(uint64_t*)key >> (64-2);
+
 	sn = hk % ((uint64_t)1 << depth);	
 //	cn = hk >> (64-2);
-	cn = hk >> (64-CL_BIT);	
+//	cn = hk >> (64-CL_BIT);	
 
 	seg = seg_list[sn];
 
-//	while(seg->lock.compare_exchange_weak(z,1) == 0);
-	seg->seg_lock->lock();	
+	while(seg->lock.compare_exchange_weak(z,1) == 0);
+//	seg->seg_lock->lock();	
 	
 //	if (sn != *(uint64_t*)key >> (64-depth))
 //	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))
-	if (sn != hk % ((uint64_t)1 << depth))
+	if (seg != seg_list[sn])//sn != hk % ((uint64_t)1 << depth))
 
 	{
 //		seg->lock = 0;
-		seg->seg_lock->unlock();
+//		seg->seg_lock->unlock();
 		goto retry;
 	}
 
 
-	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
+//	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
+	KVP* const kvp_p = (KVP*)seg->cl;
+	l = cn*KVP_PER_CL;	
 //	sd = seg->depth;
 /*
 	if (sn % 2 == 0)
@@ -524,37 +599,74 @@ retry:
 	else
 		inv = INV0;
 */
-	for (i=0;i<KVP_PER_CL;i++)
+	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 	{
-		if ((uint64_t)(kvp_p[i].key) == *(uint64_t*)key) // update
+		l%=KVP_PER_CL*CL_PER_SEG;
+		if ((uint64_t)(kvp_p[l].key) == INV0) // insert
 		{
 
-			kvp_p[i].value = value;
+			kvp_p[l].value = value;
 			_mm_sfence();
+			kvp_p[l].key = (unsigned char*)k64;
 
 //			seg->lock = 0;
-			seg->seg_lock->unlock();			
+//			seg->seg_lock->unlock();			
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+
 			return;
 		}
 
-		if ((uint64_t)(kvp_p[i].key) == INV0) // insert
+		if ((uint64_t)(kvp_p[l].key) == k64) // update
 		{
 
-			kvp_p[i].value = value;
+			kvp_p[l].value = value;
 			_mm_sfence();
-			kvp_p[i].key = (unsigned char*)(*(uint64_t*)key);
 
 //			seg->lock = 0;
-			seg->seg_lock->unlock();			
+//			seg->seg_lock->unlock();			
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
 			return;
 		}
+		/*
+		else if ((uint64_t)(kvp_p[l].key) == INV0) // insert
+		{
+
+			kvp_p[l].value = value;
+			_mm_sfence();
+			kvp_p[l].key = (unsigned char*)(*(uint64_t*)key);
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+
+			return;
+		}
+		*/
+		l++;
 	}
 
 
 	//need split
+#ifdef ctt
+	sc++;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
 	split(sn % ((uint64_t)1 << seg->depth));	
-//	seg->lock = 0;
-	seg->seg_lock->unlock();
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	ctt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+	seg->lock = 0;
+//	seg->seg_lock->unlock();
 //	_mm_	
 	free_seg(seg);
 
