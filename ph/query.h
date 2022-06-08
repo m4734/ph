@@ -3,6 +3,7 @@
 #define QUERY_BUFFER 10000
 
 #include <pthread.h>
+#include <atomic>
 
 namespace PH
 {
@@ -40,7 +41,8 @@ struct Query
 	int sorted_index[100];
 	int index_num,index_max;
 
-	pthread_mutex_t scan_mutex; // offset
+//	pthread_mutex_t scan_mutex; // offset
+	std::atomic<uint8_t> scan_lock;
 };
 
 //unsigned char empty[10];// = {"empty"};

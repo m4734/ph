@@ -1,7 +1,7 @@
 // Node needs alignment to(?) data find lock
 
 #include <pthread.h>
-//#include <atomic>
+#include <atomic>
 //#include <mutex>
 #include <sys/mman.h>
 
@@ -50,11 +50,15 @@ struct Node
 struct Node_meta
 {
 	volatile uint16_t size; //size // needed cas but replaced to double check...
+//	std::atomic<uint16_t> size;
 	unsigned int next_offset; //	2^32
 
-	pthread_mutex_t mutex;	
-	uint8_t state;
-	uint8_t ref;	
+//	pthread_mutex_t mutex;	
+//	std::atomic<int> lock;		
+//	uint8_t state;
+	std::atomic<uint8_t> state;	
+//	std::atomic<uint8_t> ref;
+//	uint8_t ref;	
 
 	/*
 	volatile uint16_t size; //size // needed cas but replaced to double check...
@@ -116,5 +120,8 @@ void sort_node(Node* node,int* sorted_index,int* max);
 void insert_scan_list(Node_meta* node,void* query);
 void delete_scan_entry(unsigned int scan_offset,void* query);
 
+void at_lock(std::atomic<uint8_t> &lock);
+void at_unlock(std::atomic<uint8_t> &lock);
+int try_at_lock(std::atomic<uint8_t> &lock);
 
 }

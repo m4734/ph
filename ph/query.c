@@ -48,7 +48,8 @@ void init_query(Query* query)
 {
 	query->node_data = NULL;
 	query->scan_offset = TAIL_OFFSET;
-	pthread_mutex_init(&query->scan_mutex,NULL);
+//	pthread_mutex_init(&query->scan_mutex,NULL);
+	query->scan_lock = 0;	
 }
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
@@ -230,19 +231,23 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			offset = data_point_to_offset(kv_p);
 			if (inc_ref(offset,0))
 			{
+				//do we need this?
+				/*
 				if (*((uint64_t*)key_p) != *((uint64_t*)kv_p))
 				{
 					dec_ref(offset);
 					printf("value is moved\n");
 					continue;
 				}
+				*/
 								
-				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
+//				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
+				rv = check_size(offset,value_size);
 				{
 					break;
 				}
 
-					dec_ref(offset); // node is spliting
+//					dec_ref(offset); // node is spliting
 			}
 //				if (print)
 //				printf("node is spliting??\n");
@@ -279,12 +284,13 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				}
 				*/
 
-				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
+//				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
+				rv = check_size(offset,value_size);
 				{
 					break;
 				}
 
-				dec_ref(offset); // node is spliting
+//				dec_ref(offset); // node is spliting
 				}
 
 
@@ -426,28 +432,47 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 void delete_query_scan_entry(Query* query)
 {
 	Node_meta* node;
+	const int z = 0;
 	while(1)
 	{
-	pthread_mutex_lock(&query->scan_mutex);
+//	pthread_mutex_lock(&query->scan_mutex);
+//	while(query->scan_lock.compare_exchange_weak(z,1) == 0);		
+	at_lock(query->scan_lock);	
 	if (query->scan_offset != TAIL_OFFSET)
 	{
 		node = offset_to_node(query->scan_offset);
-		pthread_mutex_lock(&node->mutex);
-		if (node->state > 0)
+//		pthread_mutex_lock(&node->mutex);
+//		while(node->lock.compare_exchange_weak(z,1) == 0);	
+		if (try_at_lock(node->state) == 0)
 		{
-			pthread_mutex_unlock(&node->mutex);
-			pthread_mutex_unlock(&query->scan_mutex);
+			at_unlock(query->scan_lock);
 			continue;
 		}
+		/*
+		if (node->state > 0)
+		{
+			node->lock = 0;
+			query->scan_lock = 0;
+//			pthread_mutex_unlock(&node->mutex);
+//			pthread_mutex_unlock(&query->scan_mutex);
+			continue;
+		}
+		*/
 		delete_scan_entry(query->scan_offset,query);
 		query->scan_offset = TAIL_OFFSET;
-		pthread_mutex_unlock(&node->mutex);
-		pthread_mutex_unlock(&query->scan_mutex);
+//		node->lock = 0;
+		at_unlock(node->state);		
+//		query->scan_lock = 0;
+		at_unlock(query->scan_lock);		
+//		pthread_mutex_unlock(&node->mutex);
+//		pthread_mutex_unlock(&query->scan_mutex);
 		break;
 	}
 	else
 	{
-		pthread_mutex_unlock(&query->scan_mutex);
+//		query->scan_lock = 0;
+		at_unlock(query->scan_lock);		
+//		pthread_mutex_unlock(&query->scan_mutex);
 		break;
 	}
 	}
@@ -507,9 +532,12 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
-			pthread_mutex_lock(&query->scan_mutex);
+//			pthread_mutex_lock(&query->scan_mutex);
+//			whlie(query->scan_lock.compare_exchange_weak(z,1) == 0);
+			at_lock(query->scan_lock);			
 			query->scan_offset = offset;
-			pthread_mutex_unlock(&query->scan_mutex);
+//			pthread_mutex_unlock(&query->scan_mutex);
+			query->scan_lock = 0;
 /*
 			while (*((uint64_t*)query->kv_p) < *((uint64_t*)query->key_p))
 			{
@@ -570,9 +598,12 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
-			pthread_mutex_lock(&query->scan_mutex);
+//			pthread_mutex_lock(&query->scan_mutex);
+//			while(query->scan_lock.compare_exchange_weak(z,1) == 0);
+			at_lock(query->scan_lock);			
 			query->scan_offset = offset;
-			pthread_mutex_unlock(&query->scan_mutex);
+//			pthread_mutex_unlock(&query->scan_mutex);
+			query->scan_lock = 0;			
 /*
 			while (*((uint64_t*)query->kv_p) < *((uint64_t*)query->key_p))
 			{

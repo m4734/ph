@@ -17,7 +17,9 @@ extern int num_of_thread;
 
 extern volatile unsigned int seg_free_cnt;
 
-extern pthread_mutex_t alloc_mutex;
+//extern pthread_mutex_t alloc_mutex;
+//extern std::atomic<int> alloc_lock;
+std::atomic<uint8_t> thread_lock;
 //pthread_mutex_t m;
 
 void reset_thread()
@@ -50,12 +52,13 @@ void init_thread()
 	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
 	for (i=0;i<num_of_thread;i++)
 		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
-	pthread_mutex_init(&alloc_mutex,NULL);
+//	pthread_mutex_init(&alloc_mutex,NULL);
+	thread_lock = 0;//
 }
 
 void clean_thread()
 {
-	pthread_mutex_destroy(&alloc_mutex);
+//	pthread_mutex_destroy(&alloc_mutex);
 	free(thread_list);
 }
 
@@ -64,7 +67,8 @@ void new_thread()
 	int i;
 	pthread_t pt;
 	pt = pthread_self();
-	pthread_mutex_lock(&alloc_mutex);
+//	pthread_mutex_lock(&alloc_mutex);
+	at_lock(thread_lock);	
 	for (i=0;i<num_of_thread;i++)
 	{
 		if (thread_list[i].free_cnt == 999999999)
@@ -75,7 +79,8 @@ void new_thread()
 			break;
 		}
 	}
-	pthread_mutex_unlock(&alloc_mutex);
+//	pthread_mutex_unlock(&alloc_mutex);
+	at_unlock(thread_lock);	
 }
 
 void update_free_cnt()
