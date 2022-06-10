@@ -92,7 +92,8 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //				query->ref_offset = offset; // lock ref
 
 //				print_kv(kv_p);	
-				*result_len_p = *((uint16_t*)(kv_p+key_size));
+				*result_len_p = *((uint16_t*)(kv_p));
+//				*result_len_p = value_size;				
 				if ((*result_len_p & (1 << 15)) != 0) // deleted
 				{
 //					dec_ref(offset);

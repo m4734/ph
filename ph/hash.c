@@ -50,7 +50,7 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 	return hash;
 }
 
-unsigned char* find_point_entry(unsigned char* key_p)
+unsigned char* find_point_entry(unsigned char* &key_p)
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -89,7 +89,7 @@ void remove_point_entry(unsigned char* key_p)
 	point_hash->remove(*((uint64_t*)key_p));
 }
 
-
+#if 0
 void bit_flush(unsigned char* prefix,unsigned char* key_p,int start,int end)
 {
 	// | 01234567 | 89012345 | 67890123 |
@@ -132,7 +132,7 @@ void bit_flush(unsigned char* prefix,unsigned char* key_p,int start,int end)
 	}
 
 }
-
+#endif
 unsigned int find_range_entry2(unsigned char* key_p,int* continue_len) //binary
 {
 #ifdef htt

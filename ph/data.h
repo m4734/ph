@@ -39,7 +39,7 @@ struct Node
 //	std::atomic<uint8_t> state; // 0-init	1-split	2-free + ref
 //	std::atomic<uint8_t> ref;
 //	std::mutex m;		
-	volatile uint16_t size; //size // needed cas but replaced to double check...
+//	volatile uint16_t size; //size // needed cas but replaced to double check...
 	unsigned int next_offset; //	2^32
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
@@ -49,9 +49,10 @@ struct Node
 
 struct Node_meta
 {
+	unsigned int next_offset;
 	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
 //	std::atomic<uint16_t> size;
-	unsigned int next_offset; //	2^32
+//	unsigned int next_offset; //	2^32
 
 //	pthread_mutex_t mutex;	
 //	std::atomic<int> lock;		

@@ -227,6 +227,7 @@ unsigned char* CCEH::find(const uint64_t &key)
 		return (unsigned char*)inv0_value;
 //if (point)
 //	return NULL;
+//	const uint64_t
 	hk = hf(&key);
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
