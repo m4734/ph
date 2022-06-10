@@ -8,8 +8,7 @@ clean:
 
 #ph: kvs_ph test/test.h test/test.c
 ph: test/test.h test/test.c ph/kvs.h
-	g++ -c -o bin/test test/test.o test/test.c -DBUILD_PH -O3 bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o ph/thread.o ph/cceh.o -lpthread -lpmem -O3# -std=c++17	
-
+	g++ -o bin/test test/test.c -DBUILD_PH ph/global.c ph/data.c ph/hash.c ph/query.c ph/thread.c ph/cceh.c -lpthread -lpmem -O4
 #	g++ -c -o test/test.o test/test.c -DBUILD_PH -O3
 #	g++ -o bin/test test/test.o ph/global.o ph/data.o ph/hash.o ph/query.o ph/thread.o ph/cceh.o -lpthread -lpmem -O3# -std=c++17	
 	

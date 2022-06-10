@@ -2,6 +2,8 @@
 
 #include <stdio.h> //test
 
+#include <x86intrin.h> 
+
 #include "global.h"
 #include "hash.h"
 #include "cceh.h"
@@ -19,7 +21,7 @@ namespace PH
 //
 //
 
-uint64_t htt1,htt2,htt3,fpc;
+uint64_t htt1,htt2,htt3,fpc,htt4;
 
 uint64_t pre_bit_mask[65];
 
@@ -50,14 +52,16 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 
 unsigned char* find_point_entry(unsigned char* key_p)
 {
-#ifdef ttt
+#ifdef htt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	fpc++;
+	_mm_mfence();
 #endif
 	unsigned char* rv;
-	rv = point_hash->find(key_p);
-#ifdef ttt
+	rv = point_hash->find(*((uint64_t*)key_p));
+#ifdef htt
+	_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
@@ -66,12 +70,15 @@ unsigned char* find_point_entry(unsigned char* key_p)
 
 void insert_point_entry(unsigned char* key_p,unsigned char* value)
 {
-#ifdef ttt
+#ifdef htt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	_mm_mfence();
 #endif
-	point_hash->insert(key_p,value);
-#ifdef ttt
+	while(point_hash->insert((*(uint64_t*)key_p),value) == 0);
+#ifdef htt
+	_mm_mfence();
+
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt3+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
@@ -79,7 +86,7 @@ void insert_point_entry(unsigned char* key_p,unsigned char* value)
 
 void remove_point_entry(unsigned char* key_p)
 {
-	point_hash->remove(key_p);
+	point_hash->remove(*((uint64_t*)key_p));
 }
 
 
@@ -128,10 +135,12 @@ void bit_flush(unsigned char* prefix,unsigned char* key_p,int start,int end)
 
 unsigned int find_range_entry2(unsigned char* key_p,int* continue_len) //binary
 {
-#ifdef ttt
+#ifdef htt
 	timespec ts1,ts2;
 			clock_gettime(CLOCK_MONOTONIC,&ts1);
 //			tt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+	_mm_mfence();
+
 #endif
 
 	int min,max,mid;
@@ -145,7 +154,16 @@ if (cnt % 1000000 == 0)
 	printf("cnt %d\n",cnt);
 */	
 	if (*continue_len > 0)
-		return find_range_entry(key_p,continue_len);
+	{
+//		return find_range_entry(key_p,continue_len);
+		hash = find_range_entry(key_p,continue_len);	
+#ifdef htt
+_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts2);
+			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+return hash;
+	}
 
 	max = key_bit;//key_size * 8; // 64
 	min = 0;
@@ -174,7 +192,7 @@ if (cnt % 1000000 == 0)
 		print64(*(uint64_t*)prefix);
 		printf("\n");
 */
-		entry = ((uint64_t)range_hash_array[mid].find(prefix));
+		entry = ((uint64_t)range_hash_array[mid].find(*((uint64_t*)prefix)));
 
 		if (entry == 0) // NULL not found
 		{
@@ -197,7 +215,9 @@ if (cnt % 1000000 == 0)
 		}
 	else // found
 	{
-#ifdef ttt
+#ifdef htt
+_mm_mfence();
+
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
@@ -226,10 +246,12 @@ if (cnt % 1000000 == 0)
 
 unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP binary
 {
-#ifdef ttt
+#ifdef htt
 	timespec ts1,ts2;
 			clock_gettime(CLOCK_MONOTONIC,&ts1);
 //			tt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+			_mm_mfence();
+
 #endif
 
 	int i;
@@ -261,12 +283,14 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 		if (print)		
 		printf("prefix %lx\n",*((uint64_t*)prefix));
 
-		entry = ((uint64_t)range_hash_array[i].find(prefix));
+		entry = ((uint64_t)range_hash_array[i].find(*((uint64_t*)prefix)));
 
 		if (entry != SPLIT_OFFSET) // split continue
 		{
 			*continue_len = i; //need retry from here
-#ifdef ttt
+#ifdef htt
+_mm_mfence();
+
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
@@ -289,6 +313,12 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 {
 //	if (len >= 64)
 //		return;
+#ifdef htt
+	timespec ts1,ts2;
+			clock_gettime(CLOCK_MONOTONIC,&ts1);
+//			tt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+	_mm_mfence();	
+#endif
 
 	unsigned char prefix[8] = {0,};
 	int i;
@@ -318,7 +348,12 @@ if (print)
 	print64(*(uint64_t*)prefix);
 	printf("\n");
 */
-	range_hash_array[len].insert(prefix,(unsigned char*)offset64);
+	while(range_hash_array[len].insert(*((uint64_t*)prefix),(unsigned char*)offset64) == 0);
+#ifdef htt
+_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts2);
+			htt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
 
 }
 
@@ -345,7 +380,8 @@ void init_hash()
 	range_hash_table_array[0][hash]->eky
 */
 
-	fpc = htt3 = htt1 = htt2 = 0;
+	htt4 = htt3 = htt1 = htt2 = 0;
+	fpc = 1;
 }
 
 void clean_hash()
@@ -356,11 +392,12 @@ void clean_hash()
 	delete[] range_hash_array;
 
 	clean_cceh();
-#ifdef ttt
+#ifdef htt
 	printf("hash\n");
 	printf("point read %ld %ld\n",htt1/1000000000,htt1%1000000000);
 	printf("point read avg %ld %ld %ld\n",(htt1/fpc)/1000000000,(htt1/fpc)%1000000000,fpc);
-	printf("range %ld %ld\n",htt2/1000000000,htt2%1000000000);
+	printf("range read %ld %ld\n",htt2/1000000000,htt2%1000000000);
+	printf("range insert %ld %ld\n",htt4/1000000000,htt4%1000000000);
 	printf("point insert %ld %ld\n",htt3/1000000000,htt3%1000000000);
 #endif
 

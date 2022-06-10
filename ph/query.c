@@ -11,12 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <x86intrin.h>
+
 //#define print 0
 #define print 0
 
 //using namespace PH;
 namespace PH
 {
+
+	extern uint64_t qtt1,qtt2,qtt3,qtt4,qtt5;
 
 void print_query(Query* query)
 {
@@ -211,6 +215,11 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	int test=0;
 	int z = 0;
 
+	timespec ts1,ts2,ts3,ts4,ts5,ts6;
+
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+_mm_mfence();
+
 	update_free_cnt();
 
 
@@ -218,16 +227,23 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	{
 		if (print)
 			printf("insert loop\n");
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
+		_mm_mfence();
 		offset = 0;
-		while(1)
+		kv_p = NULL;
+#if 1
+		kv_p = find_point_entry(key_p);
+		while(kv_p != NULL)
 		{
 //			kv_p = point_hash.find(key_p); // find or create
+/*			
 			kv_p = find_point_entry(key_p);			
 			if (kv_p == NULL) // deleted during !!! or doesn't exist...
 			{
 				offset = 0;
 				break;
 			}
+			*/
 			offset = data_point_to_offset(kv_p);
 			if (inc_ref(offset,0))
 			{
@@ -242,17 +258,30 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				*/
 								
 //				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
-				rv = check_size(offset,value_size);
+				const int ns = offset_to_node(offset)->size;
+				const int es = key_size + len_size + value_size;
+				if (ns + es > NODE_BUFFER)
+	rv = -1;
+				else
 				{
-					break;
+					rv = ns;
+					offset_to_node(offset)->size += es;
 				}
+//				rv = check_size(offset,value_size);
+//				{
+					break;
+//				}
 
 //					dec_ref(offset); // node is spliting
 			}
+			kv_p = find_point_entry(key_p);
 //				if (print)
 //				printf("node is spliting??\n");
 		}
-		if (offset == 0) // the key doesn't exist
+//		if (offset == 0) // the key doesn't exist
+		#endif
+		if (offset == 0)		
+//		if (kv_p == NULL)		
 		{
 			if (print)
 			printf("find node\n");
@@ -285,10 +314,22 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 				*/
 
 //				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
-				rv = check_size(offset,value_size);
+/*
+				Node_meta* nm = offset_to_node(offset);			
+//				const int ns = nm->size;
+				const int es = key_size + len_size + value_size;
+				if (nm->size + es > NODE_BUFFER)
+	rv = -1;
+				else
 				{
-					break;
+					rv = nm->size;
+					nm->size += es;
 				}
+*/			
+				rv = check_size(offset,value_size);
+//				{
+					break;
+//				}
 
 //				dec_ref(offset); // node is spliting
 				}
@@ -300,28 +341,48 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 		}
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
+	_mm_mfence();		
+	clock_gettime(CLOCK_MONOTONIC,&ts4);
+	qtt2+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+
+//	dec_ref(offset);
+//	return 0;
+
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+	_mm_mfence();
 		if (rv >= 0) // node is not spliting we will insert
 		{
+	clock_gettime(CLOCK_MONOTONIC,&ts5);
+
 			unsigned char* rp;
-			unsigned char* tp;
+//			unsigned char* tp;
 			rp = insert_kv(offset,key_p,value_p,value_size,rv); // never fail
 //			soft_lock(offset); // not this! use hash lock
-			tp = kv_p;
+//			tp = kv_p;
 //			point_hash.insert(key_p,rp);
 			insert_point_entry(key_p,rp);
 //			hard_unlock(offset);
 
-			if (tp != NULL) // old key
+			if (kv_p != NULL) // old key
 			{
-				delete_kv(tp);
+//				printf("delete_kv\n");
+				delete_kv(kv_p);
 			}
 //			point_entry->kv_p = kv_p;
 
 			dec_ref(offset);
+
+_mm_mfence();
+	clock_gettime(CLOCK_MONOTONIC,&ts6);
+	qtt4+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
+	clock_gettime(CLOCK_MONOTONIC,&ts4);
+	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 			break;
 		}
 		else // rv == -1 and it means we will split
 		{
+	clock_gettime(CLOCK_MONOTONIC,&ts5);
+
 			//failed and need split
 		/* //it may not happen because of free cnt
 			if (range_entry == NULL)
@@ -347,8 +408,6 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 					printf("rv == 0\n");
 
 			}
-//			if (continue_len >= 60)
-//				rv = 0;
 			if (continue_len < key_bit)//64) // split
 			{	
 				if (print)
@@ -421,10 +480,22 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 			}
 //int t;
 //					scanf("%d",&t);// test
+_mm_mfence();					
+	clock_gettime(CLOCK_MONOTONIC,&ts6);
+	qtt5+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
+
 		}
 		if (print)
-			printf("insert retry\n");				
+			printf("insert retry\n");		
+_mm_mfence();
+
+	clock_gettime(CLOCK_MONOTONIC,&ts4);
+	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+
 	}
+_mm_mfence();
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	qtt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 	return 0;
 
 }

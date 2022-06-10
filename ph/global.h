@@ -37,12 +37,20 @@ extern int* range_hash_table_size;
 //#define NODE_BUFFER 256 // test
 extern int node_size;
 
+
 extern int key_size;
 extern int len_size;
 extern int value_size;
 extern int entry_size;
 extern int key_bit;
 
+/*
+#define key_size 8
+#define len_size 2
+#define value_size 200
+#define entry_size 210
+#define key_bit 64
+*/
 //data
 
 extern uint64_t pmem_size;

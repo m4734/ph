@@ -5,6 +5,8 @@
 #include <pthread.h>
 #include <atomic>
 
+#define qtt
+
 namespace PH
 {
 

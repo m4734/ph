@@ -14,7 +14,7 @@
 #define HEAD_OFFSET 1
 #define TAIL_OFFSET 2
 
-//#define ttt
+#define dtt
 
 namespace PH
 {
@@ -49,7 +49,7 @@ struct Node
 
 struct Node_meta
 {
-	volatile uint16_t size; //size // needed cas but replaced to double check...
+	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
 //	std::atomic<uint16_t> size;
 	unsigned int next_offset; //	2^32
 
