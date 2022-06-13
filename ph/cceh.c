@@ -182,7 +182,7 @@ void CCEH::init(int in_depth)
 		seg_list[i]->depth = depth;
 	}
 
-	inv0_value = NULL;
+	inv0_value.node_offset = 0;
 
 	//test
 	pic = bc = sc = ctt1 = ctt3 = ctt2 = 0;
@@ -215,7 +215,7 @@ void CCEH::clean()
 #endif
 }
 
-unsigned char* CCEH::find(const uint64_t &key)
+ValueEntry CCEH::find(const uint64_t &key)
 {
 	int sn,cn,i;
 	KVP* kvp_p;
@@ -224,7 +224,7 @@ unsigned char* CCEH::find(const uint64_t &key)
 	int l;
 
 	if (key == INV0)
-		return (unsigned char*)inv0_value;
+		return inv0_value;
 //if (point)
 //	return NULL;
 //	const uint64_t
@@ -251,10 +251,12 @@ unsigned char* CCEH::find(const uint64_t &key)
 		l%=CL_PER_SEG*KVP_PER_CL;
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
 		if (kvp_p[l].key == key)		
-			return (unsigned char*)kvp_p[l].value;
+			return kvp_p[l].value;
 		l++;
 	}
-	return NULL;
+	ValueEntry ve;
+	ve.node_offset = 0;
+	return ve;
 }
 
 void CCEH::remove(const uint64_t &key)
@@ -271,7 +273,7 @@ void CCEH::remove(const uint64_t &key)
 //	if (*(uint64_t*)key == INV0)
 	if (key == INV0)	
 	{
-		inv0_value = NULL;
+		inv0_value.node_offset = 0;
 		return;
 	}
 
@@ -311,7 +313,7 @@ retry:
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
 		if (kvp_p[l].key == key)		
 		{
-			kvp_p[l].value = NULL;
+			kvp_p[l].value.node_offset = 0;
 //			(uint64_t)(kvp_p[i].key) = inv;
 //			seg->seg_lock->unlock();
 //			seg->lock = 0;			
@@ -475,7 +477,7 @@ void CCEH::split(int sn) // seg locked
 				continue;
 //				break;
 			}
-			if (kvp_p[l].value == NULL)
+			if (kvp_p[l].value.node_offset == 0)
 			{
 				l++;
 				continue;
@@ -571,7 +573,7 @@ void CCEH::split(int sn) // seg locked
 //	free_seg(seg);
 }
 
-int CCEH::insert2(const uint64_t &key, unsigned char* value, int sn,int cn)
+int CCEH::insert2(const uint64_t &key, ValueEntry value, int sn,int cn)
 {
 //	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
 	KVP* const kvp_p = (KVP*)(seg_list[sn]->cl);
@@ -637,7 +639,7 @@ int CCEH::insert2(const uint64_t &key, unsigned char* value, int sn,int cn)
 	return 0; // need split
 }
 
-int CCEH::insert(const uint64_t &key,unsigned char* value)
+int CCEH::insert(const uint64_t &key,ValueEntry value)
 {
 	int sn;
 //	uint64_t inv;
@@ -863,8 +865,8 @@ int CCEH::insert(const uint64_t &key,unsigned char* value)
 void init_cceh()
 {
 	seg_free_cnt = seg_free_min = seg_free_index = 0;
-	printf("sizeof KVP %d\n",sizeof(KVP));
-	printf("sizeof CL %d\n",sizeof(CL));
+	printf("sizeof KVP %ld\n",sizeof(KVP));
+	printf("sizeof CL %ld\n",sizeof(CL));
 	int i;
 	r_mask[0] = 0;
 	for (i=1;i<=64;i++)

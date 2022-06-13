@@ -99,6 +99,10 @@ unsigned int data_point_to_offset(unsigned char* kv_p)
 	return (kv_p - pmem_addr)/sizeof(Node);
 }
 
+unsigned int calc_offset_data(void* node) // it will be optimized with define
+{
+	return ((unsigned char*)node-pmem_addr)/sizeof(Node);
+}
 
 //---------------------------------------------------------------
 #if 1
@@ -846,7 +850,9 @@ if (print)
 
 	int tc;
 	uint64_t temp_key[100];
-	unsigned char* temp_kvp[100];
+//	unsigned char* temp_kvp[100];
+//	int temp_len[100];
+	ValueEntry vea[100];	
 
 //	unsigned char buffer1[NODE_BUFFER],buffer2[NODE_BUFFER];
 	Node_meta* new_node1;
@@ -1026,6 +1032,11 @@ if (print)
 	buffer2 = new_node2_data->buffer;
 	unsigned char* const be = buffer+size;
 	tc = 0;
+
+	const unsigned int new_offset1 = calc_offset(new_node1);
+	const unsigned int new_offset2 = calc_offset(new_node2);
+
+
 	while(buffer < be)
 	{
 		// 8 align
@@ -1040,7 +1051,8 @@ if (print)
 //			if (value_len != 100)
 //				print_kv(buffer+cur);
 
-			temp_key[tc] = *((uint64_t*)(buffer+len_size));			
+			temp_key[tc] = *((uint64_t*)(buffer+len_size));		
+//		temp_len[tc] = value_len;	
 			// we use double copy why?
 			if (*((uint64_t*)(buffer+len_size)) < prefix_64) 
 //		if (compare(buffer+i*entry_size,prefix) < 0) //insert1		
@@ -1052,7 +1064,10 @@ if (print)
 //			print_kv(buffer1+size1); // test
 //			size1+= kvs;
 //			insert_point_entry(buffer+len_size,buffer1); // can we do this here?
-			temp_kvp[tc] = buffer1;
+//			temp_kvp[tc] = buffer1;
+			vea[tc].node_offset = new_offset1;
+			vea[tc].kv_offset = buffer1-(unsigned char*)new_node1_data;
+
 
 				buffer1+=kvs;			
 			}
@@ -1065,10 +1080,13 @@ if (print)
 //			print_kv(buffer2+size2); // test
 //			size2+= kvs;
 //			insert_point_entry(buffer+len_size,buffer2); // can we do this here?
-			temp_kvp[tc] = buffer2;
+//			temp_kvp[tc] = buffer2;
+			vea[tc].node_offset = new_offset2;
+			vea[tc].kv_offset = buffer2-(unsigned char*)new_node2_data;
 
 				buffer2+=kvs;			
 			}
+			vea[tc].len = value_len;		
 			tc++;
 //		print_kv(buffer+cur);//test
 		}
@@ -1267,7 +1285,7 @@ if (print)
 //	print_node(new_node2);
 
 	for (i=0;i<tc;i++)
-		insert_point_entry((unsigned char*)&temp_key[i],temp_kvp[i]);
+		insert_point_entry((unsigned char*)&temp_key[i],vea[i]);//temp_kvp[i],temp_len[i]);
 
 
 #if 0 // can we rehash during data copy?
@@ -1381,7 +1399,9 @@ scanf("%d",&t);
 
 	int tc;
 	uint64_t temp_key[100];
-	unsigned char* temp_kvp[100];
+//	unsigned char* temp_kvp[100];
+//	int temp_len[100];
+	ValueEntry vea[100];	
 
 	Node_meta* new_node1;
 	Node_meta* prev_node;
@@ -1481,6 +1501,7 @@ if (print)
 
 	const int kls = key_size + len_size;
 	int kvs;
+	const unsigned int new_offset = calc_offset(new_node1);
 tc = 0;
 	while(buffer < be)
 	{
@@ -1489,13 +1510,17 @@ tc = 0;
 //		if (*((uint64_t*)(buffer+cur)) != k)
 //			printf("compaction error\n");		
 		value_len = *((uint16_t*)(buffer));
-		kvs = kls + kvs;
+		kvs = kls + value_len;
 		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
 			memcpy(buffer1,buffer,kvs);
 			buffer1+=kvs;
 			temp_key[tc] = *((uint64_t*)(buffer+len_size));
-			temp_kvp[tc] = buffer1;
+//			temp_kvp[tc] = buffer1;
+//			temp_len[tc] = value_len;
+			vea[tc].node_offset = new_offset;
+			vea[tc].kv_offset = buffer1-(unsigned char*)new_node1_data;
+			vea[tc].len = kvs;			
 			tc++;
 		}
 		else
@@ -1559,7 +1584,7 @@ tc = 0;
 //	s_unlock(next_node);
 //	e_unlock(node); never release e lock!!!
 	for (i=0;i<tc;i++)	
-		insert_point_entry((unsigned char*)&temp_key[i],temp_kvp[i]);
+		insert_point_entry((unsigned char*)&temp_key[i],vea[i]);//temp_kvp[i],temp_len[i]);
 
 #if 0	
 if (print)

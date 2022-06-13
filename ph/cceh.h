@@ -4,6 +4,8 @@
 #include<atomic>
 #include <mutex>
 
+#include "global.h" //value entry
+
 //#define INV0 0
 #define INV0 0xffffffffffffffff
 
@@ -20,13 +22,15 @@
 
 namespace PH
 {
+
 struct KVP
 {
 //	volatile unsigned char* key; // or key ptr // key value in 8B key
 //	volatile unsigned char* value;
 //	unsigned char* key;
 	uint64_t key;	
-	unsigned char* value;	
+//	unsigned char* value;	
+	ValueEntry value;	
 }; // 8 + 8 = 16
 
 struct CL
@@ -59,7 +63,7 @@ class CCEH
 //	std::atomic<int> dir_lock;
 	std::mutex dir_lock;	
 
-	/*volatile */unsigned char* inv0_value;
+	/*volatile */ValueEntry inv0_value;
 
 	void dir_double();
 	void split(int sn);
@@ -69,9 +73,9 @@ class CCEH
 //	uint64_t hf(const unsigned char* key);
 
 	public:
-	int insert(const uint64_t &key,unsigned char* value);
-	int insert2(const uint64_t &key,unsigned char* value, int sn, int cn);
-	unsigned char* find(const uint64_t &key);
+	int insert(const uint64_t &key,ValueEntry ve);
+	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
+	ValueEntry find(const uint64_t &key);
 	void remove(const uint64_t &key); // find with lock
 
 	uint64_t dm;

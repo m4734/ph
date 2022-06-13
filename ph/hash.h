@@ -1,5 +1,7 @@
 #include <pthread.h>
 
+#include "global.h"
+
 #define INIT_OFFSET 0 // it is not found from now
 #define SPLIT_OFFSET 1
 
@@ -16,8 +18,8 @@ namespace PH
 //struct point_hash_entry* find_or_insert_point_entry(unsigned char* key_p/*,int key_len*/,int insert);
 //struct range_hash_entry* find_or_insert_range_entry(char* key_p,int key_len,char* p,int update);
 
-unsigned char* find_point_entry(unsigned char* &key_p);
-void insert_point_entry(unsigned char* key_p,unsigned char* value);
+ValueEntry find_point_entry(unsigned char* &key_p);
+void insert_point_entry(unsigned char* key_p,ValueEntry ve);
 
 
 //struct range_hash_entry*

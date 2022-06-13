@@ -58,12 +58,14 @@ void init_query(Query* query)
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
 {
-		unsigned char* kv_p;
+//		unsigned char* kv_p;
+		ValueEntry ve;
+		int value_len;
 //		unsigned int offset;
 		update_free_cnt();
 
-		kv_p = find_point_entry(key_p); // don't create
-		if (kv_p == NULL)
+		ve = find_point_entry(key_p); // don't create
+		if (ve.node_offset == NULL)
 		{
 //			result_p = empty;
 			memcpy(result_p,empty,empty_len);			
@@ -76,8 +78,8 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //			if (kv_p == NULL) // deleted
 //				break;
 			// lock version
-			if (print)
-			printf("kv_p %p\n",kv_p);	
+//			if (print)
+//			printf("kv_p %p\n",kv_p);	
 //			offset = data_point_to_offset(kv_p);
 //			if (inc_ref(offset,1)) // split state ok
 			{
@@ -92,9 +94,10 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //				query->ref_offset = offset; // lock ref
 
 //				print_kv(kv_p);	
-				*result_len_p = *((uint16_t*)(kv_p));
+//				*result_len_p = *((uint16_t*)(kv_p));
+				*result_len_p = ve.len;				
 //				*result_len_p = value_size;				
-				if ((*result_len_p & (1 << 15)) != 0) // deleted
+				if ((*result_len_p & (1 << 15)) != 0) // deleted // it doesn't work now
 				{
 //					dec_ref(offset);
 		memcpy(result_p,empty,empty_len);		
@@ -107,7 +110,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 
 //				*result = kv_p+key_size+len_size;
 //				memcpy(result_p,kv_p+key_size+len_size,value_size);
-				memcpy(result_p,kv_p+key_size+len_size,*result_len_p);
+				memcpy(result_p,offset_to_node_data(ve.node_offset)+ve.kv_offset+key_size+len_size,*result_len_p);
 //				memcpy(result_p,kv_p+key_size+len_size,200);
 			
 //				s_unlock(offset); // it will be released after result
@@ -139,6 +142,7 @@ int delete_query(unsigned char* key_p)
 
 //		point_hash_entry* entry;
 		unsigned char* kv_p;
+		ValueEntry ve;		
 		unsigned int offset;
 //		entry = find_or_insert_point_entry(key_p,0); // don't create
 		while(1)
@@ -146,17 +150,18 @@ int delete_query(unsigned char* key_p)
 
 //			kv_p = point_hash.find(key_p);
 //			kv_p = (unsigned char*)entry->
-			kv_p = find_point_entry(key_p);
-			if (kv_p == NULL) // deleted!!!
+			ve = find_point_entry(key_p);
+			if (ve.node_offset == NULL) // deleted!!!
 				return 0;
-			offset = data_point_to_offset(kv_p);
+//			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
 //				continue;
-			if (inc_ref(offset,0)) //init state ok
+			if (inc_ref(ve.node_offset,0)) //init state ok
 			{
-				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved
+				kv_p = (unsigned char*)offset_to_node_data(ve.node_offset) + ve.kv_offset;
+				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved - can it be happen after node lock?
 				{
-					dec_ref(offset);
+					dec_ref(ve.node_offset);
 					continue;
 				}
 				/*
@@ -176,7 +181,7 @@ int delete_query(unsigned char* key_p)
 //				hard_unlock(offset);
 
 //				e_unlock(offset);
-				dec_ref(offset);				
+				dec_ref(ve.node_offset);				
 			/*	
 				*result = empty;
 				*result_len = empty_len;
@@ -207,8 +212,12 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 */
 
 	unsigned char* kv_p;
+
+	ValueEntry ve;
+
 	unsigned int offset;
-	int continue_len;	
+	int continue_len;
+	const int value_len = value_size; // temp fix
 	continue_len = 0;
 //	continue_len = -1;	
 	int rv;
@@ -230,11 +239,14 @@ _mm_mfence();
 			printf("insert loop\n");
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
-		offset = 0;
-		kv_p = NULL;
+
+		ve.node_offset = 0;
+
+//		offset = 0;
+//		kv_p = NULL;
 #if 1
-		kv_p = find_point_entry(key_p);
-		while(kv_p != NULL)
+		ve = find_point_entry(key_p);
+		while(ve.node_offset != 0)
 		{
 //			kv_p = point_hash.find(key_p); // find or create
 /*			
@@ -245,8 +257,8 @@ _mm_mfence();
 				break;
 			}
 			*/
-			offset = data_point_to_offset(kv_p);
-			if (inc_ref(offset,0))
+//			offset = data_point_to_offset(kv_p);
+			if (inc_ref(ve.node_offset,0))
 			{
 				//do we need this?
 				/*
@@ -259,14 +271,14 @@ _mm_mfence();
 				*/
 								
 //				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
-				const int ns = offset_to_node(offset)->size;
+				const int ns = offset_to_node(ve.node_offset)->size;
 				const int es = key_size + len_size + value_size;
 				if (ns + es > NODE_BUFFER)
 	rv = -1;
 				else
 				{
 					rv = ns;
-					offset_to_node(offset)->size += es;
+					offset_to_node(ve.node_offset)->size += es;
 				}
 //				rv = check_size(offset,value_size);
 //				{
@@ -275,20 +287,20 @@ _mm_mfence();
 
 //					dec_ref(offset); // node is spliting
 			}
-			kv_p = find_point_entry(key_p);
+			ve = find_point_entry(key_p);
 //				if (print)
 //				printf("node is spliting??\n");
 		}
 //		if (offset == 0) // the key doesn't exist
 		#endif
-		if (offset == 0)		
+		if (ve.node_offset == 0)		
 //		if (kv_p == NULL)		
 		{
 			if (print)
 			printf("find node\n");
 			while(1)
 			{
-				if ((offset = find_range_entry2(key_p,&continue_len)) == 0)
+				if ((ve.node_offset = find_range_entry2(key_p,&continue_len)) == 0)
 //				if (range_entry == NULL) // spliting...
 				{
 //
@@ -303,7 +315,7 @@ _mm_mfence();
 					}
 					continue;
 				}
-				if (inc_ref(offset,0))
+				if (inc_ref(ve.node_offset,0))
 				{
 //				if (range_entry->offset == SPLIT_OFFSET)
 				/* // it can't be now because of free cnt
@@ -327,7 +339,7 @@ _mm_mfence();
 					nm->size += es;
 				}
 */			
-				rv = check_size(offset,value_size);
+				rv = check_size(ve.node_offset,value_size);
 //				{
 					break;
 //				}
@@ -337,8 +349,8 @@ _mm_mfence();
 
 
 			}
-			if (print)
-			printf("node found offset %d\n",offset);
+//			if (print)
+//			printf("node found offset %d\n",offset);
 		}
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
@@ -357,21 +369,26 @@ _mm_mfence();
 
 			unsigned char* rp;
 //			unsigned char* tp;
-			rp = insert_kv(offset,key_p,value_p,value_size,rv); // never fail
+						// it should be ve later
+			rp = insert_kv(ve.node_offset,key_p,value_p,value_len/*size*/,rv); // never fail
 //			soft_lock(offset); // not this! use hash lock
 //			tp = kv_p;
 //			point_hash.insert(key_p,rp);
-			insert_point_entry(key_p,rp);
+			ve.kv_offset = (unsigned char*)offset_to_node_data(ve.node_offset)-rp;
+			ve.len = value_len;			
+			insert_point_entry(key_p,ve);
 //			hard_unlock(offset);
 
+		// delete was here but i think pmem op is expensive and we can do this on dram with node meta but not yet	
+			/*
 			if (kv_p != NULL) // old key
 			{
 //				printf("delete_kv\n");
 				delete_kv(kv_p);
 			}
 //			point_entry->kv_p = kv_p;
-
-			dec_ref(offset);
+*/
+			dec_ref(ve.node_offset);
 
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
@@ -427,11 +444,11 @@ _mm_mfence();
 				}
 				*/
 
-				if ((rv = split(offset,key_p,continue_len))<0)
+				if ((rv = split(ve.node_offset,key_p,continue_len))<0)
 				{
 					printf("split lock failed\n");
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
-					dec_ref(offset);
+					dec_ref(ve.node_offset);
 					test++;
 					if (test > 1000)
 						printf("???\n");
@@ -441,7 +458,7 @@ _mm_mfence();
 //					range_entry->offset = SPLIT_OFFSET; //splited
 //					insert_range_entry // in split function	
 					// may need fence
- 					dec_ref(offset); // have to be after offset 1
+ 					dec_ref(ve.node_offset); // have to be after offset 1
 					continue_len++;		
 				}
 //				continue; // try again after split
@@ -457,7 +474,7 @@ _mm_mfence();
 //				else
 //					range_entry->offset = rv;
 					*/
-				compact(offset);
+				compact(ve.node_offset);
 				/*
 				if ((rv=compact(offset)) >= 0)
 				{
@@ -477,7 +494,7 @@ _mm_mfence();
 					printf("compaction lock failed\n");
 					*/
 //				e_unlock(offset);
-				dec_ref(offset);				
+				dec_ref(ve.node_offset);				
 			}
 //int t;
 //					scanf("%d",&t);// test
@@ -559,8 +576,9 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 */
 //	point_hash_entry* entry;
 //	range_hash_entry* range_entry;
-	unsigned char* kv_p;
-	unsigned int offset;
+//	unsigned char* kv_p;
+//	unsigned int offset;
+	ValueEntry ve;
 	int continue_len;
 	Node* node_data;
 
@@ -573,19 +591,19 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 
 	node_data = (Node*)query->node_data;
 
-	offset = 0;
+//	offset = 0;
 //	entry = find_or_insert_point_entry(query->key_p,0); // don't create
 //	
 	{
 		while(1)
 		{
-			kv_p = find_point_entry(query->key_p);
+			ve = find_point_entry(query->key_p);
 //			kv_p = (unsigned char*)entry->kv_p;
-			if (kv_p == NULL)
+			if (ve.node_offset == 0)
 				break;
-			offset = data_point_to_offset(kv_p);
+//			offset = data_point_to_offset(kv_p);
 
-			if (try_hard_lock(offset))
+			if (try_hard_lock(ve.node_offset))
 			{
 				// it will not happen
 				/*
@@ -597,9 +615,9 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 				*/
 
 //			copy_node(node,offset_to_node(offset));
-			*node_data = *offset_to_node_data(offset); //copy node
-			insert_scan_list(offset_to_node(offset),(void*)query);
-			hard_unlock(offset);
+			*node_data = *offset_to_node_data(ve.node_offset); //copy node
+			insert_scan_list(offset_to_node(ve.node_offset),(void*)query);
+			hard_unlock(ve.node_offset);
 			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
 		
 //			query->kv_p = node->buffer;
@@ -607,7 +625,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 //			pthread_mutex_lock(&query->scan_mutex);
 //			whlie(query->scan_lock.compare_exchange_weak(z,1) == 0);
 			at_lock(query->scan_lock);			
-			query->scan_offset = offset;
+			query->scan_offset = ve.node_offset;
 //			pthread_mutex_unlock(&query->scan_mutex);
 			query->scan_lock = 0;
 /*
@@ -640,7 +658,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	}
 	continue_len = 0;
 //	continue_len = -1;
-	unsigned int offset2;	
+	unsigned int offset,offset2;	
 	while(1)
 	{
 //		range_entry = find_range_entry2(query->key_p,&continue_len);

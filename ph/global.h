@@ -21,6 +21,14 @@ typedef u_int64_t uint64_t
 namespace PH
 {
 
+struct ValueEntry
+{
+	uint32_t node_offset;
+	uint16_t kv_offset;
+	uint16_t len;
+};
+
+
 extern int num_of_thread;
 extern int connection_per_thread;
 extern int total_connection;

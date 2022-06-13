@@ -8,6 +8,8 @@
 #include "hash.h"
 #include "cceh.h"
 
+#include "data.h"
+
 namespace PH
 {
 
@@ -24,6 +26,43 @@ namespace PH
 uint64_t htt1,htt2,htt3,fpc,htt4;
 
 uint64_t pre_bit_mask[65];
+
+unsigned char* decode_entry(unsigned char* entry, int* value_len_p)
+{
+	
+//	return entry;
+	unsigned char* ptr;
+//	*result_len_p = *((uint16_t)(&entry+sizeof(uint32_t)));
+	if (value_len_p != NULL)	
+		*value_len_p = ((uint64_t)entry >> 16) % (256*256);
+	ptr = (unsigned char*)((uint64_t)offset_to_node_data((uint64_t)entry >> 32) | ((uint64_t)entry % (256*256)));
+		return ptr;
+		
+	/*
+	ValueEntry ve = (ValueEntry)entry;
+	value_len_p = ve.length;
+	return offset_to_node_data(ve.node_offset) | ve.kv_offset;
+*/
+}
+
+unsigned char* encode_entry(unsigned char* ptr, int value_len)
+{
+//	return ptr;
+	
+	unsigned char* entry;
+
+	entry = (unsigned char*)(((uint64_t)calc_offset_data(ptr) << 32) | (value_len << 16) | ((uint64_t)ptr % (256*256)));
+
+	return entry;
+	
+	/*
+	ValueEntry ve;
+	ve.node_offset = calc_offset_data(ptr);
+	ve.length = value_len;
+	ve.kv_offset = ptr % (256*256);
+	return ve;
+	*/
+}
 
 void print64(uint64_t v)
 {
@@ -50,7 +89,7 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 	return hash;
 }
 
-unsigned char* find_point_entry(unsigned char* &key_p)
+ValueEntry find_point_entry(unsigned char* &key_p)
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -58,24 +97,31 @@ unsigned char* find_point_entry(unsigned char* &key_p)
 	fpc++;
 	_mm_mfence();
 #endif
-	unsigned char* rv;
-	rv = point_hash->find(*((uint64_t*)key_p));
+//	unsigned char* entry;
+//	unsigned char* ptr;
+	ValueEntry entry;	
+	entry = point_hash->find(*((uint64_t*)key_p));
+//	if (entry == NULL)
+//		return NULL;
+//	ptr = decode_entry(entry,result_len_p);
+//	return ptr;
 #ifdef htt
 	_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-		return rv;
+		return entry;
 }
 
-void insert_point_entry(unsigned char* key_p,unsigned char* value)
+void insert_point_entry(unsigned char* key_p,ValueEntry ve)
 {
 #ifdef htt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	_mm_mfence();
 #endif
-	while(point_hash->insert((*(uint64_t*)key_p),value) == 0);
+//	unsigned char* entry = encode_entry(value,value_len);
+	while(point_hash->insert((*(uint64_t*)key_p),ve) == 0);
 #ifdef htt
 	_mm_mfence();
 
@@ -146,7 +192,7 @@ unsigned int find_range_entry2(unsigned char* key_p,int* continue_len) //binary
 	int min,max,mid;
 	unsigned int hash;
 	unsigned char prefix[8]={0,}; // 8?
-	uint64_t entry; // old name
+//	uint64_t entry; // old name
 /*
 static int cnt=0;
 cnt++;
@@ -182,7 +228,7 @@ return hash;
 */
 
 	//	bit_flush(prefix,key_p,0,mid-1);	
-
+ValueEntry ve;
 	while(1)	
 	{
 	
@@ -192,9 +238,9 @@ return hash;
 		print64(*(uint64_t*)prefix);
 		printf("\n");
 */
-		entry = ((uint64_t)range_hash_array[mid].find(*((uint64_t*)prefix)));
+		ve = range_hash_array[mid].find(*((uint64_t*)prefix));
 
-		if (entry == 0) // NULL not found
+		if (ve.node_offset == 0) // NULL not found
 		{
 			max = mid;// - 1;	
 //			bit_flush(prefix,NULL,(min+max)/2,mid-1);
@@ -203,7 +249,7 @@ return hash;
 
 //			*(uint64_t*)prefix = *(uint64_t*)key_p & pre_bit_mask[
 		}
-		else if (entry == SPLIT_OFFSET) // splited
+		else if (ve.node_offset == SPLIT_OFFSET) // splited
 		{
 			//found but splited
 
@@ -223,7 +269,7 @@ _mm_mfence();
 #endif
 
 		*continue_len = mid;
-		return (unsigned int)entry;
+		return ve.node_offset;
 	}
 
 		if (mid == (min+max)/2)
@@ -257,9 +303,11 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 	int i;
 	unsigned int hash;
 	unsigned char prefix[8]={0,};
-	uint64_t entry;
+//	uint64_t entry;
 
 	uint64_t b;
+
+	ValueEntry ve;
 
 //	for (i=0;i<*continue_len;i++)
 //		b=(b<<1)+1;
@@ -283,9 +331,9 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 		if (print)		
 		printf("prefix %lx\n",*((uint64_t*)prefix));
 
-		entry = ((uint64_t)range_hash_array[i].find(*((uint64_t*)prefix)));
+		ve = range_hash_array[i].find(*((uint64_t*)prefix));
 
-		if (entry != SPLIT_OFFSET) // split continue
+		if (ve.node_offset != SPLIT_OFFSET) // split continue
 		{
 			*continue_len = i; //need retry from here
 #ifdef htt
@@ -294,7 +342,7 @@ _mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-			return (unsigned int)entry; // 0 means not found else is found
+			return ve.node_offset;//(unsigned int)entry; // 0 means not found else is found
 		}
 
 		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
@@ -348,7 +396,9 @@ if (print)
 	print64(*(uint64_t*)prefix);
 	printf("\n");
 */
-	while(range_hash_array[len].insert(*((uint64_t*)prefix),(unsigned char*)offset64) == 0);
+ValueEntry ve;
+ve.node_offset = offset64;
+	while(range_hash_array[len].insert(*((uint64_t*)prefix),ve) == 0);
 #ifdef htt
 _mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
