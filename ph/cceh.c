@@ -573,6 +573,8 @@ void CCEH::split(int sn) // seg locked
 //	free_seg(seg);
 }
 
+#if 0
+
 int CCEH::insert2(const uint64_t &key, ValueEntry value, int sn,int cn)
 {
 //	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
@@ -860,6 +862,209 @@ int CCEH::insert(const uint64_t &key,ValueEntry value)
 	return 0;	
 //never
 //	return NULL;
+}
+
+
+#endif
+
+ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
+{
+	int sn;
+//	uint64_t inv;
+//	KVP* kvp_p;
+	SEG* seg;
+	/*const*/ uint64_t hk = hf(&key);
+	/*const*/ int cn = hk >>(64-CL_BIT);
+//	int l,d;
+
+#ifdef ctt
+	pic++;
+	struct timespec ts1,ts2,ts3,ts4;
+//	clock_gettime(CLOCK_MONOTONIC,&ts3);
+#endif
+	
+	if (key == INV0)	
+	{
+		inv0_value = value;
+		if (unlock)
+			*(void**)unlock = NULL;
+		return &inv0_value;
+	}
+	
+//	hk = hf(key);
+//retry:
+//while(1)
+//{
+	
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+//	clock_gettime(CLOCK_MONOTONIC,&ts1);
+//	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
+
+#endif
+
+
+//	sn = *(uint64_t*)key >> (64-depth);
+//	cn = *(uint64_t*)key % CL_PER_SEG;
+//	sn = *(uint64_t*)key % ((uint64_t)1 << depth);	
+//	cn = *(uint64_t*)key >> (64-2);
+
+//	sn = hk % ((uint64_t)1 << depth);	
+//	sn = hk & (((uint64_t)1 << depth)-1);
+//	sn = hk & r_mask[depth];
+	sn = hk & dm;
+
+//	cn = hk >> (64-2);
+//	cn = hk >> (64-CL_BIT);
+/*		
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
+
+#endif
+*/
+	seg = seg_list[sn];
+	
+#ifdef ctt // 6 598249128
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
+#endif
+//	if (seg->lock.compare_exchange_weak(z,1) == 0)
+//		while(seg->lock.compare_exchange_weak(z,1) == 0);
+//	seg->seg_lock->lock();	
+	at_lock2(seg->lock);	
+//printf("at_lock2 seg %p\n",seg);	
+//	if (sn != *(uint64_t*)key >> (64-depth))
+//	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))
+	
+	if (seg != seg_list[sn])//sn != hk % ((uint64_t)1 << depth))
+
+	{
+		printf("lock retry\n");
+//		seg->lock = 0;
+		at_unlock2(seg->lock);
+//		seg->seg_lock->unlock();
+//		goto retry;
+//		continue;		
+		return 0;		
+	}
+#if 0	
+	if (insert2(key,value,sn,cn))
+	{
+//		seg->lock = 0;
+		at_unlock2(seg->lock);			
+
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+		return 1;
+	}
+#endif
+#if 1
+	int i,l;
+//	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
+	KVP* const kvp_p = (KVP*)seg->cl;
+	l = cn*KVP_PER_CL;	
+//	sd = seg->depth;
+/*
+	if (sn % 2 == 0)
+		inv = INV1;
+	else
+		inv = INV0;
+*/
+/*	
+#ifdef ctt //6 697820434
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
+#endif
+*/
+	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
+	{
+		bc++;
+		l%=KVP_PER_CL*CL_PER_SEG;
+		if (kvp_p[l].key == INV0) // insert
+		{
+
+			kvp_p[l].value = value;
+			_mm_sfence();
+			kvp_p[l].key = key;
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
+			if (unlock)
+				*(void**)unlock = seg;
+			else
+				at_unlock2(seg->lock);
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+
+			return &kvp_p[l].value;
+		}
+
+		if (kvp_p[l].key == key) // update
+		{
+
+			kvp_p[l].value = value;
+			_mm_sfence();
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
+			if (unlock)
+				*(void**)unlock = seg;
+			else
+				at_unlock2(seg->lock);			
+#ifdef ctt
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+#endif
+			return &kvp_p[l].value;
+		}
+		l++;
+	}
+#endif
+
+	//need split
+#ifdef ctt
+	sc++;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+	split(sn % ((uint64_t)1 << seg->depth));	
+#ifdef ctt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	ctt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+//	seg->lock = 0;
+	at_unlock2(seg->lock);			
+
+//	seg->seg_lock->unlock();
+//	_mm_	
+	free_seg(seg); // moved to split
+//}
+
+//	goto retry;
+	return 0;	
+//never
+//	return NULL;
+}
+
+void CCEH::unlock_entry2(ValueEntry* vep,void* unlock)
+{
+	SEG* seg = (SEG*)unlock;
+//	printf("unlock_entry2 vep %p seg %p\n",vep,seg);
+	if (seg != NULL)
+	/*	
+	if (seg->lock == 0)
+	{
+		printf("unlock error\n");
+		int t;
+		scanf("%d",&t);
+	}
+	*/
+	at_unlock2(seg->lock);
 }
 
 void init_cceh()

@@ -19,7 +19,9 @@ namespace PH
 //struct range_hash_entry* find_or_insert_range_entry(char* key_p,int key_len,char* p,int update);
 
 ValueEntry find_point_entry(unsigned char* &key_p);
+ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock);
 void insert_point_entry(unsigned char* key_p,ValueEntry ve);
+void unlock_entry(ValueEntry* vep,void* unlock);
 
 
 //struct range_hash_entry*

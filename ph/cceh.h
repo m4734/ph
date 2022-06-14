@@ -23,6 +23,8 @@
 namespace PH
 {
 
+const uint64_t seg_mask = ~((uint64_t)CL_SIZE*CL_PER_SEG-1);
+
 struct KVP
 {
 //	volatile unsigned char* key; // or key ptr // key value in 8B key
@@ -73,10 +75,13 @@ class CCEH
 //	uint64_t hf(const unsigned char* key);
 
 	public:
-	int insert(const uint64_t &key,ValueEntry ve);
-	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
+//	int insert(const uint64_t &key,ValueEntry ve);
+//	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
+	ValueEntry* insert(const uint64_t &key,ValueEntry ve,void* unlock = NULL);
 	ValueEntry find(const uint64_t &key);
 	void remove(const uint64_t &key); // find with lock
+
+	void unlock_entry2(ValueEntry* vep,void* unlock);
 
 	uint64_t dm;
 	int point;

@@ -113,6 +113,38 @@ ValueEntry find_point_entry(unsigned char* &key_p)
 		return entry;
 }
 
+ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+{
+#ifdef htt
+	timespec ts1,ts2;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	fpc++;
+	_mm_mfence();
+#endif
+//	unsigned char* entry;
+//	unsigned char* ptr;
+	ValueEntry* entry_p;
+	ValueEntry ve;
+	ve.node_offset = 0;	
+	while((entry_p=point_hash->insert((*(uint64_t*)key_p),ve,unlock)) == NULL);
+
+//	if (entry == NULL)
+//		return NULL;
+//	ptr = decode_entry(entry,result_len_p);
+//	return ptr;
+#ifdef htt
+	_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts2);
+			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+		return entry_p;
+}
+
+void unlock_entry(ValueEntry* vep,void* unlock)
+{
+	point_hash->unlock_entry2(vep,unlock);
+}
+
 void insert_point_entry(unsigned char* key_p,ValueEntry ve)
 {
 #ifdef htt

@@ -65,7 +65,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 		update_free_cnt();
 
 		ve = find_point_entry(key_p); // don't create
-		if (ve.node_offset == NULL)
+		if (ve.node_offset == 0)
 		{
 //			result_p = empty;
 			memcpy(result_p,empty,empty_len);			
@@ -151,7 +151,7 @@ int delete_query(unsigned char* key_p)
 //			kv_p = point_hash.find(key_p);
 //			kv_p = (unsigned char*)entry->
 			ve = find_point_entry(key_p);
-			if (ve.node_offset == NULL) // deleted!!!
+			if (ve.node_offset == 0) // deleted!!!
 				return 0;
 //			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
@@ -202,6 +202,8 @@ int delete_query(unsigned char* key_p)
 	// delete old?
 	// e unlock
 
+#define keep_lock
+
 int insert_query(unsigned char* key_p, unsigned char* value_p)
 {
 	if (print)
@@ -214,6 +216,8 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	unsigned char* kv_p;
 
 	ValueEntry ve;
+	ValueEntry* vep;
+	void* unlock;
 
 	unsigned int offset;
 	int continue_len;
@@ -240,13 +244,21 @@ _mm_mfence();
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
 
-		ve.node_offset = 0;
+//		ve.node_offset = 0;
+//		vep = NULL;
 
 //		offset = 0;
 //		kv_p = NULL;
 #if 1
-		ve = find_point_entry(key_p);
-		while(ve.node_offset != 0)
+//		ve = find_point_entry(key_p);
+#ifdef keep_lock		
+		vep = find_or_insert_point_entry(key_p,&unlock);	
+#else		
+		vep = &ve;		
+		*vep = find_point_entry(key_p);		
+#endif
+//		while(ve.node_offset != 0)
+		while(vep->node_offset != 0)		
 		{
 //			kv_p = point_hash.find(key_p); // find or create
 /*			
@@ -258,7 +270,7 @@ _mm_mfence();
 			}
 			*/
 //			offset = data_point_to_offset(kv_p);
-			if (inc_ref(ve.node_offset,0))
+			if (inc_ref(vep->node_offset,0))
 			{
 				//do we need this?
 				/*
@@ -278,7 +290,7 @@ _mm_mfence();
 				else
 				{
 					rv = ns;
-					offset_to_node(ve.node_offset)->size += es;
+					offset_to_node(vep->node_offset)->size += es;
 				}
 //				rv = check_size(offset,value_size);
 //				{
@@ -287,13 +299,23 @@ _mm_mfence();
 
 //					dec_ref(offset); // node is spliting
 			}
-			ve = find_point_entry(key_p);
+//			ve = find_point_entry(key_p);
+#ifdef keep_lock			
+			unlock_entry(vep,unlock);
+			vep = find_or_insert_point_entry(key_p,&unlock);
+#else
+			*vep = find_point_entry(key_p);			
+#endif
 //				if (print)
 //				printf("node is spliting??\n");
 		}
+#else
+		vep = &ve;
+		vep->node_offset = 0;
+#endif
 //		if (offset == 0) // the key doesn't exist
-		#endif
-		if (ve.node_offset == 0)		
+//		if (ve.node_offset == 0)		
+		if (vep->node_offset == 0)		
 //		if (kv_p == NULL)		
 		{
 			if (print)
@@ -352,6 +374,8 @@ _mm_mfence();
 //			if (print)
 //			printf("node found offset %d\n",offset);
 		}
+		else
+			ve = *vep;
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 	_mm_mfence();		
@@ -376,7 +400,14 @@ _mm_mfence();
 //			point_hash.insert(key_p,rp);
 			ve.kv_offset = (unsigned char*)offset_to_node_data(ve.node_offset)-rp;
 			ve.len = value_len;			
+
+#ifdef keep_lock
+			*vep = ve; // is it atomic?
+			unlock_entry(vep,unlock);
+#else
 			insert_point_entry(key_p,ve);
+#endif
+//			// use vep instead of insert point
 //			hard_unlock(offset);
 
 		// delete was here but i think pmem op is expensive and we can do this on dram with node meta but not yet	
@@ -400,7 +431,9 @@ _mm_mfence();
 		else // rv == -1 and it means we will split
 		{
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
-
+#ifdef keep_lock
+unlock_entry(vep,unlock);
+#endif
 			//failed and need split
 		/* //it may not happen because of free cnt
 			if (range_entry == NULL)
