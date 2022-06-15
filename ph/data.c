@@ -173,7 +173,7 @@ Node_meta* alloc_node()
 	printf("alloc node %p\n",node); //test
 
 //	pthread_mutex_init(&node->mutex,NULL);
-	node->state = 0;	
+	node->state = 0;//need here? yes because it was 2	
 #ifdef dtt
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	_mm_mfence();
@@ -242,6 +242,7 @@ int init_data() // init hash first!!!
 	Node_meta* node = alloc_node();
 	node->state = 0;
 	node->size = 0;
+	node->ic = 0;
 //	node->ref = 0;
 	node->scan_list = NULL;
 	node->prev_offset = HEAD_OFFSET;
@@ -829,7 +830,13 @@ void move_scan_list(Node_meta* node_old,Node_meta* node_new)
 //4 unlock
 //
 //
-
+/*
+struct len_and_key
+{
+	uint16_t len;
+	uint64_t key; // may be chagned
+};
+*/
 int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 {
 #ifdef dtt
@@ -965,6 +972,7 @@ if (print)
 //	pthread_mutex_init(&new_node1->mutex,NULL);
 //	pthread_mutex_init(&new_node2->mutex,NULL);
 
+	new_node1->ic = new_node2->ic = 0;
 
 //	new_node1->size = size1;
 
@@ -998,6 +1006,23 @@ if (print)
 	memcpy(new_node1_data,new_node1,sizeof(unsigned int));
 	memcpy(new_node2_data,new_node2,sizeof(unsigned int));
 
+	int j,temp;
+	for (i=0;i<node->ic;i++)
+	{
+		temp = 0;
+		for (j=0;j<node->ic-i-1;j++)
+		{
+			if (node->inv_kv[j] > node->inv_kv[j+1])
+			{
+				temp = node->inv_kv[j+1];
+				node->inv_kv[j+1] = node->inv_kv[j];
+				node->inv_kv[j] = temp;
+			}
+		}
+		if (temp == 0)
+			break;
+	}
+
 	//if 8 align
 	uint64_t prefix_64 = *((uint64_t*)prefix),m;
 	/*
@@ -1021,7 +1046,7 @@ if (print)
 #if 1
 	uint16_t value_len;
 	const int kls = key_size + len_size;
-	int kvs;
+	uint16_t kvs;
 //	int cur;
 //	cur = 0;
 	buffer = node_data->buffer;
@@ -1036,14 +1061,21 @@ if (print)
 	const unsigned int new_offset1 = calc_offset(new_node1);
 	const unsigned int new_offset2 = calc_offset(new_node2);
 
+//	struct len_and_key lak;
 
+	j = 0;
+	node->inv_kv[node->ic] = 0;
 	while(buffer < be)
 	{
 		// 8 align
 //		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
+//		memcpy(&lak,buffer,kls);
 		value_len = *((uint16_t*)(buffer/*+cur+key_size*/));
+//		kvs = kls + lak.len;
 		kvs = kls + value_len;
-		if ((value_len & (1 << 15)) == 0) // valid length		
+//		if ((lak.len & (1 << 15)) == 0)
+		if ((unsigned char*)node_data + node->inv_kv[j] != buffer)		
+//		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
 			if (print)
 				printf("pivot %lx key %lx\n",prefix_64,*((uint64_t*)(buffer)));
@@ -1051,10 +1083,13 @@ if (print)
 //			if (value_len != 100)
 //				print_kv(buffer+cur);
 
+//			temp_key[tc] = lak.key;
 			temp_key[tc] = *((uint64_t*)(buffer+len_size));		
 //		temp_len[tc] = value_len;	
 			// we use double copy why?
-			if (*((uint64_t*)(buffer+len_size)) < prefix_64) 
+//			if (*((uint64_t*)(buffer+len_size)) < prefix_64)
+			if (temp_key[tc] < prefix_64)			
+//			if (lak.key < prefix_64)	
 //		if (compare(buffer+i*entry_size,prefix) < 0) //insert1		
 			{
 			// rehash later
@@ -1086,13 +1121,18 @@ if (print)
 
 				buffer2+=kvs;			
 			}
+//			vea[tc].len = lak.len;
 			vea[tc].len = value_len;		
 			tc++;
 //		print_kv(buffer+cur);//test
 		}
 		else
+		{
+			j++;
 //			value_len-= (1 << 15);
-			kvs-= (1 << 15);			
+//			kvs-= (1 << 15);			
+			kvs&= ~((uint16_t)1 << 15);			
+		}
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
@@ -1380,6 +1420,7 @@ int compact(unsigned int offset)//, struct range_hash_entry* range_entry)//,unsi
 #ifdef dtt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	_mm_mfence();
 #endif
 //	tt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
@@ -1489,60 +1530,15 @@ if (print)
 //	size = meta & 63; // 00111111
 
 	new_node1 = alloc_node();
-	new_node1_data = offset_to_node_data(calc_offset(new_node1));
-
-	uint16_t value_len;
-
-//	uint64_t k = *((uint64_t*)(buffer+cur));
-
-	buffer1 = new_node1_data->buffer;
-
-	unsigned char* const be = buffer+size;
-
-	const int kls = key_size + len_size;
-	int kvs;
-	const unsigned int new_offset = calc_offset(new_node1);
-tc = 0;
-	while(buffer < be)
-	{
-		// 8 align
-//		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
-//		if (*((uint64_t*)(buffer+cur)) != k)
-//			printf("compaction error\n");		
-		value_len = *((uint16_t*)(buffer));
-		kvs = kls + value_len;
-		if ((value_len & (1 << 15)) == 0) // valid length		
-		{
-			memcpy(buffer1,buffer,kvs);
-			buffer1+=kvs;
-			temp_key[tc] = *((uint64_t*)(buffer+len_size));
-//			temp_kvp[tc] = buffer1;
-//			temp_len[tc] = value_len;
-			vea[tc].node_offset = new_offset;
-			vea[tc].kv_offset = buffer1-(unsigned char*)new_node1_data;
-			vea[tc].len = kvs;			
-			tc++;
-		}
-		else
-			kvs-= (1 << 15);
-//		cur+=key_size+len_size+value_len;
-		buffer+=kvs;		
-	}
-
-	//why?? fill zero?
-	/*
-	if (size1 + entry_size < NODE_BUFFER)
-		init_entry(buffer1 + size1*entry_size);
-	if (size2 + entry_size < NODE_BUFFER)
-		init_entry(buffer2 + size2*entry_size);
-*/
 
 	new_node1->state = 0; // ??
 //	new_node1->ref = 0;
 //	pthread_mutex_init(&new_node1->mutex,NULL);
 
 //	new_node1->size = size1;
-	new_node1->size = buffer1-new_node1_data->buffer;	
+//	new_node1->size = buffer1-new_node1_data->buffer;	
+
+	new_node1->ic = 0;
 
 	new_node1->next_offset = node->next_offset;
 	new_node1->prev_offset = node->prev_offset;
@@ -1556,6 +1552,89 @@ tc = 0;
 
 	// flush
 	move_scan_list(node,new_node1);
+
+	new_node1_data = offset_to_node_data(calc_offset(new_node1));
+
+	memcpy(new_node1_data,new_node1,sizeof(unsigned int));
+
+
+	int j,temp;
+	for (i=0;i<node->ic;i++)
+	{
+		temp = 0;
+		for (j=0;j<node->ic-i-1;j++)
+		{
+			if (node->inv_kv[j] > node->inv_kv[j+1])
+			{
+				temp = node->inv_kv[j+1];
+				node->inv_kv[j+1] = node->inv_kv[j];
+				node->inv_kv[j] = temp;
+			}
+		}
+		if (temp == 0)
+			break;
+	}
+
+
+	uint16_t value_len;
+
+//	uint64_t k = *((uint64_t*)(buffer+cur));
+
+	buffer1 = new_node1_data->buffer;
+
+	unsigned char* const be = buffer+size;
+
+	const int kls = key_size + len_size;
+	uint16_t kvs;
+	const unsigned int new_offset = calc_offset(new_node1);
+tc = 0;
+
+//	struct len_and_key lak;
+	j = 0;
+	node->inv_kv[node->ic] = 0;
+	while(buffer < be)
+	{
+		// 8 align
+//		if (*((uint64_t*)(buffer+i*entry_size)) == 0) // invalid key
+//		if (*((uint64_t*)(buffer+cur)) != k)
+//			printf("compaction error\n");	
+//		memcpy(&lak,buffer,kls);				
+		value_len = *((uint16_t*)(buffer));
+//		kvs = kls + lak.len;
+		kvs = kls + value_len;
+//		if ((/*value_len*/ lak.len & (1 << 15)) == 0) // valid length		
+		if ((unsigned char*)node_data + node->inv_kv[j] != buffer)		
+		{
+			memcpy(buffer1,buffer,kvs);
+//			temp_key[tc] = lak.key;
+			temp_key[tc] = *((uint64_t*)(buffer+len_size));
+//			temp_kvp[tc] = buffer1;
+//			temp_len[tc] = value_len;
+			vea[tc].node_offset = new_offset;
+			vea[tc].kv_offset = buffer1-(unsigned char*)new_node1_data;
+//			vea[tc].len = lak.len;
+			vea[tc].len = value_len;		
+			buffer1+=kvs;
+			tc++;
+		}
+		else
+		{
+			j++;
+			kvs&= ~((uint16_t)1 << 15);
+		}
+//		cur+=key_size+len_size+value_len;
+		buffer+=kvs;		
+	}
+
+	new_node1->size = buffer1-new_node1_data->buffer;
+
+	//why?? fill zero?
+	/*
+	if (size1 + entry_size < NODE_BUFFER)
+		init_entry(buffer1 + size1*entry_size);
+	if (size2 + entry_size < NODE_BUFFER)
+		init_entry(buffer2 + size2*entry_size);
+*/
 
 	if (!USE_DRAM)
 	{
@@ -1624,7 +1703,7 @@ printf("rehash\n");
 #endif
 //	printf("insert range\n");
 //	insert_range_entry((unsigned char*)prefix,continue_len,calc_offset(new_node1));
-	insert_range_entry((unsigned char*)new_node1_data->buffer,key_size,calc_offset(new_node1)); // who use 64 range
+	insert_range_entry((unsigned char*)new_node1_data->buffer+len_size,key_bit,calc_offset(new_node1)); // who use 64 range
 //	range_entry->offset = calc_offset(new_node1);
 
 	_mm_sfence(); // for free after rehash
@@ -1632,6 +1711,7 @@ printf("rehash\n");
 	free_node(node);//???
 
 #ifdef dtt
+	_mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	tt3+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
@@ -1897,6 +1977,13 @@ void delete_scan_entry(unsigned int scan_offset,void* query)
 //	pthread_mutex_unlock(&node->mutex);
 //	pthread_mutex_unlock(&query_p->scan_mutex);
 
+}
+
+void invalidate_kv(unsigned int node_offset, unsigned int kv_offset)
+{
+	Node_meta* meta;
+	meta = offset_to_node(node_offset);
+	meta->inv_kv[meta->ic++] = kv_offset;
 }
 
 }

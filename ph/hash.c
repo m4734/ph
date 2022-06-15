@@ -140,9 +140,9 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 		return entry_p;
 }
 
-void unlock_entry(ValueEntry* vep,void* unlock)
+void unlock_entry(void* unlock)
 {
-	point_hash->unlock_entry2(vep,unlock);
+	point_hash->unlock_entry2(unlock);
 }
 
 void insert_point_entry(unsigned char* key_p,ValueEntry ve)

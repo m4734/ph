@@ -81,7 +81,7 @@ class CCEH
 	ValueEntry find(const uint64_t &key);
 	void remove(const uint64_t &key); // find with lock
 
-	void unlock_entry2(ValueEntry* vep,void* unlock);
+	void unlock_entry2(void* unlock);
 
 	uint64_t dm;
 	int point;

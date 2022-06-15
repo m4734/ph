@@ -176,6 +176,7 @@ int delete_query(unsigned char* key_p)
 //				soft_lock(offset);
 //				entry->kv_p = NULL; // what should be first?
 				delete_kv(kv_p);
+				invalidate_kv(ve.node_offset,ve.kv_offset);
 				remove_point_entry(key_p);
 //				point_hash.remove(key_p); // hash twice??
 //				hard_unlock(offset);
@@ -219,7 +220,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 	ValueEntry* vep;
 	void* unlock;
 
-	unsigned int offset;
+//	unsigned int offset;
 	int continue_len;
 	const int value_len = value_size; // temp fix
 	continue_len = 0;
@@ -228,6 +229,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 
 	int test=0;
 	int z = 0;
+	int old_kv_offset;
 
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
@@ -257,6 +259,7 @@ _mm_mfence();
 		vep = &ve;		
 		*vep = find_point_entry(key_p);		
 #endif
+		old_kv_offset = 0;
 //		while(ve.node_offset != 0)
 		while(vep->node_offset != 0)		
 		{
@@ -283,6 +286,7 @@ _mm_mfence();
 				*/
 								
 //				if ((rv = check_size(offset,value_size)) >= -1) // node is not spliting
+				/*
 				const int ns = offset_to_node(ve.node_offset)->size;
 				const int es = key_size + len_size + value_size;
 				if (ns + es > NODE_BUFFER)
@@ -292,7 +296,9 @@ _mm_mfence();
 					rv = ns;
 					offset_to_node(vep->node_offset)->size += es;
 				}
-//				rv = check_size(offset,value_size);
+				*/
+				rv = check_size(vep->node_offset,value_len);//value_size);
+				old_kv_offset = vep->kv_offset;
 //				{
 					break;
 //				}
@@ -301,7 +307,7 @@ _mm_mfence();
 			}
 //			ve = find_point_entry(key_p);
 #ifdef keep_lock			
-			unlock_entry(vep,unlock);
+			unlock_entry(unlock);
 			vep = find_or_insert_point_entry(key_p,&unlock);
 #else
 			*vep = find_point_entry(key_p);			
@@ -361,7 +367,7 @@ _mm_mfence();
 					nm->size += es;
 				}
 */			
-				rv = check_size(ve.node_offset,value_size);
+				rv = check_size(ve.node_offset,value_len);//value_size);
 //				{
 					break;
 //				}
@@ -403,10 +409,12 @@ _mm_mfence();
 
 #ifdef keep_lock
 			*vep = ve; // is it atomic?
-			unlock_entry(vep,unlock);
+			unlock_entry(unlock);
 #else
 			insert_point_entry(key_p,ve);
 #endif
+			if (old_kv_offset)
+				invalidate_kv(ve.node_offset,old_kv_offset);
 //			// use vep instead of insert point
 //			hard_unlock(offset);
 
@@ -432,7 +440,7 @@ _mm_mfence();
 		{
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
 #ifdef keep_lock
-unlock_entry(vep,unlock);
+unlock_entry(unlock);
 #endif
 			//failed and need split
 		/* //it may not happen because of free cnt

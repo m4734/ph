@@ -14,7 +14,7 @@
 #define HEAD_OFFSET 1
 #define TAIL_OFFSET 2
 
-#define dtt
+//#define dtt
 
 namespace PH
 {
@@ -69,6 +69,9 @@ struct Node_meta
 	unsigned int prev_offset; // should be removed
 
 	Scan_list* scan_list;
+
+	uint16_t ic;
+	uint16_t inv_kv[20-1]; // need to be list
 };
 
 
@@ -126,5 +129,7 @@ void delete_scan_entry(unsigned int scan_offset,void* query);
 void at_lock(std::atomic<uint8_t> &lock);
 void at_unlock(std::atomic<uint8_t> &lock);
 int try_at_lock(std::atomic<uint8_t> &lock);
+
+void invalidate_kv(unsigned int node_offset, unsigned int kv_offset);
 
 }

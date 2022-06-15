@@ -985,7 +985,6 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 		l%=KVP_PER_CL*CL_PER_SEG;
 		if (kvp_p[l].key == INV0) // insert
 		{
-
 			kvp_p[l].value = value;
 			_mm_sfence();
 			kvp_p[l].key = key;
@@ -1006,16 +1005,17 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 
 		if (kvp_p[l].key == key) // update
 		{
-
-			kvp_p[l].value = value;
-			_mm_sfence();
-
-//			seg->lock = 0;
-//			seg->seg_lock->unlock();			
 			if (unlock)
 				*(void**)unlock = seg;
 			else
+			{
+				kvp_p[l].value = value;
+				_mm_sfence();
 				at_unlock2(seg->lock);			
+			}
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
 #ifdef ctt
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
@@ -1051,11 +1051,11 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 //	return NULL;
 }
 
-void CCEH::unlock_entry2(ValueEntry* vep,void* unlock)
+void CCEH::unlock_entry2(void* unlock)
 {
-	SEG* seg = (SEG*)unlock;
+//	SEG* seg = (SEG*)unlock;
 //	printf("unlock_entry2 vep %p seg %p\n",vep,seg);
-	if (seg != NULL)
+//	if (seg != NULL)
 	/*	
 	if (seg->lock == 0)
 	{
@@ -1064,7 +1064,8 @@ void CCEH::unlock_entry2(ValueEntry* vep,void* unlock)
 		scanf("%d",&t);
 	}
 	*/
-	at_unlock2(seg->lock);
+	if (unlock)		
+		at_unlock2(((SEG*)unlock)->lock);
 }
 
 void init_cceh()
