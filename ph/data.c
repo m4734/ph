@@ -32,10 +32,12 @@ unsigned char* pmem_addr;
 int is_pmem;
 size_t pmem_len;
 //size_t pmem_used;
+Node* node_array;
 
 unsigned char* meta_addr;
 uint64_t meta_size;
 uint64_t meta_used;
+Node_meta* meta_array;
 
 std::queue <Node_meta*> node_free_list;
 
@@ -82,11 +84,14 @@ unsigned int calc_offset(Node_meta* node) // it will be optimized with define
 }
 Node_meta* offset_to_node(unsigned int offset) // it will be ..
 {
-	return (Node_meta*)(meta_addr + offset*sizeof(Node_meta));
+	return &meta_array[offset];
+//	return (Node_meta*)(meta_addr + offset*sizeof(Node_meta));
 }
 Node* offset_to_node_data(unsigned int offset)
 {
-	return (Node*)(pmem_addr + offset*sizeof(Node));
+	return &node_array[offset];
+//	return &(((Node*)(pmem_addr))[offset]);
+//	return (Node*)(pmem_addr + offset*sizeof(Node));
 }
 
 unsigned int point_to_offset(unsigned char* kv_p)
@@ -210,8 +215,11 @@ int init_data() // init hash first!!!
 
 	else
 		pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
+	node_array = (Node*)pmem_addr;
+
 	meta_size = pmem_size/sizeof(Node)*sizeof(Node_meta);
 	meta_addr = (unsigned char*)mmap(NULL,meta_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
+	meta_array = (Node_meta*)meta_addr;
 
 	if (pmem_addr == NULL)
 	{

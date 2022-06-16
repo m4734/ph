@@ -66,7 +66,8 @@ class KVS_ph : public KVS
 	virtual void run(TestQuery* tqa, int ops)
 	{
 		int i,len,j;
-		unsigned char result[1000];
+		unsigned char* result;
+		result = (unsigned char*)malloc(sizeof(unsigned char*)*1000);
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
@@ -94,6 +95,7 @@ class KVS_ph : public KVS
 				PH::free_query(&query);
 			}
 		}
+		free(result);
 	}
 	virtual void reset()
 	{

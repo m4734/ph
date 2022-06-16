@@ -17,6 +17,8 @@
 #include "cceh.hpp"
 #include "concurrentqueue.h"
 
+//#include <time.h>
+
 #ifndef NDEBUG
 #define DEBUG_LOG(msg) (std::cout << msg << std::endl)
 #else
@@ -29,6 +31,8 @@
 //#define VIPER_DRAM
 
 namespace viper {
+
+//uint64_t btt1,btt2,btt3;
 
 using version_lock_t = uint8_t;
 
@@ -498,6 +502,8 @@ Viper<K, V>::Viper(ViperBase v_base, const std::filesystem::path pool_dir, const
         recover_database();
     }
     current_block_page_ = KVOffset{v_base.v_metadata->num_used_blocks.load(LOAD_ORDER), 0, 0}.offset;
+
+//    btt1 = btt2 = btt3 = 0;
 }
 
 template <typename K, typename V>
@@ -1182,6 +1188,7 @@ bool Viper<K, V>::Client::put(const K& key, const V& value) {
     return put(key, value, true);
 }
 
+
 /**
  * Get the `value` for a given `key`.
  * Returns true if the item was found or false if not.
@@ -1194,15 +1201,28 @@ bool Viper<K, V>::Client::get(const K& key, V* value) {
         if constexpr (using_fp) { return this->viper_.check_key_equality(key, offset); }
         else { return cceh::CCEH<K>::dummy_key_check(key, offset); }
     };
-
+//struct timespec ts1,ts2,ts3;
+//clock_gettime(CLOCK_MONOTONIC,&ts1);
+//_mm_mfence();
     while (true) {
         KVOffset kv_offset = this->viper_.map_.Get(key, key_check_fn);
+//	_mm_mfence();
+//	clock_gettime(CLOCK_MONOTONIC,&ts2);
+//	btt1+= (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+//	return true;
         if (kv_offset.is_tombstone()) {
             return false;
         }
+//	clock_gettime(CLOCK_MONOTONIC,&ts2);
+//	_mm_mfence();
         if (get_value_from_offset(kv_offset, value)) {
+//		_mm_mfence();
+//	clock_gettime(CLOCK_MONOTONIC,&ts3);
+//	btt2+= (ts3.tv_sec-ts2.tv_sec)*1000000000+ts3.tv_nsec-ts2.tv_nsec;
+//	btt3+= (ts3.tv_sec-ts1.tv_sec)*1000000000+ts3.tv_nsec-ts1.tv_nsec;
             return true;
         }
+
     }
 }
 
@@ -1501,6 +1521,10 @@ Viper<K, V>::Client::~Client() {
     if (v_block_ != nullptr) {
         v_block_->v_pages[0].version_lock &= NO_CLIENT_BIT;
     }
+//    printf("get query %ld\n",btt3);
+//    printf("index %ld\n",btt1);
+//    printf("data %ld\n",btt2);
+
 }
 
 template <typename K, typename V>

@@ -56,7 +56,7 @@ void init_query(Query* query)
 	query->scan_lock = 0;	
 }
 
-int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
+int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len_p)
 {
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4;
@@ -65,24 +65,27 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 #endif
 //		unsigned char* kv_p;
 		ValueEntry ve;
-		int value_len;
+//		int value_len;
 		const int kls = key_size+len_size;
 //		unsigned int offset;
 		update_free_cnt();
 #ifdef qtt
-		clock_gettime(CLOCK_MONOTONIC,&ts3);
-		_mm_mfence();
+//		clock_gettime(CLOCK_MONOTONIC,&ts3);
+//		_mm_mfence();
 #endif
 		ve = find_point_entry(key_p); // don't create
 #ifdef qtt
 		_mm_mfence();
 		clock_gettime(CLOCK_MONOTONIC,&ts4);
-		qtt6+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+//		qtt6+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+		qtt6+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+	
 #endif
 #ifdef qtt
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
 #endif
+//		return 0;
 		if (ve.node_offset == 0)
 		{
 //			result_p = empty;
@@ -92,7 +95,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 			return 0;
 		}
 //		while(1)
-		{
+//		{
 //			if (kv_p == NULL) // deleted
 //				break;
 			// lock version
@@ -100,7 +103,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //			printf("kv_p %p\n",kv_p);	
 //			offset = data_point_to_offset(kv_p);
 //			if (inc_ref(offset,1)) // split state ok
-			{
+//			{
 				// it will not happen
  /*
 				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
@@ -130,6 +133,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //				*result = kv_p+key_size+len_size;
 //				memcpy(result_p,kv_p+key_size+len_size,value_size);
 				memcpy(result_p,(unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,*result_len_p);
+//				memcpy(result_p,(unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,200);
 //				memcpy(result_p,kv_p+key_size+len_size,200);
 			
 //				s_unlock(offset); // it will be released after result
@@ -144,13 +148,13 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 #endif
 
 				return 0;				
-			}
+//			}
 			
 
 
 //			if (kv_p == (unsigned char*)entry->kv_p)
 //				break;
-		}
+//		}
 		//deleted
 //		*result_p = empty;
 /*		

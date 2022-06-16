@@ -12,6 +12,9 @@ namespace PH
 
 PH_Thread* thread_list;
 
+thread_local PH_Thread* my_thread = NULL;
+//thread_local unsigned int op_cnt = 0;
+
 extern volatile unsigned int free_cnt;
 extern int num_of_thread;
 
@@ -43,6 +46,8 @@ void exit_thread()
 			break;
 		}
 	}
+	my_thread = NULL;
+//	op_cnt = 0;
 }
 
 void init_thread()
@@ -76,6 +81,8 @@ void new_thread()
 			thread_list[i].tid = pt;
 			thread_list[i].free_cnt = free_cnt;
 			thread_list[i].seg_free_cnt = seg_free_cnt;
+			my_thread = &thread_list[i];
+//			op_cnt = 0;
 			break;
 		}
 	}
@@ -85,6 +92,18 @@ void new_thread()
 
 void update_free_cnt()
 {
+	if (my_thread)
+	{
+//		op_cnt++;
+//		if (op_cnt & 1024)
+//		{
+			my_thread->free_cnt = free_cnt;
+			my_thread->seg_free_cnt = seg_free_cnt;
+//		}
+	}
+	else
+		new_thread();
+#if 0
 	int i;
 	pthread_t pt;
 
@@ -99,6 +118,7 @@ void update_free_cnt()
 		}
 	}
 	new_thread();
+#endif
 }
 
 unsigned int min_free_cnt()

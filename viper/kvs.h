@@ -74,6 +74,9 @@ class KVS_viper : public KVS
 
 	virtual void clean()
 	{
+//    printf("get query %ld\n",viper::btt3);
+//    printf("index %ld\n",viper::btt1);
+//    printf("data %ld\n",viper::btt2);
 	}
 
 //	template <typename K, typename V>
