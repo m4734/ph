@@ -77,7 +77,8 @@ class CCEH
 	public:
 //	int insert(const uint64_t &key,ValueEntry ve);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
-	ValueEntry* insert(const uint64_t &key,ValueEntry ve,void* unlock = NULL);
+	ValueEntry* insert(const uint64_t &key,ValueEntry &ve,void* unlock = NULL);
+
 	ValueEntry find(const uint64_t &key);
 	void remove(const uint64_t &key); // find with lock
 
@@ -86,8 +87,8 @@ class CCEH
 	uint64_t dm;
 	int point;
 	//test
-	int sc,pic,bc;
-	uint64_t ctt1,ctt2,ctt3;
+	int sc,pic,bc,find_cnt;
+	uint64_t ctt1,ctt2,ctt3,ctt4;
 
 };
 

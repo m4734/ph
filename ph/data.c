@@ -48,7 +48,7 @@ unsigned int free_min;
 unsigned int free_index;
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test
-uint64_t qtt1,qtt2,qtt3,qtt4,qtt5;
+uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
 //----------------------------------------------------------------
 
 // OP all
@@ -293,7 +293,7 @@ int init_data() // init hash first!!!
 	tt3 = 0;
 	tt4 = tt5 = 0;
 
-	qtt1 = qtt2 = qtt3 = qtt4 = qtt5 = 0;
+	qtt1 = qtt2 = qtt3 = qtt4 = qtt5 = qtt6 = qtt7 = qtt8 = 0;
 
 	return 0;
 }
@@ -337,7 +337,10 @@ void clean_data()
 	printf("insert data %ld %ld\n",qtt3/1000000000,qtt3%1000000000);
 	printf("insert kv %ld %ld\n",qtt4/1000000000,qtt4%1000000000);
 	printf("split kv %ld %ld\n",qtt5/1000000000,qtt5%1000000000);
-
+	printf("\n");
+	printf("lookup query %ld %ld\n",qtt8/1000000000,qtt8%1000000000);
+	printf("lookup index %ld %ld\n",qtt6/1000000000,qtt6%1000000000);
+	printf("lookup data %ld %ld\n",qtt7/1000000000,qtt7%1000000000);
 
 #endif
 

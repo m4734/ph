@@ -185,7 +185,8 @@ void CCEH::init(int in_depth)
 	inv0_value.node_offset = 0;
 
 	//test
-	pic = bc = sc = ctt1 = ctt3 = ctt2 = 0;
+	bc = sc = ctt1 = ctt3 = ctt2 = 0;
+	find_cnt = pic = 1;
 }
 
 void CCEH::clean()
@@ -211,12 +212,26 @@ void CCEH::clean()
 	free(seg_list);
 
 #ifdef ctt
-	printf("d %d sc %d insert %ld split %ld hf %ld pic %d bc %d \n",depth,sc,ctt1,ctt2,ctt3,pic,bc);
+	printf("depth %d split_cnt %d insert %ld insert_avg %ld split %ld ctt3 %ld insert_cnt %d bc %d find %ld find_cnt %d find_avg %ld \n",depth,sc,ctt1,ctt1/pic,ctt2,ctt3,pic,bc,ctt4,find_cnt,ctt4/find_cnt);
 #endif
 }
 
 ValueEntry CCEH::find(const uint64_t &key)
 {
+	/*
+	if (point)
+	{
+		inv0_value.node_offset = 0;
+		return inv0_value;
+//		return *insert_t(key,inv0_value,NULL); 
+	}
+	*/
+#ifdef ctt
+	find_cnt++;
+	struct timespec ts1,ts2;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	_mm_mfence();
+#endif
 	int sn,cn,i;
 	KVP* kvp_p;
 	uint64_t hk;
@@ -251,7 +266,14 @@ ValueEntry CCEH::find(const uint64_t &key)
 		l%=CL_PER_SEG*KVP_PER_CL;
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
 		if (kvp_p[l].key == key)		
+		{
+#ifdef ctt
+			_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts2);
+			ctt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
 			return kvp_p[l].value;
+		}
 		l++;
 	}
 	ValueEntry ve;
@@ -867,22 +889,28 @@ int CCEH::insert(const uint64_t &key,ValueEntry value)
 
 #endif
 
-ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
+ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 {
-	int sn;
+//	int sn;
 //	uint64_t inv;
 //	KVP* kvp_p;
-	SEG* seg;
-	/*const*/ uint64_t hk = hf(&key);
-	/*const*/ int cn = hk >>(64-CL_BIT);
+//	SEG* seg;
+//	/*const*/ uint64_t hk;// = hf(&key);
+//	/*const*/ int cn;// = hk >>(64-CL_BIT);
 //	int l,d;
 
 #ifdef ctt
 	pic++;
 	struct timespec ts1,ts2,ts3,ts4;
-//	clock_gettime(CLOCK_MONOTONIC,&ts3);
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+	_mm_mfence();
 #endif
-	
+	int sn,cn,i;
+	uint64_t hk;
+	const int cl_shift = 64-CL_BIT;
+	int l;
+	SEG* seg;
+	KVP* kvp_p;
 	if (key == INV0)	
 	{
 		inv0_value = value;
@@ -891,19 +919,11 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 		return &inv0_value;
 	}
 	
-//	hk = hf(key);
+	hk = hf(&key);
 //retry:
 //while(1)
 //{
 	
-#ifdef ctt
-	clock_gettime(CLOCK_MONOTONIC,&ts3);
-//	clock_gettime(CLOCK_MONOTONIC,&ts1);
-//	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
-
-#endif
-
-
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
 //	sn = *(uint64_t*)key % ((uint64_t)1 << depth);	
@@ -916,6 +936,8 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 
 //	cn = hk >> (64-2);
 //	cn = hk >> (64-CL_BIT);
+
+	cn = hk >> cl_shift;
 /*		
 #ifdef ctt
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -924,11 +946,12 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 #endif
 */
 	seg = seg_list[sn];
-	
+/*	
 #ifdef ctt // 6 598249128
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 #endif
+*/
 //	if (seg->lock.compare_exchange_weak(z,1) == 0)
 //		while(seg->lock.compare_exchange_weak(z,1) == 0);
 //	seg->seg_lock->lock();	
@@ -936,7 +959,6 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 //printf("at_lock2 seg %p\n",seg);	
 //	if (sn != *(uint64_t*)key >> (64-depth))
 //	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))
-	
 	if (seg != seg_list[sn])//sn != hk % ((uint64_t)1 << depth))
 
 	{
@@ -962,9 +984,8 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 	}
 #endif
 #if 1
-	int i,l;
 //	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
-	KVP* const kvp_p = (KVP*)seg->cl;
+/*	KVP* const */kvp_p = (KVP*)seg->cl;
 	l = cn*KVP_PER_CL;	
 //	sd = seg->depth;
 /*
@@ -979,10 +1000,26 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 	ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 #endif
 */
+#ifdef ctt
+//	clock_gettime(CLOCK_MONOTONIC,&ts1);
+//	_mm_mfence();
+#endif
+#if 0
+	if (point)
+	{
+		inv0_value.node_offset = 0;
+		return &inv0_value;
+	}
+#endif
 	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 	{
-		bc++;
+#ifdef ctt
+//		bc++;
+#endif
 		l%=KVP_PER_CL*CL_PER_SEG;
+//		if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
+//			break;
+#if 1
 		if (kvp_p[l].key == INV0) // insert
 		{
 			kvp_p[l].value = value;
@@ -996,13 +1033,63 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 			else
 				at_unlock2(seg->lock);
 #ifdef ctt
+			_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+#endif
+
+			return &kvp_p[l].value;
+		}
+		else if (kvp_p[l].key == key) // update
+		{
+			if (unlock)
+				*(void**)unlock = seg;
+			else
+			{
+				kvp_p[l].value = value;
+				_mm_sfence();
+				at_unlock2(seg->lock);			
+			}
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
+#ifdef ctt
+			_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+#endif
+			return &kvp_p[l].value;
+		}
+#endif
+		l++;
+	}
+#endif
+#if 0
+	if (i < KVP_PER_CL*LINEAR_MULTI)
+	{
+		if (kvp_p[l].key == INV0) // insert
+		{
+			kvp_p[l].value = value;
+			_mm_sfence();
+			kvp_p[l].key = key;
+
+//			seg->lock = 0;
+//			seg->seg_lock->unlock();			
+			if (unlock)
+				*(void**)unlock = seg;
+			else
+				at_unlock2(seg->lock);
+#ifdef ctt
+			_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 #endif
 
 			return &kvp_p[l].value;
 		}
-
 		if (kvp_p[l].key == key) // update
 		{
 			if (unlock)
@@ -1017,23 +1104,25 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry value,void* unlock)
 //			seg->lock = 0;
 //			seg->seg_lock->unlock();			
 #ifdef ctt
+			_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 //			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 #endif
 			return &kvp_p[l].value;
 		}
-		l++;
 	}
 #endif
 
 	//need split
 #ifdef ctt
+	_mm_mfence();
 	sc++;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 #endif
 	split(sn % ((uint64_t)1 << seg->depth));	
 #ifdef ctt
+	_mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	ctt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif

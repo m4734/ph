@@ -20,7 +20,7 @@
 namespace PH
 {
 
-	extern uint64_t qtt1,qtt2,qtt3,qtt4,qtt5;
+	extern uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
 
 void print_query(Query* query)
 {
@@ -58,13 +58,31 @@ void init_query(Query* query)
 
 int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p)
 {
+#ifdef qtt
+	timespec ts1,ts2,ts3,ts4;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	_mm_mfence();
+#endif
 //		unsigned char* kv_p;
 		ValueEntry ve;
 		int value_len;
+		const int kls = key_size+len_size;
 //		unsigned int offset;
 		update_free_cnt();
-
+#ifdef qtt
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
+		_mm_mfence();
+#endif
 		ve = find_point_entry(key_p); // don't create
+#ifdef qtt
+		_mm_mfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts4);
+		qtt6+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+#ifdef qtt
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
+		_mm_mfence();
+#endif
 		if (ve.node_offset == 0)
 		{
 //			result_p = empty;
@@ -97,6 +115,7 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 //				*result_len_p = *((uint16_t*)(kv_p));
 				*result_len_p = ve.len;				
 //				*result_len_p = value_size;				
+#if 0
 				if ((*result_len_p & (1 << 15)) != 0) // deleted // it doesn't work now
 				{
 //					dec_ref(offset);
@@ -107,15 +126,23 @@ int lookup_query(unsigned char* key_p, unsigned char* result_p,int* result_len_p
 
 //					break;
 				}
-
+#endif
 //				*result = kv_p+key_size+len_size;
 //				memcpy(result_p,kv_p+key_size+len_size,value_size);
-				memcpy(result_p,offset_to_node_data(ve.node_offset)+ve.kv_offset+key_size+len_size,*result_len_p);
+				memcpy(result_p,(unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,*result_len_p);
 //				memcpy(result_p,kv_p+key_size+len_size,200);
 			
 //				s_unlock(offset); // it will be released after result
 //				dec_ref(offset);				
 //				break;
+#ifdef qtt
+		_mm_mfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts4);
+		qtt7+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+		qtt8+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+
+#endif
+
 				return 0;				
 			}
 			

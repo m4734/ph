@@ -23,7 +23,7 @@ namespace PH
 //
 //
 
-uint64_t htt1,htt2,htt3,fpc,htt4;
+uint64_t htt1,htt2,htt3,fpc,htt4,htt5,fpc2;
 
 uint64_t pre_bit_mask[65];
 
@@ -118,7 +118,7 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 #ifdef htt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
-	fpc++;
+	fpc2++;
 	_mm_mfence();
 #endif
 //	unsigned char* entry;
@@ -135,7 +135,7 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 #ifdef htt
 	_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
-			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+			htt5+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 		return entry_p;
 }
@@ -462,8 +462,8 @@ void init_hash()
 	range_hash_table_array[0][hash]->eky
 */
 
-	htt4 = htt3 = htt1 = htt2 = 0;
-	fpc = 1;
+	htt4 = htt3 = htt5 = htt1 = htt2 = 0;
+	fpc2 = fpc = 1;
 }
 
 void clean_hash()
@@ -478,6 +478,8 @@ void clean_hash()
 	printf("hash\n");
 	printf("point read %ld %ld\n",htt1/1000000000,htt1%1000000000);
 	printf("point read avg %ld %ld %ld\n",(htt1/fpc)/1000000000,(htt1/fpc)%1000000000,fpc);
+	printf("point read2 %ld %ld\n",htt5/1000000000,htt5%1000000000);
+	printf("point read2 avg %ld %ld %ld\n",(htt5/fpc2)/1000000000,(htt5/fpc2)%1000000000,fpc2);
 	printf("range read %ld %ld\n",htt2/1000000000,htt2%1000000000);
 	printf("range insert %ld %ld\n",htt4/1000000000,htt4%1000000000);
 	printf("point insert %ld %ld\n",htt3/1000000000,htt3%1000000000);
