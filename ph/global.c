@@ -79,8 +79,8 @@ void temp_static_conf(int tn, int ks,int vs)
 	memcpy(pmem_file,"/mnt/pmem0/file",strlen("/mnt/pmem0/file"));
 	pmem_file[strlen("/mnt/pmem0/file")] = 0;
 
+	init_thread(); // need alloc mutex later // what?
 	init_hash();
-	init_thread(); // need alloc mutex later
 	init_data();
 }
 

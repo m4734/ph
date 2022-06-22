@@ -200,7 +200,7 @@ void* worker_function(void* thread_parameter)
 			kvs->scan_op(queries[tn][i].key,queries[tn][i].cnt,scan_result_array[tn]);
 	}
 	*/
-	kvs->run(queries[tn],ops);
+	kvs->run(queries[tn],tops);
 	kvs->exit_thread();
 	return NULL;
 }

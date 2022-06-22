@@ -13,6 +13,8 @@
 
 #include <x86intrin.h>
 
+#include <mutex> // test
+
 //#define print 0
 #define print 0
 
@@ -86,7 +88,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 		_mm_mfence();
 #endif
 //		return 0;
-		if (ve.node_offset == 0)
+		if (ve.node_offset == 0|| ve.kv_offset == 0)
 		{
 //			result_p = empty;
 			memcpy(result_p,empty,empty_len);			
@@ -187,7 +189,7 @@ int delete_query(unsigned char* key_p)
 //			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
 //				continue;
-			if (inc_ref(ve.node_offset,0)) //init state ok
+			if (inc_ref(ve.node_offset)) //init state ok
 			{
 				kv_p = (unsigned char*)offset_to_node_data(ve.node_offset) + ve.kv_offset;
 				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved - can it be happen after node lock?
@@ -258,15 +260,15 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 //	continue_len = -1;	
 	int rv;
 
-	int test=0;
+	int test=0,test2=0;
 	int z = 0;
 	int old_kv_offset;
-
+#ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 _mm_mfence();
-
+#endif
 	update_free_cnt();
 
 
@@ -274,9 +276,10 @@ _mm_mfence();
 	{
 		if (print)
 			printf("insert loop\n");
+#ifdef qtt
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
-
+#endif
 //		ve.node_offset = 0;
 //		vep = NULL;
 
@@ -304,7 +307,7 @@ _mm_mfence();
 			}
 			*/
 //			offset = data_point_to_offset(kv_p);
-			if (inc_ref(vep->node_offset,0))
+			if (inc_ref(vep->node_offset))
 			{
 				//do we need this?
 				/*
@@ -366,7 +369,7 @@ _mm_mfence();
 					printf("---------------split collision\n");
 					
 					test++;
-				if (test > 100)
+				if (test > 1000)
 				{
 				printf("too many fail %lu\n",*((uint64_t*)key_p));
 				int t;
@@ -374,7 +377,7 @@ _mm_mfence();
 					}
 					continue;
 				}
-				if (inc_ref(ve.node_offset,0))
+				if (inc_ref(ve.node_offset))
 				{
 //				if (range_entry->offset == SPLIT_OFFSET)
 				/* // it can't be now because of free cnt
@@ -405,6 +408,13 @@ _mm_mfence();
 
 //				dec_ref(offset); // node is spliting
 				}
+				test2++;
+				if (test2 > 10000)
+				{
+					printf("fail\n");
+					int t;
+					scanf("%d",&t);
+				}
 
 
 			}
@@ -415,19 +425,22 @@ _mm_mfence();
 			ve = *vep;
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
+		#ifdef qtt
 	_mm_mfence();		
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt2+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
-
+#endif
 //	dec_ref(offset);
 //	return 0;
-
+#ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts3);
 	_mm_mfence();
+#endif
 		if (rv >= 0) // node is not spliting we will insert
 		{
+#ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
-
+#endif
 			unsigned char* rp;
 //			unsigned char* tp;
 						// it should be ve later
@@ -459,17 +472,20 @@ _mm_mfence();
 //			point_entry->kv_p = kv_p;
 */
 			dec_ref(ve.node_offset);
-
+#ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
 	qtt4+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
 			break;
 		}
 		else // rv == -1 and it means we will split
 		{
+#ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
+#endif
 #ifdef keep_lock
 unlock_entry(unlock);
 #endif
@@ -515,24 +531,30 @@ unlock_entry(unlock);
 					}
 				}
 				*/
-
+//				static std::mutex m;
+//				m.lock();
 				if ((rv = split(ve.node_offset,key_p,continue_len))<0)
 				{
-					printf("split lock failed\n");
+					printf("split lock failed %d\n",ve.node_offset);
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
 					dec_ref(ve.node_offset);
 					test++;
 					if (test > 1000)
+					{
+						int t;
 						printf("???\n");
+//						scanf("%d",&t);
+					}
 				}
 				else
 				{
 //					range_entry->offset = SPLIT_OFFSET; //splited
 //					insert_range_entry // in split function	
 					// may need fence
- 					dec_ref(ve.node_offset); // have to be after offset 1
+// 					dec_ref(ve.node_offset); // have to be after offset 1
 					continue_len++;		
 				}
+//				m.unlock();
 //				continue; // try again after split
 				if (print)
 					printf("split end\n");				
@@ -566,26 +588,30 @@ unlock_entry(unlock);
 					printf("compaction lock failed\n");
 					*/
 //				e_unlock(offset);
-				dec_ref(ve.node_offset);				
+//				dec_ref(ve.node_offset);				
 			}
 //int t;
 //					scanf("%d",&t);// test
+#ifdef qtt
 _mm_mfence();					
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
 	qtt5+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
-
+#endif
 		}
 		if (print)
 			printf("insert retry\n");		
+#ifdef qtt
 _mm_mfence();
 
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
-
+#endif
 	}
+#ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	qtt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
 	return 0;
 
 }

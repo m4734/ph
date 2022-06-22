@@ -10,6 +10,8 @@
 
 #include "data.h"
 
+//#include <atomic.h>
+
 namespace PH
 {
 
@@ -125,7 +127,7 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 //	unsigned char* ptr;
 	ValueEntry* entry_p;
 	ValueEntry ve;
-	ve.node_offset = 0;	
+	ve.kv_offset = ve.node_offset = 0;	
 	while((entry_p=point_hash->insert((*(uint64_t*)key_p),ve,unlock)) == NULL);
 
 //	if (entry == NULL)
@@ -306,6 +308,11 @@ _mm_mfence();
 
 		if (mid == (min+max)/2)
 		{
+			/*
+		printf("not found mid %d ",mid);
+		print64(*(uint64_t*)prefix);
+		printf("\n");
+*/
 			// it is chaning need retry
 //			printf("fre2 error\n");
 //			return find_range_entry2(key_p,continue_len);

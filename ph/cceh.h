@@ -2,7 +2,7 @@
 // volatile and out of place
 
 #include<atomic>
-#include <mutex>
+//#include <mutex>
 
 #include "global.h" //value entry
 
@@ -17,6 +17,8 @@
 #define CL_BIT 4
 #define CL_PER_SEG (2 << CL_BIT)
 #define LINEAR_MULTI 4
+
+#define SPLIT_MASK (1 << 30)
 
 //#define ctt
 
@@ -60,10 +62,11 @@ class CCEH
 	volatile int depth;
 	volatile int seg_cnt;
 	
-	struct SEG** seg_list;
+//	volatile struct SEG** seg_list;
+	std::atomic<SEG**> seg_list;	
 //	std::atomic<bool>* seg_lock;
-//	std::atomic<int> dir_lock;
-	std::mutex dir_lock;	
+	std::atomic<int> dir_lock;
+//	std::mutex dir_lock;	
 
 	/*volatile */ValueEntry inv0_value;
 
@@ -77,7 +80,7 @@ class CCEH
 	public:
 //	int insert(const uint64_t &key,ValueEntry ve);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
-	ValueEntry* insert(const uint64_t &key,ValueEntry &ve,void* unlock = NULL);
+	ValueEntry* insert(const uint64_t &key,ValueEntry &ve,void* unlock = 0);
 
 	ValueEntry find(const uint64_t &key);
 	void remove(const uint64_t &key); // find with lock

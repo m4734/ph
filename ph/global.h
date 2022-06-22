@@ -22,10 +22,46 @@ namespace PH
 {
 
 struct ValueEntry
+//class ValueEntry
 {
+	/*volatile */uint32_t node_offset;
+	/*volatile */uint16_t kv_offset;
+	/*volatile */uint16_t len;
+//	public:
+/*	
 	uint32_t node_offset;
 	uint16_t kv_offset;
 	uint16_t len;
+	
+	volatile ValueEntry& operator=(const ValueEntry& ve) volatile { 
+		node_offset = ve.node_offset;
+		kv_offset = ve.kv_offset;
+		len = ve.len;
+		return *this;
+	}
+	
+	volatile ValueEntry& operator=(const volatile ValueEntry& ve) volatile { 
+		node_offset = ve.node_offset;
+		kv_offset = ve.kv_offset;
+		len = ve.len;
+		return *this;
+	}
+
+	
+	ValueEntry& operator=(const volatile ValueEntry& ve) { 
+		node_offset = ve.node_offset;
+		kv_offset = ve.kv_offset;
+		len = ve.len;
+		return *this;
+	}
+	
+	ValueEntry& operator=(const ValueEntry& ve) { 
+		node_offset = ve.node_offset;
+		kv_offset = ve.kv_offset;
+		len = ve.len;
+		return *this;
+	}
+*/
 };
 
 

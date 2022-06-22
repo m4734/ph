@@ -49,7 +49,7 @@ struct Node
 
 struct Node_meta
 {
-	unsigned int next_offset;
+	volatile unsigned int next_offset;
 	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
 //	std::atomic<uint16_t> size;
 //	unsigned int next_offset; //	2^32
@@ -66,7 +66,7 @@ struct Node_meta
 	unsigned int next_offset; //	2^32
 	*/
 
-	unsigned int prev_offset; // should be removed
+	volatile unsigned int prev_offset; // should be removed
 
 	Scan_list* scan_list;
 
@@ -97,7 +97,7 @@ void s_unlock(unsigned int offset);
 void e_unlock(unsigned int offset);
 int try_s_lock(unsigned int offset); // it will s lock??? // when e lock fail
 int try_e_lock(unsigned int offset); // when e lock fail
-int inc_ref(unsigned int offset,uint16_t limit);
+int inc_ref(unsigned int offset);
 void dec_ref(unsigned int offset);
 int try_hard_lock(unsigned int offset);
 void hard_unlock(unsigned int offset);

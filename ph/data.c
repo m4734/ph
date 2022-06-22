@@ -13,6 +13,8 @@
 #include "query.h"
 #include "thread.h"
 
+#include <mutex> //test
+
 //extern unsigned long long int pmem_size;
 //extern char pmem_file[100];
 //extern int key_size;
@@ -32,22 +34,25 @@ unsigned char* pmem_addr;
 int is_pmem;
 size_t pmem_len;
 //size_t pmem_used;
-Node* node_array;
+Node* node_data_array;
 
 unsigned char* meta_addr;
 uint64_t meta_size;
-uint64_t meta_used;
+/*volatile */uint64_t meta_used;
 Node_meta* meta_array;
 
-std::queue <Node_meta*> node_free_list;
+//std::queue <Node_meta*> node_free_list;
 
 //pthread_mutex_t alloc_mutex;
 
 std::atomic <uint8_t> alloc_lock;
 
-unsigned int free_cnt; // free_max
-unsigned int free_min;
-unsigned int free_index;
+volatile unsigned int free_cnt; // free_max // atomic or lock?
+volatile unsigned int free_min;
+volatile unsigned int free_index;
+
+#define FREE_QUEUE_LEN 1000
+unsigned int free_queue[FREE_QUEUE_LEN]; // queue len
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test
 uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
@@ -57,16 +62,19 @@ uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
 
 void at_lock(std::atomic<uint8_t> &lock)
 {
-//	return;
-//	const uint8_t z = 0;
-	uint8_t z = 0;	
-	while(lock.compare_exchange_strong(z,1) == 0);
+	uint8_t z;
+	while(true)
+	{
+		z = 0;
+		if (lock.compare_exchange_strong(z,1))
+			return;
+	}	
 }
 void at_unlock(std::atomic<uint8_t> &lock)
 {
 //	return;
-//	lock = 0;
-	lock.store(0,std::memory_order_release);	
+	lock = 0;
+//	lock.store(0,std::memory_order_release);	
 }
 int try_at_lock(std::atomic<uint8_t> &lock)
 {
@@ -74,6 +82,14 @@ int try_at_lock(std::atomic<uint8_t> &lock)
 //	const uint8_t z = 0;
 	uint8_t z = 0;
 //	return lock.compare_exchange_weak(z,1);
+/*	
+	if (lock == 2) // it can be happen during range entry change
+	{
+		int t;
+		printf("status 2\n");
+		scanf("%d",&t);
+	}	
+	*/
 	return lock.compare_exchange_strong(z,1);
 //return 1;
 }
@@ -89,7 +105,7 @@ Node_meta* offset_to_node(unsigned int offset) // it will be ..
 }
 Node* offset_to_node_data(unsigned int offset)
 {
-	return &node_array[offset];
+	return &node_data_array[offset];
 //	return &(((Node*)(pmem_addr))[offset]);
 //	return (Node*)(pmem_addr + offset*sizeof(Node));
 }
@@ -120,6 +136,8 @@ void flush_meta(unsigned int offset)
 
 	pmem_memcpy((Node*)(pmem_addr + offset*sizeof(Node)),(Node_meta*)(meta_addr + offset*sizeof(Node_meta)),sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
 
+//	node_data_array[offset].next_offset = meta_array[offset].next_offset;
+//	pmem_persist(&node_data_array[offset],sizeof(unsigned int));
 
 //	memcpy((Node*)(pmem_addr + offset*sizeof(Node)),(Node_meta*)(meta_addr + offset*sizeof(Node_meta)),sizeof(uint16_t)+sizeof(unsigned int));
 
@@ -142,24 +160,28 @@ Node_meta* alloc_node()
 
 	if (free_index < free_min)
 	{
-	if (!node_free_list.empty()) // need lock
+//	if (!node_free_list.empty()) // need lock
 	{
-		node = node_free_list.front();
-		node_free_list.pop();
+//		node = node_free_list.front();
+		node = offset_to_node(free_queue[free_index%FREE_QUEUE_LEN]);		
+//		node_free_list.pop();
+//
+//	printf("alloc node %d index %d\n",calc_offset(node),free_index); //test
 		++free_index;
 //		pthread_mutex_unlock(&alloc_mutex);
 		at_unlock(alloc_lock);		
 //		while(node->ref > 0); //wait		
 		if (print)
-	printf("alloc node %p\n",node); //test
+	printf("alloc node re %p\n",node); //test
 #ifdef dtt
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	_mm_mfence();
 	tt5 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-
 		return node;
 	}
+//	else
+//		printf("alloc error\n");
 	}
 	if (meta_size < meta_used + sizeof(Node_meta))
 	{
@@ -176,9 +198,10 @@ Node_meta* alloc_node()
 	at_unlock(alloc_lock);	
 	if (print)
 	printf("alloc node %p\n",node); //test
+//	printf("alloc node %d\n",calc_offset(node)); //test
 
 //	pthread_mutex_init(&node->mutex,NULL);
-	node->state = 0;//need here? yes because it was 2	
+	node->state = 0;//need here? yes because it was 2 // but need here?	
 #ifdef dtt
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	_mm_mfence();
@@ -190,16 +213,31 @@ void free_node(Node_meta* node)
 {
 //	pthread_mutex_lock(&node->mutex);
 		
-	node->state = 2; // free // without mutex??
+	node->state = 2; // free // without mutex?? // not need really
 //	pthread_mutex_unlock(&node->mutex);
 //	if (node->ref == 0)
 //	{
 //		pthread_mutex_lock(&alloc_mutex);
+		while(1) // test
+		{
+			if (free_index + FREE_QUEUE_LEN < free_cnt)
+			{
+				printf("queue full %d %d\n",free_index,free_cnt);
+				int t;
+				scanf("%d",&t);
+				continue;
+			}
 		at_lock(alloc_lock);		
-		node_free_list.push(node);
+//		node_free_list.push(node);
+//
+		free_queue[free_cnt%FREE_QUEUE_LEN] = calc_offset(node);	
+//	printf("free node %d cnt %d\n",calc_offset(node),free_cnt);
 		++free_cnt;
+//		printf("aa %d a\n",free_cnt);
 //		pthread_mutex_unlock(&alloc_mutex);
-		at_unlock(alloc_lock);		
+		at_unlock(alloc_lock);	
+		break;
+		}
 //	}
 	if (print)
 	printf("free node %p\n",node);
@@ -215,7 +253,7 @@ int init_data() // init hash first!!!
 
 	else
 		pmem_addr = (unsigned char*)pmem_map_file(pmem_file,pmem_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
-	node_array = (Node*)pmem_addr;
+	node_data_array = (Node*)pmem_addr;
 
 	meta_size = pmem_size/sizeof(Node)*sizeof(Node_meta);
 	meta_addr = (unsigned char*)mmap(NULL,meta_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
@@ -414,8 +452,20 @@ void e_unlock(unsigned int offset)
 	e_unlock(offset_to_node(offset));
 }
 */
-int inc_ref(Node_meta* node,uint16_t limit)
+int inc_ref(Node_meta* node)
 {
+//	printf("inc_ref %d\n",calc_offset(node));
+	 // it can be by multiple insert on same node
+	 /*
+	if (node->state > 1)
+	{
+		int t;
+		printf("inc ref error\n");
+		scanf("%d",&t);
+	}
+	*/
+//	if (node->state == 2)
+//		printf("state 2 %d\n",calc_offset(node));
 	return try_at_lock(node->state);
 	/*
 	if (print)
@@ -444,6 +494,15 @@ int inc_ref(Node_meta* node,uint16_t limit)
 }
 void dec_ref(Node_meta* node)
 {
+//	printf("dec_ref %d\n",calc_offset(node));
+/*	
+	if (node->state != 1)
+	{
+		int t;
+		printf("dec ref error\n");
+		scanf("%d",&t);
+	}
+	*/
 	at_unlock(node->state);
 #if 0
 	if (print)
@@ -471,9 +530,9 @@ void dec_ref(Node_meta* node)
 	*/
 #endif
 }
-int inc_ref(unsigned int offset,uint16_t limit) // nobody use this
+int inc_ref(unsigned int offset) // nobody use this
 {
-	return inc_ref(offset_to_node(offset),limit);
+	return inc_ref(offset_to_node(offset));
 }
 void dec_ref(unsigned int offset)
 {
@@ -856,6 +915,8 @@ int split(unsigned int offset,unsigned char* prefix, int continue_len) // locked
 	_mm_mfence();
 #endif
 
+static int ec=0;
+
 if (print)
 	printf("start split offset %d len %d\n",offset,continue_len);
 
@@ -882,7 +943,7 @@ if (print)
 	Node* node_data;
 	Node* new_node1_data;
 	Node* new_node2_data;
-	Node* prev_node_data;
+//	Node* prev_node_data;
 
 
 	node = offset_to_node(offset);
@@ -891,7 +952,7 @@ if (print)
 	prev_node = offset_to_node(node->prev_offset);
 	next_node = offset_to_node(node->next_offset);
 
-	prev_node_data = offset_to_node_data(node->prev_offset);
+//	prev_node_data = offset_to_node_data(node->prev_offset);
 
 //------------------------------------------------------------ check
 
@@ -935,7 +996,13 @@ if (print)
 //			node->state = 0;
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
-//printf("ref2 %d\n",node->prev_offset);
+printf("split offset %d prev %d state %d\n",offset,node->prev_offset,(int)prev_node->state);
+ec++;
+if (ec >= 1000)
+{
+	printf("ec 1000\n");
+	scanf("%d",&ec);
+}
 			return -1; // failed
 		}
 //			prev_node->m.unlock();
@@ -948,6 +1015,8 @@ if (print)
 //		next_node->m.lock();
 //	pthread_mutex_lock(&next_node->mutex);	
 
+//		_mm_lfence();
+
 		if (next_node->state > 0)
 		{
 //			next_node->m.unlock();
@@ -957,15 +1026,23 @@ if (print)
 //			node->state = 0;
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
-//printf("ref3 %d\n",node->next_offset);
-			return -1;//failed
+printf("split offset %d next %d state %d\n",offset,node->next_offset,(int)next_node->state);
+ec++;
+if (ec >= 1000)
+{
+	printf("ec 1000\n");
+	scanf("%d",&ec);
+}
+			while (next_node->state > 0) // spin // ...ok?
+				next_node = offset_to_node(node->next_offset);
+//			return -1;//failed
 		}
 //			next_node->m.unlock();
 //	pthread_mutex_unlock(&next_node->mutex);
 
 if (print)
 		printf("locked\n");
-
+//ec = 0;
 		//----------------------------------------------------------
 
 	size = node->size;
@@ -997,6 +1074,12 @@ if (print)
 	new_node1->prev_offset = node->prev_offset;
 
 
+	move_scan_list(node,new_node2);
+
+//printf("----------------\n%d %d %d\n %d %d %d %d\n-------------------\n",node->prev_offset,offset,node->next_offset,new_node1->prev_offset,calc_offset(new_node1),calc_offset(new_node2),new_node2->next_offset);
+
+	_mm_sfence();
+
 	next_node->prev_offset = calc_offset(new_node2);
 
 	// flush
@@ -1006,8 +1089,6 @@ if (print)
 	// flush
 
 
-	move_scan_list(node,new_node2);
-
 
 //	size1 = size2 = 0;
 
@@ -1016,6 +1097,8 @@ if (print)
 
 	memcpy(new_node1_data,new_node1,sizeof(unsigned int));
 	memcpy(new_node2_data,new_node2,sizeof(unsigned int));
+
+
 
 	int j,temp;
 	for (i=0;i<node->ic;i++)
@@ -1258,14 +1341,24 @@ if (print)
 //	if (sp & v)
 //		sp-=v;
 //
+//static std::mutex mu;
+//mu.lock();
 	insert_range_entry((unsigned char*)&prefix_64,continue_len,SPLIT_OFFSET);
 	// disappear here
-
+	/*
+	int z = 0;
+	if (find_range_entry2((unsigned char*)&prefix_64,&z) != 0)
+{
+	printf("erer\n");
+	int t;
+	scanf("%d",&t);
+}
+*/
 	prefix_64-=v;		
 	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,calc_offset(new_node1));
 	prefix_64+=v;
 	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,calc_offset(new_node2));
-
+//mu.unlock();
 	
 #if 0
 	else
@@ -1401,6 +1494,7 @@ printf("rehash\n");
 #endif
 // need this fence!!	
 	_mm_sfence(); // for free after rehash
+//	_mm_mfence();	
 
 //	dec_ref(offset);
 	free_node(node);//???
@@ -1462,7 +1556,7 @@ scanf("%d",&t);
 
 	Node* node_data;
 	Node* new_node1_data;
-	Node* prev_node_data;
+//	Node* prev_node_data;
 
 	node = offset_to_node(offset);
 	node_data = offset_to_node_data(offset);
@@ -1471,7 +1565,7 @@ scanf("%d",&t);
 	prev_node = offset_to_node(node->prev_offset);
 	next_node = offset_to_node(node->next_offset);
 
-	prev_node_data = offset_to_node_data(node->prev_offset);
+//	prev_node_data = offset_to_node_data(node->prev_offset);
 	
 		//------------------------------------------------
 /*
@@ -1527,7 +1621,9 @@ scanf("%d",&t);
 //			pthread_mutex_unlock(&node->mutex);
 //		printf("ref6 %d\n",node->next_offset);
 
-			return -1;//failed
+			while(next_node->state > 0)
+				next_node = offset_to_node(node->next_offset);
+//			return -1;//failed
 		}
 //			next_node->m.unlock();
 //			pthread_mutex_unlock(&next_node->mutex);
