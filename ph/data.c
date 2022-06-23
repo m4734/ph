@@ -159,7 +159,7 @@ Node_meta* alloc_node()
 	{
 		int temp;
 		temp = min_free_cnt();
-		if (temp > free_index)
+		if (temp > free_index) // because it is not volatile
 			free_min = temp;
 //		free_min = min_free_cnt();
 	}
