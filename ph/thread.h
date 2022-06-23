@@ -18,4 +18,7 @@ unsigned int min_seg_free_cnt();
 void init_thread();
 void clean_thread();
 
+void print_thread_info();
+int check_slow();
+
 }

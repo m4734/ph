@@ -4,6 +4,8 @@
 
 #include <stdlib.h>
 
+#include <stdio.h> //test
+
 #define FCCT 1000 // free cnt check threshold
 
 //using namespace PH;
@@ -135,6 +137,19 @@ unsigned int min_free_cnt()
 	return min;
 }
 
+void print_thread_info()
+{
+	int i;
+	for (i=0;i<num_of_thread;i++)
+	{
+		if (thread_list[i].free_cnt != 999999999)
+		{
+			printf("thread %d %d\n",i,thread_list[i].free_cnt);
+		}
+	}
+
+}
+
 unsigned int min_seg_free_cnt()
 {
 	int i;
@@ -147,6 +162,13 @@ unsigned int min_seg_free_cnt()
 	if (min == 999999999)
 		return seg_free_cnt;
 	return min;
+}
+
+int check_slow()
+{
+	if (free_cnt-my_thread->free_cnt > 500)
+		return 1;
+	return 0;
 }
 
 }

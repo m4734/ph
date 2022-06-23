@@ -408,14 +408,15 @@ _mm_mfence();
 
 //				dec_ref(offset); // node is spliting
 				}
+				/*
 				test2++;
 				if (test2 > 10000)
 				{
-					printf("fail\n");
+					printf("fail %d %d\n",ve.node_offset,(int)offset_to_node(ve.node_offset)->state);
 					int t;
 					scanf("%d",&t);
 				}
-
+*/
 
 			}
 //			if (print)

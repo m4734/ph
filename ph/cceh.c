@@ -41,6 +41,12 @@ void at_unlock2(std::atomic<uint8_t> &lock)
 //	lock.store(0,std::memory_order_release);
 }
 
+int try_at_lock2(std::atomic<uint8_t> &lock)
+{
+	uint8_t z=0;
+	return lock.compare_exchange_strong(z,1);
+}
+
 uint64_t MurmurHash64A_L8 ( const void * key )
 {
 	const int len = 8;
@@ -739,7 +745,11 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 //	if (seg->lock.compare_exchange_weak(z,1) == 0)
 //		while(seg->lock.compare_exchange_weak(z,1) == 0);
 //	seg->seg_lock->lock();	
-	at_lock2(seg->lock);	
+	if (try_at_lock2(seg->lock) == 0)
+	{
+		dir_lock--;
+		return 0;
+	}
 //printf("at_lock2 seg %p\n",seg);	
 //	if (sn != *(uint64_t*)key >> (64-depth))
 //	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))

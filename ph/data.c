@@ -156,7 +156,13 @@ Node_meta* alloc_node()
 	at_lock(alloc_lock);
 
 	if (free_index == free_min)
-		free_min = min_free_cnt();
+	{
+		int temp;
+		temp = min_free_cnt();
+		if (temp > free_index)
+			free_min = temp;
+//		free_min = min_free_cnt();
+	}
 
 	if (free_index < free_min)
 	{
@@ -223,6 +229,7 @@ void free_node(Node_meta* node)
 			if (free_index + FREE_QUEUE_LEN < free_cnt)
 			{
 				printf("queue full %d %d\n",free_index,free_cnt);
+				print_thread_info();
 				int t;
 				scanf("%d",&t);
 				continue;
@@ -1033,8 +1040,36 @@ if (ec >= 1000)
 	printf("ec 1000\n");
 	scanf("%d",&ec);
 }
+/*
 			while (next_node->state > 0) // spin // ...ok?
 				next_node = offset_to_node(node->next_offset);
+				*/
+/*
+			struct timespec tsl0,tsl1;
+			clock_gettime(CLOCK_MONOTONIC,&tsl0);
+			while(next_node->state > 0)
+			{
+				next_node = offset_to_node(node->next_offset);
+				clock_gettime(CLOCK_MONOTONIC,&tsl1);
+				if ((tsl1.tv_sec-tsl0.tv_sec)*1000000000-tsl1.tv_nsec-tsl0.tv_nsec > 1000000)
+				{
+					printf("too long %d %d %d\n",offset,node->next_offset,(int)next_node->state);
+					int t;
+					scanf("%d",&t);
+				}
+			}
+			*/
+			while(next_node->state > 0)
+{
+	next_node = offset_to_node(node->next_offset);
+	if (check_slow())
+	{
+		printf("in loop!!\n");
+		int t;
+		scanf("%d",&t);
+	}
+}
+
 //			return -1;//failed
 		}
 //			next_node->m.unlock();
@@ -1588,6 +1623,7 @@ scanf("%d",&t);
 
 		if (prev_node->state > 0)
 		{
+
 //			prev_node->m.unlock();
 //			pthread_mutex_unlock(&prev_node->mutex);
 
@@ -1620,9 +1656,23 @@ scanf("%d",&t);
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
 //		printf("ref6 %d\n",node->next_offset);
-
+		while(next_node->state > 0)
+		next_node = offset_to_node(node->next_offset);
+/*
+			struct timespec tsl0,tsl1;
+			clock_gettime(CLOCK_MONOTONIC,&tsl0);
 			while(next_node->state > 0)
+			{
 				next_node = offset_to_node(node->next_offset);
+				clock_gettime(CLOCK_MONOTONIC,&tsl1);
+				if ((tsl1.tv_sec-tsl0.tv_sec)*1000000000-tsl1.tv_nsec-tsl0.tv_nsec > 1000000000)
+				{
+					printf("too long %d %d %d\n",offset,node->next_offset,(int)next_node->state);
+					int t;
+					scanf("%d",&t);
+				}
+			}
+			*/
 //			return -1;//failed
 		}
 //			next_node->m.unlock();
