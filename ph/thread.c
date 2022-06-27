@@ -6,6 +6,8 @@
 
 #include <stdio.h> //test
 
+#include <string.h> //log
+
 #define FCCT 1000 // free cnt check threshold
 
 //using namespace PH;
@@ -27,11 +29,41 @@ extern volatile unsigned int seg_free_cnt;
 std::atomic<uint8_t> thread_lock;
 //pthread_mutex_t m;
 
+//unsigned char* pmem_log_addr;
+//unsigned char* dram_log_addr;
+/*
+void init_log(int i)
+{
+	int len,is,file_len;
+	file_len = strlen(log_file);
+	log_file[file_len+2] = 0;
+		log_file[file_len] = i/10;
+		log_file[file_len+1] = i%10;
+		thread_list[i].pmem_log_addr = (unsigned char*)mmap(log_file,log_size,PMEM_FILE_CREATE,0777,&len,&is);
+		thread_list[i].dram_log_addr = (unsigned char*)mmap(NULL,log_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
+
+}
+
+void clean_log(int i)
+{
+	munmap(thread_list[i].dram_log_addr,log_size);
+	pmem_unmap(thread_list[i].pmem_log_addr,log_size);
+}
+*/
+
+
 void reset_thread()
 {
 	int i;
 	for (i=0;i<num_of_thread;i++)
+	{
 		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+		if (thread_list[i].log != NULL)
+		{
+			thread_list[i].log->clean_log();
+			delete thread_list[i].log;
+		}
+	}
 }
 
 void exit_thread()
@@ -44,7 +76,10 @@ void exit_thread()
 		if (pthread_equal(thread_list[i].tid,pt))
 //	if (thread_list[i].tid == pt)
 		{
+//			clean_log(i);
 			thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+			thread_list[i].log->clean_log();
+			delete thread_list[i].log;
 			break;
 		}
 	}
@@ -58,9 +93,13 @@ void init_thread()
 
 	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
 	for (i=0;i<num_of_thread;i++)
+	{
 		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
+		thread_list[i].log = NULL;
+	}
 //	pthread_mutex_init(&alloc_mutex,NULL);
 	thread_lock = 0;//
+
 }
 
 void clean_thread()
@@ -84,6 +123,15 @@ void new_thread()
 			thread_list[i].free_cnt = free_cnt;
 			thread_list[i].seg_free_cnt = seg_free_cnt;
 			my_thread = &thread_list[i];
+			if (use_log)
+			{
+				thread_list[i].log = new LOG();
+				thread_list[i].log->set_num(i+1);
+				thread_list[i].log->init_log();
+			}
+
+//			init_log(i);
+
 //			op_cnt = 0;
 			break;
 		}

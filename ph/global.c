@@ -41,6 +41,10 @@ char pmem_file[100];// = "/mnt/pmem0/file";
 unsigned char empty[10];
 int empty_len;
 
+//log
+int use_log;
+uint64_t log_size;
+char log_file[100];
 
 void temp_static_conf(int tn, int ks,int vs)
 {
@@ -64,6 +68,9 @@ void temp_static_conf(int tn, int ks,int vs)
 
 	pmem_size = (uint64_t)1024*1024*1024*30;
 
+	use_log = 1; //256
+	log_size = pmem_size/10/tn; // log ratio
+
 	/*
 	empty[0] = 'e';
 	empty[1] = 'm';
@@ -78,6 +85,9 @@ void temp_static_conf(int tn, int ks,int vs)
 
 	memcpy(pmem_file,"/mnt/pmem0/file",strlen("/mnt/pmem0/file"));
 	pmem_file[strlen("/mnt/pmem0/file")] = 0;
+
+	memcpy(log_file,"/mnt/pmem0/log",strlen("/mnt/pmem0/log"));
+	log_file[strlen("/mnt/pmem0/log")] = 0;
 
 	init_thread(); // need alloc mutex later // what?
 	init_hash();

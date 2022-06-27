@@ -111,6 +111,10 @@ extern char pmem_file[100];// = "/mnt/pmem0/ph_data";
 extern unsigned char empty[10];
 extern int empty_len;
 
+//log
+extern int use_log;
+extern uint64_t log_size;
+extern char log_file[100];
 
 void temp_static_conf(int tn,int ks,int vs);
 
