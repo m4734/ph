@@ -144,7 +144,7 @@ void print_thread_info()
 	{
 		if (thread_list[i].free_cnt != 999999999)
 		{
-			printf("thread %d %d\n",i,thread_list[i].free_cnt);
+			printf("thread %d %d %d\n",i,thread_list[i].free_cnt,thread_list[i].seg_free_cnt);
 		}
 	}
 

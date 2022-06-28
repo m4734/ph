@@ -62,7 +62,7 @@ void temp_static_conf(int tn, int ks,int vs)
 	point_hash_table_size = 10*1000*1000; // 1 entry = 32byte 10M = 320MB
 //	range_hash_table_size = 10*1000*1000; //32*1024; // total range = point / per node * 2
 
-	pmem_size = (uint64_t)1024*1024*1024*30;
+	pmem_size = (uint64_t)1024*1024*1024*80;
 
 	/*
 	empty[0] = 'e';

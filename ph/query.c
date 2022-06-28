@@ -262,7 +262,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 
 	int test=0,test2=0;
 	int z = 0;
-	int old_kv_offset;
+	uint16_t old_kv_offset;
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
@@ -332,6 +332,8 @@ _mm_mfence();
 				}
 				*/
 				rv = check_size(vep->node_offset,value_len);//value_size);
+//				if (vep->kv_offset > NODE_BUFFER)
+//					printf("kv_offset %d\n",vep->kv_offset);
 				old_kv_offset = vep->kv_offset;
 //				{
 					break;
@@ -449,7 +451,9 @@ _mm_mfence();
 //			soft_lock(offset); // not this! use hash lock
 //			tp = kv_p;
 //			point_hash.insert(key_p,rp);
-			ve.kv_offset = (unsigned char*)offset_to_node_data(ve.node_offset)-rp;
+			ve.kv_offset = rp-(unsigned char*)offset_to_node_data(ve.node_offset);
+//			if (ve.kv_offset > NODE_BUFFER)
+//				printf("kv offset %d\n",ve.kv_offset);
 			ve.len = value_len;			
 
 #ifdef keep_lock

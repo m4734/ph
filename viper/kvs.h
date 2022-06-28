@@ -39,7 +39,7 @@ class KVS_viper : public KVS
 	{
 		KVS::init(num,key,value,record); // will need this
 		uint64_t initial_size = 1024*1024*1024;
-		initial_size*=10;
+		initial_size*=40; // 40G
 		viper_db = viper::Viper<K, V>::create("/mnt/pmem0/viper", initial_size);
 //		v_client = viper_db->get_client();
 

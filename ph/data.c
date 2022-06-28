@@ -51,7 +51,7 @@ volatile unsigned int free_cnt; // free_max // atomic or lock?
 volatile unsigned int free_min;
 volatile unsigned int free_index;
 
-#define FREE_QUEUE_LEN 1000
+#define FREE_QUEUE_LEN 10000
 unsigned int free_queue[FREE_QUEUE_LEN]; // queue len
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test
@@ -1135,7 +1135,8 @@ if (print)
 
 
 
-	int j,temp;
+	int j;
+	uint16_t temp;
 	for (i=0;i<node->ic;i++)
 	{
 		temp = 0;
@@ -1265,6 +1266,9 @@ if (print)
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
+
+//if (j < node->ic)
+//	printf("invalid error\n");
 
 	new_node1->size = buffer1-new_node1_data->buffer;
 	new_node2->size = buffer2-new_node2_data->buffer;
@@ -1464,7 +1468,11 @@ if (print)
 //	print_node(new_node2);
 
 	for (i=0;i<tc;i++)
+{
+//	if (vea[i].kv_offset > NODE_BUFFER)
+//		printf("kv offset %d\n",vea[i].kv_offset);
 		insert_point_entry((unsigned char*)&temp_key[i],vea[i]);//temp_kvp[i],temp_len[i]);
+}
 
 
 #if 0 // can we rehash during data copy?
