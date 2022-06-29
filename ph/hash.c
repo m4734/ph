@@ -27,7 +27,8 @@ namespace PH
 
 uint64_t htt1,htt2,htt3,fpc,htt4,htt5,fpc2;
 
-uint64_t pre_bit_mask[65];
+uint64_t pre_bit_mask[128+1];
+uint64_t pre_bit_mask2[128+1];
 
 unsigned char* decode_entry(unsigned char* entry, int* value_len_p)
 {
@@ -102,7 +103,9 @@ ValueEntry find_point_entry(unsigned char* &key_p)
 //	unsigned char* entry;
 //	unsigned char* ptr;
 	ValueEntry entry;	
-	entry = point_hash->find(*((uint64_t*)key_p));
+//	entry = point_hash->find(*((uint64_t*)key_p));
+	entry = point_hash->find(key_p);
+
 //	if (entry == NULL)
 //		return NULL;
 //	ptr = decode_entry(entry,result_len_p);
@@ -128,7 +131,7 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 	ValueEntry* entry_p;
 	ValueEntry ve;
 	ve.kv_offset = ve.node_offset = 0;	
-	while((entry_p=point_hash->insert((*(uint64_t*)key_p),ve,unlock)) == NULL);
+	while((entry_p=point_hash->insert((/**(uint64_t*)*/key_p),ve,unlock)) == NULL);
 
 //	if (entry == NULL)
 //		return NULL;
@@ -155,7 +158,7 @@ void insert_point_entry(unsigned char* key_p,ValueEntry ve)
 	_mm_mfence();
 #endif
 //	unsigned char* entry = encode_entry(value,value_len);
-	while(point_hash->insert((*(uint64_t*)key_p),ve) == 0);
+	while(point_hash->insert((/**(uint64_t*)*/key_p),ve) == 0);
 #ifdef htt
 	_mm_mfence();
 
@@ -164,9 +167,10 @@ void insert_point_entry(unsigned char* key_p,ValueEntry ve)
 #endif
 }
 
-void remove_point_entry(unsigned char* key_p)
+void remove_point_entry(unsigned char* &key_p)
 {
-	point_hash->remove(*((uint64_t*)key_p));
+//	point_hash->remove(*((uint64_t*)key_p));
+	point_hash->remove(key_p);	
 }
 
 #if 0
@@ -213,7 +217,7 @@ void bit_flush(unsigned char* prefix,unsigned char* key_p,int start,int end)
 
 }
 #endif
-unsigned int find_range_entry2(unsigned char* key_p,int* continue_len) //binary
+unsigned int find_range_entry2(unsigned char* &key_p,int* continue_len) //binary
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -225,7 +229,10 @@ unsigned int find_range_entry2(unsigned char* key_p,int* continue_len) //binary
 
 	int min,max,mid;
 	unsigned int hash;
-	unsigned char prefix[8]={0,}; // 8?
+//	unsigned char prefix[8]={0,}; // 8?
+	unsigned char prefix[16] = {0,};
+	unsigned char* prefix2=0;
+	unsigned char* key_p2=0;
 //	uint64_t entry; // old name
 /*
 static int cnt=0;
@@ -243,6 +250,12 @@ _mm_mfence();
 			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 return hash;
+	}
+
+	if (key_size > 8)
+	{
+		prefix2 = prefix+8;
+		key_p2 = key_p+8;
 	}
 
 	max = key_bit;//key_size * 8; // 64
@@ -265,14 +278,16 @@ return hash;
 ValueEntry ve;
 	while(1)	
 	{
-	
 		*(uint64_t*)prefix = *(uint64_t*)key_p & pre_bit_mask[mid];
+		if (prefix2)
+			*(uint64_t*)prefix2 = *(uint64_t*)key_p2 & pre_bit_mask2[mid];
 /*
 		printf("find mid %d ",mid);
 		print64(*(uint64_t*)prefix);
 		printf("\n");
 */
-		ve = range_hash_array[mid].find(*((uint64_t*)prefix));
+//		ve = range_hash_array[mid].find(*((uint64_t*)prefix));
+		ve = range_hash_array[mid].find(prefix);
 
 		if (ve.node_offset == 0) // NULL not found
 		{
@@ -341,9 +356,12 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 
 	int i;
 	unsigned int hash;
-	unsigned char prefix[8]={0,};
+//	unsigned char prefix[8]={0,};
+	unsigned char prefix[16] = {0,};	
 //	uint64_t entry;
 
+	unsigned char* prefix2;
+	unsigned char* key_p2;
 	uint64_t b;
 
 	ValueEntry ve;
@@ -356,11 +374,13 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 	b = ((uint64_t)1 << *continue_len) -1;
 	b = b << (64-*continue_len);
 	*((uint64_t*)prefix) = (b & *((uint64_t*)key_p));
+	b = (uint64_t)1 << (63 -*continue_len);
+
 	}
 	else
 		*((uint64_t*)prefix) = (*((uint64_t*)key_p));
 
-	b = (uint64_t)1 << (63 -*continue_len);
+//	b = (uint64_t)1 << (63 -*continue_len);
 	if (print)
 	printf("key %lx clen %d\n",*((uint64_t*)key_p),*continue_len);
 	for (i=*continue_len;i<=64;i++)
@@ -370,7 +390,9 @@ unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP b
 		if (print)		
 		printf("prefix %lx\n",*((uint64_t*)prefix));
 
-		ve = range_hash_array[i].find(*((uint64_t*)prefix));
+//		ve = range_hash_array[i].find(*((uint64_t*)prefix));
+		ve = range_hash_array[i].find(prefix);
+	
 
 		if (ve.node_offset != SPLIT_OFFSET) // split continue
 		{
@@ -385,6 +407,41 @@ _mm_mfence();
 		}
 
 		(*((uint64_t*)prefix)) |= (*((uint64_t*)key_p) & b);
+		b = b >> 1;
+
+	}
+
+	prefix2 = prefix+8;
+	key_p2 = key_p+8;
+	if (*continue_len < 128)
+	{
+	b = ((uint64_t)1 << *continue_len) -1;
+	b = b << (64-*continue_len);
+	*((uint64_t*)prefix2) = (b & *((uint64_t*)key_p2));
+	}
+	else
+		*((uint64_t*)prefix2) = (*((uint64_t*)key_p2));
+	b = (uint64_t)1 << (128-1 -*continue_len);
+
+
+	for (i=64+1;i<=key_bit;i++) // 128
+	{
+//		ve = range_hash_array[i].find(*((uint64_t*)prefix));
+		ve = range_hash_array[i].find(prefix);
+
+		if (ve.node_offset != SPLIT_OFFSET) // split continue
+		{
+			*continue_len = i; //need retry from here
+#ifdef htt
+_mm_mfence();
+
+			clock_gettime(CLOCK_MONOTONIC,&ts2);
+			htt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+			return ve.node_offset;//(unsigned int)entry; // 0 means not found else is found
+		}
+
+		(*((uint64_t*)prefix2)) |= (*((uint64_t*)key_p2) & b);
 		b = b >> 1;
 
 	}
@@ -407,16 +464,16 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 	_mm_mfence();	
 #endif
 
-	unsigned char prefix[8] = {0,};
-	int i;
+	unsigned char prefix[16] = {0,};
+//	int i;
 
-	uint64_t b=0;	
-	uint64_t offset64 = offset;
+//	uint64_t b=0;	
+//	uint64_t offset64 = offset;
 	/*
 	for (i=0;i<len;i++)
 		b=(b<<1)+1;
 		*/
-
+/*
 	if (len < 64)
 	{
 	b = ((uint64_t)1 << len)-1;
@@ -426,6 +483,17 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 	}
 	else
 		*((uint64_t*)prefix) = (*((uint64_t*)key_p));
+*/
+	if (len <= 64)
+		*((uint64_t*)prefix) = (pre_bit_mask[len] & *((uint64_t*)key_p));
+	else
+	{
+		unsigned char* prefix2 = prefix+8;
+		unsigned char* key_p2 = key_p+8;
+		*((uint64_t*)prefix) = *((uint64_t*)key_p);
+		*((uint64_t*)prefix2) = (pre_bit_mask2[len] & *((uint64_t*)key_p2));
+	}
+
 
 
 if (print)
@@ -436,8 +504,9 @@ if (print)
 	printf("\n");
 */
 ValueEntry ve;
-ve.node_offset = offset64;
-	while(range_hash_array[len].insert(*((uint64_t*)prefix),ve) == 0);
+ve.node_offset = offset;
+//	while(range_hash_array[len].insert(*((uint64_t*)prefix),ve) == 0);
+	while(range_hash_array[len].insert(prefix,ve) == 0);
 #ifdef htt
 _mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
@@ -455,6 +524,13 @@ void init_hash()
 //	pre_bit_mask[1] = (uint64_t)1 << 63;
 	for (i=1;i<=64;i++)
 		pre_bit_mask[i] = (pre_bit_mask[i-1] >> 1) + ((uint64_t)1 << 63);
+	for (i=64+1;i<=128;i++)
+		pre_bit_mask[i] = pre_bit_mask[64];
+	for (i=1;i<=64;i++)
+		pre_bit_mask2[i] = pre_bit_mask[64];
+	for (i=64+1;i<=128;i++)
+		pre_bit_mask2[i] = pre_bit_mask[i-64];
+
 
 	init_cceh();
 

@@ -27,10 +27,10 @@ void unlock_entry(void* unlock);
 //struct range_hash_entry*
 unsigned int find_range_entry(unsigned char* key_p,int* continue_len);
 //struct range_hash_entry*
-unsigned int find_range_entry2(unsigned char* key_p,int* continue_len); // binary
+unsigned int find_range_entry2(unsigned char* &key_p,int* continue_len); // binary
 
 void insert_range_entry(unsigned char* key_p,int len,unsigned int offset);
-void remove_point_entry(unsigned char* key_p);
+void remove_point_entry(unsigned char* &key_p);
 
 void init_hash();
 void clean_hash();

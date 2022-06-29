@@ -102,7 +102,9 @@ class KVS_viper : public KVS
 			else if (tqa[i].op == 2) // read
 				v_client.get(*((K*)tqa[i].key),&result);
 			else if (tqa[i].op == 3) // update
+//				v_client.update(*((K*)tqa[i].key),*((V*)tqa[i].value));
 				v_client.put(*((K*)tqa[i].key),*((V*)tqa[i].value));
+			
 
 			/*
 			if (tqa[i].op == 1) // insert

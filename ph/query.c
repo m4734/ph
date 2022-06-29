@@ -209,7 +209,7 @@ int delete_query(unsigned char* key_p)
 //				soft_lock(offset);
 //				entry->kv_p = NULL; // what should be first?
 				delete_kv(kv_p);
-				invalidate_kv(ve.node_offset,ve.kv_offset);
+				invalidate_kv(ve.node_offset,ve.kv_offset,ve.len);
 				remove_point_entry(key_p);
 //				point_hash.remove(key_p); // hash twice??
 //				hard_unlock(offset);
@@ -238,7 +238,7 @@ int delete_query(unsigned char* key_p)
 
 #define keep_lock
 
-int insert_query(unsigned char* key_p, unsigned char* value_p)
+int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 {
 	if (print)
 		printf("insert\n");
@@ -262,7 +262,7 @@ int insert_query(unsigned char* key_p, unsigned char* value_p)
 
 	int test=0,test2=0;
 	int z = 0;
-	uint16_t old_kv_offset;
+	uint16_t old_kv_offset,old_len;
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
@@ -294,6 +294,7 @@ _mm_mfence();
 		*vep = find_point_entry(key_p);		
 #endif
 		old_kv_offset = 0;
+		old_len = 0;
 //		while(ve.node_offset != 0)
 		while(vep->node_offset != 0)		
 		{
@@ -335,6 +336,7 @@ _mm_mfence();
 //				if (vep->kv_offset > NODE_BUFFER)
 //					printf("kv_offset %d\n",vep->kv_offset);
 				old_kv_offset = vep->kv_offset;
+				old_len = vep->len;
 //				{
 					break;
 //				}
@@ -463,7 +465,7 @@ _mm_mfence();
 			insert_point_entry(key_p,ve);
 #endif
 			if (old_kv_offset)
-				invalidate_kv(ve.node_offset,old_kv_offset);
+				invalidate_kv(ve.node_offset,old_kv_offset,old_len);
 //			// use vep instead of insert point
 //			hard_unlock(offset);
 
@@ -512,14 +514,16 @@ unlock_entry(unlock);
 		*/	
 			if (continue_len == 0)
 			{
-				rv = find_range_entry2(key_p,&continue_len);
+				continue_len = get_continue_len(ve.node_offset);
+//				rv = find_range_entry2(key_p,&continue_len);
 //				if (rv != offset)
 //					printf("??? offset error\n");
-				if (rv == 0)
-					printf("rv == 0\n");
+//				if (rv == 0)
+//					printf("rv == 0\n");
 
 			}
-			if (continue_len < key_bit)//64) // split
+//			if (continue_len < key_bit)//64) // split
+			if (split_or_compact(ve.node_offset))			
 			{	
 				if (print)
 				printf("split\n");
@@ -573,7 +577,7 @@ unlock_entry(unlock);
 //				else
 //					range_entry->offset = rv;
 					*/
-				compact(ve.node_offset);
+				compact(ve.node_offset,continue_len);
 				/*
 				if ((rv=compact(offset)) >= 0)
 				{

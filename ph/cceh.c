@@ -24,6 +24,13 @@ std::atomic<uint8_t> free_seg_lock;
 
 uint64_t r_mask[65];
 
+unsigned char** key_array = 0;
+int* key_cnt = 0;
+std::atomic<int> key_array_cnt;
+thread_local int key_array_index=0;
+int max_index;
+
+
 void at_lock2(std::atomic<uint8_t> &lock)
 {
 	uint8_t z;
@@ -95,7 +102,21 @@ uint64_t MurmurHash64A_L8 ( const void * key )
   return h;
 }
 
-uint64_t hf(const void *key) // len 8?
+inline unsigned char* CCEH::load_key(const KeyEntry &key)
+{
+	return (unsigned char*)&key;
+}
+
+inline bool CCEH::compare_key(/*const */const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+{
+	return key1.key_value == (*(uint64_t*)key2);
+}
+inline void CCEH::insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+{
+	key1.key_value = (*((uint64_t*)key2));
+}
+
+inline uint64_t CCEH::hf(unsigned char* const &key) // len 8?
 {
 /*	
 	unsigned int hash = 5381;
@@ -270,7 +291,7 @@ void CCEH::clean()
 #endif
 }
 
-ValueEntry CCEH::find(const uint64_t &key)
+ValueEntry CCEH::find(unsigned char* const &key)
 {
 	/*
 	if (point)
@@ -289,15 +310,17 @@ ValueEntry CCEH::find(const uint64_t &key)
 	int sn,cn,i;
 	KVP* kvp_p;
 	uint64_t hk;
+	uint32_t hk2;
 	const int cl_shift = 64-CL_BIT;
 	int l;
 
-	if (key == INV0)
+	if (key == (void*)INV0 && key_size == 8) // wrong!
 		return inv0_value;
 //if (point)
 //	return NULL;
 //	const uint64_t
-	hk = hf(&key);
+	hk = hf(key);
+	hk2 = *(uint32_t*)(&hk);
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
 //	sn = *(uint64_t*)key % ((uint64_t)1 << depth);
@@ -324,7 +347,8 @@ ValueEntry CCEH::find(const uint64_t &key)
 //		l = (ll+i) % (CL_PER_SEG*KVP_PER_CL);
 		l%=CL_PER_SEG*KVP_PER_CL;
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
-		if (kvp_p[l].key == key)		
+//		if (kvp_p[l].key == key)		
+		if (compare_key(kvp_p[l].key,key,hk2))		
 		{
 #ifdef ctt
 			_mm_mfence();
@@ -340,7 +364,7 @@ ValueEntry CCEH::find(const uint64_t &key)
 	return ve;
 }
 
-void CCEH::remove(const uint64_t &key)
+void CCEH::remove(unsigned char* const &key)
 {
 	int sn,cn,i;
 //	uint64_t inv;
@@ -352,13 +376,14 @@ void CCEH::remove(const uint64_t &key)
 	int l;
 
 //	if (*(uint64_t*)key == INV0)
-	if (key == INV0)	
+	if (key == (void*)INV0 && key_size == 8)	 // wrong!
 	{
 		inv0_value.node_offset = 0;
 		return;
 	}
 
-	const uint64_t hk = hf(&key);
+	const uint64_t hk = hf(key);
+	const uint32_t hk2 = *(uint32_t*)(&hk);
 
 retry:
 //	sn = *(uint64_t*)key >> (64-depth);
@@ -392,7 +417,8 @@ retry:
 	{
 		l%=KVP_PER_CL*CL_PER_SEG;
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
-		if (kvp_p[l].key == key)		
+//		if (kvp_p[l].key == key)		
+		if (compare_key(kvp_p[l].key,key,hk2))
 		{
 			kvp_p[l].value.node_offset = 0;
 //			(uint64_t)(kvp_p[i].key) = inv;
@@ -459,6 +485,7 @@ for (i=0;i<seg_cnt;i++)
 }
 void print_seg(SEG* seg,int sn)
 {
+	/*
 	int i,j,k;
 	uint64_t mask;
 	printf("seg %d depth %d\n",sn,seg->depth);
@@ -481,6 +508,7 @@ void print_seg(SEG* seg,int sn)
 	}
 	printf("--------------------------------------\n");
 	scanf("%d",&k);
+	*/
 
 }
 void CCEH::split(int sn) // seg locked
@@ -571,7 +599,7 @@ void CCEH::split(int sn) // seg locked
 
 		for (j=0;j<KVP_PER_CL;j++)
 		{
-			if ((uint64_t)kvp_p[l].key == INV0)
+			if (kvp_p[l].key.key_value == INV0)
 			{
 //				if (kvp_p[l].value == 0)
 //					break;
@@ -586,11 +614,11 @@ void CCEH::split(int sn) // seg locked
 				continue;
 			}
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
-			hk = hf(&kvp_p[l].key);			
+			hk = hf(load_key(kvp_p[l].key));			
 			kc = hk >> (64-CL_BIT);
 			if (hk & mask)
 			{
-				while((uint64_t)new_kvp_p2[nll2[kc]].key != INV0)
+				while(new_kvp_p2[nll2[kc]].key.key_value != INV0)
 				{
 					nll2[kc]++;
 					nll2[kc]%=KVP_PER_CL*CL_PER_SEG;
@@ -602,7 +630,7 @@ void CCEH::split(int sn) // seg locked
 			}
 			else
 			{
-				while((uint64_t)new_kvp_p1[nll1[kc]].key != INV0)
+				while(new_kvp_p1[nll1[kc]].key.key_value != INV0)
 				{
 					nll1[kc]++;
 					nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
@@ -676,7 +704,7 @@ void CCEH::split(int sn) // seg locked
 //	free_seg(seg);
 }
 
-ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
+ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unlock)
 {
 //	int sn;
 //	uint64_t inv;
@@ -694,12 +722,13 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 #endif
 	int sn,cn,i;
 	uint64_t hk;
+	uint32_t hk2;
 	const int cl_shift = 64-CL_BIT;
 	int l;
 	SEG* seg;
 	KVP* kvp_p;
 
-	if (key == INV0)	
+	if (key == (void*)INV0 && key_size == 8)	 // wrong!
 	{
 		inv0_value = value;
 		if (unlock)
@@ -715,7 +744,8 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 	dir_lock++;		
 
 	
-	hk = hf(&key);
+	hk = hf(key);
+	hk2 = *(uint32_t*)(&hk);
 //retry:
 //while(1)
 //{
@@ -821,11 +851,12 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 //		if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
 //			break;
 #if 1
-		if (kvp_p[l].key == INV0) // insert
+		if (kvp_p[l].key.key_value == INV0) // insert
 		{
 			kvp_p[l].value = value;
 			_mm_sfence();
-			kvp_p[l].key = key;
+//			(uint64_t)kvp_p[l].key = *(uint64_t*)key; // need encode
+			insert_key(kvp_p[l].key,key,hk2);			
 
 //			seg->lock = 0;
 //			seg->seg_lock->unlock();			
@@ -844,7 +875,8 @@ ValueEntry* CCEH::insert(const uint64_t &key,ValueEntry &value,void* unlock)
 #endif
 			return (ValueEntry*)&kvp_p[l].value;
 		}
-		else if (kvp_p[l].key == key) // update
+//		else if (kvp_p[l].key == key) // update
+		else if (compare_key(kvp_p[l].key,key,hk2))		
 		{
 			if (unlock)
 				*(void**)unlock = seg;
@@ -975,10 +1007,104 @@ void init_cceh()
 	r_mask[0] = 0;
 	for (i=1;i<=64;i++)
 		r_mask[i] = r_mask[i-1]*2+1;
+
+	if (key_size != 8) // ke yarray init
+	{
+		key_array = (unsigned char**)malloc(sizeof(unsigned char*) * KEY_ARRAY_MAX);
+		key_cnt = (int*)malloc(sizeof(int*) * KEY_ARRAY_MAX);
+		key_array_cnt = 0;
+		max_index = key_size*KEY_ARRAY_MAX;
+		key_cnt[0] = max_index;
+		key_array[0] = NULL;
+//		for (i=0;i<KEY_ARRAY_MAX;i++)
+//			key_cnt[i] = 0;
+	}
+
 }
 
 void clean_cceh()
 {
 	seg_gc();
+
+	if (key_array)
+	{
+		int i;
+		for (i=0+1;i<key_array_cnt;i++)
+			free(key_array[i]);
+		free(key_array);
+		free(key_cnt);
+	}
+
 }
+
+
+inline unsigned char* CCEH_vk::load_key(const KeyEntry &key)
+{
+//	return &key_array[(*((KeyEntry&)key)).key_array][(*((KeyEntry&)key)).key_offset];
+//	return &key_array[static_cast<KeyEntry>(key).key_array][static_cast<KeyEntry>(key).key_offset];
+	return &key_array[key.hp.key_array][key.hp.key_offset];
+
+//	return (unsigned char*)&key;
+}
+
+inline bool CCEH_vk::compare_key(const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+{
+	if (hash != key1.hp.hash)
+		return false;
+	return *((uint64_t*)load_key(key1)) == *((uint64_t*)key2);
+}
+inline void CCEH_vk::insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash) // it has to be new key
+{
+
+	if (key_cnt[key_array_index] + key_size >= max_index)
+	{
+		key_array_index = key_array_cnt.fetch_add(1);
+		key_cnt[key_array_index] = 0;
+		key_array[key_array_index] = (unsigned char*)malloc(max_index);
+	}
+
+	memcpy(&key_array[key_array_index][key_cnt[key_array_index]],key2,key_size);
+
+	key1.hp.key_array = key_array_index;
+	key1.hp.key_offset = key_cnt[key_array_index];
+	key1.hp.hash = hash;
+
+	key_cnt[key_array_index]+=key_size;
+
+//	key1 = (unsigned char*)(*((uint64_t*)key2));
+}
+
+inline uint64_t CCEH_vk::hf(unsigned char* const &key) // len 8?
+{
+/*	
+	unsigned int hash = 5381;
+	int len=8;//key_size;//8; // can't change need function OP
+	while (len--)
+		hash = ((hash << 5) + hash) + (*key++);
+	return hash;
+*/	
+//	return MurmurHash64A_L8 (key);
+//	if (point)
+//	return *(uint64_t*)key;
+//	else	
+	return std::_Hash_bytes(key,16,5516);	 //??? key size
+//	return *(uint64_t*)key;	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
