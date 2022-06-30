@@ -18,7 +18,13 @@
 
 namespace PH
 {
-
+/*
+struct Node_offset
+{
+	uint16_t file;
+	uint16_t offset;
+};
+*/
 struct Scan_list
 {
 	void* query; //need offset and mutex
@@ -38,7 +44,9 @@ struct Node
 //	std::atomic<uint8_t> ref;
 //	std::mutex m;		
 //	volatile uint16_t size; //size // needed cas but replaced to double check...
-	unsigned int next_offset; //	2^32
+//	unsigned int next_offset; //	2^32
+	Node_offset next_offset;
+	unsigned int part;	
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
@@ -47,12 +55,18 @@ struct Node
 
 struct Node_meta
 {
-	volatile unsigned int next_offset;
-	volatile unsigned int prev_offset;
+//	volatile unsigned int next_offset;
+//	volatile unsigned int prev_offset;
+	volatile Node_offset next_offset;
+	unsigned int part;
+	volatile Node_offset prev_offset;
+//	Node_offset start_offset;
+	volatile Node_offset end_offset;
 	std::atomic<uint8_t> state;	
+	uint8_t continue_len;
 	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
 	uint16_t invalidated_size;
-	uint16_t continue_len;
+	uint16_t group_size;
 //	std::atomic<uint16_t> size;
 //	unsigned int next_offset; //	2^32
 

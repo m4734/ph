@@ -263,6 +263,8 @@ int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 	int test=0,test2=0;
 	int z = 0;
 	uint16_t old_kv_offset,old_len;
+	unsigned char* new_kv_p;
+
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
@@ -332,7 +334,7 @@ _mm_mfence();
 					offset_to_node(vep->node_offset)->size += es;
 				}
 				*/
-				rv = check_size(vep->node_offset,value_len);//value_size);
+//				rv = check_size(vep->node_offset,value_len);//value_size);
 //				if (vep->kv_offset > NODE_BUFFER)
 //					printf("kv_offset %d\n",vep->kv_offset);
 				old_kv_offset = vep->kv_offset;
@@ -405,7 +407,7 @@ _mm_mfence();
 					nm->size += es;
 				}
 */			
-				rv = check_size(ve.node_offset,value_len);//value_size);
+//				rv = check_size(ve.node_offset,value_len);//value_size);
 //				{
 					break;
 //				}
@@ -441,19 +443,20 @@ _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts3);
 	_mm_mfence();
 #endif
-		if (rv >= 0) // node is not spliting we will insert
+//		if (rv >= 0) // node is not spliting we will insert
+		if (new_kv_p = insert_kv(ve.node_offset,key_p,value_p,value_len))
 		{
 #ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
 #endif
-			unsigned char* rp;
+//			unsigned char* rp;
 //			unsigned char* tp;
 						// it should be ve later
-			rp = insert_kv(ve.node_offset,key_p,value_p,value_len/*size*/,rv); // never fail
+//			rp = insert_kv(ve.node_offset,key_p,value_p,value_len/*size*/,rv); // never fail
 //			soft_lock(offset); // not this! use hash lock
 //			tp = kv_p;
 //			point_hash.insert(key_p,rp);
-			ve.kv_offset = rp-(unsigned char*)offset_to_node_data(ve.node_offset);
+			ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve.node_offset);
 //			if (ve.kv_offset > NODE_BUFFER)
 //				printf("kv offset %d\n",ve.kv_offset);
 			ve.len = value_len;			

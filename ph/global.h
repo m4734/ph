@@ -21,11 +21,17 @@ typedef u_int64_t uint64_t
 namespace PH
 {
 
+struct Node_offset
+{
+	uint16_t file;
+	uint16_t offset;
+};
+
 struct ValueEntry
 //class ValueEntry
 {
 
-	uint32_t node_offset;
+	Node_offset node_offset;
 	uint16_t kv_offset;
 	uint16_t len;
 	
@@ -84,10 +90,10 @@ extern int port;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-#define NODE_BUFFER 1024*16-4
+#define NODE_BUFFER 1024-4
 //#define NODE_BUFFER 256 // test
 extern int node_size;
-
+#define PART_MAX 16
 
 extern int key_size;
 extern int len_size;
