@@ -43,6 +43,13 @@ union KeyEntry
 	uint64_t key_value;
 	HandP hp;
 };
+
+union KeyEntry_u
+{
+	KeyEntry ke;
+	uint64_t ke_64;
+};
+
 struct KVP
 {
 //	volatile unsigned char* key; // or key ptr // key value in 8B key
@@ -50,12 +57,25 @@ struct KVP
 //	unsigned char* key;
 //	uint64_t key;	
 //	unsigned char* value;	
+	/*
+	union Key_u
+	{
 	KeyEntry key;	
+	volatile uint64_t key_v;
+	}
+	union Value_u
+	{
 	ValueEntry value;	
+	volatile uint64_t value_v;
+	}
+	*/
+	volatile uint64_t key;
+	volatile uint64_t value;
 }; // 8 + 8 = 16
 
 struct KVP_vk
 {
+	//need fix
 	KeyEntry key;
 	ValueEntry value;
 };
@@ -83,10 +103,11 @@ class CCEH
 	CCEH(int in_depth);
 	~CCEH();
 
-inline	bool compare_key(const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	void insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash);
+inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
+inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
 inline	uint64_t hf(unsigned char* const &key);
-inline	unsigned char* load_key(const KeyEntry &key);
+inline	unsigned char* load_key(const uint64_t &key);
+inline bool zero_check(unsigned char* const &key);
 
 
 	volatile int depth;
@@ -98,7 +119,8 @@ inline	unsigned char* load_key(const KeyEntry &key);
 	std::atomic<int> dir_lock;
 //	std::mutex dir_lock;	
 
-	/*volatile */ValueEntry inv0_value;
+	volatile uint64_t inv0_value;//,failed;
+//	volatile ValueEntry_u inv0_value	
 
 	void dir_double();
 	void split(int sn);
@@ -110,7 +132,7 @@ inline	unsigned char* load_key(const KeyEntry &key);
 	public:
 //	int insert(const uint64_t &key,ValueEntry ve);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
-	ValueEntry* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
 
 	ValueEntry find(unsigned char* const &key);
 	void remove(unsigned char* const &key); // find with lock
@@ -127,10 +149,12 @@ inline	unsigned char* load_key(const KeyEntry &key);
 
 class CCEH_vk : public CCEH
 {
-inline	bool compare_key(const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	void insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash);
+inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
+inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
 inline	uint64_t hf(unsigned char* const &key);
-inline	unsigned char* load_key(const KeyEntry &key);
+inline	unsigned char* load_key(const uint64_t &key); // keyentry
+inline	unsigned char* load_key2(const KeyEntry &key); // keyentry
+inline bool zero_check(unsigned char* const &key);
 
 };
 

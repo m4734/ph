@@ -5,6 +5,8 @@
 #include <pthread.h>
 #include <atomic>
 
+#include "global.h"
+
 //#define qtt
 
 namespace PH
@@ -36,7 +38,7 @@ struct Query
 	//------------------------------------------
 	unsigned int ref_offset; // node offset - unlock
 	//----------------------------------------- scan/next
-	int scan_offset; // volatile???
+	Node_offset scan_offset; // volatile???
 	void* node_data;
 //	unsigned char* kv_p;
 

@@ -30,6 +30,7 @@ uint64_t htt1,htt2,htt3,fpc,htt4,htt5,fpc2;
 uint64_t pre_bit_mask[128+1];
 uint64_t pre_bit_mask2[128+1];
 
+#if 0
 unsigned char* decode_entry(unsigned char* entry, int* value_len_p)
 {
 	
@@ -47,7 +48,6 @@ unsigned char* decode_entry(unsigned char* entry, int* value_len_p)
 	return offset_to_node_data(ve.node_offset) | ve.kv_offset;
 */
 }
-
 unsigned char* encode_entry(unsigned char* ptr, int value_len)
 {
 //	return ptr;
@@ -66,7 +66,7 @@ unsigned char* encode_entry(unsigned char* ptr, int value_len)
 	return ve;
 	*/
 }
-
+#endif
 void print64(uint64_t v)
 {
 	int i;
@@ -118,7 +118,7 @@ ValueEntry find_point_entry(unsigned char* &key_p)
 		return entry;
 }
 
-ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+volatile uint64_t* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -128,9 +128,10 @@ ValueEntry* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
 #endif
 //	unsigned char* entry;
 //	unsigned char* ptr;
-	ValueEntry* entry_p;
+	volatile uint64_t* entry_p;
 	ValueEntry ve;
-	ve.kv_offset = ve.node_offset = 0;	
+	ve.kv_offset = 0;
+	ve.node_offset = INIT_OFFSET;	
 	while((entry_p=point_hash->insert((/**(uint64_t*)*/key_p),ve,unlock)) == NULL);
 
 //	if (entry == NULL)
@@ -150,7 +151,7 @@ void unlock_entry(void* unlock)
 	point_hash->unlock_entry2(unlock);
 }
 
-void insert_point_entry(unsigned char* key_p,ValueEntry ve)
+void insert_point_entry(unsigned char* key_p,ValueEntry& ve)
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -217,7 +218,7 @@ void bit_flush(unsigned char* prefix,unsigned char* key_p,int start,int end)
 
 }
 #endif
-unsigned int find_range_entry2(unsigned char* &key_p,int* continue_len) //binary
+Node_offset find_range_entry2(unsigned char* &key_p,int* continue_len) //binary
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -228,7 +229,7 @@ unsigned int find_range_entry2(unsigned char* &key_p,int* continue_len) //binary
 #endif
 
 	int min,max,mid;
-	unsigned int hash;
+	Node_offset hash;
 //	unsigned char prefix[8]={0,}; // 8?
 	unsigned char prefix[16] = {0,};
 	unsigned char* prefix2=0;
@@ -289,7 +290,7 @@ ValueEntry ve;
 //		ve = range_hash_array[mid].find(*((uint64_t*)prefix));
 		ve = range_hash_array[mid].find(prefix);
 
-		if (ve.node_offset == 0) // NULL not found
+		if (ve.node_offset == INIT_OFFSET) // NULL not found
 		{
 			max = mid;// - 1;	
 //			bit_flush(prefix,NULL,(min+max)/2,mid-1);
@@ -332,7 +333,7 @@ _mm_mfence();
 //			printf("fre2 error\n");
 //			return find_range_entry2(key_p,continue_len);
 				
-			return 0; // need retry but why return?
+			return INIT_OFFSET; // need retry but why return?
 		}
 		mid = (min+max)/2;
 
@@ -340,11 +341,11 @@ _mm_mfence();
 
 	printf("never come here\n");
 //	*continue_len = mid; //??	
-	return 0;
+	return INIT_OFFSET;
 
 }
 
-unsigned int find_range_entry(unsigned char* key_p,int* continue_len)//need OP binary
+Node_offset find_range_entry(unsigned char* key_p,int* continue_len)//need OP binary
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -448,12 +449,12 @@ _mm_mfence();
 
 	//never here
 	printf("range hash error\n");
-	return 0;
+	return INIT_OFFSET;
 }
 
 
 // there will be no double because it use e lock on the split node but still need cas
-void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // need to check double
+void insert_range_entry(unsigned char* key_p,int len,Node_offset offset) // need to check double
 {
 //	if (len >= 64)
 //		return;
@@ -497,7 +498,7 @@ void insert_range_entry(unsigned char* key_p,int len,unsigned int offset) // nee
 
 
 if (print)
-	printf("key_p %lx range %lx len %d offset %d insert\n",*((uint64_t*)key_p),*((uint64_t*)prefix),len,offset);	
+	printf("key_p %lx range %lx len %d offset %d/%d insert\n",*((uint64_t*)key_p),*((uint64_t*)prefix),len,offset.file,offset.offset);	
 /*
 	printf("insert mid %d ",len);
 	print64(*(uint64_t*)prefix);

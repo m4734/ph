@@ -88,7 +88,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 		_mm_mfence();
 #endif
 //		return 0;
-		if (ve.node_offset == 0|| ve.kv_offset == 0)
+		if (ve.node_offset == INIT_OFFSET || ve.kv_offset == 0)
 		{
 //			result_p = empty;
 			memcpy(result_p,empty,empty_len);			
@@ -184,7 +184,7 @@ int delete_query(unsigned char* key_p)
 //			kv_p = point_hash.find(key_p);
 //			kv_p = (unsigned char*)entry->
 			ve = find_point_entry(key_p);
-			if (ve.node_offset == 0) // deleted!!!
+			if (ve.node_offset == INIT_OFFSET) // deleted!!!
 				return 0;
 //			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
@@ -249,8 +249,9 @@ int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 
 	unsigned char* kv_p;
 
-	ValueEntry ve;
-	ValueEntry* vep;
+	ValueEntry_u ve_u;
+//	ValueEntry* vep;
+	volatile uint64_t* v64_p;	
 	void* unlock;
 
 //	unsigned int offset;
@@ -290,15 +291,18 @@ _mm_mfence();
 #if 1
 //		ve = find_point_entry(key_p);
 #ifdef keep_lock		
-		vep = find_or_insert_point_entry(key_p,&unlock);	
+//		vep_u = find_or_insert_point_entry(key_p,&unlock);	
+	v64_p = find_or_insert_point_entry(key_p,&unlock);
+	ve_u.ve_64 = *v64_p;
 #else		
-		vep = &ve;		
-		*vep = find_point_entry(key_p);		
+//		vep_u = &ve_u;		
+//		*vep_u = find_point_entry(key_p);		
+		ve_u.ve = find_point_entry(key_p);		
 #endif
 		old_kv_offset = 0;
 		old_len = 0;
 //		while(ve.node_offset != 0)
-		while(vep->node_offset != 0)		
+		while(ve_u.ve.node_offset != INIT_OFFSET)		
 		{
 //			kv_p = point_hash.find(key_p); // find or create
 /*			
@@ -310,7 +314,7 @@ _mm_mfence();
 			}
 			*/
 //			offset = data_point_to_offset(kv_p);
-			if (inc_ref(vep->node_offset))
+			if (inc_ref(ve_u.ve.node_offset))
 			{
 				//do we need this?
 				/*
@@ -337,8 +341,8 @@ _mm_mfence();
 //				rv = check_size(vep->node_offset,value_len);//value_size);
 //				if (vep->kv_offset > NODE_BUFFER)
 //					printf("kv_offset %d\n",vep->kv_offset);
-				old_kv_offset = vep->kv_offset;
-				old_len = vep->len;
+				old_kv_offset = ve_u.ve.kv_offset;
+				old_len = ve_u.ve.len;
 //				{
 					break;
 //				}
@@ -348,9 +352,13 @@ _mm_mfence();
 //			ve = find_point_entry(key_p);
 #ifdef keep_lock			
 			unlock_entry(unlock);
-			vep = find_or_insert_point_entry(key_p,&unlock);
+//			vep_u = find_or_insert_point_entry(key_p,&unlock);
+				v64_p = find_or_insert_point_entry(key_p,&unlock);
+				ve_u.ve_64 = *v64_p;
+		
 #else
-			*vep = find_point_entry(key_p);			
+//			*vep_u = find_point_entry(key_p);			
+				ve_u.ve = find_point_entry(key_p);			
 #endif
 //				if (print)
 //				printf("node is spliting??\n");
@@ -361,14 +369,14 @@ _mm_mfence();
 #endif
 //		if (offset == 0) // the key doesn't exist
 //		if (ve.node_offset == 0)		
-		if (vep->node_offset == 0)		
+		if (ve_u.ve.node_offset == INIT_OFFSET)		
 //		if (kv_p == NULL)		
 		{
 			if (print)
 			printf("find node\n");
 			while(1)
 			{
-				if ((ve.node_offset = find_range_entry2(key_p,&continue_len)) == 0)
+				if ((ve_u.ve.node_offset = find_range_entry2(key_p,&continue_len)) == INIT_OFFSET)
 //				if (range_entry == NULL) // spliting...
 				{
 //
@@ -383,7 +391,7 @@ _mm_mfence();
 					}
 					continue;
 				}
-				if (inc_ref(ve.node_offset))
+				if (inc_ref(ve_u.ve.node_offset))
 				{
 //				if (range_entry->offset == SPLIT_OFFSET)
 				/* // it can't be now because of free cnt
@@ -428,8 +436,8 @@ _mm_mfence();
 //			if (print)
 //			printf("node found offset %d\n",offset);
 		}
-		else
-			ve = *vep;
+//		else
+//			ve = *vep;
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 		#ifdef qtt
@@ -444,7 +452,7 @@ _mm_mfence();
 	_mm_mfence();
 #endif
 //		if (rv >= 0) // node is not spliting we will insert
-		if (new_kv_p = insert_kv(ve.node_offset,key_p,value_p,value_len))
+		if (new_kv_p = insert_kv(ve_u.ve.node_offset,key_p,value_p,value_len))
 		{
 #ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
@@ -456,19 +464,21 @@ _mm_mfence();
 //			soft_lock(offset); // not this! use hash lock
 //			tp = kv_p;
 //			point_hash.insert(key_p,rp);
-			ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve.node_offset);
+			ve_u.ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve_u.ve.node_offset);
 //			if (ve.kv_offset > NODE_BUFFER)
 //				printf("kv offset %d\n",ve.kv_offset);
-			ve.len = value_len;			
+			ve_u.ve.len = value_len;			
 
 #ifdef keep_lock
-			*vep = ve; // is it atomic?
+//			*vep = ve; // is it atomic?
+			*v64_p = ve_u.ve_64;
 			unlock_entry(unlock);
 #else
-			insert_point_entry(key_p,ve);
+//			insert_point_entry(key_p,ve);
+			insert_point_entry(key_p,ve_u.ve);	
 #endif
 			if (old_kv_offset)
-				invalidate_kv(ve.node_offset,old_kv_offset,old_len);
+				invalidate_kv(ve_u.ve.node_offset,old_kv_offset,old_len);
 //			// use vep instead of insert point
 //			hard_unlock(offset);
 
@@ -481,7 +491,7 @@ _mm_mfence();
 			}
 //			point_entry->kv_p = kv_p;
 */
-			dec_ref(ve.node_offset);
+			dec_ref(ve_u.ve.node_offset);
 #ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
@@ -517,7 +527,7 @@ unlock_entry(unlock);
 		*/	
 			if (continue_len == 0)
 			{
-				continue_len = get_continue_len(ve.node_offset);
+				continue_len = get_continue_len(ve_u.ve.node_offset);
 //				rv = find_range_entry2(key_p,&continue_len);
 //				if (rv != offset)
 //					printf("??? offset error\n");
@@ -526,7 +536,7 @@ unlock_entry(unlock);
 
 			}
 //			if (continue_len < key_bit)//64) // split
-			if (split_or_compact(ve.node_offset))			
+			if (split_or_compact(ve_u.ve.node_offset))
 			{	
 				if (print)
 				printf("split\n");
@@ -545,11 +555,11 @@ unlock_entry(unlock);
 				*/
 //				static std::mutex m;
 //				m.lock();
-				if ((rv = split(ve.node_offset,key_p,continue_len))<0)
+				if ((rv = split(ve_u.ve.node_offset,key_p,continue_len))<0)
 				{
-					printf("split lock failed %d\n",ve.node_offset);
+					printf("split lock failed %d/%d\n",ve_u.ve.node_offset.file,ve_u.ve.node_offset.offset);
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
-					dec_ref(ve.node_offset);
+					dec_ref(ve_u.ve.node_offset);
 					test++;
 					if (test > 1000)
 					{
@@ -580,7 +590,7 @@ unlock_entry(unlock);
 //				else
 //					range_entry->offset = rv;
 					*/
-				compact(ve.node_offset,continue_len);
+				compact(ve_u.ve.node_offset,continue_len);
 				/*
 				if ((rv=compact(offset)) >= 0)
 				{
@@ -691,6 +701,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	ValueEntry ve;
 	int continue_len;
 	Node* node_data;
+	int size;
 
 	update_free_cnt();
 
@@ -709,7 +720,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 		{
 			ve = find_point_entry(query->key_p);
 //			kv_p = (unsigned char*)entry->kv_p;
-			if (ve.node_offset == 0)
+			if (ve.node_offset == INIT_OFFSET)
 				break;
 //			offset = data_point_to_offset(kv_p);
 
@@ -726,9 +737,10 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 
 //			copy_node(node,offset_to_node(offset));
 			*node_data = *offset_to_node_data(ve.node_offset); //copy node
+			size = offset_to_node(ve.node_offset)->size;
 			insert_scan_list(offset_to_node(ve.node_offset),(void*)query);
 			hard_unlock(ve.node_offset);
-			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
+			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
@@ -756,7 +768,8 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 						return 0;
 					}
 //					copy_node(node,offset_to_node(query->scan_offset));
-					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
+					int size = offset_to_node(query->scan_offset)->size; // i don't know
+					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
 					query->index_num=0;
 				}
 			}
@@ -768,7 +781,8 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	}
 	continue_len = 0;
 //	continue_len = -1;
-	unsigned int offset,offset2;	
+	//unsigned int offset,offset2;	
+	Node_offset offset,offset2;
 	while(1)
 	{
 //		range_entry = find_range_entry2(query->key_p,&continue_len);
@@ -778,7 +792,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 			continue;
 		offset = range_entry->offset;
 		*/
-		if (offset == 0) // spliting
+		if (offset == INIT_OFFSET)//0) // spliting
 			continue;
 		if (try_hard_lock(offset))
 		{
@@ -786,15 +800,16 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 			if (offset != offset2)
 			{
 				hard_unlock(offset);
-				offset = 0;
+				offset = INIT_OFFSET;
 				continue;
 			}
 
 //			copy_node(node,offset_to_node(offset));
 			*node_data = *offset_to_node_data(offset); //copy node
+			size = offset_to_node(offset)->size;
 			insert_scan_list(offset_to_node(offset),(void*)query);
 			hard_unlock(offset);
-			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
+			sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
 		
 //			query->kv_p = node->buffer;
 			query->index_num = 0;			
@@ -822,7 +837,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 						return 0;
 					}
 //					copy_node(node,offset_to_node(query->scan_offset));
-					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
+					sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
 					query->index_num=0;
 				}
 			}
@@ -880,7 +895,8 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 		}
 //					copy_node(node,offset_to_node(query->scan_offset));
 //					pthread_mutex_unlock(&query->scan_mutex);
-		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max));
+int size = offset_to_node(query->scan_offset)->size; // ??? i don't know					
+		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
 		query->index_num=0;
 	}
 

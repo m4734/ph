@@ -102,18 +102,18 @@ uint64_t MurmurHash64A_L8 ( const void * key )
   return h;
 }
 
-inline unsigned char* CCEH::load_key(const KeyEntry &key)
+inline unsigned char* CCEH::load_key(const uint64_t &key)
 {
 	return (unsigned char*)&key;
 }
 
-inline bool CCEH::compare_key(/*const */const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+inline bool CCEH::compare_key(/*const */const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash)
 {
-	return key1.key_value == (*(uint64_t*)key2);
+	return key1 == (*(uint64_t*)key2);
 }
-inline void CCEH::insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+inline void CCEH::insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash)
 {
-	key1.key_value = (*((uint64_t*)key2));
+	key1 = (*((uint64_t*)key2));
 }
 
 inline uint64_t CCEH::hf(unsigned char* const &key) // len 8?
@@ -131,6 +131,11 @@ inline uint64_t CCEH::hf(unsigned char* const &key) // len 8?
 //	else	
 	return std::_Hash_bytes(key,8,5516);	
 //	return *(uint64_t*)key;	
+}
+
+inline bool CCEH::zero_check(unsigned char* const &key)
+{
+	return *(uint64_t*)key == INV0;
 }
 
 void inv_seg(SEG* seg)//,int sn)
@@ -251,7 +256,7 @@ void CCEH::init(int in_depth)
 		seg_list[i]->depth = depth;
 	}
 
-	inv0_value.node_offset = 0;
+	/*failed = */inv0_value = 0;
 
 	dir_lock = 0;
 	free_seg_lock = 0;
@@ -314,8 +319,14 @@ ValueEntry CCEH::find(unsigned char* const &key)
 	const int cl_shift = 64-CL_BIT;
 	int l;
 
-	if (key == (void*)INV0 && key_size == 8) // wrong!
-		return inv0_value;
+	ValueEntry_u ve_u;
+//	if (key == (void*)INV0 && key_size == 8) // wrong!
+	if (zero_check(key))	
+	{
+//		return &inv0_value;
+		ve_u.ve_64 = inv0_value;
+return ve_u.ve;		
+	}
 //if (point)
 //	return NULL;
 //	const uint64_t
@@ -338,8 +349,7 @@ ValueEntry CCEH::find(unsigned char* const &key)
 //	const int ll = (hk >> (64-CL_BIT)) * KVP_PER_CL;
 //	const int ll = cn*KVP_PER_CL;
 //
-	ValueEntry ve;
-	ve.node_offset = 0;
+	ve_u.ve.node_offset.file = 0;
 
 
 	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
@@ -355,13 +365,13 @@ ValueEntry CCEH::find(unsigned char* const &key)
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			ctt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-			ve = kvp_p[l].value;
+			ve_u.ve_64 = kvp_p[l].value;
 			break;
 //			return ValueEntry(kvp_p[l].value);
 		}
 		l++;
 	}
-	return ve;
+	return ve_u.ve;
 }
 
 void CCEH::remove(unsigned char* const &key)
@@ -376,9 +386,10 @@ void CCEH::remove(unsigned char* const &key)
 	int l;
 
 //	if (*(uint64_t*)key == INV0)
-	if (key == (void*)INV0 && key_size == 8)	 // wrong!
+//	if (key == (void*)INV0 && key_size == 8)	 // wrong!
+	if (zero_check(key))	
 	{
-		inv0_value.node_offset = 0;
+		inv0_value = 0;
 		return;
 	}
 
@@ -420,7 +431,7 @@ retry:
 //		if (kvp_p[l].key == key)		
 		if (compare_key(kvp_p[l].key,key,hk2))
 		{
-			kvp_p[l].value.node_offset = 0;
+			kvp_p[l].value = 0;
 //			(uint64_t)(kvp_p[i].key) = inv;
 //			seg->seg_lock->unlock();
 //			seg->lock = 0;			
@@ -599,7 +610,7 @@ void CCEH::split(int sn) // seg locked
 
 		for (j=0;j<KVP_PER_CL;j++)
 		{
-			if (kvp_p[l].key.key_value == INV0)
+			if (kvp_p[l].key == INV0 || kvp_p[l].value == 0)
 			{
 //				if (kvp_p[l].value == 0)
 //					break;
@@ -608,17 +619,19 @@ void CCEH::split(int sn) // seg locked
 				continue;
 //				break;
 			}
-			if (kvp_p[l].value.node_offset == 0)
+			/*
+			if (kvp_p[l].value == 0)
 			{
 				l++;
 				continue;
 			}
+			*/
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
-			hk = hf(load_key(kvp_p[l].key));			
+			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
 			kc = hk >> (64-CL_BIT);
 			if (hk & mask)
 			{
-				while(new_kvp_p2[nll2[kc]].key.key_value != INV0)
+				while(new_kvp_p2[nll2[kc]].key != INV0)
 				{
 					nll2[kc]++;
 					nll2[kc]%=KVP_PER_CL*CL_PER_SEG;
@@ -630,7 +643,7 @@ void CCEH::split(int sn) // seg locked
 			}
 			else
 			{
-				while(new_kvp_p1[nll1[kc]].key.key_value != INV0)
+				while(new_kvp_p1[nll1[kc]].key != INV0)
 				{
 					nll1[kc]++;
 					nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
@@ -704,7 +717,7 @@ void CCEH::split(int sn) // seg locked
 //	free_seg(seg);
 }
 
-ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unlock)
+volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
 {
 //	int sn;
 //	uint64_t inv;
@@ -728,12 +741,16 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 	SEG* seg;
 	KVP* kvp_p;
 
-	if (key == (void*)INV0 && key_size == 8)	 // wrong!
+	ValueEntry_u ve_u;
+	ve_u.ve = ve;
+
+//	if (key == (void*)INV0 && key_size == 8)	 // wrong!
+	if (zero_check(key))	
 	{
-		inv0_value = value;
+		inv0_value = ve_u.ve_64;
 		if (unlock)
 			*(void**)unlock = NULL;
-		return &inv0_value;
+		return /*(ValueEntry_u*)&*/&inv0_value;
 	}
 
 	int lock = dir_lock;
@@ -851,9 +868,9 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 //		if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
 //			break;
 #if 1
-		if (kvp_p[l].key.key_value == INV0) // insert
+		if (kvp_p[l].key == INV0) // insert
 		{
-			kvp_p[l].value = value;
+			kvp_p[l].value = ve_u.ve_64;
 			_mm_sfence();
 //			(uint64_t)kvp_p[l].key = *(uint64_t*)key; // need encode
 			insert_key(kvp_p[l].key,key,hk2);			
@@ -873,7 +890,7 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 //			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 #endif
-			return (ValueEntry*)&kvp_p[l].value;
+			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
 		}
 //		else if (kvp_p[l].key == key) // update
 		else if (compare_key(kvp_p[l].key,key,hk2))		
@@ -882,7 +899,7 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 				*(void**)unlock = seg;
 			else
 			{
-				kvp_p[l].value = value;
+				kvp_p[l].value = ve_u.ve_64;
 				_mm_sfence();
 				at_unlock2(seg->lock);			
 				dir_lock--;
@@ -897,7 +914,7 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 //			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 //			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 #endif
-			return (ValueEntry*)&kvp_p[l].value;
+			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
 		}
 #endif
 		l++;
@@ -973,7 +990,7 @@ ValueEntry* CCEH::insert(unsigned char* const &key,ValueEntry &value,void* unloc
 
 //	goto retry;
 	dir_lock--;	
-	return 0;	
+	return 0;//failed;	
 //never
 //	return NULL;
 }
@@ -1037,8 +1054,18 @@ void clean_cceh()
 
 }
 
+inline unsigned char* CCEH_vk::load_key(const uint64_t &key)
+{
+//	return &key_array[(*((KeyEntry&)key)).key_array][(*((KeyEntry&)key)).key_offset];
+//	return &key_array[static_cast<KeyEntry>(key).key_array][static_cast<KeyEntry>(key).key_offset];
+	KeyEntry_u ku;
+ku.ke_64 = key;	
+	return &key_array[ku.ke.hp.key_array][ku.ke.hp.key_offset];
 
-inline unsigned char* CCEH_vk::load_key(const KeyEntry &key)
+//	return (unsigned char*)&key;
+}
+
+inline unsigned char* CCEH_vk::load_key2(const KeyEntry &key)
 {
 //	return &key_array[(*((KeyEntry&)key)).key_array][(*((KeyEntry&)key)).key_offset];
 //	return &key_array[static_cast<KeyEntry>(key).key_array][static_cast<KeyEntry>(key).key_offset];
@@ -1047,13 +1074,16 @@ inline unsigned char* CCEH_vk::load_key(const KeyEntry &key)
 //	return (unsigned char*)&key;
 }
 
-inline bool CCEH_vk::compare_key(const KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash)
+inline bool CCEH_vk::compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash)
 {
-	if (hash != key1.hp.hash)
+	KeyEntry_u key;
+	key.ke_64 = key1;
+	if (hash != key.ke.hp.hash)
 		return false;
-	return *((uint64_t*)load_key(key1)) == *((uint64_t*)key2);
+	unsigned char* kl = load_key2(key.ke);
+	return *((uint64_t*)kl) == *((uint64_t*)key2) && *((uint64_t*)kl+1) == *((uint64_t*)key2+1);
 }
-inline void CCEH_vk::insert_key(KeyEntry &key1,unsigned char* const &key2,const uint32_t &hash) // it has to be new key
+inline void CCEH_vk::insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash) // it has to be new key
 {
 
 	if (key_cnt[key_array_index] + key_size >= max_index)
@@ -1065,11 +1095,14 @@ inline void CCEH_vk::insert_key(KeyEntry &key1,unsigned char* const &key2,const 
 
 	memcpy(&key_array[key_array_index][key_cnt[key_array_index]],key2,key_size);
 
-	key1.hp.key_array = key_array_index;
-	key1.hp.key_offset = key_cnt[key_array_index];
-	key1.hp.hash = hash;
+	KeyEntry_u key;
+	key.ke.hp.key_array = key_array_index;
+	key.ke.hp.key_offset = key_cnt[key_array_index];
+	key.ke.hp.hash = hash;
 
 	key_cnt[key_array_index]+=key_size;
+
+	key1 = key.ke_64;
 
 //	key1 = (unsigned char*)(*((uint64_t*)key2));
 }
@@ -1091,20 +1124,9 @@ inline uint64_t CCEH_vk::hf(unsigned char* const &key) // len 8?
 //	return *(uint64_t*)key;	
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+inline bool CCEH_vk::zero_check(unsigned char* const &key)
+{
+	return false;
+}
 
 }

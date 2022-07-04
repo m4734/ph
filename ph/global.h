@@ -25,12 +25,30 @@ struct Node_offset
 {
 	uint16_t file;
 	uint16_t offset;
+	bool operator==(const Node_offset &v) { return (file == v.file) && (offset == v.offset); }
+	bool operator!=(const Node_offset &v) { return (file != v.file) || (offset != v.offset); }
+
+	/*
+	Node_offset& operator=(Node_offset &v) { 
+		(file = v.file);
+		(offset = v.offset);
+       return *this;
+	}
+	*/
+};
+
+struct Node_offset_u
+{
+	union
+	{
+		Node_offset no;
+		uint32_t no_32;
+	};
 };
 
 struct ValueEntry
 //class ValueEntry
 {
-
 	Node_offset node_offset;
 	uint16_t kv_offset;
 	uint16_t len;
@@ -77,6 +95,14 @@ struct ValueEntry
 */
 };
 
+struct ValueEntry_u
+{
+	union
+	{
+		ValueEntry ve;
+		uint64_t ve_64;
+	};
+};
 
 extern int num_of_thread;
 extern int connection_per_thread;
@@ -90,7 +116,7 @@ extern int port;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-#define NODE_BUFFER 1024-4
+#define NODE_BUFFER 1024-4-4
 //#define NODE_BUFFER 256 // test
 extern int node_size;
 #define PART_MAX 16
