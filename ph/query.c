@@ -209,7 +209,8 @@ int delete_query(unsigned char* key_p)
 //				soft_lock(offset);
 //				entry->kv_p = NULL; // what should be first?
 				delete_kv(kv_p);
-				invalidate_kv(ve.node_offset,ve.kv_offset,ve.len);
+//				invalidate_kv(ve.node_offset,ve.kv_offset,ve.len);
+				invalidate_kv(ve);				
 				remove_point_entry(key_p);
 //				point_hash.remove(key_p); // hash twice??
 //				hard_unlock(offset);
@@ -263,9 +264,13 @@ int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 
 	int test=0,test2=0;
 	int z = 0;
-	uint16_t old_kv_offset,old_len;
+//	uint16_t old_kv_offset,old_len;
+//	Node_offset old_node_offset;
+	ValueEntry_u old_ve_u;
+	Node_offset locked_offset;
 	unsigned char* new_kv_p;
 
+	Node_offset start_offset;
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
 
@@ -289,20 +294,24 @@ _mm_mfence();
 //		offset = 0;
 //		kv_p = NULL;
 #if 1
-//		ve = find_point_entry(key_p);
+//		ve = find_point_entry(key_p);		
+		ve_u.ve.node_offset = INIT_OFFSET;		
 #ifdef keep_lock		
 //		vep_u = find_or_insert_point_entry(key_p,&unlock);	
 	v64_p = find_or_insert_point_entry(key_p,&unlock);
-	ve_u.ve_64 = *v64_p;
+//	ve_u.ve_64 = *v64_p;
+	old_ve_u.ve_64 = *v64_p;	
 #else		
+	// it will not be compatible anymore
 //		vep_u = &ve_u;		
 //		*vep_u = find_point_entry(key_p);		
 		ve_u.ve = find_point_entry(key_p);		
 #endif
-		old_kv_offset = 0;
-		old_len = 0;
+//		old_kv_offset = 0;
+//		old_len = 0;
+//		old_ve_u.ve_64 = 0;		
 //		while(ve.node_offset != 0)
-		while(ve_u.ve.node_offset != INIT_OFFSET)		
+		while(old_ve_u.ve.node_offset != INIT_OFFSET)		
 		{
 //			kv_p = point_hash.find(key_p); // find or create
 /*			
@@ -314,8 +323,10 @@ _mm_mfence();
 			}
 			*/
 //			offset = data_point_to_offset(kv_p);
-			if (inc_ref(ve_u.ve.node_offset))
+			start_offset = get_start_offset(old_ve_u.ve.node_offset);
+			if (inc_ref(start_offset))
 			{
+				ve_u.ve.node_offset = start_offset;
 				//do we need this?
 				/*
 				if (*((uint64_t*)key_p) != *((uint64_t*)kv_p))
@@ -341,8 +352,11 @@ _mm_mfence();
 //				rv = check_size(vep->node_offset,value_len);//value_size);
 //				if (vep->kv_offset > NODE_BUFFER)
 //					printf("kv_offset %d\n",vep->kv_offset);
-				old_kv_offset = ve_u.ve.kv_offset;
-				old_len = ve_u.ve.len;
+//				old_node_offset = ve_u.ve.node_offset;	
+//				old_kv_offset = ve_u.ve.kv_offset;
+//				old_len = ve_u.ve.len;
+//				old_ve_u = ve_u;
+//				move_to_start_offset(ve_u.ve.node_offset); // move to start
 //				{
 					break;
 //				}
@@ -354,7 +368,8 @@ _mm_mfence();
 			unlock_entry(unlock);
 //			vep_u = find_or_insert_point_entry(key_p,&unlock);
 				v64_p = find_or_insert_point_entry(key_p,&unlock);
-				ve_u.ve_64 = *v64_p;
+//				ve_u.ve_64 = *v64_p;
+				old_ve_u.ve_64 = *v64_p;
 		
 #else
 //			*vep_u = find_point_entry(key_p);			
@@ -393,6 +408,7 @@ _mm_mfence();
 				}
 				if (inc_ref(ve_u.ve.node_offset))
 				{
+					old_ve_u.ve.node_offset = INIT_OFFSET;
 //				if (range_entry->offset == SPLIT_OFFSET)
 				/* // it can't be now because of free cnt
 				if (range_entry->offset != offset)				
@@ -452,11 +468,13 @@ _mm_mfence();
 	_mm_mfence();
 #endif
 //		if (rv >= 0) // node is not spliting we will insert
+		locked_offset = ve_u.ve.node_offset;		
 		if (new_kv_p = insert_kv(ve_u.ve.node_offset,key_p,value_p,value_len))
 		{
 #ifdef qtt
 	clock_gettime(CLOCK_MONOTONIC,&ts5);
 #endif
+	move_to_end_offset(ve_u.ve.node_offset); // move to end
 //			unsigned char* rp;
 //			unsigned char* tp;
 						// it should be ve later
@@ -477,8 +495,10 @@ _mm_mfence();
 //			insert_point_entry(key_p,ve);
 			insert_point_entry(key_p,ve_u.ve);	
 #endif
-			if (old_kv_offset)
-				invalidate_kv(ve_u.ve.node_offset,old_kv_offset,old_len);
+//			if (old_kv_offset)			
+//				invalidate_kv(old_node_offset,old_kv_offset,old_len);
+			if (old_ve_u.ve.node_offset != INIT_OFFSET)
+				invalidate_kv(old_ve_u.ve);
 //			// use vep instead of insert point
 //			hard_unlock(offset);
 
@@ -491,7 +511,8 @@ _mm_mfence();
 			}
 //			point_entry->kv_p = kv_p;
 */
-			dec_ref(ve_u.ve.node_offset);
+//			dec_ref(ve_u.ve.node_offset);			
+			dec_ref(locked_offset);			
 #ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
@@ -559,7 +580,8 @@ unlock_entry(unlock);
 				{
 					printf("split lock failed %d/%d\n",ve_u.ve.node_offset.file,ve_u.ve.node_offset.offset);
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
-					dec_ref(ve_u.ve.node_offset);
+//					dec_ref(ve_u.ve.node_offset);
+					dec_ref(locked_offset);
 					test++;
 					if (test > 1000)
 					{
@@ -573,7 +595,7 @@ unlock_entry(unlock);
 //					range_entry->offset = SPLIT_OFFSET; //splited
 //					insert_range_entry // in split function	
 					// may need fence
-// 					dec_ref(ve.node_offset); // have to be after offset 1
+ 					dec_ref(locked_offset);//ve.node_offset); // have to be after offset 1
 					continue_len++;		
 				}
 //				m.unlock();
@@ -610,7 +632,8 @@ unlock_entry(unlock);
 					printf("compaction lock failed\n");
 					*/
 //				e_unlock(offset);
-//				dec_ref(ve.node_offset);				
+//				dec_ref(ve.node_offset);			
+				dec_ref(locked_offset);					
 			}
 //int t;
 //					scanf("%d",&t);// test

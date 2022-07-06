@@ -349,7 +349,7 @@ return ve_u.ve;
 //	const int ll = (hk >> (64-CL_BIT)) * KVP_PER_CL;
 //	const int ll = cn*KVP_PER_CL;
 //
-	ve_u.ve.node_offset.file = 0;
+	ve_u.ve.node_offset = INIT_OFFSET;
 
 
 	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)

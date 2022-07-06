@@ -21,11 +21,12 @@
 
 namespace PH
 {
+	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
-const Node_offset HEAD_OFFSET={1,1};
-const Node_offset TAIL_OFFSET={1,2};
-
+const Node_offset HEAD_OFFSET={0,2};
+const Node_offset TAIL_OFFSET={0,3};
+*/
 /*
 struct Node_offset
 {
@@ -72,6 +73,7 @@ struct Node_meta
 //	volatile Node_offset prev_offset;
 	volatile uint32_t prev_offset;	
 //	Node_offset start_offset;
+	Node_offset start_offset;	
 	/*volatile */Node_offset end_offset;
 	std::atomic<uint8_t> state;	
 	uint8_t continue_len;
@@ -150,7 +152,7 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 
 void delete_kv(unsigned char* kv_p); // e lock needed
 
-unsigned char* insert_kv(Node_offset offset,unsigned char* key,unsigned char* value,int value_length);
+unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
 int split(Node_offset offset, unsigned char* prefix, int continue_len);
 
 int compact(Node_offset offset,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
@@ -175,14 +177,22 @@ inline int try_at_lock(std::atomic<uint8_t> &lock)
 	return lock.compare_exchange_strong(z,1);
 }
 
-void invalidate_kv(Node_offset node_offset, unsigned int kv_offset,unsigned int kv_len);
+//void invalidate_kv(Node_offset node_offset, unsigned int kv_offset,unsigned int kv_len);
+void invalidate_kv(ValueEntry& ve);
 int split_or_compact(Node_offset node_offset);
 inline int get_continue_len(Node_offset node_offset)
 {
 	return offset_to_node(node_offset)->continue_len;
 }
 
-
+inline Node_offset get_start_offset(Node_offset& node_offset)
+{
+	return offset_to_node(node_offset)->start_offset;
+}
+inline void move_to_end_offset(Node_offset& node_offset)
+{
+	node_offset = offset_to_node(node_offset)->end_offset;
+}
 
 
 }

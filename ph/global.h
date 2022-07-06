@@ -37,6 +37,13 @@ struct Node_offset
 	*/
 };
 
+	const Node_offset INIT_OFFSET={0,0};
+	const Node_offset SPLIT_OFFSET={0,1};
+const Node_offset HEAD_OFFSET={0,2};
+const Node_offset TAIL_OFFSET={0,3};
+
+
+
 struct Node_offset_u
 {
 	union
@@ -116,10 +123,12 @@ extern int port;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-#define NODE_BUFFER 1024-4-4
+#define NODE_BUFFER 1024*4-4-4
+//#define NODE_BUFFER 1024-4-4
 //#define NODE_BUFFER 256 // test
 extern int node_size;
-#define PART_MAX 16
+#define PART_MAX 4
+//#define PART_MAX 2 // test
 
 extern int key_size;
 extern int len_size;
