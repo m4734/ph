@@ -15,6 +15,11 @@
 #include "../viper/kvs.h"
 #endif
 
+#ifdef BUILD_PMEMKV
+#include <libpmemkv.h>
+#include "../pmemkv/kvs.h"
+#endif
+
 struct Thread_parameter
 {
 	int tn;
@@ -348,6 +353,9 @@ int main()
 			kvs = new KVS_viper<Byte_8,Byte_100>();
 		else if(workload_value_size == 200)
 			kvs = new KVS_viper<Byte_8,Byte_200>();
+#elif BUILD_PMEMKV
+		printf("kvs_pmemkv\n");
+		kvs = new KVS_pmemkv();
 #else
 		printf("ph?\n");
 		kvs = new KVS();

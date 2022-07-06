@@ -13,6 +13,7 @@ struct TestQuery
 //template <typename K, typename V>
 class KVS
 {
+protected:
 	int num_of_threads;
 	int key_size;
 	int value_size;

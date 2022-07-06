@@ -26,6 +26,9 @@ viper: test/test.h test/test.c viper/kvs.h viper/viper.hpp viper/cceh.hpp viper/
 	g++ -c -o test/test.o test/test.c -DBUILD_Viper -Iviper/concurrentqueue-src/ -std=c++17 -mclwb -O3
 	g++ -o bin/test test/test.o -lpthread -O3
 
+pmemkv: test/test.h test/test.c pmemkv/kvs.h
+	g++ -o bin/test test/test.c -DBUILD_PMEMKV -lpthread -lpmem -lpmemkv -O3
+
 debug_viper: test/test.h test/test.c viper/kvs.h viper/viper.hpp viper/cceh.hpp viper/hash.hpp
 	g++ -g -c -o test/test.o test/test.c -DBUILD_Viper -Iviper/concurrentqueue-src/ -std=c++17 -mclwb
 	g++ -g -o bin/test test/test.o -lpthread
@@ -48,4 +51,4 @@ debug_test:
 	g++ -g -o bin/test test/test.o -lpthread
 
 
-.PHONY: test ph viper
+.PHONY: test ph viper pmemkv

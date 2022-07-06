@@ -67,7 +67,7 @@ class KVS_ph : public KVS
 	{
 		int i,len,j;
 		unsigned char* result;
-		result = (unsigned char*)malloc(sizeof(unsigned char*)*1000);
+		result = (unsigned char*)malloc(value_size);
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
