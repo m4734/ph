@@ -20,6 +20,10 @@
 #include "../pmemkv/kvs.h"
 #endif
 
+#ifdef BUILD_PMEMROCKSDB
+#include "../pmem-rocksdb/kvs.h"
+#endif
+
 struct Thread_parameter
 {
 	int tn;
@@ -356,6 +360,9 @@ int main()
 #elif BUILD_PMEMKV
 		printf("kvs_pmemkv\n");
 		kvs = new KVS_pmemkv();
+#elif BUILD_PMEMROCKSDB
+		printf("kvs_pmem-rocksdb\n");
+		kvs = new KVS_pmemrocksdb();
 #else
 		printf("ph?\n");
 		kvs = new KVS();

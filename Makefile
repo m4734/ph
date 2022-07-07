@@ -29,6 +29,16 @@ viper: test/test.h test/test.c viper/kvs.h viper/viper.hpp viper/cceh.hpp viper/
 pmemkv: test/test.h test/test.c pmemkv/kvs.h
 	g++ -o bin/test test/test.c -DBUILD_PMEMKV -lpthread -lpmem -lpmemkv -O3
 
+rocksdb: test/test.h test/test.c pmem-rocksdb/kvs.h
+	g++ -o bin/test test/test.c pmem-rocksdb/librocksdb.a -DBUILD_PMEMROCKSDB -lpthread -lpmem -lpmemobj -ldl -lsnappy -lz
+#	g++ -g -o bin/test test/test.c pmem-rocksdb/librocksdb_pmem.a -DBUILD_PMEMROCKSDB -lpthread -lpmem -lpmemobj -ldl -lsnappy
+#	g++ -o bin/test test/test.c -DBUILD_PMEMROCKSDB -lpthread -O3 pmem-rocksdb/librocksdb2.a -lpmem -lpmemobj
+
+
+pmem-rocksdb: test/test.h test/test.c pmem-rocksdb/kvs.h
+	g++ -o bin/test test/test.c -DBUILD_PMEMROCKSDB -lrocksdb -lpthread -O3 -lpmem -lpmemobj -ldl -lsnappy -lz -lzstd -lbz2 -llz4 -std=c++17 -DON_DCPMM
+#	g++ -g -o bin/test test/test.c pmem-rocksdb/librocksdb_pmem.a -DBUILD_PMEMROCKSDB -lpthread -lpmem -lpmemobj -ldl -lsnappy
+
 debug_viper: test/test.h test/test.c viper/kvs.h viper/viper.hpp viper/cceh.hpp viper/hash.hpp
 	g++ -g -c -o test/test.o test/test.c -DBUILD_Viper -Iviper/concurrentqueue-src/ -std=c++17 -mclwb
 	g++ -g -o bin/test test/test.o -lpthread
@@ -51,4 +61,4 @@ debug_test:
 	g++ -g -o bin/test test/test.o -lpthread
 
 
-.PHONY: test ph viper pmemkv
+.PHONY: test ph viper pmemkv pmem-rocksdb
