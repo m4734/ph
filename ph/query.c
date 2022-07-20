@@ -53,6 +53,7 @@ void reset_query(Query* query)
 void init_query(Query* query)
 {
 	query->node_data = NULL;
+//	query->node_size = NULL;
 	query->scan_offset = TAIL_OFFSET;
 //	pthread_mutex_init(&query->scan_mutex,NULL);
 	query->scan_lock = 0;	
@@ -724,13 +725,16 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	ValueEntry ve;
 	int continue_len;
 	Node* node_data;
+	Node_offset start_offset;
 	int size;
 
 	update_free_cnt();
 
 	if (query->node_data == NULL)
-		query->node_data = (Node*)malloc(sizeof(Node));
-
+	{
+		query->node_data = (Node*)malloc(sizeof(Node)*PART_MAX);
+//		query->node_size = (int*)malloc(sizeof(int)*PART_MAX);
+	}
 	delete_query_scan_entry(query);
 
 	node_data = (Node*)query->node_data;
@@ -739,16 +743,19 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 //	entry = find_or_insert_point_entry(query->key_p,0); // don't create
 //	
 	{
-		while(1)
-		{
+
 			ve = find_point_entry(query->key_p);
+		while(ve.node_offset != INIT_OFFSET)
+		{
 //			kv_p = (unsigned char*)entry->kv_p;
-			if (ve.node_offset == INIT_OFFSET)
-				break;
 //			offset = data_point_to_offset(kv_p);
 
-			if (try_hard_lock(ve.node_offset))
+			start_offset = get_start_offset(ve.node_offset);
+			if (inc_ref(start_offset))
 			{
+				ve.node_offset = start_offset;
+				break;
+#if 0
 				// it will not happen
 				/*
 				if (kv_p != (unsigned char*)entry->kv_p)
@@ -798,27 +805,32 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 			}
 //			dec_ref(offset);
 			return 0;
+#endif
 			}
+			ve = find_point_entry(query->key_p);
 
 		}
 	}
+	if (ve.node_offset == INIT_OFFSET)
+	{
 	continue_len = 0;
 //	continue_len = -1;
 	//unsigned int offset,offset2;	
-	Node_offset offset,offset2;
+//	Node_offset offset,offset2;
 	while(1)
 	{
 //		range_entry = find_range_entry2(query->key_p,&continue_len);
-		offset = find_range_entry2(query->key_p,&continue_len);		
+		if ((ve.node_offset = find_range_entry2(query->key_p,&continue_len)) == INIT_OFFSET)
+			continue;
 		/*
 		if (range_entry == NULL)
 			continue;
 		offset = range_entry->offset;
 		*/
-		if (offset == INIT_OFFSET)//0) // spliting
-			continue;
-		if (try_hard_lock(offset))
+		if (inc_ref(ve.node_offset))
 		{
+			break;
+#if 0
 			offset2 = find_range_entry2(query->key_p,&continue_len);
 			if (offset != offset2)
 			{
@@ -867,11 +879,51 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 
 
 			return 0;
+#endif
 		}
 //		dec_ref(offset);
 
 	}
-	printf("never should come here\b");
+	}
+
+
+	// here, we have ref and ve.node_offset and we should copy it and def it
+	query->scan_offset = ve.node_offset; // scan lock??
+
+	insert_scan_list(query->scan_offset,query);
+
+	// lock scan mutex or move dec ref
+//	at_lock(query->scan_lock); // scan lock ??? ??? ??? 
+
+	//copy node
+//	copy_node(query->node_data,query->scan_offset);
+
+	copy_and_sort_node(query);
+	//insert scan list
+	dec_ref(ve.node_offset);
+	//sort node
+//	sort_node(query);
+
+	//set scan index index num
+//	query->sorted_kv_i = 0;
+//	query->kv_p = ((Node_data*)query->node_data)[0];
+	//unlock scan mutex
+
+	//advance until key_p
+	while(1)
+	{
+		while (query->sorted_kv_max > query->sorted_kv_i)
+		{
+			if(*((uint64_t*)(query->sorted_kv[query->sorted_kv_i]+len_size)) >= *((uint64_t*)query->key_p))
+				return 0;
+			++query->sorted_kv_i;
+		}
+
+		if (advance_offset(query) < 0) // advance fail	
+			return 0;
+	}
+
+//	printf("never should come here\b");
 	return 0;
 }
 
@@ -887,9 +939,11 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 		*result_len_p = empty_len;
 		return 0;
 	}
-	Node* node_data = (Node*)query->node_data;
+//	Node* node_data = (Node*)query->node_data;
+//	const unsigned char* offset0 = (unsigned char*)query->node_data;	
 
-	*result_len_p = *((uint16_t*)(node_data->buffer+query->sorted_index[query->index_num]+key_size));
+//	*result_len_p = *((uint16_t*)(node_data->buffer+query->sorted_index[query->index_num]+key_size));
+	*result_len_p = *((uint16_t*)(query->sorted_kv[query->sorted_kv_i]));
 	/*
 	if ((*result_len & (1 << 15)) != 0) // deleted
 		advance(&(query->kv_p),&(query->offset),(Node*)query->node);	
@@ -903,24 +957,25 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 	*/
 
 	*result_len_p+=8+2;
-	memcpy(result_p,node_data->buffer+query->sorted_index[query->index_num],*result_len_p);
+//	memcpy(result_p,node_data->buffer+query->sorted_index[query->index_num],*result_len_p);
+	memcpy(result_p,query->sorted_kv[query->sorted_kv_i],*result_len_p);
 //	*result = query->kv_p; // we need all kv_p
 
 //	advance(&(query->kv_p),&(query->offset),(Node*)query->node);
-	query->index_num++;
-	while (query->index_num >= query->index_max)
+	query->sorted_kv_i++;//index_num++;
+	while (query->sorted_kv_i >= query->sorted_kv_max)
 	{
 //					pthread_mutex_lock(&query->scan_mutex);
-		if (advance_offset((void*)query) < 0)
+		if (advance_offset(query) < 0)
 		{
 //						pthread_mutex_unlock(&query->scan_mutex);
 			return 0;
 		}
 //					copy_node(node,offset_to_node(query->scan_offset));
 //					pthread_mutex_unlock(&query->scan_mutex);
-int size = offset_to_node(query->scan_offset)->size; // ??? i don't know					
-		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
-		query->index_num=0;
+//int size = offset_to_node(query->scan_offset)->size; // ??? i don't know					
+//		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
+//		query->index_num=0;
 	}
 
 	return 0;
@@ -943,6 +998,7 @@ void free_query(Query* query)
 		*/
 	delete_query_scan_entry(query);
 	free(query->node_data);
+//	free(query->node_size);
 }
 
 }

@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 
 #include "global.h"
-//#include "query.h"
+#include "query.h"
 
 //#define split_bit (1<<15)
 //#define free_bit (1<14)
@@ -102,6 +102,8 @@ struct Node_meta
 	uint16_t* inv_kv;
 	uint16_t inv_cnt;
 	uint16_t inv_max;
+
+	unsigned char padding[8];
 };
 
 extern unsigned char** meta_addr;
@@ -160,11 +162,13 @@ void print_kv(unsigned char* kv_p);
 //int check_size(unsigned int offset,int value_length);
 
 //int advance(unsigned char** kv_pp,int* offset,Node* node_p);
-int advance_offset(void* query);
-//void copy_node(Node* node1,Node* node2);
-void sort_node(Node* node,int* sorted_index,int* max,const int node_size);
-void insert_scan_list(Node_meta* node,void* query);
-void delete_scan_entry(Node_offset scan_offset,void* query);
+int advance_offset(Query *query);
+//void copy_node(unsigned char* node_data,Node_offset node_offset);
+//void sort_node(Node* node,int* sorted_index,int* max,const int node_size);
+//void sort_node(Query *query);
+void copy_and_sort_node(Query *query);
+void insert_scan_list(Node_offset &node,void* query);
+void delete_scan_entry(Node_offset &scan_offset,void* query);
 
 void at_lock(std::atomic<uint8_t> &lock);
 inline void at_unlock(std::atomic<uint8_t> &lock)

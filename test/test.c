@@ -111,11 +111,11 @@ void load_workload(char* path)
 	for (i=0;i<ops;i++)
 	{
 		fgets(line,LINE_LENGTH,in);
-		if (key_type == 0)
+		if (key_type == 0) // key binary
 		{
 			sscanf(line,"%s %s",op,key_ptr);
 		}
-		else if (key_type == 1 || key_type == 2)
+		else if (key_type == 1 || key_type == 2) // key int64
 		{
 			sscanf(line,"%s %ld",op,(uint64_t*)key_ptr);
 			//test
@@ -143,7 +143,7 @@ void load_workload(char* path)
 		queries[t][o].key = key_ptr;
 		key_ptr+=workload_key_size;
 
-		if (queries[t][o].op == 1 || queries[t][o].op == 3)
+		if (queries[t][o].op == 1 || queries[t][o].op == 3) // have value
 		{
 			if (key_type == 2)
 			{
@@ -169,6 +169,22 @@ void load_workload(char* path)
 //				value_ptr+=workload_value_size;
 			}
 		
+		}
+		else if (queries[t][o].op == 5) //scan
+		{
+				n32 = 0;
+				for (j=0;j<LINE_LENGTH;j++)
+				{
+					if (line[j] == ' ')
+					{
+						n32++;
+						if (n32 == 2)
+							break;
+					}
+				}
+				j++;
+
+			sscanf(line+j,"%d",&queries[t][o].cnt);
 		}
 
 //		if (strlen((char*)value_ptr) < value_size)

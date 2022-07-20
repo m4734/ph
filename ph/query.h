@@ -40,10 +40,14 @@ struct Query
 	//----------------------------------------- scan/next
 	Node_offset scan_offset; // volatile???
 	void* node_data;
+//	int* node_size;
+//	int part;
 //	unsigned char* kv_p;
 
-	int sorted_index[100];
-	int index_num,index_max;
+//	int sorted_index[100*PART_NUM]; // 100?
+//	int index_num,index_max;
+	unsigned char* sorted_kv[100*PART_MAX];
+	int sorted_kv_i,sorted_kv_max;
 
 //	pthread_mutex_t scan_mutex; // offset
 	std::atomic<uint8_t> scan_lock;

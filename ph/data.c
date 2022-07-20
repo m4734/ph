@@ -1054,9 +1054,11 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 }
 
 //void move_scan_list(Node_meta* node_old,Node_meta* node_new)
-#if 0
-void move_scan_list(Node_offset old_offset,Node_offset new_offset)
+#if 1 
+void move_scan_list(Node_offset &old_offset,Node_offset &new_offset)
 {
+	Node_meta* node_old = offset_to_node(old_offset);
+	Node_meta* node_new = offset_to_node(new_offset);
 	if (node_old->scan_list == NULL)
 	{
 		node_new->scan_list = NULL;
@@ -1359,7 +1361,8 @@ if (print)
 //	printf("erekwrjlw22222222\n");
 
 
-//	move_scan_list(node,new_node2); // just use lock!!!!
+	if (node->scan_list != NULL)
+		move_scan_list(offset,new_node2_offset.no); // just use lock!!!!i ????
 
 //printf("----------------\n%d %d %d\n %d %d %d %d\n-------------------\n",prev_offset.no.offset,offset.offset,next_offset.no.offset,prev_offset.no.offset,new_node1_offset.no.offset,new_node2_offset.no.offset,next_offset.no.offset);
 
@@ -2061,7 +2064,8 @@ Node_offset_u new_node1_offset;
 	prev_node->next_offset = new_node1_offset.no_32;//calc_offset(new_node1);
 
 	// flush
-//	move_scan_list(node,new_node1);
+	if (node->scan_list != NULL)
+		move_scan_list(offset,new_node1_offset.no);
 
 	new_node1_data = offset_to_node_data(new_node1_offset.no);//calc_offset(new_node1));
 
@@ -2376,6 +2380,27 @@ int advance(unsigned char** kv_pp,int* offset,Node* node_p)
 	return 0;
 }
 #endif
+void delete_scan_entry(Node_offset &scan_offset,void* query)
+{
+	Node_meta* node;
+	Scan_list* sl;
+	Scan_list** slp;
+	node = offset_to_node(scan_offset);
+	sl = node->scan_list;
+	slp = &(node->scan_list);
+	while(sl != NULL)
+	{
+		if (sl->query == query)
+		{
+
+			*slp = sl->next;
+			free(sl);
+			break;
+		}
+		slp = &(sl->next);
+		sl = sl->next;
+	}
+}
 
 int advance_offset(Query* query)
 {
@@ -2461,11 +2486,11 @@ int advance_offset(Query* query)
 //	pthread_mutex_unlock(&node->mutex);
 //	at_unlock(node->state);	// not here
 
+	at_lock(next_node->state);
 	sl->next = next_node->scan_list;
 	next_node->scan_list = sl;
 
-	at_lock(next_node->state);
-	at_unlock(node->state);
+	query->scan_offset = new_offset.no;
 
 //	next_node->state = 1; // not split it is copy ....
 //	insert_scan_list(next_node,query);
@@ -2473,9 +2498,11 @@ int advance_offset(Query* query)
 
 //	while(next_node->ref > 0); // remove insert
 //	*((Node*)query->node) = *next_node; // copy_node
-	Node* next_node_data;
-	next_node_data = offset_to_node_data(new_offset.no);
-	// read will not need this ... 
+
+//	Node* next_node_data;
+//	next_node_data = offset_to_node_data(new_offset.no);
+
+// read will not need this ... 
 	/*
 	if (!USE_DRAM)
 	{
@@ -2483,7 +2510,13 @@ int advance_offset(Query* query)
 	}
 	else
 	*/
-		*((Node*)query->node_data) = *next_node_data;	
+//		*((Node*)query->node_data) = *next_node_data;	
+//	copy_node((unsigned char*)query->node_data,query->scan_offset);
+	copy_and_sort_node(query);
+	at_unlock(node->state);
+
+//	sort_node(query);
+//	query->sorted_kv_i = 0;
 
 
 //	pthread_mutex_lock(&next_node->mutex);
@@ -2495,7 +2528,6 @@ int advance_offset(Query* query)
 //		dec_ref(old_offset);
 		
 //		dec_ref(new_offset);		
-	query->scan_offset = new_offset.no;
 //		*kv_pp = node_p->buffer;
 //	pthread_mutex_unlock(&query->scan_mutex);		
 	at_unlock(query->scan_lock);	
@@ -2517,76 +2549,81 @@ void copy_node(Node* node1,Node* node2)
 	pthread_mutex_unlock(&node2->mutex);
 }
 */
-void sort_node(Node* node_data,int* sorted_index,int* max,const int node_size)
+
+void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 {
+	Node* node_data = (Node*)query->node_data;
+	Node_offset node_offset = query->scan_offset;
+	Node_meta* node_meta = offset_to_node(node_offset);
+	Node_offset end_offset = node_meta->end_offset;
+	int i = 0;
+	int part;
+	int node_size[100*PART_MAX];
+	while(1)
+	{
+		node_data[i] = *offset_to_node_data(node_offset); // copy
+		node_size[i] = offset_to_node(node_offset)->size;
+		if (node_offset == end_offset)
+			break;
+		node_offset = node_data[i].next_offset;
+		i++;
+	}
+	part = i+1;
+//}
+
+//void sort_node(Node* node_data,int* sorted_index,int* max,const int node_size)
+//void sort_node(Query *query)
+//{
 	unsigned char* kv;
 	uint16_t v_size;
 //	const int node_size = offset_to_node(data_point_to_offset((unsigned char*)node_data))->size; 
-	kv = node_data->buffer;
-	*max = 0;
-	while (kv < node_data->buffer + node_size)
+//	Node* node_data;
+	query->sorted_kv_max = 0;
+	query->sorted_kv_i = 0;
+	int j;
+	const int kls = key_size+len_size;
+	unsigned char* node_end;
+//	const unsigned char* offset0 = query->node_data;
+	for (i=0;i<part;i++)
 	{
-		v_size = *((uint16_t*)(kv+key_size));
-		if (v_size & (1 << 15))
-			v_size-=(1<<15);
-		else
-			(sorted_index)[(*max)++] = kv-node_data->buffer;
-		kv+=key_size+len_size+v_size;
-	}
-
-	// sort
-	int i,j,t;
-	for (i=0;i<*max;i++)
-	{
-		for (j=i+1;j<*max;j++)
+		node_data = &(((Node*)query->node_data)[i]);
+		kv = node_data->buffer;
+		node_end = (unsigned char*)node_data+node_size[i];
+		//for (j=0;j<node_size[i];j++)
+		while (kv < node_end)
 		{
-			if (*((uint64_t*)(node_data->buffer+(sorted_index)[i])) > *((uint64_t*)(node_data->buffer+(sorted_index)[j])))
+			v_size = *((uint16_t*)(kv));
+			if (v_size & (1 << 15))
+				v_size-=(1<<15);
+			else
+				query->sorted_kv[(query->sorted_kv_max)++] = kv;
+			kv+=kls+v_size;
+		}
+	}
+	// sort
+//	int i,j;
+	for (i=0;i<query->sorted_kv_max;i++)
+	{
+		for (j=i+1;j<query->sorted_kv_max;j++)
+		{
+			if (*((uint64_t*)(query->sorted_kv[i] + len_size)) > *((uint64_t*)(query->sorted_kv[j] + len_size))) // 8 byte ver
 			{
-				t = (sorted_index)[i];
-				(sorted_index)[i] = (sorted_index)[j];
-				(sorted_index)[j] = t;
+				kv = query->sorted_kv[i];
+				query->sorted_kv[i] = query->sorted_kv[j];
+				query->sorted_kv[j] = kv;
 			}
 		}
 	}	
 }
 
-void insert_scan_list(Node_meta* node,void* query)
+void insert_scan_list(Node_offset &node_offset,void* query)
 {
+	Node_meta* node = offset_to_node(node_offset);
 	Scan_list* sl;
 	sl = (Scan_list*)malloc(sizeof(Scan_list)); // OP use allocator
 	sl->query = query;
 	sl->next = node->scan_list;
 	node->scan_list = sl;
-}
-
-void delete_scan_entry(Node_offset scan_offset,void* query)
-{
-	Node_meta* node;
-	Scan_list* sl;
-	Scan_list** slp;
-//	Query* query_p;
-//	query_p = (Query*)query;
-//	pthread_mutex_lock(&query_p->scan_mutex);
-	node = offset_to_node(scan_offset);
-//	pthread_mutex_lock(&node->mutex);
-	sl = node->scan_list;
-	slp = &(node->scan_list);
-	while(sl != NULL)
-	{
-		if (sl->query == query)
-		{
-
-			*slp = sl->next;
-			free(sl);
-			break;
-		}
-		slp = &(sl->next);
-		sl = sl->next;
-	}
-
-//	pthread_mutex_unlock(&node->mutex);
-//	pthread_mutex_unlock(&query_p->scan_mutex);
-
 }
 
 //void invalidate_kv(Node_offset node_offset, unsigned int kv_offset,unsigned int kv_len)
