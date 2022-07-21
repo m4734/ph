@@ -56,7 +56,7 @@ volatile int offset_cnt;
 std::atomic <uint8_t> alloc_lock;
 
 //#define NODE_TYPE 5
-#define FREE_QUEUE_LEN 1000
+#define FREE_QUEUE_LEN 10000
 volatile unsigned int free_cnt; // free_max // atomic or lock?
 volatile unsigned int free_min;
 volatile unsigned int free_index;
@@ -1160,11 +1160,11 @@ if (print)
 	unsigned char* buffer2;
 
 	int tc;
-	uint64_t temp_key[100];
+	uint64_t temp_key[100*PART_MAX];
 //	unsigned char* temp_kvp[100];
 //	int temp_len[100];
-	ValueEntry vea[100];
-	Node_offset temp_offset[100];	
+	ValueEntry vea[100*PART_MAX];
+	Node_offset temp_offset[100*PART_MAX];	
 	int oc;
 
 //	unsigned char buffer1[NODE_BUFFER],buffer2[NODE_BUFFER];

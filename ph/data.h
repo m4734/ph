@@ -124,17 +124,22 @@ int try_hard_lock(Node_offset offset);
 void hard_unlock(Node_offset offset);
 void soft_lock(Node_offset offset);
 
-inline Node_meta* offset_to_node(Node_offset offset) // it will be .. use macro
+//#define offset_to_node(offset) ((Node_meta*)&meta_array[offset.file][offset.offset])
+//#define offset_to_node_data(offset) ((Node*)&node_data_array[offset.file][offset.offset])
+
+inline Node_meta* offset_to_node(Node_offset &offset) // it will be .. use macro
 {
 	return &meta_array[offset.file][offset.offset];
 //	return &(Node_meta*)(meta_array[offset.file] + offset.offset);
 //	return &meta_array[offset];
 }
-inline Node* offset_to_node_data(Node_offset offset)
+inline Node* offset_to_node_data(Node_offset &offset)
 {
 	return &node_data_array[offset.file][offset.offset];
 //	return &node_data_array[offset];
 }
+
+
 /*
 inline unsigned int point_to_offset(unsigned char* kv_p)
 {

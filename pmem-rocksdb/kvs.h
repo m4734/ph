@@ -92,7 +92,8 @@ options.compression = rocksdb::kNoCompression;
 //		unsigned char* result;
 //		result = (unsigned char*)malloc(value_size);
 //		rocksdb::Slice slice;
-		std::string result;		
+		std::string result;	
+//		std::string result2;
 		for (i=0;i<ops;i++)
 		{
 			/*
@@ -115,6 +116,28 @@ options.compression = rocksdb::kNoCompression;
 			else if (tqa[i].op == 3) // update
 				db->Put(rocksdb::WriteOptions(),rocksdb::Slice((const char*)tqa[i].key,key_size),rocksdb::Slice((const char*)tqa[i].value,value_size));
 //				db->Put(rocksdb::WriteOptions(),(const char*)tqa[i].key,(const char*)tqa[i].value);
+			else if (tqa[i].op == 5)
+			{
+//				char *result_key;
+//				char *result_value;
+
+//				result_key = (char*)malloc(key_size);
+//				result_value = (char*)malloc(value_size);
+
+				int j;
+				rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+				it->Seek(rocksdb::Slice((const char*)tqa[i].key,key_size));
+				for (j=0;j<tqa[i].cnt;j++)
+				{
+					if (!it->Valid())
+						break;
+					result = it->value().ToString();
+					it->Next();
+				}
+				delete it;
+//				free(result_key);
+//				free(result_value);
+			}
 //				return;
 			
 

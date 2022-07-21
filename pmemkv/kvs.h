@@ -86,6 +86,24 @@ class KVS_pmemkv : public KVS
 //				return;
 			else if (tqa[i].op == 3) // update
 				pmemkv_put(db,(const char*)tqa[i].key,key_size,(const char*)tqa[i].value,value_size);
+			else if (tqa[i].op == 5)
+			{
+				pmemkv_iterator *it;
+				pmemkv_iterator_new(db,&it);
+//				pmemkv_iterator_seek_higher_eq(it,(const char*)tqa[i].key,key_size);
+				pmemkv_iterator_seek_to_first(it);
+				int j;
+				size_t len;
+				const char *str;
+				for (j=0;j<tqa[i].cnt;j++)
+				{
+					pmemkv_iterator_key(it,&str,&len);
+//					memcpy(result,
+					if (pmemkv_iterator_next(it) == PMEMKV_STATUS_NOT_FOUND)
+						break;
+				}
+				pmemkv_iterator_delete(it);
+			}
 //				return;
 			
 

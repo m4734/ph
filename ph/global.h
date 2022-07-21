@@ -52,7 +52,14 @@ struct Node_offset_u
 		uint32_t no_32;
 	};
 };
-
+/*
+struct ValueEntry2
+{
+	uint32_t kv_offset; // offset in file
+	uint16_t file;
+	uint16_t len;
+};
+*/
 struct ValueEntry
 //class ValueEntry
 {
@@ -128,6 +135,7 @@ extern int* range_hash_table_size;
 //#define NODE_BUFFER 256 // test
 extern int node_size;
 #define PART_MAX 4
+//#define PART_MAX 8
 //#define PART_MAX 2 // test
 
 extern int key_size;

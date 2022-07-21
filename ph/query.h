@@ -40,6 +40,7 @@ struct Query
 	//----------------------------------------- scan/next
 	Node_offset scan_offset; // volatile???
 	void* node_data;
+//	Node_data node_data[PART_MAX];
 //	int* node_size;
 //	int part;
 //	unsigned char* kv_p;

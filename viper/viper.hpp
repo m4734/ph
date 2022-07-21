@@ -37,7 +37,7 @@ namespace viper {
 using version_lock_t = uint8_t;
 
 static constexpr uint16_t PAGE_SIZE = 4 * 1024; // 4kb
-static constexpr uint8_t NUM_DIMMS = 6;
+static constexpr uint8_t NUM_DIMMS = 4; //6;// cgmin
 static constexpr size_t BLOCK_SIZE = NUM_DIMMS * PAGE_SIZE;
 static constexpr size_t ONE_GB = 1024l * 1024 * 1024;
 
@@ -65,10 +65,10 @@ struct ViperConfig {
     double resize_threshold = 0.85;
     double reclaim_free_percentage = 0.4;
     size_t reclaim_threshold = 1'000'000;
-    uint8_t num_recovery_threads = 32;
+    uint8_t num_recovery_threads = 24;//32; //cgmin
     size_t dax_alignment = ONE_GB;
     size_t fs_alignment = ONE_GB;
-    bool enable_reclamation = false;
+    bool enable_reclamation = false; // cgmin
 };
 
 namespace internal {

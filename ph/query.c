@@ -729,12 +729,15 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	int size;
 
 	update_free_cnt();
-
+#if 1
 	if (query->node_data == NULL)
 	{
 		query->node_data = (Node*)malloc(sizeof(Node)*PART_MAX);
+		if (query->node_data == NULL)
+			printf("node data alloc fail\n");
 //		query->node_size = (int*)malloc(sizeof(int)*PART_MAX);
 	}
+#endif
 	delete_query_scan_entry(query);
 
 	node_data = (Node*)query->node_data;
