@@ -17,7 +17,7 @@ volatile unsigned int seg_free_cnt; // atomic?
 volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
 
-#define FREE_SEG_LEN 1000
+#define FREE_SEG_LEN 10000
 SEG* free_seg_queue[FREE_SEG_LEN];
 
 std::atomic<uint8_t> free_seg_lock;
@@ -145,9 +145,15 @@ SEG* alloc_seg() // use free list
 
 	at_lock2(free_seg_lock);
 	if (seg_free_index == seg_free_min)
-		seg_free_min = PH::min_seg_free_cnt();
+	{
+		int temp;
+		temp = PH::min_seg_free_cnt();
+		if (temp > seg_free_index)
+			seg_free_index = temp;
+	}
 	if (seg_free_index < seg_free_min)
 	{
+
 		seg = free_seg_queue[seg_free_index%FREE_SEG_LEN];
 		seg_free_index++;
 	}

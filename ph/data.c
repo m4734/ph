@@ -51,7 +51,7 @@ volatile unsigned int free_cnt; // free_max // atomic or lock?
 volatile unsigned int free_min;
 volatile unsigned int free_index;
 
-#define FREE_QUEUE_LEN 1000
+#define FREE_QUEUE_LEN 10000
 unsigned int free_queue[FREE_QUEUE_LEN]; // queue len
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test

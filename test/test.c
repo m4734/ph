@@ -15,6 +15,15 @@
 #include "../viper/kvs.h"
 #endif
 
+#ifdef BUILD_PMEMKV
+#include <libpmemkv.h>
+#include "../pmemkv/kvs.h"
+#endif
+
+#ifdef BUILD_PMEMROCKSDB
+#include "../pmem-rocksdb/kvs.h"
+#endif
+
 struct Thread_parameter
 {
 	int tn;
@@ -30,7 +39,8 @@ int ops,tops;
 struct TestQuery** queries;
 
 unsigned char* key_array;
-unsigned char* value_array;
+//unsigned char* value_array;
+unsigned char** value_array;
 
 //unsigned char** result_array;
 //unsigned char*** scan_result_array;
@@ -68,11 +78,16 @@ void load_workload(char* path)
 		queries[i] = (struct TestQuery*)malloc(sizeof(struct TestQuery) * tops);
 
 	key_array = (unsigned char*)malloc(workload_key_size * ops);
-	value_array = (unsigned char*)malloc(workload_value_size * ops);
+//	value_array = (unsigned char*)malloc(workload_value_size * ops);
+//	value_array = (unsigned char*) mmap(NULL,workload_value_size*ops,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);	
+	value_array = (unsigned char**)malloc(sizeof(unsigned char*) * ops);
+	for (i=0;i<ops;i++)
+		value_array[i] = (unsigned char*)malloc(workload_value_size);
+
 	dummy_ptr = (unsigned char*)malloc(workload_value_size);
 
 	memset(key_array,0,workload_key_size * ops);
-	memset(value_array,0,workload_key_size * ops);
+//	memset(value_array,0,workload_key_size * ops);
 
 	for (i=0;i<workload_value_size;i++)
 		dummy_ptr[i] = i%256;
@@ -91,16 +106,16 @@ void load_workload(char* path)
 	t = 0;
 	o = 0;
 	key_ptr = key_array;
-	value_ptr = value_array;
+//	value_ptr = value_array;
 
 	for (i=0;i<ops;i++)
 	{
 		fgets(line,LINE_LENGTH,in);
-		if (key_type == 0)
+		if (key_type == 0) // key binary
 		{
 			sscanf(line,"%s %s",op,key_ptr);
 		}
-		else if (key_type == 1 || key_type == 2)
+		else if (key_type == 1 || key_type == 2) // key int64
 		{
 			sscanf(line,"%s %ld",op,(uint64_t*)key_ptr);
 			//test
@@ -128,7 +143,7 @@ void load_workload(char* path)
 		queries[t][o].key = key_ptr;
 		key_ptr+=workload_key_size;
 
-		if (queries[t][o].op == 1 || queries[t][o].op == 3)
+		if (queries[t][o].op == 1 || queries[t][o].op == 3) // have value
 		{
 			if (key_type == 2)
 			{
@@ -147,11 +162,29 @@ void load_workload(char* path)
 					}
 				}
 				j++;
-				memcpy(value_ptr,line+j,workload_value_size);
-				queries[t][o].value = value_ptr;
-				value_ptr+=workload_value_size;
+				memcpy(value_array[i],line+j,workload_value_size);
+//				memcpy(value_ptr,line+j,workload_value_size);				
+//				queries[t][o].value = value_ptr;//value_array[i];
+				queries[t][o].value = value_array[i];
+//				value_ptr+=workload_value_size;
 			}
 		
+		}
+		else if (queries[t][o].op == 5) //scan
+		{
+				n32 = 0;
+				for (j=0;j<LINE_LENGTH;j++)
+				{
+					if (line[j] == ' ')
+					{
+						n32++;
+						if (n32 == 2)
+							break;
+					}
+				}
+				j++;
+
+			sscanf(line+j,"%d",&queries[t][o].cnt);
 		}
 
 //		if (strlen((char*)value_ptr) < value_size)
@@ -254,7 +287,13 @@ void clean()
 	free(queries);
 
 	free(key_array);
-	free(value_array);
+//	free(value_array);
+//	munmap(value_array,workload_value_size*ops);	
+	
+	for (i=0;i<ops;i++)
+		free(value_array[i]);
+	free(value_array);	
+	
 /*
 	for (i=9;i<num_of_threads;i++)
 	{
@@ -334,6 +373,12 @@ int main()
 			kvs = new KVS_viper<Byte_8,Byte_100>();
 		else if(workload_value_size == 200)
 			kvs = new KVS_viper<Byte_8,Byte_200>();
+#elif BUILD_PMEMKV
+		printf("kvs_pmemkv\n");
+		kvs = new KVS_pmemkv();
+#elif BUILD_PMEMROCKSDB
+		printf("kvs_pmem-rocksdb\n");
+		kvs = new KVS_pmemrocksdb();
 #else
 		printf("ph?\n");
 		kvs = new KVS();
