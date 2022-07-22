@@ -1008,7 +1008,8 @@ ec++;
 if (ec >= 1000)
 {
 	printf("ec 1000\n");
-	scanf("%d",&ec);
+	ec = 0;
+//	scanf("%d",&ec);
 }
 			return -1; // failed
 		}
@@ -1038,7 +1039,8 @@ ec++;
 if (ec >= 1000)
 {
 	printf("ec 1000\n");
-	scanf("%d",&ec);
+//	scanf("%d",&ec);
+	ec = 0;
 }
 /*
 			while (next_node->state > 0) // spin // ...ok?

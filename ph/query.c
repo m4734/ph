@@ -372,8 +372,9 @@ _mm_mfence();
 				if (test > 1000)
 				{
 				printf("too many fail %lu\n",*((uint64_t*)key_p));
-				int t;
-				scanf("%d",&t);
+//				int t;
+//				scanf("%d",&t);
+				test = 0;
 					}
 					continue;
 				}
