@@ -149,7 +149,7 @@ SEG* alloc_seg() // use free list
 		int temp;
 		temp = PH::min_seg_free_cnt();
 		if (temp > seg_free_index)
-			seg_free_index = temp;
+			seg_free_min = temp;
 	}
 	if (seg_free_index < seg_free_min)
 	{
