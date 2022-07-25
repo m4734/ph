@@ -55,7 +55,8 @@ struct Node
 //	volatile uint16_t size; //size // needed cas but replaced to double check...
 //	unsigned int next_offset; //	2^32
 	Node_offset next_offset;
-	unsigned int part;	
+//	unsigned int part;	
+	Node_offset next_offset_ig; // in group
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
@@ -69,7 +70,8 @@ struct Node_meta
 		
 //	volatile Node_offset next_offset;
 	volatile uint32_t next_offset;	
-	unsigned int part;
+	uint32_t next_offset_ig; //in group
+//	unsigned int part;
 //	volatile Node_offset prev_offset;
 	volatile uint32_t prev_offset;	
 //	Node_offset start_offset;
@@ -102,6 +104,8 @@ struct Node_meta
 	uint16_t* inv_kv;
 	uint16_t inv_cnt;
 	uint16_t inv_max;
+
+	uint8_t part;
 
 	unsigned char padding[8];
 };

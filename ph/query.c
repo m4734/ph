@@ -19,6 +19,9 @@
 #define print 0
 
 //using namespace PH;
+
+//#define LOCK_FAIL_STOP
+
 namespace PH
 {
 
@@ -402,8 +405,11 @@ _mm_mfence();
 				if (test > 1000)
 				{
 				printf("too many fail %lu\n",*((uint64_t*)key_p));
+				test = 0;
+#ifdef LOCK_FAIL_STOP
 				int t;
 				scanf("%d",&t);
+#endif
 					}
 					continue;
 				}
