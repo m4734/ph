@@ -13,7 +13,7 @@ class KVS_pmemkv : public KVS
 	{
 		KVS::init(num,key,value,record); // will need this
 		uint64_t initial_size = 1024*1024*1024;
-		initial_size*=20; // 40G
+//		initial_size*=20; // 40G
 
 		pmemkv_config *cfg = pmemkv_config_new();
 		pmemkv_config_put_path(cfg,"/mnt/pmem0/pmemkv");
