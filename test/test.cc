@@ -5,6 +5,8 @@
 
 #include <time.h>
 
+#include <stdint.h>
+
 #include "test.h"
 
 #ifdef BUILD_PH
@@ -22,6 +24,10 @@
 
 #ifdef BUILD_PMEMROCKSDB
 #include "../pmem-rocksdb/kvs.h"
+#endif
+
+#ifdef BUILD_PACKMAN
+#include "../pacman/kvs.h"
 #endif
 
 struct Thread_parameter
@@ -314,13 +320,7 @@ int main()
 	int type;
 	char path[1000];
 	int init;
-/*
-	printf("type\n");
-	printf("0.test\n");
-	printf("1.PH\n");
-	printf("2.Viper\n");
-	scanf("%d",&type);
-*/
+
 	printf("num_of_threads\n");
 	scanf("%d",&num_of_threads);
 
@@ -379,6 +379,9 @@ int main()
 #elif BUILD_PMEMROCKSDB
 		printf("kvs_pmem-rocksdb\n");
 		kvs = new KVS_pmemrocksdb();
+#elif BUILD_PACMAN
+		printf("kvs_pacman\n");
+		kvs = new KVS_pacman();
 #else
 		printf("ph?\n");
 		kvs = new KVS();

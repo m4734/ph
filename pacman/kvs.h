@@ -1,15 +1,12 @@
 #include "../test/test.h"
-#include <cassert>
-#include <rocksdb/db.h>
 #include <stdio.h>
 
-class KVS_pmemrocksdb : public KVS
+#include "include/config.h"
+#include "include/db.h"
+
+class KVS_pacman : public KVS
 {
 	public:
-
-		rocksdb::DB* db;
-		rocksdb::Options options;
-
 
 	virtual void init(int num,int key,int value,int record)
 	{
@@ -17,36 +14,9 @@ class KVS_pmemrocksdb : public KVS
 		uint64_t initial_size = 1024*1024*1024;
 //		initial_size*=20; // 40G
 
-		options.create_if_missing = true;
+		DB *db = new DB("/mnt/pmem0",1024*1024*1024,num,num);
 
-		options.recycle_dcpmm_sst = true;
-
-		options.env = rocksdb::NewDCPMMEnv(rocksdb::DCPMMEnvOptions());
-
-		options.dcpmm_kvs_enable = true;
-//		options.dcpmm_kvs_mmaped_file_fullpath = "/mnt/pmem0/pmemobjfile";
-/*
-		options.use_mmap_read = true;
-options.cache_index_and_filter_blocks_for_mmap_read = true;
-rocksdb::BlockBasedTableOptions bbto;
-bbto.block_size = 256;
-options.table_factory.reset(rocksdb::NewBlockBasedTableFactory(bbto));
-*/
-		
-options.compression = rocksdb::kNoCompression;
-
-
-		rocksdb::Status s = rocksdb::DB::Open(options,"/mnt/pmem0/rocksdb",&db);
-
-		if (!s.ok())
-			printf("%s\n",s.getState());
-
-		assert(s.ok());
-
-//		if (!s.ok())
-//			printf("???");
-
-		printf("kvs_pmem-rocksdb init\n");
+		printf("kvs_pacman init\n");
 	}
 
 /*
@@ -79,7 +49,7 @@ options.compression = rocksdb::kNoCompression;
 //    printf("get query %ld\n",viper::btt3);
 //    printf("index %ld\n",viper::btt1);
 //    printf("data %ld\n",viper::btt2);
-		delete db;    
+		free(db);	
 	}
 
 //	template <typename K, typename V>
@@ -94,6 +64,7 @@ options.compression = rocksdb::kNoCompression;
 //		rocksdb::Slice slice;
 		std::string result;	
 //		std::string result2;
+		std::unique_ptr<DB::Worker> worker = db->GetWorker();
 		for (i=0;i<ops;i++)
 		{
 			/*
@@ -107,15 +78,16 @@ options.compression = rocksdb::kNoCompression;
 
 
 			if (tqa[i].op == 1) // insert
-				db->Put(rocksdb::WriteOptions(),rocksdb::Slice((const char*)tqa[i].key,key_size),rocksdb::Slice((const char*)tqa[i].value,value_size));
+				worker->Put(Slice((const char*)tqa[i].key,key_size),Slice((const char*)tqa[i].value,value_size));
 //				db->Put(rocksdb::WriteOptions(),(const char*)tqa[i].key,(const char*)tqa[i].value);
 //				return;
 			else if (tqa[i].op == 2) // read
-				db->Get(rocksdb::ReadOptions(),rocksdb::Slice((const char*)tqa[i].key,key_size),&result);
+				worker->Get(Slice((const char*)tqa[i].key,key_size),&result);
 //				return;
 			else if (tqa[i].op == 3) // update
-				db->Put(rocksdb::WriteOptions(),rocksdb::Slice((const char*)tqa[i].key,key_size),rocksdb::Slice((const char*)tqa[i].value,value_size));
+				worker->Put(Slice((const char*)tqa[i].key,key_size),Slice((const char*)tqa[i].value,value_size));
 //				db->Put(rocksdb::WriteOptions(),(const char*)tqa[i].key,(const char*)tqa[i].value);
+#if 0
 			else if (tqa[i].op == 5)
 			{
 //				char *result_key;
@@ -139,6 +111,7 @@ options.compression = rocksdb::kNoCompression;
 //				free(result_value);
 			}
 //				return;
+#endif
 			
 
 			/*
