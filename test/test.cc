@@ -26,7 +26,7 @@
 #include "../pmem-rocksdb/kvs.h"
 #endif
 
-#ifdef BUILD_PACKMAN
+#ifdef BUILD_PACMAN
 #include "../pacman/kvs.h"
 #endif
 

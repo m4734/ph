@@ -1,12 +1,14 @@
 #include "../test/test.h"
 #include <stdio.h>
 
-#include "include/config.h"
-#include "include/db.h"
+#include "config.h"
+#include "db.h"
 
 class KVS_pacman : public KVS
 {
 	public:
+
+		DB *db;
 
 	virtual void init(int num,int key,int value,int record)
 	{
@@ -14,7 +16,7 @@ class KVS_pacman : public KVS
 		uint64_t initial_size = 1024*1024*1024;
 //		initial_size*=20; // 40G
 
-		DB *db = new DB("/mnt/pmem0",1024*1024*1024,num,num);
+		db = new DB("/mnt/pmem0",1024*1024*1024,num,num);
 
 		printf("kvs_pacman init\n");
 	}

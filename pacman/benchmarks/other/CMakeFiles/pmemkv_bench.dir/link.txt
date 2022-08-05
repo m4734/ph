@@ -1,0 +1,1 @@
+/usr/bin/c++   -pthread -march=native -O3 -DNDEBUG   CMakeFiles/pmemkv_bench.dir/pmemkv_bench.cpp.o CMakeFiles/pmemkv_bench.dir/__/histogram.cpp.o  -o pmemkv_bench  -Wl,-rpath,/home/cgmin/20220321/pacman/_deps/pmemkv-build ../../_deps/benchmark-build/src/libbenchmark.a ../../_deps/pmemkv-build/libpmemkv.so.1 -pthread /usr/lib/x86_64-linux-gnu/librt.so 
