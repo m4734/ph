@@ -62,6 +62,11 @@ volatile unsigned int free_min;
 volatile unsigned int free_index;
 Node_offset free_queue[FREE_QUEUE_LEN]; // queue len
 
+#define LOCAL_QUEUE_LEN 100
+thread_local Node_offset local_batch_alloc[LOCAL_QUEUE_LEN];
+thread_local int lbac=LOCAL_QUEUE_LEN;
+thread_local Node_offset local_batch_free[LOCAL_QUEUE_LEN];
+thread_local int lbfc=0;
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test
 uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
@@ -235,7 +240,7 @@ void new_file()
 	offset_cnt = 0;
 }
 
-Node_offset alloc_node()
+Node_offset alloc_node0()
 {
 #ifdef dtt
 	timespec ts1,ts2; // test
@@ -320,10 +325,95 @@ Node_offset alloc_node()
 #endif
 	return offset;
 }
+
+Node_offset alloc_node()
+{
+	if (lbac < LOCAL_QUEUE_LEN)
+	{
+		return local_batch_alloc[lbac++];
+	}
+	Node_meta* node;
+	Node_offset offset;
+
+	at_lock(alloc_lock);
+	int i;
+	for (i=0;i<LOCAL_QUEUE_LEN;i++)
+	{
+
+	if (free_index == free_min)
+	{
+		int temp;
+		temp = min_free_cnt();
+		if (temp > free_index) // because it is not volatile
+			free_min = temp;
+	}
+
+	if (free_index < free_min)
+	{
+		local_batch_alloc[i]  = free_queue[free_index%FREE_QUEUE_LEN];		
+		++free_index;
+		continue;
+	}
+	if (offset_cnt == MAX_OFFSET)	
+	{
+		new_file();
+	}
+
+	offset.file = file_num;
+	offset.offset = offset_cnt;
+	node = offset_to_node(offset);
+	node->inv_kv = (uint16_t*)malloc(sizeof(uint16_t)*4);
+	node->inv_max = 4;
+	node->inv_cnt = 0;
+
+	++offset_cnt;
+	local_batch_alloc[i]  = offset;
+	}
+	at_unlock(alloc_lock);
+	lbac = 0;
+	return local_batch_alloc[lbac++];
+}
 void free_node(Node_offset offset)
 {
+	if (lbfc < LOCAL_QUEUE_LEN)
+	{
+		local_batch_free[lbfc++] = offset;
+		return;
+	}
+
+		at_lock(alloc_lock);		
+		while(free_index + FREE_QUEUE_LEN/2 < free_cnt) // test
+		{
+//			if (free_index + FREE_QUEUE_LEN/2 < free_cnt)
+			{
+				update_idle();
+
+			if (free_index + FREE_QUEUE_LEN - LOCAL_QUEUE_LEN < free_cnt)
+			{
+				printf("queue full %d %d %d\n",free_min,free_index,free_cnt);
+				print_thread_info();
+				int t;
+				scanf("%d",&t);
+				continue;
+			}
+			}
+			break;
+		}
+		int i;
+		for (i=0;i<LOCAL_QUEUE_LEN;i++)
+		{
+		free_queue[free_cnt%FREE_QUEUE_LEN] = local_batch_free[i];
+		++free_cnt;
+		}
+		at_unlock(alloc_lock);	
+		lbfc=0;
+		local_batch_free[lbfc++] = offset;
+}
+
+void free_node0(Node_offset offset)
+{
 //	pthread_mutex_lock(&node->mutex);
-	Node_meta* node = offset_to_node(offset);	
+//	Node_meta* node = offset_to_node(offset);	
 //	node->state = 2; // free // without mutex?? // not need really
 // not need really
 
@@ -353,8 +443,8 @@ void free_node(Node_offset offset)
 		at_unlock(alloc_lock);	
 		break;
 		}
-	if (print)
-	printf("free node %p\n",node);
+//	if (print)
+//	printf("free node %p\n",node);
 }
 
 
@@ -411,17 +501,17 @@ int init_data() // init hash first!!!
 	update_free_cnt(); // temp main thread
 
 	//push for reserve
-	alloc_node(); // 0 // INIT_OFFSET
-	alloc_node(); // 1 SPLIT_OFFSET
-	head_offset.no = alloc_node(); // 2 head
-	tail_offset.no = alloc_node(); // 3 tail
+	alloc_node0(); // 0 // INIT_OFFSET
+	alloc_node0(); // 1 SPLIT_OFFSET
+	head_offset.no = alloc_node0(); // 2 head
+	tail_offset.no = alloc_node0(); // 3 tail
 
 	head_node = offset_to_node(head_offset.no);
 	tail_node = offset_to_node(tail_offset.no);
 
 //	Node_offset node_offset = alloc_node();
 	Node_offset_u node_offset;
-	node_offset.no = alloc_node();	//4 ROOT OFFSET
+	node_offset.no = alloc_node0();	//4 ROOT OFFSET
 	Node_meta* node = offset_to_node(node_offset.no);
 	node->state = 0;
 	node->size = 0;

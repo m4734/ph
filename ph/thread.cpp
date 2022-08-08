@@ -77,6 +77,8 @@ void exit_thread()
 	}
 	my_thread = NULL;
 //	op_cnt = 0;
+
+	// have to reset locall alloc free queue
 }
 
 void init_thread()
