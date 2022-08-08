@@ -1,4 +1,4 @@
-#include "../test/test.h"
+//#include "../test/test.h"
 
 #include "query.h"
 #include "global.h"
@@ -31,6 +31,20 @@ class KVS_ph : public KVS
 		int len;
 		PH::lookup_query(key,result,&len);
 	}
+
+	virtual int read_op2(unsigned char* key,unsigned char* result)
+	{
+		int len;
+		return PH::lookup_query(key,result,&len);
+//		result[0] = 'o';
+//		result[1] = 'k';
+//		return 0;
+	}
+	virtual int read_op2(unsigned char* key,std::string *value)
+	{
+		return PH::lookup_query(key,value);
+//		return 0;
+	}
 	virtual void update_op(unsigned char* key,unsigned char* value)
 	{
 		PH::insert_query(key,value);
@@ -58,9 +72,12 @@ class KVS_ph : public KVS
 
 	virtual void clean()
 	{
-		PH::clean_data();
-		PH::clean_hash();
-		PH::clean_thread();
+		printf("ph clean1\n");
+//		PH::clean_data();
+//		PH::clean_hash();
+//		PH::clean_thread();
+		PH::clean();
+		printf("ph clean2\n");
 	}
 
 	virtual void run(TestQuery* tqa, int ops)
@@ -97,6 +114,7 @@ class KVS_ph : public KVS
 		}
 		free(result);
 	}
+	
 	virtual void reset()
 	{
 		PH::reset_thread();

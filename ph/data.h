@@ -57,6 +57,8 @@ struct Node
 	Node_offset next_offset;
 //	unsigned int part;	
 	Node_offset next_offset_ig; // in group
+//	uint8_t continue_len;
+//	uint8_t part;
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
@@ -68,9 +70,13 @@ struct Node_meta
 //	volatile unsigned int next_offset;
 //	volatile unsigned int prev_offset;
 		
+	uint8_t continue_len;
+	uint8_t part;
+
 //	volatile Node_offset next_offset;
 	volatile uint32_t next_offset;	
-	uint32_t next_offset_ig; //in group
+//	uint32_t next_offset_ig; //in group
+	Node_offset next_offset_ig;
 //	unsigned int part;
 //	volatile Node_offset prev_offset;
 	volatile uint32_t prev_offset;	
@@ -78,7 +84,6 @@ struct Node_meta
 	Node_offset start_offset;	
 	/*volatile */Node_offset end_offset;
 	std::atomic<uint8_t> state;	
-	uint8_t continue_len;
 	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
 	uint16_t invalidated_size;
 	uint16_t group_size;
@@ -105,7 +110,6 @@ struct Node_meta
 	uint16_t inv_cnt;
 	uint16_t inv_max;
 
-	uint8_t part;
 
 	unsigned char padding[8];
 };
@@ -122,11 +126,17 @@ void clean_data();
 //void e_unlock(unsigned int offset);
 //int try_s_lock(unsigned int offset); // it will s lock??? // when e lock fail
 //int try_e_lock(unsigned int offset); // when e lock fail
-int inc_ref(Node_offset offset);
-void dec_ref(Node_offset offset);
-int try_hard_lock(Node_offset offset);
-void hard_unlock(Node_offset offset);
-void soft_lock(Node_offset offset);
+/*
+inline int inc_ref(Node_offset offset)
+{
+	return try_at_lock(offset_to_node(offset)->state);	
+}
+inline void dec_ref(Node_offset offset)
+{
+	at_unlock(offset_to_node(offset)->state);
+
+}
+*/
 
 //#define offset_to_node(offset) ((Node_meta*)&meta_array[offset.file][offset.offset])
 //#define offset_to_node_data(offset) ((Node*)&node_data_array[offset.file][offset.offset])
@@ -205,6 +215,16 @@ inline Node_offset get_start_offset(Node_offset& node_offset)
 inline void move_to_end_offset(Node_offset& node_offset)
 {
 	node_offset = offset_to_node(node_offset)->end_offset;
+}
+
+inline int inc_ref(Node_offset offset)
+{
+	return try_at_lock(offset_to_node(offset)->state);	
+}
+inline void dec_ref(Node_offset offset)
+{
+	at_unlock(offset_to_node(offset)->state);
+
 }
 
 

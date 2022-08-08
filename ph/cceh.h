@@ -18,7 +18,7 @@
 #define CL_PER_SEG (2 << CL_BIT)
 #define LINEAR_MULTI 4
 
-#define SPLIT_MASK (1 << 30)
+#define SPLIT_MASK (1 << 6)
 
 //#define ctt
 
@@ -116,7 +116,7 @@ inline bool zero_check(unsigned char* const &key);
 //	volatile struct SEG** seg_list;
 	std::atomic<SEG**> seg_list;	
 //	std::atomic<bool>* seg_lock;
-	std::atomic<int> dir_lock;
+//	std::atomic<uint8_t> dir_lock;
 //	std::mutex dir_lock;	
 
 	volatile uint64_t inv0_value;//,failed;
@@ -144,6 +144,8 @@ inline bool zero_check(unsigned char* const &key);
 	//test
 	int sc,pic,bc,find_cnt;
 	uint64_t ctt1,ctt2,ctt3,ctt4;
+
+	std::atomic<uint8_t> dir_lock;
 
 };
 

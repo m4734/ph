@@ -26,7 +26,33 @@ extern volatile unsigned int seg_free_cnt;
 //extern std::atomic<int> alloc_lock;
 std::atomic<uint8_t> thread_lock;
 //pthread_mutex_t m;
+/*
+inline void thread_run()
+{
+#ifdef idle_thread
+	my_thread->running = 1;
+#endif
+}
+inline void thread_idle()
+{
+#ifdef idle_thread
+	my_thread->running = 0;
+#endif
+}
+*/
+/*
+#ifdef idle_thread
 
+#define THREAD_RUN my_thread->running=1;
+#define THREAD_IDLE my_thread->running=0;
+
+#else
+
+#define THREAD_RUN
+#define THREAD_IDLE
+
+#endif
+*/
 void reset_thread()
 {
 	int i;
@@ -45,6 +71,7 @@ void exit_thread()
 //	if (thread_list[i].tid == pt)
 		{
 			thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+//			printf("exit thread %d\n",i);
 			break;
 		}
 	}
@@ -58,7 +85,12 @@ void init_thread()
 
 	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
 	for (i=0;i<num_of_thread;i++)
+	{
 		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
+#ifdef idle_thread
+	thread_list[i].running=0;
+#endif
+	}
 //	pthread_mutex_init(&alloc_mutex,NULL);
 	thread_lock = 0;//
 }
@@ -91,6 +123,32 @@ void new_thread()
 //	pthread_mutex_unlock(&alloc_mutex);
 	at_unlock(thread_lock);	
 }
+
+#ifdef idle_thread
+
+void update_idle()
+{
+	int i;
+//	print_thread_info(); //test
+	for (i=0;i<num_of_thread;i++)
+	{
+		if (thread_list[i].free_cnt != 999999999)
+		{
+			if (thread_list[i].running == 0)
+			{
+				thread_list[i].free_cnt = free_cnt;
+				thread_list[i].seg_free_cnt = seg_free_cnt;
+			}
+		}
+	}
+}
+
+#else
+void update_idle()
+{
+}
+
+#endif
 
 void update_free_cnt()
 {
@@ -144,7 +202,7 @@ void print_thread_info()
 	{
 		if (thread_list[i].free_cnt != 999999999)
 		{
-			printf("thread %d %d %d\n",i,thread_list[i].free_cnt,thread_list[i].seg_free_cnt);
+			printf("thread %d %d %d %d\n",i,thread_list[i].free_cnt,thread_list[i].seg_free_cnt,thread_list[i].running);
 		}
 	}
 

@@ -41,7 +41,12 @@ char pmem_file[100];// = "/mnt/pmem0/file";
 unsigned char empty[10];
 int empty_len;
 
-
+void clean()
+{
+	clean_data();
+	clean_hash();
+	clean_thread();
+}
 void temp_static_conf(int tn, int ks,int vs)
 {
 //	num_of_thread = 1;

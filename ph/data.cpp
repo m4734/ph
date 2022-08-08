@@ -56,7 +56,7 @@ volatile int offset_cnt;
 std::atomic <uint8_t> alloc_lock;
 
 //#define NODE_TYPE 5
-#define FREE_QUEUE_LEN 10000
+#define FREE_QUEUE_LEN 100000
 volatile unsigned int free_cnt; // free_max // atomic or lock?
 volatile unsigned int free_min;
 volatile unsigned int free_index;
@@ -68,8 +68,16 @@ uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
 //----------------------------------------------------------------
 
 // OP all
-
-
+/*
+void tf2()
+{
+	printf("tf data\n");
+}
+void error0()
+{
+	printf("error0\n");
+}
+*/
 void at_lock(std::atomic<uint8_t> &lock)
 {
 	uint8_t z;
@@ -316,21 +324,23 @@ void free_node(Node_offset offset)
 {
 //	pthread_mutex_lock(&node->mutex);
 	Node_meta* node = offset_to_node(offset);	
-		
-	node->state = 2; // free // without mutex?? // not need really
-//	pthread_mutex_unlock(&node->mutex);
-//	if (node->ref == 0)
-//	{
-//		pthread_mutex_lock(&alloc_mutex);
+//	node->state = 2; // free // without mutex?? // not need really
+// not need really
+
 		while(1) // test
 		{
+			if (free_index + FREE_QUEUE_LEN/2 < free_cnt)
+			{
+				update_idle();
+
 			if (free_index + FREE_QUEUE_LEN < free_cnt)
 			{
-				printf("queue full %d %d\n",free_index,free_cnt);
+				printf("queue full %d %d %d\n",free_min,free_index,free_cnt);
 				print_thread_info();
 				int t;
 				scanf("%d",&t);
 				continue;
+			}
 			}
 		at_lock(alloc_lock);		
 //		node_free_list.push(node);
@@ -343,7 +353,6 @@ void free_node(Node_offset offset)
 		at_unlock(alloc_lock);	
 		break;
 		}
-//	}
 	if (print)
 	printf("free node %p\n",node);
 }
@@ -426,7 +435,7 @@ int init_data() // init hash first!!!
 	node->start_offset = node_offset.no;
 	node->part = 0;
 	node->group_size = 0;
-	node->next_offset_ig = 0; // INIT OFFSET
+	node->next_offset_ig = INIT_OFFSET;//0
 
 	if (print)
 	printf("node 0 %p\n",node);
@@ -442,8 +451,8 @@ int init_data() // init hash first!!!
 	tail_node->state = 0;
 	tail_node->scan_list = NULL;
 	tail_node->part = 0;
-	head_node->next_offset_ig = 0;
-	tail_node->next_offset_ig = 0;
+	head_node->next_offset_ig = INIT_OFFSET;//0;
+	tail_node->next_offset_ig = INIT_OFFSET;//0;
 
 
 	flush_meta(head_offset.no);
@@ -482,14 +491,36 @@ int init_data() // init hash first!!!
 
 	return 0;
 }
+void clean_node(Node_offset offset)
+{
+	Node_meta* node = offset_to_node(offset);
+	free(node->inv_kv);
+}
 void clean_inv()
 {
-	int i;
+	int i,j;
 //not now
 	// what was it???
+	Node_offset offset;
+	for (i=0;i<file_num-1;i++)
+	{
+		for (j=0;j<MAX_OFFSET;j++)
+		{
+			offset.file = i;
+			offset.offset = j;
+			clean_node(offset);
+		}
+	}
+	offset.file = i;
+	for (j=0;j<offset_cnt;j++)
+	{
+		offset.offset = j;
+		clean_node(offset);
+	}
 }
 void clean_data()
 {
+	printf("clean data\n");
 	/*
 	free_node(offset_to_node(0));
 	free_node(offset_to_node(1));
@@ -512,6 +543,11 @@ void clean_data()
 	}
 	for (i=9;i<file_num;i++)
 		munmap(meta_addr[i],meta_size);
+
+	free(pmem_addr);
+	free(meta_addr);
+	free(node_data_array);
+	free(meta_array);
 //	pthread_mutex_destroy(&alloc_mutex); // moved to ...
 
 	//destroy all node mutex
@@ -642,18 +678,18 @@ void dec_ref(Node_meta* node)
 #endif
 }
 #endif
-int inc_ref(Node_offset offset) // nobody use this
+#if 0
+inline int inc_ref(Node_offset offset) // nobody use this
 {
-//	return inc_ref(offset_to_node(offset));
 	return try_at_lock(offset_to_node(offset)->state);	
 }
-void dec_ref(Node_offset offset)
+inline void dec_ref(Node_offset offset)
 {
 //	((Node_meta*)(meta_addr + offset*sizeof(Node_meta)))->state = 0;
-
-	return at_unlock(offset_to_node(offset)->state);
+	at_unlock(offset_to_node(offset)->state);
 //	return dec_ref(offset_to_node(offset));
 }
+#endif
 #if 0
 //int try_hard_lock(Node_meta* node) // need change
 int try_hard_lock(Node_offset offset)
@@ -871,9 +907,11 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 		end_meta->size = 0;
 		end_meta->inv_cnt = 0;
 		end_meta->start_offset = offset;
+//		end_meta->state = 0; // appended node doesn't use lock at all
 //		new_meta->invalidated_size
 //
 		meta->end_offset = end_offset;
+//		mid_meta->next_offset_ig = end_offset; //not now
 //		offset = end_offset;
 	}
 
@@ -898,12 +936,12 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 		{
 			Node* node_data = offset_to_node_data(end_offset);
 //			node_data->next_offset = *((Node_offset*)&meta->next_offset);//mid_meta->next_offset;
-			node_data->next_offset_ig = INIT_OFFSET; // this is the end of group
+//			node_data->next_offset_ig = INIT_OFFSET; // this is the end of group
 //			node_data->part = end_meta->part;
 			memcpy(buffer+old_size,&vl16,len_size);
 			memcpy(buffer+old_size+len_size,key,key_size);
 			memcpy(buffer+old_size+key_size+len_size,value,value_length);
-			pmem_persist(node_data,sizeof(unsigned int)*2+entry_size);
+			pmem_persist(node_data,sizeof(uint8_t)*2+entry_size);
 		}
 		else
 		{
@@ -1010,8 +1048,11 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 	{
 //		mid_meta->next_offset = *((uint32_t*)&end_offset); // no scan durint expand
 //		flush_meta(mid_offset);
-		pmem_memcpy((unsigned char*)offset_to_node_data(mid_offset) + sizeof(unsigned int),(uint32_t*)&end_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
 
+//		_mm_sfence();
+
+		mid_meta->next_offset_ig = end_offset;
+		pmem_memcpy((unsigned char*)offset_to_node_data(mid_offset) + sizeof(unsigned int),(uint32_t*)&end_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
 		_mm_sfence();
 	}
 	return buffer+old_size;	
@@ -1111,11 +1152,10 @@ int split(Node_offset offset,unsigned char* prefix, int continue_len) // locked
 	_mm_mfence();
 #endif
 
-static int ec=0;
+//static int ec=0;
 
 if (print)
 	printf("start split offset %d/%d len %d\n",offset.file,offset.offset,continue_len);
-
 	int i;
 	uint16_t size;//,size1,size2;
 	unsigned char* buffer;
@@ -1146,7 +1186,13 @@ if (print)
 
 	node = offset_to_node(offset);
 	node_data = offset_to_node_data(offset);
-
+/*
+	if (continue_len > 50)
+	{
+	printf("continue len %d gs %d is %d\n",node->continue_len,node->group_size,node->invalidated_size);
+	tf2();
+	}
+*/
 	Node_offset_u prev_offset,next_offset;
        prev_offset.no_32	= node->prev_offset;
 	prev_node = offset_to_node(prev_offset.no);
@@ -1195,7 +1241,8 @@ if (print)
 //			node->state = 0;
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
-printf("split offset %d/%d prev %d/%d state %d\n",offset.file,offset.offset,prev_offset.no.file,prev_offset.no.offset,(int)prev_node->state);
+//printf("split offset %d/%d prev %d/%d state %d\n",offset.file,offset.offset,prev_offset.no.file,prev_offset.no.offset,(int)prev_node->state);
+		/*	
 ec++;
 if (ec >= 1000)
 {
@@ -1205,6 +1252,7 @@ if (ec >= 1000)
 	scanf("%d",&ec);
 #endif
 }
+*/
 			return -1; // failed
 		}
 //			prev_node->m.unlock();
@@ -1230,7 +1278,8 @@ next_offset.no_32 = node->next_offset;
 //			node->state = 0;
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
-printf("split offset %d/%d next %d/%d state %d\n",offset.file,offset.offset,next_offset.no.file,next_offset.no.offset,(int)next_node->state);
+//printf("split offset %d/%d next %d/%d state %d\n",offset.file,offset.offset,next_offset.no.file,next_offset.no.offset,(int)next_node->state);
+			/*
 ec++;
 if (ec >= 1000)
 {
@@ -1240,6 +1289,7 @@ if (ec >= 1000)
 	scanf("%d",&ec);
 #endif
 }
+*/
 /*
 			while (next_node->state > 0) // spin // ...ok?
 				next_node = offset_to_node(node->next_offset);
@@ -1309,6 +1359,7 @@ if (print)
 
 	new_node1->inv_cnt = new_node2->inv_cnt = 0;
 	new_node1->group_size = new_node2->group_size = 0;
+	new_node1->invalidated_size = new_node2->invalidated_size = 0;
 
 	new_node1->start_offset = new_node1_offset.no;
 	new_node2->start_offset = new_node2_offset.no;
@@ -1401,6 +1452,7 @@ if (print)
 
 
 //	Node_offset current_offset0 = offset;
+//	Node_offset_u next_offset0;
 	Node_offset next_offset0;
 	Node* current_node0_data = node_data;
 	Node* current_node1_data = new_node1_data;
@@ -1419,7 +1471,9 @@ oc = 0;
 	{
 	current_node0_meta = offset_to_node(current_node0_offset);
 	current_node0_data = offset_to_node_data(current_node0_offset); 
-	next_offset0 = current_node0_data->next_offset_ig;
+//	next_offset0 = current_node0_data->next_offset_ig;
+//	next_offset0.no_32 = current_node0_meta->next_offset_ig;
+	next_offset0 = current_node0_meta->next_offset_ig;
 	buffer = current_node0_data->buffer;
 	buffer_end = buffer + current_node0_meta->size; 
 	sort_inv(current_node0_meta->inv_cnt,current_node0_meta->inv_kv);
@@ -1429,6 +1483,7 @@ oc = 0;
 //node0 start here?
 
 	temp_offset[oc++] = current_node0_offset;
+
 	while(buffer < buffer_end)
 	{
 		// 8 align
@@ -1439,8 +1494,19 @@ oc = 0;
 		kvs = kls + value_len;
 //		if ((lak.len & (1 << 15)) == 0)
 		if ((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] != buffer)
-//		if ((value_len & (1 << 15)) == 0) // valid length		
 		{
+			/*
+		if ((value_len & (1 << 15)) != 0) // valid length	
+		{
+			value_len-= (1<<15);
+			kvs-=(1<<15);
+			error0();
+			uint16_t cnt;
+			memcpy(&cnt,&current_node0_meta->inv_cnt,sizeof(uint16_t));
+			printf("%d\n",(int)cnt);
+		}
+		*/
+
 			if (print)
 				printf("pivot %lx key %lx\n",prefix_64,*((uint64_t*)(buffer)));
 
@@ -1459,23 +1525,26 @@ oc = 0;
 				if (buffer1+kvs > buffer1_end) // append node
 				{
 					current_node1_meta->size = buffer1-current_node1_data->buffer;
-					current_node1_meta->invalidated_size = 0;
+//					current_node1_meta->invalidated_size = 0;
 					new_node1->group_size+=current_node1_meta->size;
 
+//					Node_offset_u temp_offset;
 					Node_offset temp_offset;
 				       temp_offset	= alloc_node();
 					Node_meta* temp_meta = offset_to_node(temp_offset);
 
 					current_node1_data->next_offset_ig = temp_offset;
+					current_node1_meta->next_offset_ig = temp_offset;
 					// node 1 finish here!
 					pmem_persist(current_node1_data,sizeof(Node));
 					// can flush node1 here
 
-					temp_meta->state=0;
+//					temp_meta->state=0; // appended node doesn't...
 					temp_meta->part = current_node1_meta->part+1;
-					temp_meta->size = 0;
-					temp_meta->invalidated_size = 0;
+//					temp_meta->size = 0;
+//					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node1_offset.no;
+					temp_meta->inv_cnt=0;
 
 					current_node1_offset = temp_offset;
 					current_node1_meta = temp_meta;
@@ -1505,23 +1574,26 @@ oc = 0;
 				if (buffer2+kvs > buffer2_end) // append node
 				{
 					current_node2_meta->size = buffer2-current_node2_data->buffer;
-					current_node2_meta->invalidated_size = 0;
+//					current_node2_meta->invalidated_size = 0;
 					new_node2->group_size+=current_node2_meta->size;
 
+//					Node_offset_u temp_offset;
 					Node_offset temp_offset;
 				       temp_offset	= alloc_node();
 					Node_meta* temp_meta = offset_to_node(temp_offset);
 
 					current_node2_data->next_offset_ig = temp_offset;
+					current_node2_meta->next_offset_ig = temp_offset;
 					// node2 finish here!
 					pmem_persist(current_node2_data,sizeof(Node));
 					// can flush node2 here
 
-					temp_meta->state = 0;
+//					temp_meta->state = 0; // will not use
 					temp_meta->part = current_node2_meta->part+1;
-					temp_meta->size = 0;
-					temp_meta->invalidated_size = 0;
+//					temp_meta->size = 0;
+//					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node2_offset.no;
+					temp_meta->inv_cnt = 0;
 
 					current_node2_offset = temp_offset;
 					current_node2_meta = temp_meta;
@@ -1564,11 +1636,31 @@ oc = 0;
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
+//	if (current_node0_meta->inv_kv[0] != 0)
+//		error0();
 	if (current_node0_offset == node->end_offset)
 		break;
 	// else advance node
-	
-	current_node0_offset = next_offset0;
+/*
+	if (oc >= PART_MAX)
+	{
+		printf("%d/%d\n",current_node0_offset.file,current_node0_offset.offset);
+		printf("%d %d/%d\n",continue_len,node->end_offset.file,node->end_offset.offset);
+		printf("%d/%d\n",next_offset0.file,next_offset0.offset);
+		error0();
+
+			current_node0_offset = offset;
+		while(1)
+		{
+			printf("%d/%d ",current_node0_offset.file,current_node0_offset.offset);
+		current_node0_meta = offset_to_node(current_node0_offset);
+		current_node0_data = offset_to_node_data(current_node0_offset); 
+		current_node0_offset = current_node0_data->next_offset_ig;
+
+		}
+	}
+*/
+	current_node0_offset = next_offset0;//.no;
  
 	}
 
@@ -1584,18 +1676,18 @@ oc = 0;
 new_node1->end_offset = current_node1_offset;
 
 	current_node1_meta->size = buffer1-current_node1_data->buffer;
-	current_node1_meta->invalidated_size = 0;
+//	current_node1_meta->invalidated_size = 0;
 	new_node1->group_size+=current_node1_meta->size;
-//	current_node1_data->next_offset = new_node2_offset.no;//_32;
-	current_node1_data->next_offset_ig = INIT_OFFSET;
+	current_node1_data->next_offset = new_node2_offset.no;//_32;
+//	current_node1_data->next_offset_ig = INIT_OFFSET;
 	pmem_persist(current_node1_data,sizeof(Node));
 
 	new_node2->end_offset = current_node2_offset;
 	current_node2_meta->size = buffer2-current_node2_data->buffer;
-	current_node2_meta->invalidated_size = 0;
+//	current_node2_meta->invalidated_size = 0;
 	new_node2->group_size+=current_node2_meta->size;
-//	current_node2_data->next_offset = next_offset.no;//node->next_offset;
-	current_node2_data->next_offset_ig = INIT_OFFSET;
+	current_node2_data->next_offset = next_offset.no;//node->next_offset;
+//	current_node2_data->next_offset_ig = INIT_OFFSET;
 	pmem_persist(current_node2_data,sizeof(Node));
 
 	_mm_sfence(); // make sure before connect
@@ -1603,7 +1695,10 @@ new_node1->end_offset = current_node1_offset;
 	next_node->prev_offset = new_node2_offset.no_32;//calc_offset(new_node2);
 	prev_node->next_offset = new_node1_offset.no_32;
 	// end offset of prev node !!!!!!!!!!
-	pmem_memcpy((Node*)offset_to_node_data(prev_node->end_offset/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+//	pmem_memcpy((Node*)offset_to_node_data(prev_node->end_offset/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy((Node*)offset_to_node_data(prev_offset.no/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL); // design change
+	// layout change
+
 	_mm_sfence();
 
 #endif
@@ -1846,19 +1941,6 @@ printf("rehash\n");
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	tt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-
-/*
-	if (size2 == 0) // node1 first
-	{
-		free_node(new_node2);
-		return 0;
-	}
-	else if (size1 == 0)
-	{
-		free_node(new_node1);
-		return 0;
-	}
-*/
 	return 1;
 }
 
@@ -1886,11 +1968,11 @@ scanf("%d",&t);
 	unsigned char* buffer1;	
 
 	int tc;
-	uint64_t temp_key[100];
+	uint64_t temp_key[100 * PART_MAX];
 //	unsigned char* temp_kvp[100];
 //	int temp_len[100];
-	ValueEntry vea[100];	
-	Node_offset temp_offset[100];
+	ValueEntry vea[100 * PART_MAX];	
+	Node_offset temp_offset[100 * PART_MAX];
 	int oc;
 
 	Node_meta* new_node1;
@@ -2023,6 +2105,7 @@ Node_offset_u new_node1_offset;
 	new_node1->inv_cnt = 0;
 	new_node1->group_size = 0;
 	new_node1->start_offset = new_node1_offset.no;
+	new_node1->invalidated_size = 0;
 
 	new_node1->scan_list = NULL; // do we need this?
 
@@ -2079,6 +2162,7 @@ tc = 0;
 //	j = 0;
 
 //	Node_offset current_offset0 = offset;
+//	Node_offset_u next_offset0;
 	Node_offset next_offset0;
        Node* current_node0_data = node_data;
 Node* current_node1_data = new_node1_data;
@@ -2097,7 +2181,9 @@ oc = 0;
 	{
 	current_node0_meta = offset_to_node(current_node0_offset);
 	current_node0_data = offset_to_node_data(current_node0_offset); 
-	next_offset0 = current_node0_data->next_offset_ig;
+//	next_offset0 = current_node0_data->next_offset_ig;
+//	next_offset0.no_32 = current_node0_meta->next_offset_ig;
+	next_offset0 = current_node0_meta->next_offset_ig;
 	buffer = current_node0_data->buffer;
 	buffer_end = buffer + current_node0_meta->size; 
 	sort_inv(current_node0_meta->inv_cnt,current_node0_meta->inv_kv);
@@ -2116,29 +2202,44 @@ oc = 0;
 //		kvs = kls + lak.len;
 		kvs = kls + value_len;
 //		if ((/*value_len*/ lak.len & (1 << 15)) == 0) // valid length		
-		if ((unsigned char*)node_data + node->inv_kv[j] != buffer)		
+		if ((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] != buffer)		
 		{
+			/*
+		if ((value_len & (1 << 15)) != 0) // valid length	
+		{
+			value_len-= (1<<15);
+			kvs-=(1<<15);
+			error0();
+			uint16_t cnt;
+			memcpy(&cnt,&current_node0_meta->inv_cnt,sizeof(uint16_t));
+			printf("%d\n",(int)cnt);
+		}
+		*/
+
 //			temp_key[tc] = lak.key;
 			temp_key[tc] = *((uint64_t*)(buffer+len_size));
 			if (buffer1+kvs > buffer1_end)
 			{
 					current_node1_meta->size = buffer1-current_node1_data->buffer;
-					current_node1_meta->invalidated_size = 0;
+//					current_node1_meta->invalidated_size = 0;
 					new_node1->group_size+=current_node1_meta->size;
 
+//					Node_offset_u temp_offset;
 					Node_offset temp_offset;
 				       temp_offset	= alloc_node();
 					Node_meta* temp_meta = offset_to_node(temp_offset);
 
 					current_node1_data->next_offset_ig = temp_offset;
+					current_node1_meta->next_offset_ig = temp_offset;
 					pmem_persist(current_node1_data,sizeof(Node));
 					// can flush node1 here
 
-					temp_meta->state = 0;
+//					temp_meta->state = 0; // not use
 					temp_meta->part = current_node1_meta->part+1;
-					temp_meta->size = 0;
-					temp_meta->invalidated_size = 0;
+//					temp_meta->size = 0;
+//					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node1_offset.no;
+					temp_meta->inv_cnt=0;
 
 					current_node1_offset = temp_offset;
 					current_node1_meta = temp_meta;
@@ -2173,20 +2274,32 @@ oc = 0;
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
+//	if (current_node0_meta->inv_kv[0] != 0)
+//		error0();
 	if (current_node0_offset == node->end_offset)
 		break;
-	current_node0_offset = next_offset0;
+	current_node0_offset = next_offset0;//.no;
 	}
+
+	//swap inv array
+	uint16_t* temp_kv;
+	uint16_t temp_max;
+	temp_kv = node->inv_kv;
+	node->inv_kv = new_node1->inv_kv;
+	new_node1->inv_kv = temp_kv;
+	temp_max = node->inv_max;
+	node->inv_max = new_node1->inv_max;
+	new_node1->inv_max = temp_max;
 
 //	new_node1->size = buffer1-new_node1_data->buffer;
 //	new_node1->invalidated_size = 0;
 
 	new_node1->end_offset = current_node1_offset;
 	current_node1_meta->size = buffer1-current_node1_data->buffer;
-	current_node1_meta->invalidated_size = 0;
+//	current_node1_meta->invalidated_size = 0;
 	new_node1->group_size+=current_node1_meta->size;
-//	current_node1_data->next_offset = new_node1_offset.no;//_32;
-	current_node1_data->next_offset_ig = INIT_OFFSET;
+	current_node1_data->next_offset = new_node1_offset.no;//_32;
+//	current_node1_data->next_offset_ig = INIT_OFFSET;
 	pmem_persist(current_node1_data,sizeof(Node));
 
 	_mm_sfence(); // make sure before connect
@@ -2194,7 +2307,9 @@ oc = 0;
 	next_node->prev_offset = new_node1_offset.no_32;//calc_offset(new_node1);
 prev_node->next_offset = new_node1_offset.no_32;
 // end offset of prev node !!!!!!!!!!
-pmem_memcpy(offset_to_node_data(prev_node->end_offset/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+//pmem_memcpy(offset_to_node_data(prev_node->end_offset/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);
+pmem_memcpy(offset_to_node_data(prev_offset.no/*node->prev_offset*/),&new_node1_offset,sizeof(unsigned int),PMEM_F_MEM_NONTEMPORAL);// the design is changed
+// layout change
 _mm_sfence();
 
 	//why?? fill zero?
@@ -2270,6 +2385,7 @@ printf("rehash\n");
 		cur+=key_size+len_size+value_len;
 	}
 #endif
+
 //	printf("insert range\n");
 //	insert_range_entry((unsigned char*)prefix,continue_len,calc_offset(new_node1));
 //	insert_range_entry((unsigned char*)new_node1_data->buffer+len_size,key_bit,calc_offset(new_node1)); // who use 64 range
@@ -2280,16 +2396,6 @@ printf("rehash\n");
 	new_node1->continue_len = continue_len;
 
 //	range_entry->offset = calc_offset(new_node1);
-
-	//swap inv array
-	uint16_t* temp_kv;
-	uint16_t temp_max;
-	temp_kv = node->inv_kv;
-	node->inv_kv = new_node1->inv_kv;
-	node->inv_kv = temp_kv;
-	temp_max = node->inv_max;
-	node->inv_max = new_node1->inv_max;
-	new_node1->inv_max = temp_max;
 
 	_mm_sfence(); // for free after rehash
 //
@@ -2527,19 +2633,23 @@ void copy_node(Node* node1,Node* node2)
 void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 {
 	Node* node_data = (Node*)query->node_data;
-	Node_offset node_offset = query->scan_offset;
-	Node_meta* node_meta = offset_to_node(node_offset);
-	Node_offset end_offset = node_meta->end_offset;
+	Node_offset node_offset;// = query->scan_offset;
+	Node_meta* node_meta;// = offset_to_node(node_offset);
+	Node_offset end_offset;// = node_meta->end_offset;
 	int i = 0;
 	int part;
 	int node_size[100*PART_MAX];
+	node_offset = query->scan_offset;
+	node_meta = offset_to_node(node_offset);
+	end_offset = node_meta->end_offset;
 	while(1)
 	{
 		node_data[i] = *offset_to_node_data(node_offset); // copy
 		node_size[i] = offset_to_node(node_offset)->size;
 		if (node_offset == end_offset)
 			break;
-		node_offset = node_data[i].next_offset_ig;
+//		node_offset = node_data[i].next_offset_ig;
+		node_offset = offset_to_node(node_offset)->next_offset_ig;
 		i++;
 	}
 	part = i+1;
@@ -2613,7 +2723,9 @@ void invalidate_kv(ValueEntry& ve)
 	}
 	
 	meta->inv_kv[meta->inv_cnt++] = ve.kv_offset;
-	meta->invalidated_size+=ve.len+kl_size; // kv_len is value len
+	offset_to_node(meta->start_offset)->invalidated_size+=ve.len+kl_size; // kv_len is value len
+
+//	delete_kv((unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset); // test
 	
 }
 
@@ -2621,6 +2733,8 @@ int split_or_compact(Node_offset node_offset)
 {
 	Node_meta* meta;
 	meta = offset_to_node(node_offset);
+//	if (meta->continue_len < 60) // test
+//		return 1;
 	return meta->group_size > meta->invalidated_size*2;
 }
 

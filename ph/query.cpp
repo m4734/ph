@@ -25,8 +25,26 @@
 namespace PH
 {
 
-	extern uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
+#ifdef idle_thread
 
+extern thread_local PH_Thread* my_thread;
+#define THREAD_RUN my_thread->running=1;
+#define THREAD_IDLE my_thread->running=0;
+
+#else
+
+#define THREAD_RUN
+#define THREAD_IDLE
+
+#endif
+
+
+
+	extern uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
+void tf()
+{
+	printf("test function\n");
+}
 void print_query(Query* query)
 {
 	printf("print query\n");
@@ -69,12 +87,14 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	_mm_mfence();
 #endif
+//	thread_run();
 //		unsigned char* kv_p;
 		ValueEntry ve;
 //		int value_len;
 		const int kls = key_size+len_size;
 //		unsigned int offset;
 		update_free_cnt();
+	THREAD_RUN
 #ifdef qtt
 //		clock_gettime(CLOCK_MONOTONIC,&ts3);
 //		_mm_mfence();
@@ -98,7 +118,9 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 			memcpy(result_p,empty,empty_len);			
 			*result_len_p = empty_len;
 //			*result_len_p = 0;
-			return 0;
+//thread_idle();
+			THREAD_IDLE
+			return 0; // fail
 		}
 //		while(1)
 //		{
@@ -152,8 +174,9 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 		qtt8+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 
 #endif
-
-				return 0;				
+//thread_idle();
+		THREAD_IDLE
+				return 1;//ok
 //			}
 			
 
@@ -171,6 +194,26 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 		*/
 }
 
+int lookup_query(unsigned char* &key_p, std::string *value)
+{
+//	thread_run();
+		ValueEntry ve;
+		const int kls = key_size+len_size;
+		update_free_cnt();
+	THREAD_RUN
+		ve = find_point_entry(key_p); // don't create
+		if (ve.node_offset == INIT_OFFSET || ve.kv_offset == 0)
+		{
+			value->assign((char*)empty,empty_len);
+//			thread_idle();
+			THREAD_IDLE
+			return 0; // failed
+		}
+		value->assign((char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,ve.len);
+//		thread_idle();
+		THREAD_IDLE
+		return 1;//ok
+}
 
 int delete_query(unsigned char* key_p)
 {
@@ -251,7 +294,7 @@ int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 	*result = empty;
 	*result_len = empty_len;
 */
-
+//thread_run();
 	unsigned char* kv_p;
 
 	ValueEntry_u ve_u;
@@ -283,6 +326,7 @@ _mm_mfence();
 #endif
 	update_free_cnt();
 
+	THREAD_RUN
 
 	while(1) // offset can be changed when retry
 	{
@@ -399,8 +443,8 @@ _mm_mfence();
 //				if (range_entry == NULL) // spliting...
 				{
 //
-					printf("---------------split collision\n");
-					
+//					printf("---------------split collision\n");
+					/*
 					test++;
 				if (test > 1000)
 				{
@@ -411,6 +455,7 @@ _mm_mfence();
 				scanf("%d",&t);
 #endif
 					}
+					*/
 					continue;
 				}
 				if (inc_ref(ve_u.ve.node_offset))
@@ -504,8 +549,22 @@ _mm_mfence();
 #endif
 //			if (old_kv_offset)			
 //				invalidate_kv(old_node_offset,old_kv_offset,old_len);
+
 			if (old_ve_u.ve.node_offset != INIT_OFFSET)
+			{
+				/*
+				if (start_offset != get_start_offset(old_ve_u.ve.node_offset))
+				{
+					printf("errer\n");
+					tf();
+				}
+				if( get_continue_len(ve_u.ve.node_offset) == 63)
+				{
+					tf();
+				}
+*/
 				invalidate_kv(old_ve_u.ve);
+			}
 //			// use vep instead of insert point
 //			hard_unlock(offset);
 
@@ -564,6 +623,8 @@ unlock_entry(unlock);
 
 			}
 //			if (continue_len < key_bit)//64) // split
+//			if (continue_len == 63)
+//				tf();
 			if (split_or_compact(ve_u.ve.node_offset))
 			{	
 				if (print)
@@ -585,10 +646,12 @@ unlock_entry(unlock);
 //				m.lock();
 				if ((rv = split(ve_u.ve.node_offset,key_p,continue_len))<0)
 				{
+
+					dec_ref(locked_offset);
+					/*
 					printf("split lock failed %d/%d\n",ve_u.ve.node_offset.file,ve_u.ve.node_offset.offset);
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
 //					dec_ref(ve_u.ve.node_offset);
-					dec_ref(locked_offset);
 					test++;
 					if (test > 1000)
 					{
@@ -596,6 +659,7 @@ unlock_entry(unlock);
 						printf("???\n");
 //						scanf("%d",&t);
 					}
+					*/
 				}
 				else
 				{
@@ -644,6 +708,7 @@ unlock_entry(unlock);
 			}
 //int t;
 //					scanf("%d",&t);// test
+//			thread_idle();
 #ifdef qtt
 _mm_mfence();					
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
@@ -659,6 +724,7 @@ _mm_mfence();
 	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 #endif
 	}
+	THREAD_IDLE
 #ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);

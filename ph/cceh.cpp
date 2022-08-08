@@ -30,7 +30,6 @@ std::atomic<int> key_array_cnt;
 thread_local int key_array_index=0;
 int max_index;
 
-
 void at_lock2(std::atomic<uint8_t> &lock)
 {
 	uint8_t z;
@@ -41,7 +40,6 @@ void at_lock2(std::atomic<uint8_t> &lock)
 			return;
 	}
 }
-
 void at_unlock2(std::atomic<uint8_t> &lock)
 {
 	lock = 0;
@@ -203,11 +201,15 @@ void free_seg(SEG* seg)
 // need fetch and add
 
 	at_lock2(free_seg_lock);
+	if (seg_free_index+FREE_SEG_LEN/2 <= seg_free_cnt)
+	{
+		update_idle();
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
 		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
 		print_thread_info();
 		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt);
+	}
 	}
 	free_seg_queue[seg_free_cnt%FREE_SEG_LEN] = seg;	
 	seg_free_cnt++;
@@ -251,8 +253,8 @@ void CCEH::init(int in_depth)
 //	if (!point)
 //	printf("seg %p\n",seg_list[i]);	
 		inv_seg(seg_list[i]);//,i);
-//		seg_list[i]->lock = 0;
-		at_unlock2(seg_list[i]->lock);
+		seg_list[i]->lock = 0;
+//		at_unlock2(seg_list[i]->lock);
 		seg_list[i]->depth = depth;
 	}
 
@@ -537,16 +539,38 @@ void CCEH::split(int sn) // seg locked
 //	
 	if (seg->depth == depth)
 	{
-		int lock;
+		uint8_t lock;
+		/*
 		while(1)
 		{
 			lock = dir_lock;
 			if (lock & SPLIT_MASK)
+			{
+				at_unlock2(seg->lock);
 				return; //split fail by other dir double
+			}
 			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
 				break;
 		}
+		*/
+		lock = dir_lock;
+		if ((lock & SPLIT_MASK) || (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK) == 0))
+		{
+			at_unlock2(seg->lock);
+			return;
+		}
+
+		// have lock
+/*
+		if (seg->depth != depth) // impossible because dir lock
+		{
+			at_unlock2(seg->lock);
+			dir_lock-=SPLIT_MASK;
+			return;
+		}
+*/
 		while(dir_lock != SPLIT_MASK+1); // without me
+		//use no op
 
 //		while(dir_lock.compare_exchange_weak(0,1) == 0);
 //		static std::mutex dir_lock;
@@ -582,12 +606,12 @@ void CCEH::split(int sn) // seg locked
 	inv_seg(new_seg1);//,sn);
 	inv_seg(new_seg2);//,sn);
 
-//	new_seg1->lock = 0;
-	at_unlock2(new_seg1->lock);			
+	new_seg1->lock = 0;
+//	at_unlock2(new_seg1->lock);			
 	new_seg1->depth = seg->depth+1;
 
-//	new_seg2->lock = 0;
-	at_unlock2(new_seg2->lock);			
+	new_seg2->lock = 0;
+//	at_unlock2(new_seg2->lock);			
 	new_seg2->depth = seg->depth+1;
 
 	new_kvp_p1 = (KVP*)new_seg1->cl;
@@ -714,7 +738,8 @@ void CCEH::split(int sn) // seg locked
 		}
 	}
 */
-//	free_seg(seg);
+	at_unlock2(seg->lock);
+	free_seg(seg);
 }
 
 volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
@@ -753,12 +778,18 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 		return /*(ValueEntry_u*)&*/&inv0_value;
 	}
 
-	int lock = dir_lock;
-	if (lock & SPLIT_MASK)
+//	int lock = dir_lock;
+	// just use cas
+	if (dir_lock & SPLIT_MASK)
 		return 0;
 //	if (dir_lock.compare_exchange_strong(lock,lock+1) == 0)
 //		return 0;
 	dir_lock++;		
+	if (dir_lock & SPLIT_MASK)
+	{
+		dir_lock--;
+		return 0;
+	}
 
 	
 	hk = hf(key);
@@ -797,19 +828,23 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 */
 //	if (seg->lock.compare_exchange_weak(z,1) == 0)
 //		while(seg->lock.compare_exchange_weak(z,1) == 0);
-//	seg->seg_lock->lock();	
+//	seg->seg_lock->lock();
 	if (try_at_lock2(seg->lock) == 0)
 	{
+//		printf("seg lock fail\n");
 		dir_lock--;
 		return 0;
 	}
+//	if (!point)
+//	printf("%d ",(int)dir_lock);
 //printf("at_lock2 seg %p\n",seg);	
 //	if (sn != *(uint64_t*)key >> (64-depth))
 //	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))
+#if 0
 	if (seg != seg_list[sn])//sn != hk % ((uint64_t)1 << depth))
 
 	{
-		printf("lock retry\n");
+//		printf("seg lock retry\n");
 //		seg->lock = 0;
 		at_unlock2(seg->lock);
 //		seg->seg_lock->unlock();
@@ -818,6 +853,7 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 		dir_lock--;			
 		return 0;		
 	}
+#endif
 #if 0	
 	if (insert2(key,value,sn,cn))
 	{
@@ -973,19 +1009,20 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 	sc++;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 #endif
-	split(sn % ((uint64_t)1 << seg->depth));	
+	split(sn % ((uint64_t)1 << seg->depth));	// unlock & free seg
 #ifdef ctt
 	_mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	ctt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 //	seg->lock = 0;
-	at_unlock2(seg->lock);			
+//	at_unlock2(seg->lock);			
 
 //	seg->seg_lock->unlock();
 //	_mm_
 //	printf("free_seg %p\n",seg);		
-	free_seg(seg); // moved to split
+//	free_seg(seg); // moved to split
+	// what if split fail??? should not free seg
 //}
 
 //	goto retry;
@@ -1008,6 +1045,8 @@ void CCEH::unlock_entry2(void* unlock)
 		scanf("%d",&t);
 	}
 	*/
+	if (!point)
+		printf("ue errror?\n");
 	if (unlock)		
 	{
 		at_unlock2(((SEG*)unlock)->lock);

@@ -553,6 +553,7 @@ void init_hash()
 void clean_hash()
 {
 	// clean point hash
+	printf("clean hash\n");
 
 	delete point_hash;
 	delete[] range_hash_array;

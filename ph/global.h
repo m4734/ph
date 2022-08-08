@@ -130,7 +130,7 @@ extern int port;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-#define NODE_BUFFER 1024*4-4-4
+#define NODE_BUFFER 1024*4-1-1
 //#define NODE_BUFFER 1024-4-4
 //#define NODE_BUFFER 256 // test
 extern int node_size;
@@ -162,7 +162,7 @@ extern int empty_len;
 
 
 void temp_static_conf(int tn,int ks,int vs);
-
+void clean();
 // multiple definition
 /*
 {

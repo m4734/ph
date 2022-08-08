@@ -4,6 +4,7 @@
 
 #include <pthread.h>
 #include <atomic>
+#include <string>
 
 #include "global.h"
 
@@ -63,6 +64,7 @@ void reset_query(Query* query);
 void free_query(Query* query);
 
 int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len_p);
+int lookup_query(unsigned char* &key_p, std::string *value);
 int delete_query(unsigned char* key_p);
 int insert_query(unsigned char* &key_p, unsigned char* &value_p);
 int scan_query(Query* query);

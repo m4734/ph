@@ -78,7 +78,7 @@ constexpr data_offset_size_t get_num_slots_per_page() {
     const uint32_t entry_size = sizeof(std::pair<K, V>);
     uint16_t current_page_size = PAGE_SIZE;
 
-    const uint16_t page_overhead = sizeof(version_lock_t) + 1;
+    const uint16_t page_overhead = sizeof(version_lock_t) + 1; // pacman
     while (entry_size + page_overhead > current_page_size && current_page_size <= BLOCK_SIZE) {
         current_page_size += PAGE_SIZE;
     }
@@ -102,7 +102,7 @@ constexpr data_offset_size_t get_num_slots_per_page() {
     return num_slots_per_page;
 }
 
-inline void pmem_persist(const void* addr, const size_t len) {
+inline void pmem_persist(const void* addr, const size_t len) { // pacman
     char* addr_ptr = (char*) addr;
     char* end_ptr = addr_ptr + len;
     for (; addr_ptr < end_ptr; addr_ptr += CACHE_LINE_SIZE) {
@@ -179,7 +179,7 @@ struct alignas(PAGE_SIZE) ViperPage {
         static constexpr size_t v_page_size = sizeof(*this);
         static_assert(((v_page_size & (v_page_size - 1)) == 0), "VPage needs to be a power of 2!");
         static_assert(PAGE_SIZE % alignof(*this) == 0, "VPage not page size conform!");
-        version_lock = USED_BIT;
+        version_lock = USED_BIT; // pacman
         free_slots.set();
     }
 

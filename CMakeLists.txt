@@ -27,6 +27,7 @@ if (${BUILD_TARGET} STREQUAL "PH")
 	target_include_directories(test PUBLIC ph/)
 	target_compile_options(test PUBLIC -march=native)
 	target_compile_options(test PUBLIC -O3 -Ofast -mtune=native)
+#	target_compile_options(test PUBLIC -g)
 	target_link_libraries(test PUBLIC -lpmem)
 endif()
 
