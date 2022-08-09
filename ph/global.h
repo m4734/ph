@@ -160,7 +160,6 @@ extern char pmem_file[100];// = "/mnt/pmem0/ph_data";
 extern unsigned char empty[10];
 extern int empty_len;
 
-
 void temp_static_conf(int tn,int ks,int vs);
 void clean();
 // multiple definition

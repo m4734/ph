@@ -30,20 +30,20 @@
 namespace PH
 {
 
-#define MAX_FILE_NUM (1 << 16)
-#define MAX_OFFSET (1 << 16)
+//#define MAX_FILE_NUM (1 << 16)
+//#define MAX_OFFSET (1 << 16)
 
 //unsigned char* pmem_addr;
 unsigned char** pmem_addr;
 int is_pmem;
 size_t pmem_len;
-uint64_t file_size;
+//uint64_t file_size;
 //size_t pmem_used;
 Node** node_data_array;
 
 //unsigned char* meta_addr;
 unsigned char** meta_addr;
-uint64_t meta_size;
+//uint64_t meta_size;
 ///*volatile */uint64_t meta_used;
 Node_meta** meta_array;
 volatile int file_num;
@@ -213,25 +213,22 @@ void new_file()
 	len = strlen(file_name);
 	num = file_num;
 	i = 0;
-	while(1)
+	while(num > 0)
 	{
 		buffer[i] = num%10+'0';
 		i++;
 		num/=10;
-		if (num == 0)
-			break;
 	}
 	for (i=i-1;i>=0;i--)
-	{
 		file_name[len++] = buffer[i];
-	}
 	file_name[len] = 0;
+
 	if (USE_DRAM)
-		pmem_addr[file_num]=(unsigned char*)mmap(NULL,file_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS/*|MAP_POPULATE*/,-1,0);
+		pmem_addr[file_num]=(unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS/*|MAP_POPULATE*/,-1,0);
 
 	else
-		pmem_addr[file_num] = (unsigned char*)pmem_map_file(file_name,file_size,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
-	meta_addr[file_num] = (unsigned char*)mmap(NULL,meta_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
+		pmem_addr[file_num] = (unsigned char*)pmem_map_file(file_name,FILE_SIZE,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
+	meta_addr[file_num] = (unsigned char*)mmap(NULL,META_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
 
 	node_data_array[file_num] = (Node*)pmem_addr[file_num];
 	meta_array[file_num] = (Node_meta*)meta_addr[file_num];
@@ -465,9 +462,9 @@ int init_data() // init hash first!!!
 	meta_array = (Node_meta**)malloc(sizeof(unsigned char*)*MAX_FILE_NUM);
 //	node_data_array = (Node*)pmem_addr;
 //	file_size = 1024*1024*1024;
-	file_size = sizeof(Node)*(1<<16);	
+//	file_size = sizeof(Node)*(1<<16);	
 
-	meta_size = file_size/sizeof(Node)*sizeof(Node_meta);
+//	meta_size = file_size/sizeof(Node)*sizeof(Node_meta);
 //	meta_addr = (unsigned char*)mmap(NULL,meta_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
 //	meta_array = (Node_meta*)meta_addr;
 /*
@@ -624,15 +621,15 @@ void clean_data()
 	if (USE_DRAM)
 	{
 		for (i=0;i<file_num;i++)
-			munmap(pmem_addr[i],file_size);
+			munmap(pmem_addr[i],FILE_SIZE);
 	}
 	else
 	{
 		for (i=0;i<file_num;i++)
-			pmem_unmap(pmem_addr[i],file_size);
+			pmem_unmap(pmem_addr[i],FILE_SIZE);
 	}
 	for (i=9;i<file_num;i++)
-		munmap(meta_addr[i],meta_size);
+		munmap(meta_addr[i],META_SIZE);
 
 	free(pmem_addr);
 	free(meta_addr);
@@ -652,7 +649,7 @@ void clean_data()
 #endif
 
 //	printf("used %ld size %ld\n",(uint64_t)meta_used/sizeof(Node_meta),(uint64_t)meta_used/sizeof(Node_meta)*sizeof(Node));
-	printf("file cnt %d file size %ld\n",file_num,file_size);
+	printf("file cnt %d file size %ld\n",file_num,FILE_SIZE);
 	printf("index %d min %d cnt %d\n",free_index,free_min,free_cnt);
 
 	//query test
@@ -1007,7 +1004,7 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 
 
 
-	uint16_t vl16 = value_size;
+	const uint16_t vl16 = value_length;
 //	int new_size = old_size;	
 
 //	node_data = offset_to_node_data(offset); 

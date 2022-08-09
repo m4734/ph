@@ -119,6 +119,11 @@ extern Node_meta** meta_array;
 extern unsigned char** pmem_addr;
 extern Node** node_data_array;
 
+#define FILE_SIZE sizeof(Node)*(1<<16)
+#define META_SIZE sizeof(Node_meta)*(1<<16)
+#define MAX_FILE_NUM (1 << 16)
+#define MAX_OFFSET (1 << 16)
+
 int init_data();
 void clean_data();
 

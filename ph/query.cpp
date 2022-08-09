@@ -286,7 +286,12 @@ int delete_query(unsigned char* key_p)
 
 #define keep_lock
 
-int insert_query(unsigned char* &key_p, unsigned char* &value_p)
+void insert_query(unsigned char* &key_p, unsigned char* &value_p)
+{
+	insert_query(key_p,value_p,value_size);
+}
+
+void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 {
 	if (print)
 		printf("insert\n");
@@ -304,7 +309,7 @@ int insert_query(unsigned char* &key_p, unsigned char* &value_p)
 
 //	unsigned int offset;
 	int continue_len;
-	const int value_len = value_size; // temp fix
+//	const int value_len = value_size; // temp fix
 	continue_len = 0;
 //	continue_len = -1;	
 	int rv;
@@ -730,7 +735,7 @@ _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	qtt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-	return 0;
+//	return 0;
 
 }
 
