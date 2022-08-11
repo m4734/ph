@@ -21,6 +21,9 @@
 
 namespace PH
 {
+
+#define INV_BIT (1<<15)
+
 	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
@@ -59,6 +62,8 @@ struct Node
 	Node_offset next_offset_ig; // in group
 //	uint8_t continue_len;
 //	uint8_t part;
+	uint16_t continue_len;
+	unsigned char padding[8-2];
 
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
@@ -70,23 +75,30 @@ struct Node_meta
 //	volatile unsigned int next_offset;
 //	volatile unsigned int prev_offset;
 		
-	uint8_t continue_len;
-	uint8_t part;
+	volatile uint32_t next_offset; // 4	
+	volatile uint32_t prev_offset; // 4
+
+	Node_offset next_offset_ig; // 4
+	Node_offset start_offset; // 4
+	/*volatile */Node_offset end_offset; // 4
+
+	std::atomic<uint8_t> state;	// 1
+	uint8_t part; // 1
+
+	uint16_t continue_len; // 2
 
 //	volatile Node_offset next_offset;
-	volatile uint32_t next_offset;	
 //	uint32_t next_offset_ig; //in group
-	Node_offset next_offset_ig;
 //	unsigned int part;
 //	volatile Node_offset prev_offset;
-	volatile uint32_t prev_offset;	
 //	Node_offset start_offset;
-	Node_offset start_offset;	
-	/*volatile */Node_offset end_offset;
-	std::atomic<uint8_t> state;	
-	/*volatile */uint16_t size; //size // needed cas but replaced to double check...
-	uint16_t invalidated_size;
-	uint16_t group_size;
+
+	/*volatile */uint16_t size; //size // needed cas but replaced to double check... // 2
+	uint16_t invalidated_size; // 2
+	uint16_t group_size; // 2
+
+	uint16_t flush_size;
+
 //	std::atomic<uint16_t> size;
 //	unsigned int next_offset; //	2^32
 
@@ -102,16 +114,20 @@ struct Node_meta
 	*/
 
 
-	Scan_list* scan_list;
+	Scan_list* scan_list; // 8
 
 //	uint16_t ic;
 //	uint16_t inv_kv[100];//NODE_BUFFER/216]; // need to be list
-	uint16_t* inv_kv;
-	uint16_t inv_cnt;
-	uint16_t inv_max;
+	uint16_t* inv_kv; // 8
+	uint16_t inv_cnt; // 2
+	uint16_t inv_max; // 2
+
+	uint16_t flush_cnt;
+	uint16_t flush_max;
+	unsigned char** flush_kv;
 
 
-	unsigned char padding[8];
+//	unsigned char padding[8]; // 8
 };
 
 extern unsigned char** meta_addr;
@@ -179,9 +195,13 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
-int split(Node_offset offset, unsigned char* prefix, int continue_len);
+int split(Node_offset offset);//, unsigned char* prefix, int continue_len);
 
-int compact(Node_offset offset,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
+int compact(Node_offset offset);//,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
+
+int flush(Node_offset offset);
+
+
 void print_kv(unsigned char* kv_p);
 //int check_size(unsigned int offset,int value_length);
 

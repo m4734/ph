@@ -12,10 +12,12 @@
 namespace PH
 {
 
+#define INV9 999999999
+
 PH_Thread* thread_list;
 
 thread_local PH_Thread* my_thread = NULL;
-thread_local unsigned int op_cnt = 0;
+//thread_local unsigned int op_cnt = 0;
 
 extern volatile unsigned int free_cnt;
 extern int num_of_thread;
@@ -57,9 +59,12 @@ void reset_thread()
 {
 	int i;
 	for (i=0;i<num_of_thread;i++)
-		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+	{
+		thread_list[i].clean();
+//		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+	}
 }
-
+/*
 void exit_thread()
 {
 	int i;
@@ -71,6 +76,8 @@ void exit_thread()
 //	if (thread_list[i].tid == pt)
 		{
 			thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999;
+			thread_list[i].log->clean();
+			delete thread_list[i].log;
 //			printf("exit thread %d\n",i);
 			break;
 		}
@@ -80,17 +87,29 @@ void exit_thread()
 
 	// have to reset locall alloc free queue
 }
-
+*/
+void exit_thread()
+{
+	if (my_thread)
+		my_thread->clean();
+}
+void PH_Thread::clean()
+{
+	free_cnt = seg_free_cnt = INV9;
+	log->clean();
+}
 void init_thread()
 {
 	int i;
 
-	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
+//	thread_list = (PH_Thread*)malloc(num_of_thread * sizeof(PH_Thread) * 2); // temp
+	thread_list = new PH_Thread[num_of_thread+1];
 	for (i=0;i<num_of_thread;i++)
 	{
-		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
+//		thread_list[i].seg_free_cnt = thread_list[i].free_cnt = 999999999; // ignore until new
+		thread_list[i].init();
 #ifdef idle_thread
-	thread_list[i].running=0;
+//	thread_list[i].running=0;
 #endif
 	}
 //	pthread_mutex_init(&alloc_mutex,NULL);
@@ -100,24 +119,40 @@ void init_thread()
 void clean_thread()
 {
 //	pthread_mutex_destroy(&alloc_mutex);
-	free(thread_list);
+//	free(thread_list);
+	delete[] thread_list;
+}
+
+void PH_Thread::init()
+{
+	op_cnt = 0;
+
+	log = new LOG();
+	log->init();
+
+#ifdef idle_thread
+	running = 0;
+#endif
 }
 
 void new_thread()
 {
 	int i;
-	pthread_t pt;
-	pt = pthread_self();
+//	pthread_t pt;
+//	pt = pthread_self();
 //	pthread_mutex_lock(&alloc_mutex);
 	at_lock(thread_lock);	
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].free_cnt == 999999999)
+		if (thread_list[i].free_cnt == INV9)
 		{
-			thread_list[i].tid = pt;
+//			thread_list[i].tid = pt;
 			thread_list[i].free_cnt = free_cnt;
 			thread_list[i].seg_free_cnt = seg_free_cnt;
 			my_thread = &thread_list[i];
+
+		//	my_thread->log = new LOG();
+		//	my_thread->log->init();
 //			op_cnt = 0;
 			break;
 		}
@@ -134,7 +169,7 @@ void update_idle()
 //	print_thread_info(); //test
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].free_cnt != 999999999)
+		if (thread_list[i].free_cnt != INV9)
 		{
 			if (thread_list[i].running == 0)
 			{
@@ -156,8 +191,8 @@ void update_free_cnt()
 {
 	if (my_thread)
 	{
-		op_cnt++;
-		if (op_cnt & 256)
+		my_thread->op_cnt++;
+		if (my_thread->op_cnt & 256)
 		{
 			my_thread->free_cnt = free_cnt;
 			my_thread->seg_free_cnt = seg_free_cnt;

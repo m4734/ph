@@ -1,20 +1,28 @@
 #include <pthread.h>
+#include "log.h"
 
 #define idle_thread
 
 namespace PH
 {
 
-struct PH_Thread
+class PH_Thread
 {
-	pthread_t tid;
+	public:
 	unsigned int free_cnt;
 	unsigned int seg_free_cnt;
+
+	pthread_t tid;
 
 #ifdef idle_thread
 //	volatile int running; // overhead??
 	int running;
 #endif
+	unsigned int op_cnt;
+	class LOG *log;
+
+	void init();
+	void clean();
 };
 
 extern thread_local PH_Thread* my_thread;

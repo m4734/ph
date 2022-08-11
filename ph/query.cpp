@@ -649,7 +649,7 @@ unlock_entry(unlock);
 				*/
 //				static std::mutex m;
 //				m.lock();
-				if ((rv = split(ve_u.ve.node_offset,key_p,continue_len))<0)
+				if ((rv = split(ve_u.ve.node_offset))<0)//,key_p,continue_len))<0)
 				{
 
 					dec_ref(locked_offset);
@@ -688,7 +688,7 @@ unlock_entry(unlock);
 //				else
 //					range_entry->offset = rv;
 					*/
-				compact(ve_u.ve.node_offset,continue_len);
+				compact(ve_u.ve.node_offset);//,continue_len);
 				/*
 				if ((rv=compact(offset)) >= 0)
 				{
@@ -737,6 +737,109 @@ _mm_mfence();
 #endif
 //	return 0;
 
+}
+
+void insert_query_l(unsigned char* &key_p, unsigned char* &value_p)
+{
+	insert_query_l(key_p,value_p,value_size);
+}
+
+// hash + lock
+// node check
+// (flush and retry)
+// log write
+
+void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
+{
+	unsigned char* kv_p;
+
+	ValueEntry_u ve_u;
+	volatile uint64_t* v64_p;	
+	void* unlock;
+	int continue_len = 0;
+	int rv;
+	ValueEntry_u old_ve_u;
+	Node_offset locked_offset;
+	unsigned char* new_kv_p;
+
+	Node_offset start_offset;
+
+	update_free_cnt();
+
+	THREAD_RUN
+
+		my_thread->log->ready(value_len);
+
+
+	while(1) // offset can be changed when retry
+	{
+		ve_u.ve.node_offset = INIT_OFFSET;		
+	v64_p = find_or_insert_point_entry(key_p,&unlock);
+	old_ve_u.ve_64 = *v64_p;	
+		while(old_ve_u.ve.node_offset != INIT_OFFSET)		
+		{
+			start_offset = get_start_offset(old_ve_u.ve.node_offset);
+			if (inc_ref(start_offset))
+			{
+				ve_u.ve.node_offset = start_offset;
+					break;
+			}
+			unlock_entry(unlock);
+				v64_p = find_or_insert_point_entry(key_p,&unlock);
+				old_ve_u.ve_64 = *v64_p;
+		}
+		if (ve_u.ve.node_offset == INIT_OFFSET)		
+		{
+			while(1)
+			{
+				if ((ve_u.ve.node_offset = find_range_entry2(key_p,&continue_len)) == INIT_OFFSET)
+					continue;
+				if (inc_ref(ve_u.ve.node_offset))
+				{
+					old_ve_u.ve.node_offset = INIT_OFFSET;
+					break;
+				}
+			}
+		}
+		locked_offset = ve_u.ve.node_offset;		
+		if (new_kv_p = insert_kv(ve_u.ve.node_offset,key_p,value_p,value_len))
+		{
+	move_to_end_offset(ve_u.ve.node_offset); // move to end
+			ve_u.ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve_u.ve.node_offset);
+			ve_u.ve.len = value_len;			
+			*v64_p = ve_u.ve_64;
+			unlock_entry(unlock);
+			if (old_ve_u.ve.node_offset != INIT_OFFSET)
+				invalidate_kv(old_ve_u.ve);
+			dec_ref(locked_offset);			
+			break;
+		}
+		else // rv == -1 and it means we will split
+		{
+unlock_entry(unlock);
+			if (continue_len == 0)
+				continue_len = get_continue_len(ve_u.ve.node_offset);
+			if (split_or_compact(ve_u.ve.node_offset))
+			{	
+				if ((rv = split(ve_u.ve.node_offset))<0)
+				{
+
+					dec_ref(locked_offset);
+				}
+				else
+				{
+ 					dec_ref(locked_offset);//ve.node_offset); // have to be after offset 1
+					continue_len++;		
+				}
+			}
+			else
+			{
+				compact(ve_u.ve.node_offset);
+				dec_ref(locked_offset);					
+			}
+		}
+	}
+	THREAD_IDLE
 }
 
 void delete_query_scan_entry(Query* query)
