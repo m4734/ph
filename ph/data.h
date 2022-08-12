@@ -23,7 +23,7 @@ namespace PH
 {
 
 #define INV_BIT (1<<15)
-
+#define LOG_BIT (1<<15)
 	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
@@ -74,11 +74,15 @@ struct Node_meta
 {
 //	volatile unsigned int next_offset;
 //	volatile unsigned int prev_offset;
-		
-	volatile uint32_t next_offset; // 4	
-	volatile uint32_t prev_offset; // 4
+	
+
+
+	volatile uint32_t next_offset; // 4
 
 	Node_offset next_offset_ig; // 4
+
+	volatile uint32_t prev_offset; // 4
+
 	Node_offset start_offset; // 4
 	/*volatile */Node_offset end_offset; // 4
 
@@ -200,6 +204,7 @@ int split(Node_offset offset);//, unsigned char* prefix, int continue_len);
 int compact(Node_offset offset);//,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 
 int flush(Node_offset offset);
+Node_offset append_node(Node_offset& offset);
 
 
 void print_kv(unsigned char* kv_p);

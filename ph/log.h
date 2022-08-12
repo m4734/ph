@@ -33,8 +33,8 @@ class LOG
 	public:
 	void init();
 	void clean();
-	void insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p);
-	void insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len);
+	ValueEntry insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p);
+	ValueEntry insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len);
 	void ready(int value_len);
 	private:
 	void new_log_file();

@@ -757,7 +757,6 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 	volatile uint64_t* v64_p;	
 	void* unlock;
 	int continue_len = 0;
-	int rv;
 	ValueEntry_u old_ve_u;
 	Node_offset locked_offset;
 	unsigned char* new_kv_p;
@@ -801,7 +800,25 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 				}
 			}
 		}
-		locked_offset = ve_u.ve.node_offset;		
+		locked_offset = ve_u.ve.node_offset;	
+
+		ValueEntry_u rv;
+		if ((rv.ve = my_thread->log->insert_log(ve_u.ve.node_offset,key_p,value_p,value_len)).len != 0)
+		{
+//				move_to_end_offset(ve_u.ve.node_offset); // move to end
+//				ve_u.ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve_u.ve.node_offset);
+//				ve_u.ve.len = value_len;			
+//				*v64_p = ve_u.ve_64;
+			*v64_p = rv.ve_64;
+			unlock_entry(unlock);
+			if (old_ve_u.ve.node_offset != INIT_OFFSET)
+				invalidate_kv(old_ve_u.ve);
+			dec_ref(locked_offset);			
+			break;
+		}
+		unlock_entry(unlock);
+		dec_ref(locked_offset);
+#if 0
 		if (new_kv_p = insert_kv(ve_u.ve.node_offset,key_p,value_p,value_len))
 		{
 	move_to_end_offset(ve_u.ve.node_offset); // move to end
@@ -838,6 +855,7 @@ unlock_entry(unlock);
 				dec_ref(locked_offset);					
 			}
 		}
+#endif
 	}
 	THREAD_IDLE
 }

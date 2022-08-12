@@ -1,5 +1,6 @@
 #include <libpmem.h>
 #include <string.h>
+#include <x86intrin.h>
 
 #include "log.h"
 #include "data.h"
@@ -9,6 +10,9 @@
 
 namespace PH
 {
+
+// len key value file offset index
+#define LF_SIZE 2+2+2
 
 extern unsigned char** pmem_addr;
 
@@ -91,15 +95,99 @@ void LOG::insert_log(unsigned char* &key_p, unsigned char* &value_p,int value_le
 
 }
 #endif
-void LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_length)
+ValueEntry LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len)
 {
+	ValueEntry rv;
+	int entry_size = len_size + key_size + value_len;
+	LogOffset kv_in2 = kv_in;
+
+	if (entry_size%2)
+		++entry_size;
+
+	kv_in2.offset+=entry_size+LF_SIZE;
+//	if (kv_in2.offset % 2)
+//		kv_in2.offset++;
+
+	if (kv_in2.offset+len_size >= FILE_SIZE)
+	{
+		kv_in2.offset = entry_size+LF_SIZE;
+//		if (size % 2)
+//			kv_in2.offset++;
+		kv_in2.file++;
+		if (kv_in2.file >= file_max)
+		{
+			if (false)
+				new_log_file();
+			else
+				kv_in2.file = 0;
+		}
+		kv_in.file = kv_in2.file;
+		kv_in.offset = 0;
+	}
+
+	Node_meta* meta = offset_to_node(node_offset);
+	uint16_t offset = sizeof(Node_offset)*2 + meta->size + meta->flush_size; // meta + [buffer]...
+	uint16_t z = 0;
+	uint16_t vl16 = value_len;
+
+	if (meta->size + meta->flush_size + entry_size + LF_SIZE + len_size >= NODE_BUFFER)
+	{
+		// split compact or append
+		if (meta->part == PART_MAX-1)
+		{
+			Node_offset start_offset = meta->start_offset;
+			if (split_or_compact(start_offset))
+				split(start_offset);
+			else
+				compact(start_offset);
+			rv.len = 0;
+			return rv;
+		}
+		else
+		{
+			node_offset = append_node(node_offset);
+		}
+	}
+	else
+	{
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset,&vl16,len_size);
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size,key_p,key_size);
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size+key_size,value_p,value_len);
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size,&node_offset,sizeof(Node_offset));
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size+sizeof(Node_offset),&offset,sizeof(uint16_t));
+		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size+sizeof(Node_offset)+sizeof(uint16_t),&z,sizeof(uint16_t));
+
+		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset+len_size,pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size,entry_size+LF_SIZE,PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset,pmem_addr[dram_num[kv_in.file]]+kv_in.offset,len_size,PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+	}
+
+
+	rv.node_offset.file = dram_num[kv_in.file];
+	rv.node_offset.offset = kv_in.offset / sizeof(Node);
+	rv.kv_offset = kv_in.offset % sizeof(Node);
+	rv.len = value_len;
+
+	meta->flush_size+=entry_size;
+	Node_meta* start_meta = offset_to_node(meta->start_offset);
+	start_meta->group_size+=entry_size;
+	
+	if (meta->flush_cnt == meta->flush_max)
+	{
+		meta->flush_max*=2;
+		meta->flush_kv = (unsigned char**)realloc(meta->flush_kv,sizeof(unsigned char*)*meta->flush_max);
+	}
+	meta->flush_kv[meta->flush_cnt++] = pmem_addr[dram_num[kv_in.file]]+kv_in.offset;
+
+	kv_in = kv_in2;
+
+	return rv;
 }
-void LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p)
+ValueEntry LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p)
 {
-	insert_log(node_offset,key_p,value_p,value_size);
+	return insert_log(node_offset,key_p,value_p,value_size);
 }
-// len key value file offset index
-#define LF_SIZE 2+2+2
 void LOG::ready(int value_len)
 {
 	int size = len_size + key_size + value_len + LF_SIZE;
@@ -156,8 +244,9 @@ void LOG::ready(int value_len)
 			{
 				if (*((uint16_t*)kvp) & INV_BIT)
 					break;
-				node_offset.file = *((uint16_t*)(kvp + len_size + key_size + vl16));
-				node_offset.offset = *((uint16_t*)(kvp + len_size + key_size + vl16 + sizeof(uint16_t)));
+//				node_offset.file = *((uint16_t*)(kvp + len_size + key_size + vl16));
+//				node_offset.offset = *((uint16_t*)(kvp + len_size + key_size + vl16 + sizeof(uint16_t)));
+				node_offset = *((Node_offset*)(kvp+len_size+key_size+vl16));
 				if (inc_ref(node_offset))
 				{
 					if (flush(node_offset))
