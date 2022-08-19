@@ -88,11 +88,13 @@ class KVS_ph : public KVS
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
-				PH::insert_query(tqa[i].key,tqa[i].value);
+				PH::insert_query_l(tqa[i].key,tqa[i].value);
+//				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 2) // read
 				PH::lookup_query(tqa[i].key,result,&len);
 			else if (tqa[i].op == 3) // update
-				PH::insert_query(tqa[i].key,tqa[i].value);
+				PH::insert_query_l(tqa[i].key,tqa[i].value);
+//				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 4) //delete
 				PH::delete_query(tqa[i].key);
 			else if (tqa[i].op == 5) //scan

@@ -95,8 +95,8 @@ void exit_thread()
 }
 void PH_Thread::clean()
 {
-	free_cnt = seg_free_cnt = INV9;
-	log->clean();
+	local_free_cnt = local_seg_free_cnt = INV9;
+//	log->clean();
 }
 void init_thread()
 {
@@ -120,6 +120,12 @@ void clean_thread()
 {
 //	pthread_mutex_destroy(&alloc_mutex);
 //	free(thread_list);
+	int i;
+	for (i=0;i<num_of_thread;i++)
+	{
+		if (thread_list[i].log)
+			thread_list[i].log->clean();
+	}
 	delete[] thread_list;
 }
 
@@ -127,12 +133,14 @@ void PH_Thread::init()
 {
 	op_cnt = 0;
 
-	log = new LOG();
-	log->init();
+//	log = new LOG();
+//	log->init();
+	log = NULL;
 
 #ifdef idle_thread
 	running = 0;
 #endif
+	local_free_cnt = local_seg_free_cnt = INV9;
 }
 
 void new_thread()
@@ -144,11 +152,17 @@ void new_thread()
 	at_lock(thread_lock);	
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].free_cnt == INV9)
+		if (thread_list[i].local_free_cnt == INV9)
 		{
+			// alloc thread
 //			thread_list[i].tid = pt;
-			thread_list[i].free_cnt = free_cnt;
-			thread_list[i].seg_free_cnt = seg_free_cnt;
+			thread_list[i].local_free_cnt = free_cnt;
+			thread_list[i].local_seg_free_cnt = seg_free_cnt;
+			if (thread_list[i].log == NULL)
+			{
+				thread_list[i].log = new LOG();
+				thread_list[i].log->init();
+			}
 			my_thread = &thread_list[i];
 
 		//	my_thread->log = new LOG();
@@ -169,12 +183,12 @@ void update_idle()
 //	print_thread_info(); //test
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].free_cnt != INV9)
+		if (thread_list[i].local_free_cnt != INV9)
 		{
 			if (thread_list[i].running == 0)
 			{
-				thread_list[i].free_cnt = free_cnt;
-				thread_list[i].seg_free_cnt = seg_free_cnt;
+				thread_list[i].local_free_cnt = free_cnt;
+				thread_list[i].local_seg_free_cnt = seg_free_cnt;
 			}
 		}
 	}
@@ -194,8 +208,8 @@ void update_free_cnt()
 		my_thread->op_cnt++;
 		if (my_thread->op_cnt & 256)
 		{
-			my_thread->free_cnt = free_cnt;
-			my_thread->seg_free_cnt = seg_free_cnt;
+			my_thread->local_free_cnt = free_cnt;
+			my_thread->local_seg_free_cnt = seg_free_cnt;
 		}
 	}
 	else
@@ -224,8 +238,8 @@ unsigned int min_free_cnt()
 	unsigned int min=999999999;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (min > thread_list[i].free_cnt)
-			min = thread_list[i].free_cnt;
+		if (min > thread_list[i].local_free_cnt)
+			min = thread_list[i].local_free_cnt;
 	}
 	if (min == 999999999)
 		return free_cnt;
@@ -237,9 +251,9 @@ void print_thread_info()
 	int i;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].free_cnt != 999999999)
+		if (thread_list[i].local_free_cnt != 999999999)
 		{
-			printf("thread %d %d %d %d\n",i,thread_list[i].free_cnt,thread_list[i].seg_free_cnt,thread_list[i].running);
+			printf("thread %d %d %d %d\n",i,thread_list[i].local_free_cnt,thread_list[i].local_seg_free_cnt,thread_list[i].running);
 		}
 	}
 
@@ -251,19 +265,19 @@ unsigned int min_seg_free_cnt()
 	unsigned int min=999999999;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (min > thread_list[i].seg_free_cnt)
-			min = thread_list[i].seg_free_cnt;
+		if (min > thread_list[i].local_seg_free_cnt)
+			min = thread_list[i].local_seg_free_cnt;
 	}
 	if (min == 999999999)
 		return seg_free_cnt;
 	return min;
 }
-
+/*
 int check_slow()
 {
 	if (free_cnt-my_thread->free_cnt > 500)
 		return 1;
 	return 0;
 }
-
+*/
 }

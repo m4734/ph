@@ -43,7 +43,7 @@ void LOG::clean()
 	int i;
 	for (i=0;i<file_max;i++)
 	{
-		munmap(pmem_addr[i],FILE_SIZE);
+		munmap(pmem_addr[dram_num[i]],FILE_SIZE);
 		pmem_unmap(pmem_array[i],FILE_SIZE);
 	}
 }
@@ -95,71 +95,75 @@ void LOG::insert_log(unsigned char* &key_p, unsigned char* &value_p,int value_le
 
 }
 #endif
-ValueEntry LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len)
+ValueEntry LOG::insert_log(Node_offset start_node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len)
 {
 	ValueEntry rv;
 	int entry_size = len_size + key_size + value_len;
-	LogOffset kv_in2 = kv_in;
+	LogOffset kv_in_next = kv_in;
 
 	if (entry_size%2)
 		++entry_size;
 
-	kv_in2.offset+=entry_size+LF_SIZE;
-//	if (kv_in2.offset % 2)
-//		kv_in2.offset++;
+	kv_in_next.offset+=entry_size+LF_SIZE;
 
-	if (kv_in2.offset+len_size >= FILE_SIZE)
+	if (kv_in_next.offset+len_size >= FILE_SIZE)
 	{
-		kv_in2.offset = entry_size+LF_SIZE;
-//		if (size % 2)
-//			kv_in2.offset++;
-		kv_in2.file++;
-		if (kv_in2.file >= file_max)
+		kv_in_next.offset = entry_size+LF_SIZE;
+		kv_in_next.file++;
+		if (kv_in_next.file >= file_max)
 		{
-			if (false)
+			if (kv_in_next.file * LOG_RATIO * num_of_thread  <= file_num)
 				new_log_file();
 			else
-				kv_in2.file = 0;
+				kv_in_next.file = 0;
 		}
-		kv_in.file = kv_in2.file;
+		kv_in.file = kv_in_next.file;
 		kv_in.offset = 0;
 	}
 
-	Node_meta* meta = offset_to_node(node_offset);
-	uint16_t offset = sizeof(Node_offset)*2 + meta->size + meta->flush_size; // meta + [buffer]...
-	uint16_t z = 0;
-	uint16_t vl16 = value_len;
+	Node_offset end_offset = offset_to_node(start_node_offset)->end_offset;
+	Node_meta* end_meta = offset_to_node(end_offset);
 
-	if (meta->size + meta->flush_size + entry_size + LF_SIZE + len_size >= NODE_BUFFER)
+	if (end_meta->size + end_meta->flush_size + entry_size + len_size >= NODE_BUFFER)
 	{
 		// split compact or append
-		if (meta->part == PART_MAX-1)
+		if (end_meta->part == PART_MAX-1)
 		{
-			Node_offset start_offset = meta->start_offset;
-			if (split_or_compact(start_offset))
-				split(start_offset);
+//			Node_offset start_offset = meta->start_offset;
+			/*
+			if (split_or_compact(start_node_offset))
+				split(start_node_offset);
 			else
-				compact(start_offset);
+				compact(start_node_offset);
+				*/
 			rv.len = 0;
 			return rv;
 		}
 		else
 		{
-			node_offset = append_node(node_offset);
+			end_offset = append_node(start_node_offset);
+			end_meta = offset_to_node(end_offset);
+			// continue insert
 		}
 	}
-	else
-	{
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset,&vl16,len_size);
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size,key_p,key_size);
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size+key_size,value_p,value_len);
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size,&node_offset,sizeof(Node_offset));
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size+sizeof(Node_offset),&offset,sizeof(uint16_t));
-		memcpy(pmem_addr[dram_num[kv_in.file]]+kv_in.offset+entry_size+sizeof(Node_offset)+sizeof(uint16_t),&z,sizeof(uint16_t));
 
-		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset+len_size,pmem_addr[dram_num[kv_in.file]]+kv_in.offset+len_size,entry_size+LF_SIZE,PMEM_F_MEM_NONTEMPORAL);
+	uint16_t kv_offset = sizeof(Node_offset)*3 + end_meta->size + end_meta->flush_size; // meta + [buffer]...
+	uint16_t z = 0;
+	uint16_t vl16 = value_len;
+	unsigned char* const dest = pmem_addr[dram_num[kv_in.file]]+kv_in.offset;
+
+
+	{
+		memcpy(dest,&vl16,len_size);
+		memcpy(dest+len_size,key_p,key_size);
+		memcpy(dest+len_size+key_size,value_p,value_len);
+		memcpy(dest+entry_size,&end_offset,sizeof(Node_offset));
+		memcpy(dest+entry_size+sizeof(Node_offset),&kv_offset,sizeof(uint16_t));
+		memcpy(dest+entry_size+sizeof(Node_offset)+sizeof(uint16_t),&z,sizeof(uint16_t));
+
+		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset+len_size,dest+len_size,entry_size+LF_SIZE+len_size,PMEM_F_MEM_NONTEMPORAL);
 		_mm_sfence();
-		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset,pmem_addr[dram_num[kv_in.file]]+kv_in.offset,len_size,PMEM_F_MEM_NONTEMPORAL);
+		pmem_memcpy(pmem_array[kv_in.file]+kv_in.offset,dest,len_size,PMEM_F_MEM_NONTEMPORAL);
 		_mm_sfence();
 	}
 
@@ -169,18 +173,18 @@ ValueEntry LOG::insert_log(Node_offset node_offset,unsigned char* &key_p, unsign
 	rv.kv_offset = kv_in.offset % sizeof(Node);
 	rv.len = value_len;
 
-	meta->flush_size+=entry_size;
-	Node_meta* start_meta = offset_to_node(meta->start_offset);
+	end_meta->flush_size+=entry_size;
+	Node_meta* start_meta = offset_to_node(end_meta->start_offset);
 	start_meta->group_size+=entry_size;
 	
-	if (meta->flush_cnt == meta->flush_max)
+	if (end_meta->flush_cnt == end_meta->flush_max)
 	{
-		meta->flush_max*=2;
-		meta->flush_kv = (unsigned char**)realloc(meta->flush_kv,sizeof(unsigned char*)*meta->flush_max);
+		end_meta->flush_max*=2;
+		end_meta->flush_kv = (unsigned char**)realloc(end_meta->flush_kv,sizeof(unsigned char*)*end_meta->flush_max);
 	}
-	meta->flush_kv[meta->flush_cnt++] = pmem_addr[dram_num[kv_in.file]]+kv_in.offset;
+	end_meta->flush_kv[end_meta->flush_cnt++] = dest;
 
-	kv_in = kv_in2;
+	kv_in = kv_in_next;
 
 	return rv;
 }
@@ -217,6 +221,7 @@ void LOG::ready(int value_len)
 	unsigned char* kvp;
 	uint16_t vl16;
 	Node_offset node_offset;
+	Node_offset start_offset;
 	const int default_size = len_size + key_size + LF_SIZE;
 	while (
 			(kv_in2.file == kv_out.file && kv_in2.offset < kv_out.offset) ||
@@ -239,21 +244,23 @@ void LOG::ready(int value_len)
 		}
 		else
 		{
-//			flush(kvp);
+			node_offset = *((Node_offset*)(kvp+len_size+key_size+vl16));
+			start_offset = get_start_offset(node_offset);
+
 			while(1)
 			{
 				if (*((uint16_t*)kvp) & INV_BIT)
 					break;
 //				node_offset.file = *((uint16_t*)(kvp + len_size + key_size + vl16));
 //				node_offset.offset = *((uint16_t*)(kvp + len_size + key_size + vl16 + sizeof(uint16_t)));
-				node_offset = *((Node_offset*)(kvp+len_size+key_size+vl16));
-				if (inc_ref(node_offset))
+				if (inc_ref(start_offset))
 				{
 					if (flush(node_offset))
 					{
-						dec_ref(node_offset);
+						dec_ref(start_offset);
 						break;
 					}
+					dec_ref(start_offset);
 				}
 			}
 			kv_out.offset+=default_size+vl16;
@@ -270,9 +277,10 @@ void LOG::new_log_file()
 	char file_name[100];
 	char buffer[10];
 	int len,num,i;
-	strcpy(file_name,"log");
+	strcpy(file_name,pmem_file);
+	strcat(file_name,"log");
 	len = strlen(file_name);
-	num = cnt+1;
+	num = cnt;
 	i = 0;
 	while (num > 0)
 	{

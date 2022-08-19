@@ -43,9 +43,10 @@ int empty_len;
 
 void clean()
 {
-	clean_data();
+	printf("clean\n");
 	clean_hash();
 	clean_thread();
+	clean_data(); //clean data after log unmap
 }
 void temp_static_conf(int tn, int ks,int vs)
 {
@@ -81,12 +82,16 @@ void temp_static_conf(int tn, int ks,int vs)
 	memcpy(empty,"empty",empty_len);
 	empty[empty_len] = 0;
 
-	memcpy(pmem_file,"/mnt/pmem0/file",strlen("/mnt/pmem0/file"));
-	pmem_file[strlen("/mnt/pmem0/file")] = 0;
+	memcpy(pmem_file,"/mnt/pmem0/",strlen("/mnt/pmem0/"));
+	pmem_file[strlen("/mnt/pmem0/")] = 0;
 
+	init_file(); // before log
+	init_log(); //before new log file
 	init_thread(); // need alloc mutex later // what?
 	init_hash();
 	init_data();
+
+//	exit_thread();
 }
 
 }

@@ -22,8 +22,10 @@
 namespace PH
 {
 
-#define INV_BIT (1<<15)
-#define LOG_BIT (1<<15)
+extern int file_num;
+
+#define INV_BIT ((uint16_t)1<<15)
+#define LOG_BIT ((uint16_t)1<<15)
 	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
@@ -144,7 +146,8 @@ extern Node** node_data_array;
 #define MAX_FILE_NUM (1 << 16)
 #define MAX_OFFSET (1 << 16)
 
-int init_data();
+void init_file();
+void init_data();
 void clean_data();
 
 //void s_unlock(unsigned int offset);
@@ -174,7 +177,8 @@ inline Node_meta* offset_to_node(Node_offset &offset) // it will be .. use macro
 }
 inline Node* offset_to_node_data(Node_offset &offset)
 {
-	return &node_data_array[offset.file][offset.offset];
+	return (Node*)(pmem_addr[offset.file] + sizeof(Node) * offset.offset);
+//	return &node_data_array[offset.file][offset.offset];
 //	return &node_data_array[offset];
 }
 

@@ -9,8 +9,8 @@ namespace PH
 class PH_Thread
 {
 	public:
-	unsigned int free_cnt;
-	unsigned int seg_free_cnt;
+	unsigned int local_free_cnt;
+	unsigned int local_seg_free_cnt;
 
 	pthread_t tid;
 
@@ -37,7 +37,7 @@ void init_thread();
 void clean_thread();
 
 void print_thread_info();
-int check_slow();
+//int check_slow();
 
 void update_idle();
 

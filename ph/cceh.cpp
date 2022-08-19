@@ -238,10 +238,13 @@ void CCEH::init(int in_depth)
 	dm = r_mask[depth];
 	seg_cnt = 1 << depth;
 
-//	seg_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt);
+//	if (posix_memalign((void**)&seg_list,64,sizeof(SEG*) * seg_cnt) != 0)
+//		printf("posix memalign error0\n");
+
+	seg_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt);
 //	seg_list = (struct SEG**)posix_memalign(
-	if (posix_memalign((void**)&seg_list,64,sizeof(SEG*) * seg_cnt) != 0)
-		printf("posix memalign error0\n");
+//	if (posix_memalign((void**)&seg_list,64,sizeof(SEG*) * seg_cnt) != 0)
+//		printf("posix memalign error0\n");
 //	seg_lock = new std::atomic<bool>[seg_cnt];
 
 	for (i=0;i<seg_cnt;i++)

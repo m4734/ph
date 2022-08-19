@@ -777,7 +777,15 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 	old_ve_u.ve_64 = *v64_p;	
 		while(old_ve_u.ve.node_offset != INIT_OFFSET)		
 		{
-			start_offset = get_start_offset(old_ve_u.ve.node_offset);
+			if (old_ve_u.ve.node_offset.file & LOG_BIT)
+			{
+				uint16_t entry_size = len_size+key_size+old_ve_u.ve.len;
+				if (entry_size%2)
+					++entry_size;
+				start_offset = get_start_offset(*((Node_offset*)((unsigned char*)offset_to_node_data(old_ve_u.ve.node_offset) + old_ve_u.ve.kv_offset + entry_size)));
+			}
+			else
+				start_offset = get_start_offset(old_ve_u.ve.node_offset);
 			if (inc_ref(start_offset))
 			{
 				ve_u.ve.node_offset = start_offset;
@@ -813,49 +821,23 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 			unlock_entry(unlock);
 			if (old_ve_u.ve.node_offset != INIT_OFFSET)
 				invalidate_kv(old_ve_u.ve);
-			dec_ref(locked_offset);			
+			dec_ref(locked_offset);		
 			break;
 		}
-		unlock_entry(unlock);
-		dec_ref(locked_offset);
-#if 0
-		if (new_kv_p = insert_kv(ve_u.ve.node_offset,key_p,value_p,value_len))
+		else
 		{
-	move_to_end_offset(ve_u.ve.node_offset); // move to end
-			ve_u.ve.kv_offset = new_kv_p-(unsigned char*)offset_to_node_data(ve_u.ve.node_offset);
-			ve_u.ve.len = value_len;			
-			*v64_p = ve_u.ve_64;
 			unlock_entry(unlock);
-			if (old_ve_u.ve.node_offset != INIT_OFFSET)
-				invalidate_kv(old_ve_u.ve);
-			dec_ref(locked_offset);			
-			break;
-		}
-		else // rv == -1 and it means we will split
-		{
-unlock_entry(unlock);
 			if (continue_len == 0)
 				continue_len = get_continue_len(ve_u.ve.node_offset);
 			if (split_or_compact(ve_u.ve.node_offset))
-			{	
-				if ((rv = split(ve_u.ve.node_offset))<0)
-				{
-
-					dec_ref(locked_offset);
-				}
-				else
-				{
- 					dec_ref(locked_offset);//ve.node_offset); // have to be after offset 1
-					continue_len++;		
-				}
+			{
+				if (split(ve_u.ve.node_offset) >= 0) // split ok
+					++continue_len;
 			}
 			else
-			{
 				compact(ve_u.ve.node_offset);
-				dec_ref(locked_offset);					
-			}
+			dec_ref(locked_offset);
 		}
-#endif
 	}
 	THREAD_IDLE
 }

@@ -4,6 +4,11 @@
 
 namespace PH
 {
+
+#define LOG_RATIO 10
+
+extern int file_num;	
+
 //std::atomic<uint32_t> global_ts=0;
 extern std::atomic<uint8_t> log_file_cnt;
 
