@@ -653,6 +653,7 @@ unlock_entry(unlock);
 				{
 
 					dec_ref(locked_offset);
+
 					/*
 					printf("split lock failed %d/%d\n",ve_u.ve.node_offset.file,ve_u.ve.node_offset.offset);
 	//				e_unlock(offset); //NEVER RELEASE E LOCK unless fail...
@@ -671,7 +672,8 @@ unlock_entry(unlock);
 //					range_entry->offset = SPLIT_OFFSET; //splited
 //					insert_range_entry // in split function	
 					// may need fence
- 					dec_ref(locked_offset);//ve.node_offset); // have to be after offset 1
+// 					dec_ref(locked_offset);//ve.node_offset); // have to be after offset 1
+					// why shoud we unlock
 					continue_len++;		
 				}
 //				m.unlock();
@@ -688,7 +690,8 @@ unlock_entry(unlock);
 //				else
 //					range_entry->offset = rv;
 					*/
-				compact(ve_u.ve.node_offset);//,continue_len);
+				if (compact(ve_u.ve.node_offset) < 0) // failed//,continue_len);
+					dec_ref(locked_offset);				
 				/*
 				if ((rv=compact(offset)) >= 0)
 				{
@@ -709,7 +712,6 @@ unlock_entry(unlock);
 					*/
 //				e_unlock(offset);
 //				dec_ref(ve.node_offset);			
-				dec_ref(locked_offset);					
 			}
 //int t;
 //					scanf("%d",&t);// test
@@ -782,12 +784,22 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 				uint16_t entry_size = len_size+key_size+old_ve_u.ve.len;
 				if (entry_size%2)
 					++entry_size;
+
 				start_offset = get_start_offset(*((Node_offset*)((unsigned char*)offset_to_node_data(old_ve_u.ve.node_offset) + old_ve_u.ve.kv_offset + entry_size)));
 			}
 			else
 				start_offset = get_start_offset(old_ve_u.ve.node_offset);
 			if (inc_ref(start_offset))
 			{
+				/*
+				if(*(uint16_t*)((unsigned char*)offset_to_node_data(old_ve_u.ve.node_offset) + old_ve_u.ve.kv_offset ) & INV_BIT)
+				{
+					printf("inv error unless delete\n");
+					int f;
+					scanf("%d",&f);
+					printf("%d",f);
+				}
+*/
 				ve_u.ve.node_offset = start_offset;
 					break;
 			}
@@ -818,6 +830,7 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 //				ve_u.ve.len = value_len;			
 //				*v64_p = ve_u.ve_64;
 			*v64_p = rv.ve_64;
+//			_mm_sfence();
 			unlock_entry(unlock);
 			if (old_ve_u.ve.node_offset != INIT_OFFSET)
 				invalidate_kv(old_ve_u.ve);
@@ -833,10 +846,15 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 			{
 				if (split(ve_u.ve.node_offset) >= 0) // split ok
 					++continue_len;
+				else
+					dec_ref(locked_offset);
 			}
 			else
-				compact(ve_u.ve.node_offset);
-			dec_ref(locked_offset);
+			{
+				if (compact(ve_u.ve.node_offset) < 0)
+					dec_ref(locked_offset);
+			}
+//			dec_ref(locked_offset);
 		}
 	}
 	THREAD_IDLE

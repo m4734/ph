@@ -1982,9 +1982,14 @@ oc = 0;
 
 buffer1[0] = buffer1[1] = 0;
 buffer2[0] = buffer2[1] = 0;
-
-//if (j < node->ic)
-//	printf("invalid error\n");
+/*
+if (j > 0)
+{
+	printf("invalid error\n");
+	scanf("%d",&j);
+	printf("%d\n",j);
+}
+*/
 /*
 	new_node1->size = buffer1-new_node1_data->buffer;
 	new_node2->size = buffer2-new_node2_data->buffer;
@@ -3143,6 +3148,8 @@ void invalidate_kv(ValueEntry& ve)
 {
 	const int kl_size = key_size+len_size;
 	Node_meta* meta;
+
+
 	if (ve.node_offset.file & LOG_BIT)
 	{
 		unsigned char* kvp;
@@ -3151,6 +3158,11 @@ void invalidate_kv(ValueEntry& ve)
 		*((uint16_t*)kvp) |= INV_BIT;
 //		vl16 = *((uint16_t*)kvp);
 //		vl16&= ~(INV_BIT);
+		Node_offset node_offset;
+		node_offset = *(Node_offset*)(kvp+len_size+key_size+ve.len);
+		meta = offset_to_node(node_offset);
+	offset_to_node(meta->start_offset)->invalidated_size+=ve.len+kl_size; // kv_len is value len
+
 		return;
 		/*
 		ve.len = vl16;
@@ -3205,9 +3217,22 @@ int flush(Node_offset node_offset)
 	{
 		Node_offset start_offset = get_start_offset(node_offset);
 		if (split_or_compact(start_offset))
-			return split(start_offset);
+		{
+//			return split(start_offset);
+			if ( split(start_offset) == -1)
+				return -1;
+			else
+				return 0;
+
+		}
 		else
-			return compact(start_offset);
+		{
+//			return compact(start_offset);
+			if ( compact(start_offset) == -1)
+				return -1;
+			else
+				return 0;
+		}
 	}
 
 	int i,size;
@@ -3256,9 +3281,10 @@ int flush(Node_offset node_offset)
 			memcpy(buffer+len_size,kvp+len_size,size-len_size);
 			first_vl16 = *((uint16_t*)kvp);
 		}
-		ve.kv_offset = buffer-node_data->buffer;
+		ve.kv_offset = buffer-(unsigned char*)node_data;
 		ve.len = vl16;
 		insert_point_entry((unsigned char*)kvp+len_size,ve);
+		_mm_sfence();
 		*((uint16_t*)kvp) |= INV_BIT;
 		if (size%2)
 			size++;

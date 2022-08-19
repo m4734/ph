@@ -218,6 +218,7 @@ void LOG::ready(int value_len)
 	kv_in2.file = t_file;
 	kv_in2.offset = t_offset;
 
+	int rv;
 	unsigned char* kvp;
 	uint16_t vl16;
 	Node_offset node_offset;
@@ -255,12 +256,16 @@ void LOG::ready(int value_len)
 //				node_offset.offset = *((uint16_t*)(kvp + len_size + key_size + vl16 + sizeof(uint16_t)));
 				if (inc_ref(start_offset))
 				{
-					if (flush(node_offset))
+					rv = flush(node_offset);
+					if (rv == 1) // flush success
 					{
 						dec_ref(start_offset);
 						break;
 					}
-					dec_ref(start_offset);
+					else if (rv == 0) // split success
+						break;
+					else // split fail and retry
+						dec_ref(start_offset);
 				}
 			}
 			kv_out.offset+=default_size+vl16;
