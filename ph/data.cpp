@@ -318,10 +318,11 @@ Node_offset alloc_node0()
 	node->inv_kv = (uint16_t*)malloc(sizeof(uint16_t)*4);
 	node->inv_max = 4;
 	node->inv_cnt = 0;
-
+#ifdef DOUBLE_LOG
 	node->flush_kv = (unsigned char**)malloc(sizeof(unsigned char*)*4);
 	node->flush_max = 4;
 	node->flush_cnt = 0;
+#endif
 
 
 #ifdef dtt
@@ -372,9 +373,11 @@ Node_offset alloc_node()
 	node->inv_max = 4;
 	node->inv_cnt = 0;
 
+#ifdef DOUBLE_LOG
 	node->flush_kv = (unsigned char**)malloc(sizeof(unsigned char*)*4);
 	node->flush_max = 4;
 	node->flush_cnt = 0;
+#endif
 
 	++offset_cnt;
 	local_batch_alloc[i]  = offset;
@@ -529,8 +532,10 @@ void init_data() // init hash first!!!
 	node->size = 0;
 	node->invalidated_size = 0;
 	node->inv_cnt = 0;
+#ifdef DOUBLE_LOG
 	node->flush_size = 0;
 	node->flush_cnt = 0;
+#endif
 	node->continue_len = 0;
 	node->scan_list = NULL;
 	node->prev_offset = head_offset.no_32;
@@ -598,7 +603,9 @@ void clean_node(Node_offset offset)
 {
 	Node_meta* node = offset_to_node(offset);
 	free(node->inv_kv);
+#ifdef DOUBLE_LOG
 	free(node->flush_kv);
+#endif
 }
 void clean_inv()
 {
@@ -998,8 +1005,10 @@ Node_offset append_node(Node_offset& start_offset)
 		end_meta->part = meta->part+1;
 		end_meta->size = 0;
 		end_meta->inv_cnt = 0;
+#ifdef DOUBLE_LOG
 		end_meta->flush_size = 0;
 		end_meta->flush_cnt = 0;
+#endif
 		end_meta->start_offset = start_offset;
 //		end_meta->continue_len = meta->continue_len;
 //
@@ -1069,8 +1078,10 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 		end_meta->part = mid_meta->part+1;
 		end_meta->size = 0;
 		end_meta->inv_cnt = 0;
+#ifdef DOUBLE_LOG
 		end_meta->flush_size = 0;
 		end_meta->flush_cnt = 0;
+#endif
 		end_meta->start_offset = offset;
 //		end_meta->state = 0; // appended node doesn't use lock at all
 //		new_meta->invalidated_size
@@ -1535,9 +1546,10 @@ if (print)
 	new_node1->inv_cnt = new_node2->inv_cnt = 0;
 	new_node1->group_size = new_node2->group_size = 0;
 	new_node1->invalidated_size = new_node2->invalidated_size = 0;
-
+#ifdef DOUBLE_LOG
 	new_node1->flush_cnt = new_node2->flush_cnt = 0;
 	new_node1->flush_size = new_node2->flush_size = 0;
+#endif
 
 	new_node1->start_offset = new_node1_offset.no;
 	new_node2->start_offset = new_node2_offset.no;
@@ -1595,10 +1607,12 @@ if (print)
 	uint64_t m;
 //	if (node->flush_cnt > 0)
 //		prefix_64 = *((uint64_t*)(node->flush_kv[node->flush_cnt-1]+len_size)); // find key from log
+#ifdef DOUBLE_LOG
 	if (node->flush_cnt != 0)
 		prefix_64 = *((uint64_t*)(node->flush_kv[0]+len_size)); // find key from log
 
 	else
+#endif
 		prefix_64 = *((uint64_t*)(node_data->buffer+len_size)); // find key from node
 
 	/*
@@ -1735,7 +1749,9 @@ oc = 0;
 					buffer1[0] = buffer1[1] = 0;
 
 					current_node1_meta->size = buffer1-current_node1_data->buffer;
+#ifdef DOUBLE_LOG
 					current_node1_meta->flush_size=0;
+#endif
 //					current_node1_meta->invalidated_size = 0;
 					new_node1->group_size+=current_node1_meta->size;
 
@@ -1756,7 +1772,9 @@ oc = 0;
 //					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node1_offset.no;
 					temp_meta->inv_cnt=0;
+#ifdef DOUBLE_LOG
 					temp_meta->flush_cnt=0;
+#endif
 
 					current_node1_offset = temp_offset;
 					current_node1_meta = temp_meta;
@@ -1788,7 +1806,9 @@ oc = 0;
 					buffer2[0] = buffer2[1] = 0;
 
 					current_node2_meta->size = buffer2-current_node2_data->buffer;
+#ifdef DOUBLE_LOG
 					current_node2_meta->flush_size = 0;
+#endif
 //					current_node2_meta->invalidated_size = 0;
 					new_node2->group_size+=current_node2_meta->size;
 
@@ -1809,7 +1829,9 @@ oc = 0;
 //					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node2_offset.no;
 					temp_meta->inv_cnt = 0;
+#ifdef DOUBLE_LOG
 					temp_meta->flush_cnt = 0;
+#endif
 
 					current_node2_offset = temp_offset;
 					current_node2_meta = temp_meta;
@@ -1854,7 +1876,7 @@ oc = 0;
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
-
+#ifdef DOUBLE_LOG
 	//flush log now
 	for (i=0;i<current_node0_meta->flush_cnt;i++)
 	{
@@ -1972,7 +1994,7 @@ oc = 0;
 			tc++;
 		}
 	}
-
+#endif
 	if (current_node0_offset == node->end_offset)
 		break;
 
@@ -2000,7 +2022,9 @@ if (j > 0)
 new_node1->end_offset = current_node1_offset;
 
 	current_node1_meta->size = buffer1-current_node1_data->buffer;
+#ifdef DOUBLE_LOG
 	current_node1_meta->flush_size = 0;
+#endif
 //	current_node1_meta->invalidated_size = 0;
 	new_node1->group_size+=current_node1_meta->size;
 //	current_node1_data->next_offset = new_node2_offset.no;//_32;
@@ -2010,7 +2034,9 @@ new_node1->end_offset = current_node1_offset;
 
 	new_node2->end_offset = current_node2_offset;
 	current_node2_meta->size = buffer2-current_node2_data->buffer;
+#ifdef DOUBLE_LOG
 	current_node2_meta->flush_size = 0;
+#endif
 //	current_node2_meta->invalidated_size = 0;
 	new_node2->group_size+=current_node2_meta->size;
 //	current_node2_data->next_offset = next_offset.no;//node->next_offset;
@@ -2438,9 +2464,10 @@ Node_offset_u new_node1_offset;
 	new_node1->invalidated_size = 0;
 
 	new_node1->scan_list = NULL; // do we need this?
-
+#ifdef DOUBLE_LOG
 	new_node1->flush_cnt = 0;
 	new_node1->flush_size = 0;
+#endif
 
 	new_node1->next_offset = node->next_offset;
 	new_node1->prev_offset = node->prev_offset;
@@ -2571,7 +2598,9 @@ oc = 0;
 			{
 				buffer1[0] = buffer1[1] = 0;
 					current_node1_meta->size = buffer1-current_node1_data->buffer;
+#ifdef DOUBLE_LOG
 					current_node1_meta->flush_size = 0;
+#endif
 //					current_node1_meta->invalidated_size = 0;
 					new_node1->group_size+=current_node1_meta->size;
 
@@ -2591,8 +2620,9 @@ oc = 0;
 //					temp_meta->invalidated_size = 0;
 					temp_meta->start_offset = new_node1_offset.no;
 					temp_meta->inv_cnt=0;
-
+#ifdef DOUBLE_LOG
 					temp_meta->flush_cnt=0;
+#endif
 
 					current_node1_offset = temp_offset;
 					current_node1_meta = temp_meta;
@@ -2629,7 +2659,7 @@ oc = 0;
 //		cur+=key_size+len_size+value_len;
 		buffer+=kvs;		
 	}
-
+#ifdef DOUBLE_LOG
 	//flush log now
 	for (i=0;i<current_node0_meta->flush_cnt;i++)
 	{
@@ -2692,7 +2722,7 @@ oc = 0;
 			tc++;
 		}
 	}
-
+#endif
 
 	if (current_node0_offset == node->end_offset)
 		break;
@@ -2710,7 +2740,7 @@ oc = 0;
 	temp_max = node->inv_max;
 	node->inv_max = new_node1->inv_max;
 	new_node1->inv_max = temp_max;
-
+#ifdef DOUBLE_LOG
 	unsigned char** temp_flush;
 	temp_flush = node->flush_kv;
 	node->flush_kv = new_node1->flush_kv;
@@ -2718,13 +2748,15 @@ oc = 0;
 	temp_max = node->flush_max;
 	node->flush_max = new_node1->flush_max;
 	new_node1->flush_max = temp_max;
-
+#endif
 //	new_node1->size = buffer1-new_node1_data->buffer;
 //	new_node1->invalidated_size = 0;
 
 	new_node1->end_offset = current_node1_offset;
 	current_node1_meta->size = buffer1-current_node1_data->buffer;
+#ifdef DOUBLE_LOG
 	current_node1_meta->flush_size = 0;
+#endif
 //	current_node1_meta->invalidated_size = 0;
 	new_node1->group_size+=current_node1_meta->size;
 //	current_node1_data->next_offset = new_node1_offset.no;//_32;
@@ -3206,7 +3238,7 @@ int get_continue_len(unsigned int node_offset)
 	return meta->continue_len;
 }
 */
-
+#ifdef DOUBLE_LOG
 int flush(Node_offset node_offset)
 {
 	Node_meta* meta;
@@ -3317,5 +3349,11 @@ int flush(Node_offset node_offset)
 
 	return 1;
 }
+#else
+int flush(Node_offset node_offset)
+{
+	return 0;
+}
+#endif
 
 }

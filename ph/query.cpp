@@ -741,6 +741,7 @@ _mm_mfence();
 
 }
 
+#ifdef DOUBLE_LOG
 void insert_query_l(unsigned char* &key_p, unsigned char* &value_p)
 {
 	insert_query_l(key_p,value_p,value_size);
@@ -859,6 +860,8 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 	}
 	THREAD_IDLE
 }
+
+#endif
 
 void delete_query_scan_entry(Query* query)
 {

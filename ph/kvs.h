@@ -11,6 +11,13 @@
 class KVS_ph : public KVS
 {
 	public:
+//		unsigned char* result=NULL;
+
+		~KVS_ph()
+		{
+//			if (result)
+//				free(result);
+		}
 
 	virtual void init(int num,int key,int value,int record)
 	{
@@ -19,6 +26,7 @@ class KVS_ph : public KVS
 //		init_hash();
 //		init_thread();
 //		init_data();
+//		result = (unsigned char*)malloc(value+key+PH::len_size);
 		printf("kvs_ph init\n");
 	}
 
@@ -88,13 +96,17 @@ class KVS_ph : public KVS
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
-				PH::insert_query_l(tqa[i].key,tqa[i].value);
-//				PH::insert_query(tqa[i].key,tqa[i].value);
+//				PH::insert_query_l(tqa[i].key,tqa[i].value);
+				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 2) // read
+			{
 				PH::lookup_query(tqa[i].key,result,&len);
+				if (len == 0 && result[0] == 0)
+					printf("0\n");
+			}
 			else if (tqa[i].op == 3) // update
-				PH::insert_query_l(tqa[i].key,tqa[i].value);
-//				PH::insert_query(tqa[i].key,tqa[i].value);
+//				PH::insert_query_l(tqa[i].key,tqa[i].value);
+				PH::insert_query(tqa[i].key,tqa[i].value);
 			else if (tqa[i].op == 4) //delete
 				PH::delete_query(tqa[i].key);
 			else if (tqa[i].op == 5) //scan

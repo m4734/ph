@@ -19,7 +19,10 @@ class PH_Thread
 	int running;
 #endif
 	unsigned int op_cnt;
+
+//#ifdef DOUBLE_LOG
 	class LOG *log;
+//#endif
 
 	void init();
 	void clean();

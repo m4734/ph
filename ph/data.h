@@ -103,7 +103,6 @@ struct Node_meta
 	uint16_t invalidated_size; // 2
 	uint16_t group_size; // 2
 
-	uint16_t flush_size;
 
 //	std::atomic<uint16_t> size;
 //	unsigned int next_offset; //	2^32
@@ -128,12 +127,15 @@ struct Node_meta
 	uint16_t inv_cnt; // 2
 	uint16_t inv_max; // 2
 
+#ifdef DOUBLE_LOG
+	uint16_t flush_size;
+
 	uint16_t flush_cnt;
 	uint16_t flush_max;
 	unsigned char** flush_kv;
-
-
-//	unsigned char padding[8]; // 8
+#else
+	unsigned char padding[8]; // 8
+#endif
 };
 
 extern unsigned char** meta_addr;

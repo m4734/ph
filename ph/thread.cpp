@@ -120,12 +120,14 @@ void clean_thread()
 {
 //	pthread_mutex_destroy(&alloc_mutex);
 //	free(thread_list);
+#ifdef DOUBLE_LOG
 	int i;
 	for (i=0;i<num_of_thread;i++)
 	{
 		if (thread_list[i].log)
 			thread_list[i].log->clean();
 	}
+#endif
 	delete[] thread_list;
 }
 
@@ -135,7 +137,9 @@ void PH_Thread::init()
 
 //	log = new LOG();
 //	log->init();
+#ifdef DOUBLE_LOG
 	log = NULL;
+#endif
 
 #ifdef idle_thread
 	running = 0;
@@ -158,11 +162,13 @@ void new_thread()
 //			thread_list[i].tid = pt;
 			thread_list[i].local_free_cnt = free_cnt;
 			thread_list[i].local_seg_free_cnt = seg_free_cnt;
+#ifdef DOUBLE_LOG
 			if (thread_list[i].log == NULL)
 			{
 				thread_list[i].log = new LOG();
 				thread_list[i].log->init();
 			}
+#endif
 			my_thread = &thread_list[i];
 
 		//	my_thread->log = new LOG();

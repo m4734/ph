@@ -7,7 +7,7 @@
 #include "hash.h"
 
 //using namespace PH;
-
+#ifdef DOUBLE_LOG
 namespace PH
 {
 
@@ -308,5 +308,6 @@ void LOG::new_log_file()
 
 	file_max++;
 }
-
 }
+
+#endif

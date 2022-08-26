@@ -86,7 +86,9 @@ void temp_static_conf(int tn, int ks,int vs)
 	pmem_file[strlen("/mnt/pmem0/")] = 0;
 
 	init_file(); // before log
+#ifdef DOUBLE_LOG
 	init_log(); //before new log file
+#endif
 	init_thread(); // need alloc mutex later // what?
 	init_hash();
 	init_data();
