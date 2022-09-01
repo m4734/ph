@@ -13,9 +13,11 @@ namespace PH
 {
 
 int num_of_thread;
-int connection_per_thread;
-int total_connection;
-int port;
+//int connection_per_thread;
+//int total_connection;
+//int port;
+
+int num_of_split;
 
 
 // hash
@@ -50,11 +52,14 @@ void clean()
 }
 void temp_static_conf(int tn, int ks,int vs)
 {
+
+	num_of_split = 0; // temp
 //	num_of_thread = 1;
-	num_of_thread = tn;	
-	connection_per_thread = 1;
-	port = 5516;
-	total_connection = num_of_thread * connection_per_thread;
+	num_of_thread = tn + num_of_split;	
+//	connection_per_thread = 1;
+//	port = 5516;
+//	total_connection = num_of_thread * connection_per_thread;
+
 
 //	node_size = sizeof(Node); // ?? data header
 //	key_size = 8; // ???

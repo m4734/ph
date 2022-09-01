@@ -13,7 +13,7 @@
 
 #include <x86intrin.h>
 
-#include <mutex> // test
+//#include <mutex> // test
 
 //#define print 0
 #define print 0
@@ -236,7 +236,7 @@ int delete_query(unsigned char* key_p)
 //			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
 //				continue;
-			if (inc_ref(ve.node_offset)) //init state ok
+			if (inc_ref(ve.node_offset) || try_split(ve.node_offset)) //init state ok
 			{
 				kv_p = (unsigned char*)offset_to_node_data(ve.node_offset) + ve.kv_offset;
 				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved - can it be happen after node lock?
@@ -377,7 +377,7 @@ _mm_mfence();
 			*/
 //			offset = data_point_to_offset(kv_p);
 			start_offset = get_start_offset(old_ve_u.ve.node_offset);
-			if (inc_ref(start_offset))
+			if (inc_ref(start_offset) || try_split(start_offset))
 			{
 				ve_u.ve.node_offset = start_offset;
 				//do we need this?
@@ -442,8 +442,8 @@ _mm_mfence();
 		{
 			if (print)
 			printf("find node\n");
-			while(1)
-			{
+//			while(1)
+//			{
 				if ((ve_u.ve.node_offset = find_range_entry2(key_p,&continue_len)) == INIT_OFFSET)
 //				if (range_entry == NULL) // spliting...
 				{
@@ -461,9 +461,11 @@ _mm_mfence();
 #endif
 					}
 					*/
+					unlock_entry(unlock);
 					continue;
 				}
-				if (inc_ref(ve_u.ve.node_offset))
+//			}
+				if (inc_ref(ve_u.ve.node_offset) || try_split(ve_u.ve.node_offset))
 				{
 					old_ve_u.ve.node_offset = INIT_OFFSET;
 //				if (range_entry->offset == SPLIT_OFFSET)
@@ -490,10 +492,15 @@ _mm_mfence();
 */			
 //				rv = check_size(ve.node_offset,value_len);//value_size);
 //				{
-					break;
+//					break;
 //				}
 
 //				dec_ref(offset); // node is spliting
+				}
+				else
+				{
+					unlock_entry(unlock);
+					continue; // failed try again
 				}
 				/*
 				test2++;
@@ -505,7 +512,7 @@ _mm_mfence();
 				}
 */
 
-			}
+//			}
 //			if (print)
 //			printf("node found offset %d\n",offset);
 		}
@@ -555,6 +562,8 @@ _mm_mfence();
 //			if (old_kv_offset)			
 //				invalidate_kv(old_node_offset,old_kv_offset,old_len);
 
+//			_mm_sfence();
+
 			if (old_ve_u.ve.node_offset != INIT_OFFSET)
 			{
 				/*
@@ -582,8 +591,8 @@ _mm_mfence();
 			}
 //			point_entry->kv_p = kv_p;
 */
-//			dec_ref(ve_u.ve.node_offset);			
-			dec_ref(locked_offset);			
+//			dec_ref(ve_u.ve.node_offset);		
+
 #ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
@@ -591,6 +600,17 @@ _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 #endif
+#ifdef split_thread
+			if (need_split(ve_u.ve.node_offset,value_len))
+			{
+				if (add_split(locked_offset) == 1)
+					break;
+			}
+#endif
+//			else
+				dec_ref(locked_offset);			
+
+
 			break;
 		}
 		else // rv == -1 and it means we will split

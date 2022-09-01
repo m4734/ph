@@ -24,8 +24,8 @@ class KVS_ph// : public KVS
 
 	virtual void insert_op(unsigned char* key,unsigned char* value,int value_len)
 	{
-//		PH::insert_query(key,value,value_len);
-		PH::insert_query_l(key,value,value_len);
+		PH::insert_query(key,value,value_len);
+//		PH::insert_query_l(key,value,value_len);
 
 	}
 	virtual int read_op(unsigned char* key,unsigned char* result)
@@ -43,8 +43,8 @@ class KVS_ph// : public KVS
 	}
 	virtual void update_op(unsigned char* key,unsigned char* value,int value_len)
 	{
-//		PH::insert_query(key,value,value_len);
-		PH::insert_query_l(key,value,value_len);
+		PH::insert_query(key,value,value_len);
+//		PH::insert_query_l(key,value,value_len);
 
 	}
 	virtual void delete_op(unsigned char* key)

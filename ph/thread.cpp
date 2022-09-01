@@ -98,6 +98,10 @@ void PH_Thread::clean()
 	local_free_cnt = local_seg_free_cnt = INV9;
 //	log->clean();
 }
+
+pthread_t* split_threads;
+int* si;
+
 void init_thread()
 {
 	int i;
@@ -114,6 +118,16 @@ void init_thread()
 	}
 //	pthread_mutex_init(&alloc_mutex,NULL);
 	thread_lock = 0;//
+
+	init_split();
+
+	split_threads = (pthread_t*)malloc(sizeof(pthread_t)*num_of_split);
+	si = (int*)malloc(sizeof(int)*num_of_split);
+	for(i=0;i<num_of_split;i++)
+	{
+		si[i] = i;
+		pthread_create(&split_threads[i],NULL,split_work,(void*)&si[i]);
+	}
 }
 
 void clean_thread()
@@ -128,6 +142,16 @@ void clean_thread()
 			thread_list[i].log->clean();
 	}
 #endif
+
+	clean_split();
+
+	int i;
+	for (i=0;i<num_of_split;i++)
+		pthread_join(split_threads[i],NULL);
+
+	free(split_threads);
+	free(si);
+
 	delete[] thread_list;
 }
 

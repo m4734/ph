@@ -7,13 +7,15 @@
 #include <stdlib.h> // malloc
 #include <x86intrin.h> // mm fence
 
+#include <unistd.h> //usleep
+
 #include "data.h"
 #include "hash.h"
 
 #include "query.h"
 #include "thread.h"
 
-#include <mutex> //test
+//#include <mutex> //test
 
 //extern unsigned long long int pmem_size;
 //extern char pmem_file[100];
@@ -1417,7 +1419,7 @@ int split(Node_offset offset)//,unsigned char* prefix, int continue_len) // lock
 //	pthread_mutex_lock(&prev_node->mutex);	
 
 // check prev next node
-		if (prev_node->state > 0)
+		if (prev_node->state == 1)
 		{
 //			prev_node->m.unlock();
 //			pthread_mutex_unlock(&prev_node->mutex);
@@ -1453,10 +1455,17 @@ if (ec >= 1000)
 
 //		_mm_lfence();
 
+//	_mm_mfence();
+
 next_offset.no_32 = node->next_offset;
 	next_node = offset_to_node(next_offset.no);
-		if (next_node->state > 0)
+		if (next_node->state == 1)
 		{
+			return -1;
+
+			//split thread has to giveup
+
+
 //			next_node->m.unlock();
 //			pthread_mutex_unlock(&next_node->mutex);
 //			node->m.lock();
@@ -1538,9 +1547,9 @@ if (print)
 	new_node1->part = 0;
 	new_node2->part = 0;
 
-	new_node1->state = 0; // 
+	new_node1->state = 1; // 
 	new_node1->scan_list = NULL;
-	new_node2->state = 0; // 
+	new_node2->state = 1; // 
 	new_node2->scan_list = NULL;
 
 	new_node1->inv_cnt = new_node2->inv_cnt = 0;
@@ -2285,6 +2294,10 @@ printf("rehash\n");
 	_mm_sfence(); // for free after rehash
 //	_mm_mfence();	
 
+	new_node1->state = 0;
+	new_node2->state = 0;
+
+
 //	dec_ref(offset);
 //	free_node(offset);//???
 	for (i=0;i<oc;i++)
@@ -2370,7 +2383,7 @@ scanf("%d",&t);
 //	pthread_mutex_lock(&prev_node->mutex);	
 
 
-		if (prev_node->state > 0)
+		if (prev_node->state  == 1)
 		{
 
 //			prev_node->m.unlock();
@@ -2395,10 +2408,12 @@ scanf("%d",&t);
 //		next_node->m.lock();
 //			pthread_mutex_lock(&next_node->mutex);	
 
+		_mm_mfence();
+
 		next_offset.no_32 = node->next_offset;
 		next_node = offset_to_node(next_offset.no);
 //	next_node = offset_to_node(node->next_offset);
-		if (next_node->state > 0)
+		if (next_node->state  == 1)
 		{
 //			next_node->m.unlock();
 //			pthread_mutex_unlock(&next_node->mutex);
@@ -2408,6 +2423,7 @@ scanf("%d",&t);
 //			node->m.unlock();
 //			pthread_mutex_unlock(&node->mutex);
 //		printf("ref6 %d\n",node->next_offset);
+			return -1;
 		while(next_node->state > 0)
 		{
 			next_offset.no_32 = node->next_offset;
@@ -2451,7 +2467,7 @@ Node_offset_u new_node1_offset;
 
 	new_node1->part = 0;
 
-	new_node1->state = 0; // ??
+	new_node1->state = 1; // ??
 //	new_node1->ref = 0;
 //	pthread_mutex_init(&new_node1->mutex,NULL);
 
@@ -2859,6 +2875,8 @@ printf("rehash\n");
 //	range_entry->offset = calc_offset(new_node1);
 
 	_mm_sfence(); // for free after rehash
+
+	new_node1->state = 0;
 //
 //	free_node(offset);//???
 	for (i=0;i<oc;i++)
@@ -2874,6 +2892,12 @@ printf("rehash\n");
 //	return 0;
 
 }
+
+
+
+
+//-------------------------------------------------------------
+
 #if 0
 int advance(unsigned char** kv_pp,int* offset,Node* node_p)
 {
@@ -3230,14 +3254,21 @@ int split_or_compact(Node_offset node_offset)
 	return meta->group_size > meta->invalidated_size*2;
 }
 
-/*
-int get_continue_len(unsigned int node_offset)
-{
-	Node_meta* meta;
-	meta = offset_to_node(node_offset);
-	return meta->continue_len;
-}
-*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-----------------------------------------------------------------------------
+
 #ifdef DOUBLE_LOG
 int flush(Node_offset node_offset)
 {
@@ -3355,5 +3386,127 @@ int flush(Node_offset node_offset)
 	return 0;
 }
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//--------------------------------------------------------------------
+
+std::atomic<int> split_queue_start[SPLIT_NUM];
+std::atomic<int> split_queue_end[SPLIT_NUM];
+std::atomic<Node_offset> split_queue[SPLIT_NUM][SPLIT_QUEUE_LEN];
+std::atomic<uint8_t> split_queue_lock[SPLIT_NUM];
+
+#ifdef idle_thread
+
+extern thread_local PH_Thread* my_thread;
+#define THREAD_RUN my_thread->running=1;
+#define THREAD_IDLE my_thread->running=0;
+
+#else
+
+#define THREAD_RUN
+#define THREAD_IDLE
+
+#endif
+
+
+void* split_work(void* iid)
+{
+	int i,id = *((int*)iid);
+	Node_offset node_offset;
+//	Node_meta* meta;
+	update_free_cnt();
+	THREAD_RUN
+	while(1)
+	{
+		update_free_cnt();
+		while(split_queue_start[id] < split_queue_end[id])
+		{
+			update_free_cnt();
+			i = split_queue_start[id].fetch_add(1);
+			node_offset = split_queue[id][i%SPLIT_QUEUE_LEN];
+
+//			meta = offset_to_node(node_offset);
+			if (try_split(node_offset) == 0)
+				continue;
+	
+			if (offset_to_node(node_offset)-> part != 0)
+				printf("ppp2\n");
+		
+			if (split_or_compact(node_offset))
+			{
+				if (split(node_offset) < 0)
+					dec_ref(node_offset);
+			}
+			else
+			{
+				if (compact(node_offset) < 0)
+					dec_ref(node_offset);
+			}
+			// if fail do not try again
+		}
+		usleep(1); // or nop
+		if (split_queue_end[id] == -1)
+			break;
+	}
+	THREAD_IDLE
+		return NULL;
+}
+
+int add_split(Node_offset node_offset)
+{
+	int i,j;
+//	while(1)
+	{
+	for (i=0;i<num_of_split;i++)
+	{
+		if (split_queue_end[i] - split_queue_start[i] < SPLIT_MAX && try_at_lock(split_queue_lock[i]))
+		{
+//			j = split_queue_end[i].fetch_add(1);
+			j = split_queue_end[i];
+			Node_meta* meta = offset_to_node(node_offset);
+			if (meta->part != 0)
+				printf("ppp\n");
+			meta->state = 2;
+			split_queue[i][j%SPLIT_QUEUE_LEN] = node_offset;
+			split_queue_end[i]++;
+			split_queue_lock[i] = 0;
+			return 1;
+		}
+	}
+	}
+	return -1;
+}
+
+void init_split()
+{
+	int i;
+	for(i=0;i<num_of_split;i++)
+		split_queue_lock[i] = split_queue_start[i] = split_queue_end[i] = 0;
+
+}
+void clean_split()
+{
+	int i;
+	for (i=0;i<num_of_split;i++)
+	{
+		printf("split thread %d qe %d\n",i,(int)split_queue_end[i]);
+		split_queue_end[i] = -1;
+	}
+}
 
 }

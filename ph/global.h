@@ -119,9 +119,12 @@ struct ValueEntry_u
 };
 
 extern int num_of_thread;
-extern int connection_per_thread;
-extern int total_connection;
-extern int port;
+//extern int connection_per_thread;
+//extern int total_connection;
+//extern int port;
+
+extern int num_of_split;
+
 
 #define USE_DRAM 0
 

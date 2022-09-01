@@ -9,8 +9,8 @@ namespace PH
 class PH_Thread
 {
 	public:
-	unsigned int local_free_cnt;
-	unsigned int local_seg_free_cnt;
+/*	volatile*/ unsigned int local_free_cnt;
+/*	volatile*/ unsigned int local_seg_free_cnt;
 
 	pthread_t tid;
 
@@ -20,9 +20,9 @@ class PH_Thread
 #endif
 	unsigned int op_cnt;
 
-//#ifdef DOUBLE_LOG
+#ifdef DOUBLE_LOG
 	class LOG *log;
-//#endif
+#endif
 
 	void init();
 	void clean();
