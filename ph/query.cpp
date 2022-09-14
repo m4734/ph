@@ -75,9 +75,8 @@ void init_query(Query* query)
 {
 	query->node_data = NULL;
 //	query->node_size = NULL;
-	query->scan_offset = TAIL_OFFSET;
-//	pthread_mutex_init(&query->scan_mutex,NULL);
-	query->scan_lock = 0;	
+	query->scan_offset = TAIL_OFFSET_u.no_32;
+//	query->scan_lock = 0;	
 }
 
 int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len_p)
@@ -87,7 +86,6 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	_mm_mfence();
 #endif
-//	thread_run();
 //		unsigned char* kv_p;
 		ValueEntry ve;
 //		int value_len;
@@ -236,7 +234,11 @@ int delete_query(unsigned char* key_p)
 //			offset = data_point_to_offset(kv_p);
 //			if (*((uint64_t*)query->key_p) != *((uint64_t*)kv_p)) // instead CAS
 //				continue;
+#ifdef split_thread
 			if (inc_ref(ve.node_offset) || try_split(ve.node_offset)) //init state ok
+#else
+				if (inc_ref(ve.node_offset))
+#endif
 			{
 				kv_p = (unsigned char*)offset_to_node_data(ve.node_offset) + ve.kv_offset;
 				if (*((uint64_t*)kv_p) != *((uint64_t*)key_p)) // key is different -  it is moved - can it be happen after node lock?
@@ -316,6 +318,7 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 
 	int test=0,test2=0;
 	int z = 0;
+	int ec=0;
 //	uint16_t old_kv_offset,old_len;
 //	Node_offset old_node_offset;
 	ValueEntry_u old_ve_u;
@@ -377,7 +380,11 @@ _mm_mfence();
 			*/
 //			offset = data_point_to_offset(kv_p);
 			start_offset = get_start_offset(old_ve_u.ve.node_offset);
+#ifdef split_thread
 			if (inc_ref(start_offset) || try_split(start_offset))
+#else
+				if (inc_ref(start_offset))
+#endif
 			{
 				ve_u.ve.node_offset = start_offset;
 				//do we need this?
@@ -462,10 +469,31 @@ _mm_mfence();
 					}
 					*/
 					unlock_entry(unlock);
+
+//					ec++;
+					if (ec > 1000)
+					{
+
+//						find_in_log(key_p,continue_len);
+printf("no range entry\n");
+						find_in_log(key_p,continue_len);
+
+						find_in_log(key_p,continue_len+1);
+
+						ve_u.ve.node_offset = find_range_entry(key_p,&continue_len);
+						printf("%d %d\n",ve_u.ve.node_offset.file,ve_u.ve.node_offset.offset);
+
+						scanf("%d",&ec);
+					}
+
 					continue;
 				}
 //			}
+#ifdef split_thread
 				if (inc_ref(ve_u.ve.node_offset) || try_split(ve_u.ve.node_offset))
+#else
+					if(inc_ref(ve_u.ve.node_offset))
+#endif
 				{
 					old_ve_u.ve.node_offset = INIT_OFFSET;
 //				if (range_entry->offset == SPLIT_OFFSET)
@@ -500,6 +528,20 @@ _mm_mfence();
 				else
 				{
 					unlock_entry(unlock);
+//					ec++;
+					if (ec > 100000)
+					{
+
+printf("locked\n");
+find_in_log(key_p,continue_len);
+
+						find_in_log(key_p,continue_len+1);
+
+						printf("%d\n",(int)offset_to_node(ve_u.ve.node_offset)->state);
+						scanf("%d",&ec);
+					}
+
+
 					continue; // failed try again
 				}
 				/*
@@ -669,7 +711,7 @@ unlock_entry(unlock);
 				*/
 //				static std::mutex m;
 //				m.lock();
-				if ((rv = split(ve_u.ve.node_offset))<0)//,key_p,continue_len))<0)
+				if ((rv = split(ve_u.ve.node_offset,key_p))<0)//,key_p,continue_len))<0)
 				{
 
 					dec_ref(locked_offset);
@@ -886,20 +928,21 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 void delete_query_scan_entry(Query* query)
 {
 	Node_meta* node;
-	const int z = 0;
+	Node_offset_u nou;
 	while(1)
 	{
-//	pthread_mutex_lock(&query->scan_mutex);
 //	while(query->scan_lock.compare_exchange_weak(z,1) == 0);		
-	at_lock(query->scan_lock);	
-	if (query->scan_offset != TAIL_OFFSET)
+//	at_lock(query->scan_lock);	
+	if (query->scan_offset != TAIL_OFFSET_u.no_32)
 	{
-		node = offset_to_node(query->scan_offset);
+		nou.no_32 = query->scan_offset;
+		node = offset_to_node(nou.no);
+//		node = offset_to_node(query->scan_offset);
 //		pthread_mutex_lock(&node->mutex);
 //		while(node->lock.compare_exchange_weak(z,1) == 0);	
 		if (try_at_lock(node->state) == 0)
 		{
-			at_unlock(query->scan_lock);
+//			at_unlock(query->scan_lock);
 			continue;
 		}
 		/*
@@ -912,12 +955,13 @@ void delete_query_scan_entry(Query* query)
 			continue;
 		}
 		*/
-		delete_scan_entry(query->scan_offset,query);
-		query->scan_offset = TAIL_OFFSET;
+//		delete_scan_entry(query->scan_offset,query);
+		delete_scan_entry(nou.no,query);
+		query->scan_offset = TAIL_OFFSET_u.no_32;
 //		node->lock = 0;
 		at_unlock(node->state);		
 //		query->scan_lock = 0;
-		at_unlock(query->scan_lock);		
+//		at_unlock(query->scan_lock);		
 //		pthread_mutex_unlock(&node->mutex);
 //		pthread_mutex_unlock(&query->scan_mutex);
 		break;
@@ -925,7 +969,7 @@ void delete_query_scan_entry(Query* query)
 	else
 	{
 //		query->scan_lock = 0;
-		at_unlock(query->scan_lock);		
+//		at_unlock(query->scan_lock);		
 //		pthread_mutex_unlock(&query->scan_mutex);
 		break;
 	}
@@ -1112,9 +1156,14 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 
 
 	// here, we have ref and ve.node_offset and we should copy it and def it
-	query->scan_offset = ve.node_offset; // scan lock??
 
-	insert_scan_list(query->scan_offset,query);
+	Node_offset_u nou;
+	nou.no = ve.node_offset;
+//	query->scan_offset = ve.node_offset; // scan lock??
+	query->scan_offset = nou.no_32;
+
+//	insert_scan_list(query->scan_offset,query);
+	insert_scan_list(ve.node_offset,query);
 
 	// lock scan mutex or move dec ref
 //	at_lock(query->scan_lock); // scan lock ??? ??? ??? 
@@ -1156,7 +1205,7 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 {
 	update_free_cnt();
 
-	if (query->scan_offset == TAIL_OFFSET)
+	if (query->scan_offset == TAIL_OFFSET_u.no_32)
 	{
 //		*result = empty;
 		memcpy(result_p,empty,empty_len);		
@@ -1204,6 +1253,41 @@ int next_query(Query* query,unsigned char* result_p,int* result_len_p)
 
 	return 0;
 }
+int next_query(Query* query,std::string* result)
+{
+	THREAD_RUN
+	update_free_cnt();
+
+	if (query->scan_offset == TAIL_OFFSET_u.no_32)
+	{
+		result->assign((char*)empty,empty_len);
+		THREAD_IDLE
+		return 0;
+	}
+	int result_len_p;
+	result_len_p = *((uint16_t*)(query->sorted_kv[query->sorted_kv_i]));
+	result_len_p+=8+2;
+//	memcpy(result_p,query->sorted_kv[query->sorted_kv_i],*result_len_p);
+	result->assign((char*)query->sorted_kv[query->sorted_kv_i],result_len_p);
+//	*result = query->kv_p; // we need all kv_p
+
+//	advance(&(query->kv_p),&(query->offset),(Node*)query->node);
+	query->sorted_kv_i++;//index_num++;
+	while (query->sorted_kv_i >= query->sorted_kv_max)
+	{
+		if (advance_offset(query) < 0)
+		{
+			THREAD_IDLE
+			return 1;
+		}
+//					copy_node(node,offset_to_node(query->scan_offset));
+//int size = offset_to_node(query->scan_offset)->size; // ??? i don't know					
+//		sort_node(node_data,(int*)(query->sorted_index),&(query->index_max),size);
+//		query->index_num=0;
+	}
+	THREAD_IDLE
+	return 1;
+}
 
 void free_query(Query* query)
 {
@@ -1223,6 +1307,84 @@ void free_query(Query* query)
 	delete_query_scan_entry(query);
 	free(query->node_data);
 //	free(query->node_size);
+}
+
+size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
+{
+	ValueEntry ve;
+	int continue_len;
+	Node* node_data;
+	Node_offset start_offset;
+	int size;
+	Node_meta* node_meta;
+
+	update_free_cnt();
+
+	ve = find_point_entry(key); // no lock
+	while(ve.node_offset != INIT_OFFSET)
+	{
+
+		start_offset = get_start_offset(ve.node_offset);
+		if (inc_ref(start_offset))
+		{
+			ve.node_offset = start_offset;
+			break;
+		}
+		ve = find_point_entry(key);
+	}
+
+	if (ve.node_offset == INIT_OFFSET)
+	{
+		continue_len = 0;
+		while(1)
+		{
+			if ((ve.node_offset = find_range_entry2(key,&continue_len)) == INIT_OFFSET)
+				continue;
+			if (inc_ref(ve.node_offset))
+			{
+				break;
+			}
+		}
+	}
+
+	return scan_node(ve.node_offset,key,cnt,scan_result);
+
+	//--------------------------------------
+#if 0
+	Node_offset_u nou;
+	nou.no = ve.node_offset;
+
+	//copy node
+//	copy_node(query->node_data,query->scan_offset);
+
+	copy_and_sort_node(query);
+	//insert scan list
+	dec_ref(ve.node_offset);
+	//sort node
+//	sort_node(query);
+
+	//set scan index index num
+//	query->sorted_kv_i = 0;
+//	query->kv_p = ((Node_data*)query->node_data)[0];
+	//unlock scan mutex
+
+	//advance until key_p
+	while(1)
+	{
+		while (query->sorted_kv_max > query->sorted_kv_i)
+		{
+			if(*((uint64_t*)(query->sorted_kv[query->sorted_kv_i]+len_size)) >= *((uint64_t*)query->key_p))
+				return 0;
+			++query->sorted_kv_i;
+		}
+
+		if (advance_offset(query) < 0) // advance fail	
+			return 0;
+	}
+
+//	printf("never should come here\b");
+	return 0;
+#endif
 }
 
 }

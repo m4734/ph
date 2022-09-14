@@ -211,7 +211,7 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
-int split(Node_offset offset);//, unsigned char* prefix, int continue_len);
+int split(Node_offset offset,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 
 int compact(Node_offset offset);//,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 
@@ -269,13 +269,14 @@ inline void dec_ref(Node_offset offset)
 
 }
 
+
+#ifdef split_thread
 inline int try_split(Node_offset offset)
 {
 	uint8_t t=2;
 	Node_meta* meta = offset_to_node(offset);
 	return (meta->state == 2) && meta->state.compare_exchange_strong(t,1);
 }
-
 void* split_work(void* id);
 int add_split(Node_offset node_offset);
 inline int need_split(Node_offset node_offset,int value_len)
@@ -286,5 +287,8 @@ inline int need_split(Node_offset node_offset,int value_len)
 
 void init_split();
 void clean_split();
+#endif
+
+int scan_node(Node_offset offset,unsigned char* key,int cnt,std::string* scan_result);
 
 }

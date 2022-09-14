@@ -118,9 +118,8 @@ void init_thread()
 	}
 //	pthread_mutex_init(&alloc_mutex,NULL);
 	thread_lock = 0;//
-
+#ifdef split_thread
 	init_split();
-
 	split_threads = (pthread_t*)malloc(sizeof(pthread_t)*num_of_split);
 	si = (int*)malloc(sizeof(int)*num_of_split);
 	for(i=0;i<num_of_split;i++)
@@ -128,6 +127,7 @@ void init_thread()
 		si[i] = i;
 		pthread_create(&split_threads[i],NULL,split_work,(void*)&si[i]);
 	}
+#endif
 }
 
 void clean_thread()
@@ -142,8 +142,9 @@ void clean_thread()
 			thread_list[i].log->clean();
 	}
 #endif
-
+#ifdef split_thread
 	clean_split();
+#endif
 
 	int i;
 	for (i=0;i<num_of_split;i++)

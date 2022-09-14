@@ -241,7 +241,7 @@ cnt++;
 if (cnt % 1000000 == 0)
 	printf("cnt %d\n",cnt);
 */	
-	if (*continue_len > 0)
+	if (false && *continue_len > 0)
 	{
 //		return find_range_entry(key_p,continue_len);
 		hash = find_range_entry(key_p,continue_len);	
@@ -289,6 +289,7 @@ ValueEntry ve;
 */
 //		ve = range_hash_array[mid].find(*((uint64_t*)prefix));
 		ve = range_hash_array[mid].find(prefix);
+//		ve.node_offset = test_read(prefix,mid);
 
 		if (ve.node_offset == INIT_OFFSET) // NULL not found
 		{
@@ -302,6 +303,8 @@ ValueEntry ve;
 		else if (ve.node_offset == SPLIT_OFFSET) // splited
 		{
 			//found but splited
+
+			*continue_len = mid;
 
 			if (mid+1 == max)
 				min = mid+1;
@@ -452,10 +455,40 @@ _mm_mfence();
 	return INIT_OFFSET;
 }
 
+// test
+uint64_t insert_log[65][1000000];
+int insert_a[65][1000000];
+int insert_b[65][1000000];
+std::atomic<int> ll[65];
+// test
+
+void find_in_log(unsigned char* key_p,int len) // test
+{
+	int i,lli;
+	uint64_t v = *((uint64_t*)key_p);
+	lli = ll[len];
+	for (i=0;i<lli;i++)
+	{
+		if ((insert_log[len][i] & pre_bit_mask[len]) == (v & pre_bit_mask[len]))
+		{
+			printf("found %d %d\n",insert_a[len][i],insert_b[len][i]);
+			return;
+		}
+	}
+	printf("not found %d\n",lli);
+}
 
 // there will be no double because it use e lock on the split node but still need cas
 void insert_range_entry(unsigned char* key_p,int len,Node_offset offset) // need to check double
 {
+/*
+	//test
+	int lli;
+	lli = ll[len].fetch_add(1);
+	insert_log[len][lli] = *((uint64_t*)key_p);
+	insert_a[len][lli] = offset.file;
+	insert_b[len][lli] = offset.offset;
+*/
 //	if (len >= 64)
 //		return;
 #ifdef htt
@@ -508,6 +541,7 @@ ValueEntry ve;
 ve.node_offset = offset;
 //	while(range_hash_array[len].insert(*((uint64_t*)prefix),ve) == 0);
 	while(range_hash_array[len].insert(prefix,ve) == 0);
+//	test_insert(prefix,len,offset);
 #ifdef htt
 _mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
@@ -548,6 +582,8 @@ void init_hash()
 
 	htt4 = htt3 = htt5 = htt1 = htt2 = 0;
 	fpc2 = fpc = 1;
+
+//	init_t();
 }
 
 void clean_hash()
@@ -571,5 +607,99 @@ void clean_hash()
 #endif
 
 }
+
+
+
+
+/*
+// debug temp
+
+#define THM 10000000
+
+//uint64_t thk[33][THM];
+//std::atomic<uint32_t> thv[33][THM];
+
+uint64_t* thk[65];
+std::atomic<uint32_t>* thv[65];
+void init_t()
+{
+	int i;
+	for (i=0;i<64;i++)
+	{
+		thk[i] = new uint64_t[THM];
+		thv[i] = new std::atomic<uint32_t>[THM];
+	}
+
+}
+void test_insert(unsigned char* key_p,int len,Node_offset offset)
+{
+	uint64_t k64 = *((uint64_t*)key_p);
+//	uint64_t kh = k64 & pre_bit_mask[len];
+	uint64_t kh = k64;
+	uint64_t s = kh % THM;
+	uint64_t i = s;
+	Node_offset_u nv;
+	nv.no = offset;
+	while(1)
+	{
+		if (thk[len][i] == kh)
+		{
+			while(1)
+			{
+				uint32_t v = thv[len][i];
+				if (thv[len][i].compare_exchange_strong(v,nv.no_32))
+					return;
+			}
+		}
+		while (thv[len][i] == 0)
+		{
+			uint32_t z=0;
+			if (thv[len][i].compare_exchange_strong(z,nv.no_32))
+			{
+				thk[len][i] = kh;
+				return;
+			}
+		}
+		if (thk[len][i] == kh)
+			continue;
+
+		i++;
+		if (i >= THM)
+			i = 0;
+		if (s == i)
+			printf("insert max %d\n",len);
+	}
+
+}
+
+Node_offset test_read(unsigned char* key_p,int len)
+{
+	uint64_t k64 = *((uint64_t*)key_p);
+//	uint64_t kh = k64 & pre_bit_mask[len];
+	uint64_t kh = k64;
+	uint64_t s = kh % THM;
+	uint64_t i = s;
+	Node_offset_u nv;
+
+	while(1)
+	{
+		if (thk[len][i] == kh)
+		{
+			nv.no_32 = thv[len][i];
+			return nv.no;
+		}
+		if (thv[len][i] == 0)
+			return INIT_OFFSET;
+
+		i++;
+		if (i >= THM)
+			i = 0;
+		if (i == s)
+			printf("read max %d\n",len);
+	}
+
+}
+*/
+
 
 }

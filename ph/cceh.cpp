@@ -556,22 +556,30 @@ void CCEH::split(int sn) // seg locked
 				break;
 		}
 		*/
-		lock = dir_lock;
-		if ((lock & SPLIT_MASK) || (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK) == 0))
+
+// dir double and double can be so check depth
+
+		while (1)
 		{
-			at_unlock2(seg->lock);
-			return;
+		lock = dir_lock;
+			if (lock & SPLIT_MASK)
+			{
+				at_unlock2(seg->lock);
+				return;
+			}
+			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
+				break;
 		}
 
 		// have lock
-/*
+
 		if (seg->depth != depth) // impossible because dir lock
 		{
 			at_unlock2(seg->lock);
 			dir_lock-=SPLIT_MASK;
 			return;
 		}
-*/
+
 		while(dir_lock != SPLIT_MASK+1); // without me
 		//use no op
 
@@ -741,7 +749,8 @@ void CCEH::split(int sn) // seg locked
 		}
 	}
 */
-	at_unlock2(seg->lock);
+	//why do we unlock
+//	at_unlock2(seg->lock);
 	free_seg(seg);
 }
 

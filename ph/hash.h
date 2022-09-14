@@ -35,4 +35,13 @@ void remove_point_entry(unsigned char* &key_p);
 void init_hash();
 void clean_hash();
 
+void find_in_log(unsigned char* key_p,int len); // test
+
+/*
+Node_offset test_read(unsigned char* key_p,int len);
+void test_insert(unsigned char* key_p,int len,Node_offset offset);
+
+void init_t();
+*/
+
 }

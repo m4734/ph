@@ -39,7 +39,8 @@ struct Query
 	//------------------------------------------
 	unsigned int ref_offset; // node offset - unlock
 	//----------------------------------------- scan/next
-	Node_offset scan_offset; // volatile???
+//	volatile Node_offset scan_offset; // volatile???
+	volatile uint32_t scan_offset;
 	void* node_data;
 //	Node_data node_data[PART_MAX];
 //	int* node_size;
@@ -52,7 +53,7 @@ struct Query
 	int sorted_kv_i,sorted_kv_max;
 
 //	pthread_mutex_t scan_mutex; // offset
-	std::atomic<uint8_t> scan_lock;
+//	std::atomic<uint8_t> scan_lock;
 };
 
 //unsigned char empty[10];// = {"empty"};
@@ -76,5 +77,8 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p, int &value_l
 
 int scan_query(Query* query);
 int next_query(Query* query,unsigned char* result_p,int* result_len_p);
+int next_query(Query* query,std::string* result);
+
+size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result);
 
 }

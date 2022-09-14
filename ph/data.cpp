@@ -322,6 +322,9 @@ Node_offset alloc_node()
 }
 void free_node(Node_offset offset)
 {
+//	offset_to_node(offset)->state = 2; // test
+//return;
+
 	if (lbfc < LOCAL_QUEUE_LEN)
 	{
 		local_batch_free[lbfc++] = offset;
@@ -959,23 +962,26 @@ void move_scan_list(Node_offset &old_offset,Node_offset &new_offset)
 //	new_offset = point_to_offset((unsigned char*)node_new);
 	sl = node_old->scan_list;
 	slp = &(node_old->scan_list);
+	Node_offset_u oou,nou;
+	oou.no = old_offset;
+	nou.no = new_offset;
 	while(sl)
 	{
 		query = (Query*)(sl->query);
 //		pthread_mutex_lock(&query->scan_mutex);
-		at_lock(query->scan_lock);		
-		if (query->scan_offset == old_offset)
+//		at_lock(query->scan_lock);		
+		if (query->scan_offset == oou.no_32)
 		{
-			query->scan_offset = new_offset;
+			query->scan_offset = nou.no_32;
 //			pthread_mutex_unlock(&query->scan_mutex);
-			at_unlock(query->scan_lock);			
+//			at_unlock(query->scan_lock);			
 			slp = &(sl->next);
 			sl = sl->next;
 		}
 		else
 		{
 //			pthread_mutex_unlock(&query->scan_mutex);
-			at_unlock(query->scan_lock);			
+//			at_unlock(query->scan_lock);			
 			printf("abandoned scan entry??\n");
 			*slp = sl->next;
 			free(sl);
@@ -1028,7 +1034,7 @@ void sort_inv(int cnt,uint16_t* array)
 
 //#define DRAM_BUF
 
-int split(Node_offset offset)//,unsigned char* prefix, int continue_len) // locked
+int split(Node_offset offset,unsigned char* prefix)//,unsigned char* prefix, int continue_len) // locked
 {
 #ifdef dtt
 	timespec ts1,ts2;
@@ -1118,7 +1124,7 @@ int split(Node_offset offset)//,unsigned char* prefix, int continue_len) // lock
 //	pthread_mutex_lock(&prev_node->mutex);	
 
 // check prev next node
-		if (prev_node->state == 1)
+		if (prev_node->state > 0) // == 1)
 		{
 //			prev_node->m.unlock();
 //			pthread_mutex_unlock(&prev_node->mutex);
@@ -1158,71 +1164,20 @@ if (ec >= 1000)
 
 next_offset.no_32 = node->next_offset;
 	next_node = offset_to_node(next_offset.no);
-		if (next_node->state == 1)
+		if (next_node->state > 0) // == 1)
 		{
-			return -1;
-
-			//split thread has to giveup
+//			return -1; //split thread has to giveup
 
 
-//			next_node->m.unlock();
-//			pthread_mutex_unlock(&next_node->mutex);
-//			node->m.lock();
-//			pthread_mutex_lock(&node->mutex);	
-//			node->state = 0;
-//			node->m.unlock();
-//			pthread_mutex_unlock(&node->mutex);
-//printf("split offset %d/%d next %d/%d state %d\n",offset.file,offset.offset,next_offset.no.file,next_offset.no.offset,(int)next_node->state);
-			/*
-ec++;
-if (ec >= 1000)
-{
-	printf("ec 1000\n");
-	ec = 0;
-#ifdef LOCK_FAIL_STOP
-	scanf("%d",&ec);
-#endif
-}
-*/
-/*
-			while (next_node->state > 0) // spin // ...ok?
-				next_node = offset_to_node(node->next_offset);
-				*/
-/*
-			struct timespec tsl0,tsl1;
-			clock_gettime(CLOCK_MONOTONIC,&tsl0);
-			while(next_node->state > 0)
-			{
-				next_node = offset_to_node(node->next_offset);
-				clock_gettime(CLOCK_MONOTONIC,&tsl1);
-				if ((tsl1.tv_sec-tsl0.tv_sec)*1000000000-tsl1.tv_nsec-tsl0.tv_nsec > 1000000)
-				{
-					printf("too long %d %d %d\n",offset,node->next_offset,(int)next_node->state);
-					int t;
-					scanf("%d",&t);
-				}
-			}
-			*/
-			while(next_node->state > 0)
+			while(next_node->state > 0)// == 1)
 {
 next_offset.no_32 = node->next_offset;
 	next_node = offset_to_node(next_offset.no);
 
-//	next_node = offset_to_node(node->next_offset);
-	/*
-	if (check_slow())
-	{
-		printf("in loop!!\n");
-		int t;
-		scanf("%d",&t);
-	}
-	*/
 }
 
 //			return -1;//failed
 		}
-//			next_node->m.unlock();
-//	pthread_mutex_unlock(&next_node->mutex);
 
 if (print)
 		printf("locked\n");
@@ -1321,15 +1276,11 @@ if (print)
 
 	else
 #endif
+//	if (*((uint16_t*)(node_data->buffer)) == 0)
+//		printf("error lll\n");
 		prefix_64 = *((uint64_t*)(node_data->buffer+len_size)); // find key from node
+		// always can find because it needs split
 
-	/*
-	uint64_t prefix_64=0;
-	for (i=0;i<key_size;i++)
-		prefix_64=prefix_64*64 + prefix[i];
-		*/
-
-//	point_hash_entry* point_entry;
 /*
 	if (continue_len == 0)
 		m = 0;
@@ -1337,6 +1288,10 @@ if (print)
 		m = ~(((uint64_t)1 << (64-continue_len))-1);
 		*/
 	m = ~(((uint64_t)1 << (63-continue_len))-1); // it seems wrong but ok because of next line it is always overwrited
+
+	if ((*(uint64_t*)prefix) & m != prefix_64 & m)
+		printf("ppp error\n");
+
 
 	prefix_64 = (prefix_64 & m) | ((uint64_t)1 << (63-continue_len));
 if (print)
@@ -1405,8 +1360,9 @@ oc = 0;
 	buffer_end = buffer + current_node0_meta->size; 
 	sort_inv(current_node0_meta->inv_cnt,current_node0_meta->inv_kv);
 	j = 0;
-	if (current_node0_meta->inv_cnt == 0)
-		current_node0_meta->inv_kv[0] = 0;
+//	if (current_node0_meta->inv_cnt == 0)
+//		current_node0_meta->inv_kv[0] = 0;
+	current_node0_meta->inv_kv[current_node0_meta->inv_cnt] = 0;
 //node0 start here?
 
 	temp_offset[oc++] = current_node0_offset;
@@ -1427,15 +1383,17 @@ oc = 0;
 #ifdef DRAM_BUF
 		if (((unsigned char*)&d_node0 + current_node0_meta->inv_kv[j] == buffer) || (vl16 & INV_BIT))
 #else
-		if (((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] == buffer) || (vl16 & INV_BIT))
+		if (((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] == buffer)/* || (vl16 & INV_BIT)*/)
 #endif
 		{
 			j++;
+			/*
 			if (j == current_node0_meta->inv_cnt)
 			{
 				j = 0;
 				current_node0_meta->inv_kv[0] = 0;
 			}
+			*/
 			kvs &= ~(INV_BIT);
 		}
 		else
@@ -1841,22 +1799,37 @@ if (print)
 //mu.lock();
 	insert_range_entry((unsigned char*)&prefix_64,continue_len,SPLIT_OFFSET);
 	// disappear here
-	/*
+	
 	int z = 0;
-	if (find_range_entry2((unsigned char*)&prefix_64,&z) != 0)
+	unsigned char prefix_t[8];
+	*((uint64_t*)prefix_t) = prefix_64;
+	if (find_range_entry2(prefix,&z) != INIT_OFFSET)
 {
 	printf("erer\n");
-	int t;
-	scanf("%d",&t);
+//	int t;
+//	scanf("%d",&t);
+
+//	insert_range_entry((unsigned char*)&prefix_64,continue_len,SPLIT_OFFSET);
+	if (find_range_entry2(prefix,&z) != INIT_OFFSET)
+		printf("erer\n");
+
 }
-*/
+
 	prefix_64-=v;		
 	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,new_node1_offset.no);
+//	if (find_in_log
 	new_node1->continue_len = continue_len+1;
 	prefix_64+=v;
 	insert_range_entry((unsigned char*)&prefix_64,continue_len+1,new_node2_offset.no);
 	new_node2->continue_len = continue_len+1;
 	
+if (find_range_entry2(prefix,&z) == INIT_OFFSET)
+{
+	printf("erer22222\n");
+	int t;
+	scanf("%d",&t);
+}
+
 	for (i=0;i<tc;i++)
 {
 //	if (vea[i].kv_offset > NODE_BUFFER)
@@ -1949,6 +1922,7 @@ printf("rehash\n");
 
 int compact(Node_offset offset)//,int continue_len)//, struct range_hash_entry* range_entry)//,unsigned char* prefix, int continue_len)
 {
+//	printf("compact\n");//test
 #ifdef dtt
 	timespec ts1,ts2;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -2019,18 +1993,8 @@ scanf("%d",&t);
 //	pthread_mutex_lock(&prev_node->mutex);	
 
 
-		if (prev_node->state  == 1)
+		if (prev_node->state > 0) // == 1)
 		{
-
-//			prev_node->m.unlock();
-//			pthread_mutex_unlock(&prev_node->mutex);
-
-//			node->m.lock();
-//			pthread_mutex_lock(&node->mutex);	
-//			node->state = 0;
-//			node->m.unlock();
-//			pthread_mutex_unlock(&node->mutex);
-//		printf("ref5 %d\n",node->prev_offset);
 
 			return -1; // failed
 		}
@@ -2049,42 +2013,14 @@ scanf("%d",&t);
 		next_offset.no_32 = node->next_offset;
 		next_node = offset_to_node(next_offset.no);
 //	next_node = offset_to_node(node->next_offset);
-		if (next_node->state  == 1)
+		if (next_node->state > 0) // == 1)
 		{
-//			next_node->m.unlock();
-//			pthread_mutex_unlock(&next_node->mutex);
-//			node->m.lock();
-//			pthread_mutex_lock(&node->mutex);	
-//			node->state = 0;
-//			node->m.unlock();
-//			pthread_mutex_unlock(&node->mutex);
-//		printf("ref6 %d\n",node->next_offset);
-			return -1;
-		while(next_node->state > 0)
+		while(next_node->state > 0) // == 1)
 		{
 			next_offset.no_32 = node->next_offset;
 			next_node = offset_to_node(next_offset.no);
 		}
-//		next_node = offset_to_node(node->next_offset);
-/*
-			struct timespec tsl0,tsl1;
-			clock_gettime(CLOCK_MONOTONIC,&tsl0);
-			while(next_node->state > 0)
-			{
-				next_node = offset_to_node(node->next_offset);
-				clock_gettime(CLOCK_MONOTONIC,&tsl1);
-				if ((tsl1.tv_sec-tsl0.tv_sec)*1000000000-tsl1.tv_nsec-tsl0.tv_nsec > 1000000000)
-				{
-					printf("too long %d %d %d\n",offset,node->next_offset,(int)next_node->state);
-					int t;
-					scanf("%d",&t);
-				}
-			}
-			*/
-//			return -1;//failed
 		}
-//			next_node->m.unlock();
-//			pthread_mutex_unlock(&next_node->mutex);
 if (print)
 		printf("locked\n");
 
@@ -2203,8 +2139,9 @@ oc = 0;
 	buffer_end = buffer + current_node0_meta->size; 
 	sort_inv(current_node0_meta->inv_cnt,current_node0_meta->inv_kv);
 		j = 0;
-		if (current_node0_meta->inv_cnt == 0)
-			current_node0_meta->inv_kv[0] = 0;
+//		if (current_node0_meta->inv_cnt == 0)
+//			current_node0_meta->inv_kv[0] = 0;
+		current_node0_meta->inv_kv[current_node0_meta->inv_cnt] = 0;
 		temp_offset[oc++] = current_node0_offset;
 	while(buffer < buffer_end)
 	{
@@ -2219,15 +2156,17 @@ oc = 0;
 		if (kvs%2)
 			++kvs;
 //		if ((/*value_len*/ lak.len & (1 << 15)) == 0) // valid length		
-		if (((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] == buffer) || (vl16 & INV_BIT))
+		if (((unsigned char*)current_node0_data + current_node0_meta->inv_kv[j] == buffer)/* || (vl16 & INV_BIT)*/) // INV BIT for recovery
 		{
 			j++;
+			/*
 			if (j == current_node0_meta->inv_cnt)//node->inv_cnt)
 			{
 				j = 0;
 //				node->inv_kv[0] = 0;
 				current_node0_meta->inv_kv[0] = 0;
 			}
+			*/
 			kvs&= ~(INV_BIT);//((uint16_t)1 << 15);
 		}
 		else
@@ -2611,11 +2550,11 @@ int advance_offset(Query* query)
 	Node_meta* next_node;
 
 //	pthread_mutex_lock(&query->scan_mutex);
-	at_lock(query->scan_lock);
+//	at_lock(query->scan_lock);
 
-	old_offset.no = query->scan_offset;
 	while(1)
 	{
+		old_offset.no_32 = query->scan_offset;
 		node = offset_to_node(old_offset.no);
 			/*
 			if (inc_ref(new_offset,0))
@@ -2632,32 +2571,33 @@ int advance_offset(Query* query)
 			continue;
 		}
 */
-		at_lock(node->state); // never fail?
+//		at_lock(node->state); // never fail?
+		if (try_at_lock(node->state) == 0)
+			continue;
 
 		new_offset.no_32 = node->next_offset;
+
 		if (new_offset.no == TAIL_OFFSET)
 		{
 			delete_scan_entry(old_offset.no,query);
 //			pthread_mutex_unlock(&node->mutex);
 			at_unlock(node->state);			
-			query->scan_offset = TAIL_OFFSET;
+			query->scan_offset = TAIL_OFFSET_u.no_32;
 //				dec_ref(old_offset);
 //				*kv_pp = NULL;
 //			pthread_mutex_unlock(&query->scan_mutex);		
-			at_unlock(query->scan_lock);			
+//			at_unlock(query->scan_lock);			
 			return -1;
 		}
 
+		while(1)
+		{
+
 		next_node = offset_to_node(new_offset.no);
 
-//		pthread_mutex_lock(&next_node->mutex);		
-
-		if (next_node->state > 0) // it can't be splited because we have lock of 
-		{
-//			pthread_mutex_unlock(&next_node->mutex);
-//			pthread_mutex_unlock(&node->mutex);
-			at_unlock(node->state);			
-			continue;
+		if (try_at_lock(next_node->state) ) // it can't be splited because we have lock of 
+//			if (next_node->state == 0) // don't lock but check
+				break;
 		}
 		break;
 	}
@@ -2687,11 +2627,11 @@ int advance_offset(Query* query)
 //	pthread_mutex_unlock(&node->mutex);
 //	at_unlock(node->state);	// not here
 
-	at_lock(next_node->state);
+//	at_lock(next_node->state);
 	sl->next = next_node->scan_list;
 	next_node->scan_list = sl;
 
-	query->scan_offset = new_offset.no;
+	query->scan_offset = new_offset.no_32;
 
 //	next_node->state = 1; // not split it is copy ....
 //	insert_scan_list(next_node,query);
@@ -2731,7 +2671,7 @@ int advance_offset(Query* query)
 //		dec_ref(new_offset);		
 //		*kv_pp = node_p->buffer;
 //	pthread_mutex_unlock(&query->scan_mutex);		
-	at_unlock(query->scan_lock);	
+//	at_unlock(query->scan_lock);	
 	return 0;
 }
 
@@ -2760,13 +2700,19 @@ void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 	int i = 0;
 	int part;
 	int node_size[100*PART_MAX];
-	node_offset = query->scan_offset;
+	Node_offset_u nou;
+	nou.no_32 = query->scan_offset;
+	node_offset = nou.no;
+//	node_offset = query->scan_offset;
 	node_meta = offset_to_node(node_offset);
 	end_offset = node_meta->end_offset;
+	int meta_size = (unsigned char*)node_data->buffer-(unsigned char*)node_data;
 	while(1)
 	{
-		node_data[i] = *offset_to_node_data(node_offset); // copy
+//		node_data[i] = *offset_to_node_data(node_offset); // copy
 		node_size[i] = offset_to_node(node_offset)->size;
+		memcpy(&node_data[i],offset_to_node_data(node_offset),node_size[i]+meta_size);
+
 		if (node_offset == end_offset)
 			break;
 //		node_offset = node_data[i].next_offset_ig;
@@ -2789,6 +2735,9 @@ void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 	const int kls = key_size+len_size;
 	unsigned char* node_end;
 //	const unsigned char* offset0 = query->node_data;
+	j = 0;
+	if (node_meta->inv_max == 0)
+		node_meta->inv_kv = 0;
 	for (i=0;i<part;i++)
 	{
 		node_data = &(((Node*)query->node_data)[i]);
@@ -2800,6 +2749,12 @@ void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 			v_size = *((uint16_t*)(kv));
 			if (v_size & INV_BIT)
 				v_size-=INV_BIT;
+			else if (kv-(unsigned char*)node_data == node_meta->inv_kv[j])
+			{
+				j++;
+				if (j == node_meta->inv_max)
+					j = 0;
+			}
 			else
 				query->sorted_kv[(query->sorted_kv_max)++] = kv;
 			kv+=kls+v_size;
@@ -2807,6 +2762,7 @@ void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 	}
 	// sort
 //	int i,j;
+/*
 	for (i=0;i<query->sorted_kv_max;i++)
 	{
 		for (j=i+1;j<query->sorted_kv_max;j++)
@@ -2819,6 +2775,7 @@ void copy_and_sort_node(Query *query)//Node* &node_data,Node_offset node_offset)
 			}
 		}
 	}	
+	*/
 }
 
 void insert_scan_list(Node_offset &node_offset,void* query)
@@ -2841,7 +2798,7 @@ void invalidate_kv(ValueEntry& ve)
 	const int kl_size = key_size+len_size;
 	Node_meta* meta;
 
-
+#ifdef DOUBLE_LOG
 	if (ve.node_offset.file & LOG_BIT)
 	{
 		unsigned char* kvp;
@@ -2864,9 +2821,9 @@ void invalidate_kv(ValueEntry& ve)
 		ve.kv_offset = *((uint16_t*)(kvp+len_size+key_size+vl16+sizeof(Node_offset)));
 		*/
 	}
-		
+#endif
 	meta = offset_to_node(ve.node_offset);
-	if (meta->inv_cnt == meta->inv_max)
+	if (meta->inv_cnt+1 == meta->inv_max)
 	{
 		meta->inv_max*=2;
 		meta->inv_kv = (uint16_t*)realloc(meta->inv_kv,sizeof(uint16_t)*meta->inv_max);
@@ -3059,7 +3016,7 @@ extern thread_local PH_Thread* my_thread;
 
 #endif
 
-
+#ifdef split_thread
 void* split_work(void* iid)
 {
 	int i,id = *((int*)iid);
@@ -3143,6 +3100,58 @@ void clean_split()
 		printf("split thread %d qe %d\n",i,(int)split_queue_end[i]);
 		split_queue_end[i] = -1;
 	}
+}
+#endif
+
+int scan_node(Node_offset offset,unsigned char* key,int cnt,std::string* scan_result)
+{
+	unsigned char temp_buffer[NODE_BUFFER];
+	int temp_size;
+	int temp_cnt=0;
+	unsigned char* buffer;
+	unsigned char* buffer_end;
+
+	Node* node_data;
+	Node_meta* node_meta;
+
+	node_meta = offset_to_node(offset);
+	node_data = offset_to_node_data(offset);
+
+	// here, we have ref and ve.node_offset and we should copy it and def it
+
+	sort_inv(node_meta->inv_cnt,node_meta->inv_kv);
+
+	int j;
+	uint16_t size;
+	while(1)
+	{
+		// read and sort node
+		buffer  = node_data->buffer;
+		buffer_end = (unsigned char*)node_data->buffer + node_meta->size;
+		j = 0;
+		node_meta->inv_kv[node_meta->inv_cnt] = 0;
+		while(buffer < buffer_end)
+		{
+			size = *((uint16_t*)buffer);
+			if (((unsigned char*)node_data + node_meta->inv_kv[j] == buffer) /*|| (size & INV_BIT)*/)
+			{
+				j++;
+				size&= ~(INV_BIT);
+			}
+			else
+			{
+
+			}
+			buffer+=size;
+
+		}
+
+		// check cnt
+		// advance node
+	}
+
+	return cnt; //temp
+
 }
 
 }

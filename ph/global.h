@@ -42,8 +42,6 @@ struct Node_offset
 const Node_offset HEAD_OFFSET={0,2};
 const Node_offset TAIL_OFFSET={0,3};
 
-
-
 struct Node_offset_u
 {
 	union
@@ -52,6 +50,8 @@ struct Node_offset_u
 		uint32_t no_32;
 	};
 };
+
+const Node_offset_u TAIL_OFFSET_u = {0,3};
 /*
 struct ValueEntry2
 {
@@ -134,10 +134,10 @@ extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
 //#define NODE_BUFFER 1024*4-1-1
-#define NODE_BUFFER 1024*4-4-4-8
-//#define NODE_BUFFER 256 // test
+//#define NODE_BUFFER 1024*4-4-4-8
+#define NODE_BUFFER 1024-4-4-8 // test
 extern int node_size;
-#define PART_MAX 4
+#define PART_MAX 1
 //#define PART_MAX 8
 //#define PART_MAX 2 // test
 
