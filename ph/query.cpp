@@ -711,7 +711,7 @@ unlock_entry(unlock);
 				*/
 //				static std::mutex m;
 //				m.lock();
-				if ((rv = split(ve_u.ve.node_offset,key_p))<0)//,key_p,continue_len))<0)
+				if ((rv = split(ve_u.ve.node_offset))<0)//,key_p,continue_len))<0)
 				{
 
 					dec_ref(locked_offset);

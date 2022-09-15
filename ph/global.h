@@ -133,11 +133,10 @@ extern int num_of_split;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-//#define NODE_BUFFER 1024*4-1-1
-//#define NODE_BUFFER 1024*4-4-4-8
-#define NODE_BUFFER 1024-4-4-8 // test
+#define NODE_BUFFER 1024*4-4-4-8
+//#define NODE_BUFFER 1024-4-4-8 // test
 extern int node_size;
-#define PART_MAX 1
+#define PART_MAX 4
 //#define PART_MAX 8
 //#define PART_MAX 2 // test
 
