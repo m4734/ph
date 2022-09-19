@@ -711,7 +711,7 @@ unlock_entry(unlock);
 				*/
 //				static std::mutex m;
 //				m.lock();
-				if ((rv = split(ve_u.ve.node_offset))<0)//,key_p,continue_len))<0)
+				if ((rv = split2p(ve_u.ve.node_offset))<0)//,key_p,continue_len))<0)
 				{
 
 					dec_ref(locked_offset);
@@ -752,7 +752,7 @@ unlock_entry(unlock);
 //				else
 //					range_entry->offset = rv;
 					*/
-				if (compact(ve_u.ve.node_offset) < 0) // failed//,continue_len);
+				if (compact2p(ve_u.ve.node_offset) < 0) // failed//,continue_len);
 					dec_ref(locked_offset);				
 				/*
 				if ((rv=compact(offset)) >= 0)

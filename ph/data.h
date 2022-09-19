@@ -212,8 +212,11 @@ void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
+int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
+
 
 int compact(Node_offset offset);//,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
+int compact2p(Node_offset offset);//,int continue_len);//, struct range_hash_entry* range_entry);//,unsigned char* prefix, int continue_len)
 
 int flush(Node_offset offset);
 Node_offset append_node(Node_offset& offset);
