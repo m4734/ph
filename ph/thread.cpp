@@ -19,7 +19,7 @@ PH_Thread* thread_list;
 thread_local PH_Thread* my_thread = NULL;
 //thread_local unsigned int op_cnt = 0;
 
-extern volatile unsigned int free_cnt;
+extern volatile unsigned int free_cnt[PM_N];
 extern int num_of_thread;
 
 extern volatile unsigned int seg_free_cnt;
@@ -95,12 +95,17 @@ void exit_thread()
 }
 void PH_Thread::clean()
 {
-	local_free_cnt = local_seg_free_cnt = INV9;
+	int i;
+	for (i=0;i<PM_N;i++)
+		local_free_cnt[i] = INV9;
+	local_seg_free_cnt = INV9;
 //	log->clean();
 }
 
+#ifdef split_thread
 pthread_t* split_threads;
 int* si;
+#endif
 
 void init_thread()
 {
@@ -144,7 +149,6 @@ void clean_thread()
 #endif
 #ifdef split_thread
 	clean_split();
-#endif
 
 	int i;
 	for (i=0;i<num_of_split;i++)
@@ -153,6 +157,7 @@ void clean_thread()
 	free(split_threads);
 	free(si);
 
+#endif
 	delete[] thread_list;
 }
 
@@ -169,23 +174,29 @@ void PH_Thread::init()
 #ifdef idle_thread
 	running = 0;
 #endif
-	local_free_cnt = local_seg_free_cnt = INV9;
+	int i;
+	for (i=0;i<PM_N;i++)
+		local_free_cnt[i] = INV9;
+	local_seg_free_cnt = INV9;
+//	init_data_local(); // this function called by init thread
+	// and init data local is about thread local
 }
 
 void new_thread()
 {
-	int i;
+	int i,j;
 //	pthread_t pt;
 //	pt = pthread_self();
 //	pthread_mutex_lock(&alloc_mutex);
 	at_lock(thread_lock);	
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].local_free_cnt == INV9)
+		if (thread_list[i].local_free_cnt[0] == INV9)
 		{
 			// alloc thread
 //			thread_list[i].tid = pt;
-			thread_list[i].local_free_cnt = free_cnt;
+			for (j=0;j<PM_N;j++)
+				thread_list[i].local_free_cnt[j] = free_cnt[j];
 			thread_list[i].local_seg_free_cnt = seg_free_cnt;
 #ifdef DOUBLE_LOG
 			if (thread_list[i].log == NULL)
@@ -194,6 +205,7 @@ void new_thread()
 				thread_list[i].log->init();
 			}
 #endif
+			init_data_local();
 			my_thread = &thread_list[i];
 
 		//	my_thread->log = new LOG();
@@ -210,15 +222,16 @@ void new_thread()
 
 void update_idle()
 {
-	int i;
+	int i,j;
 //	print_thread_info(); //test
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].local_free_cnt != INV9)
+		if (thread_list[i].local_free_cnt[0] != INV9)
 		{
 			if (thread_list[i].running == 0)
 			{
-				thread_list[i].local_free_cnt = free_cnt;
+				for (j=0;j<PM_N;j++)
+				thread_list[i].local_free_cnt[j] = free_cnt[j];
 				thread_list[i].local_seg_free_cnt = seg_free_cnt;
 			}
 		}
@@ -237,10 +250,13 @@ void update_free_cnt()
 	if (my_thread)
 	{
 		my_thread->op_cnt++;
-		if (my_thread->op_cnt & 256)
+		if (my_thread->op_cnt % 256 == 0)
 		{
-			my_thread->local_free_cnt = free_cnt;
+			int i;
+			for (i=0;i<PM_N;i++)
+				my_thread->local_free_cnt[i] = free_cnt[i];
 			my_thread->local_seg_free_cnt = seg_free_cnt;
+			
 		}
 	}
 	else
@@ -263,20 +279,20 @@ void update_free_cnt()
 #endif
 }
 
-unsigned int min_free_cnt()
+unsigned int min_free_cnt(int part)
 {
 	int i;
 	unsigned int min=999999999;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (min > thread_list[i].local_free_cnt)
-			min = thread_list[i].local_free_cnt;
+		if (min > thread_list[i].local_free_cnt[part])
+			min = thread_list[i].local_free_cnt[part];
 	}
 	if (min == 999999999)
-		return free_cnt;
+		return free_cnt[part];
 	return min;
 }
-
+/*
 void print_thread_info()
 {
 	int i;
@@ -289,7 +305,7 @@ void print_thread_info()
 	}
 
 }
-
+*/
 unsigned int min_seg_free_cnt()
 {
 	int i;

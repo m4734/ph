@@ -1,7 +1,7 @@
 #include <atomic>
 
 #include "global.h"
-
+#ifdef DOUBLE_LOG
 namespace PH
 {
 
@@ -46,3 +46,4 @@ class LOG
 //	void flush(unsigned char* kvp);
 };
 }
+#endif

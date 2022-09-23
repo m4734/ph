@@ -18,6 +18,16 @@ typedef u_int16_t uint16_t
 typedef u_int64_t uint64_t
 */
 
+//#define NODE_BUFFER 1024*4-4-4-8
+#define NODE_BUFFER 1024-4-4-8 // test
+extern int node_size;
+#define PART_MAX 4
+//#define PART_MAX 8
+//#define PART_MAX 2 // test
+
+#define PM_N 4
+#define PAGE_SIZE 4096
+
 namespace PH
 {
 
@@ -132,13 +142,6 @@ extern int num_of_split;
 
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
-
-#define NODE_BUFFER 1024*4-4-4-8
-//#define NODE_BUFFER 1024-4-4-8 // test
-extern int node_size;
-#define PART_MAX 4
-//#define PART_MAX 8
-//#define PART_MAX 2 // test
 
 extern int key_size;
 extern int len_size;

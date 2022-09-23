@@ -207,7 +207,7 @@ void free_seg(SEG* seg)
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
 		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
-		print_thread_info();
+//		print_thread_info();
 		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt);
 	}
 	}

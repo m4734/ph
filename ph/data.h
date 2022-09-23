@@ -22,7 +22,7 @@
 namespace PH
 {
 
-extern int file_num;
+extern volatile int file_num;
 
 #define INV_BIT ((uint16_t)1<<15)
 #define LOG_BIT ((uint16_t)1<<15)
@@ -294,4 +294,5 @@ void clean_split();
 
 int scan_node(Node_offset offset,unsigned char* key,int cnt,std::string* scan_result);
 
+void init_data_local();
 }
