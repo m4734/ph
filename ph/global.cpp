@@ -52,8 +52,11 @@ void clean()
 }
 void temp_static_conf(int tn, int ks,int vs)
 {
-
+#ifdef split_thread
+	num_of_split = SPLIT_NUM;
+#else
 	num_of_split = 0; // temp
+#endif
 //	num_of_thread = 1;
 	num_of_thread = tn + num_of_split;	
 //	connection_per_thread = 1;

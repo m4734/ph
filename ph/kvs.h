@@ -93,6 +93,12 @@ class KVS_ph : public KVS
 		int i,len,j;
 		unsigned char* result;
 		result = (unsigned char*)malloc(value_size+key_size+PH::len_size);
+
+		int i10 = ops/10;
+		int i10s = 0;
+
+		std::string scan_result[100]; // need max length
+
 		for (i=0;i<ops;i++)
 		{
 			if (tqa[i].op == 1) // insert
@@ -111,6 +117,8 @@ class KVS_ph : public KVS
 				PH::delete_query(tqa[i].key);
 			else if (tqa[i].op == 5) //scan
 			{
+				PH::scan_query2(tqa[i].key,tqa[i].cnt,scan_result);
+				/*
 				PH::Query query;
 				PH::init_query(&query);
 				query.key_p = tqa[i].key;
@@ -124,6 +132,13 @@ class KVS_ph : public KVS
 					PH::next_query(&query,result,&len);
 				}
 				PH::free_query(&query);
+				*/
+			}
+
+			if (i == i10s)
+			{
+				i10s+=i10;
+				printf("i : %d / %d\n",i,ops);
 			}
 		}
 		free(result);

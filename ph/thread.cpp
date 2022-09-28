@@ -100,6 +100,7 @@ void PH_Thread::clean()
 		local_free_cnt[i] = INV9;
 	local_seg_free_cnt = INV9;
 //	log->clean();
+	clean_thread_local();
 }
 
 #ifdef split_thread

@@ -692,6 +692,7 @@ unlock_entry(unlock);
 //			if (continue_len < key_bit)//64) // split
 //			if (continue_len == 63)
 //				tf();
+//			printf("split or compact\n");
 			if (split_or_compact(ve_u.ve.node_offset))
 			{	
 				if (print)
@@ -1347,7 +1348,42 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 		}
 	}
 
-	return scan_node(ve.node_offset,key,cnt,scan_result);
+	// found start node
+	int result_num,result_sum=0;
+	Node_offset node_offset = ve.node_offset;
+	Node_offset_u next_offset;
+//	while(cnt > result_sum)
+	while(1)
+	{
+		result_num = scan_node(node_offset,key,cnt-result_sum,scan_result);
+		result_sum+=result_num;
+		scan_result+=result_num;
+
+		if (cnt <= result_sum)
+		{
+			dec_ref(node_offset);
+			return result_sum;
+		}
+
+		while(1)
+		{
+		next_offset.no_32 = offset_to_node(node_offset)->next_offset;
+		if (next_offset.no == TAIL_OFFSET)
+		{
+			dec_ref(node_offset);
+			return result_sum;
+		}
+		if (inc_ref(next_offset.no))
+			break;
+		}
+
+		dec_ref(node_offset);
+
+		node_offset = next_offset.no;
+	}
+
+	return result_sum;
+
 
 	//--------------------------------------
 #if 0

@@ -28,6 +28,13 @@ extern int node_size;
 #define PM_N 4
 #define PAGE_SIZE 4096
 
+#define split_thread
+#ifdef split_thread
+#define SPLIT_NUM 8
+#else
+#define SPLIT_NUM 0
+#endif
+
 namespace PH
 {
 

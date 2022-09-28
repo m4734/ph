@@ -28,7 +28,6 @@ extern volatile int file_num;
 #define LOG_BIT ((uint16_t)1<<15)
 
 
-#define SPLIT_NUM 4
 #define SPLIT_QUEUE_LEN 100
 #define SPLIT_MAX 50
 
@@ -285,14 +284,15 @@ int add_split(Node_offset node_offset);
 inline int need_split(Node_offset node_offset,int value_len)
 {
 	Node_meta* meta = offset_to_node(node_offset);
-	return (meta->part == PART_MAX-1) && (meta->size + len_size + key_size + value_len + len_size > NODE_BUFFER); // %2
+	return (meta->part == PART_MAX-1);// && (meta->size + len_size + key_size + value_len + len_size > NODE_BUFFER); // %2
 }
 
 void init_split();
 void clean_split();
 #endif
 
-int scan_node(Node_offset offset,unsigned char* key,int cnt,std::string* scan_result);
+int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* scan_result);
 
 void init_data_local();
+void clean_thread_local();
 }
