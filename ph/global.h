@@ -20,7 +20,7 @@ typedef u_int64_t uint64_t
 
 //#define NODE_BUFFER 1024*4-4-4-8
 #define NODE_BUFFER 1024-4-4-8 // test
-extern int node_size;
+//extern int node_size;
 #define PART_MAX 4
 //#define PART_MAX 8
 //#define PART_MAX 2 // test
@@ -150,8 +150,12 @@ extern int num_of_split;
 extern int point_hash_table_size;
 extern int* range_hash_table_size;
 
-extern int key_size;
-extern int len_size;
+#define PH_KEY_SIZE 8
+#define PH_LEN_SIZE 2
+#define LK_SIZE PH_KEY_SIZE+PH_LEN_SIZE
+
+//extern int key_size;
+//extern int len_size;
 extern int value_size;
 extern int entry_size;
 extern int key_bit;

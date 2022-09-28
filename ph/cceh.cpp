@@ -1076,12 +1076,14 @@ void init_cceh()
 	for (i=1;i<=64;i++)
 		r_mask[i] = r_mask[i-1]*2+1;
 
-	if (key_size != 8) // ke yarray init
+//	if (key_size != 8) // ke yarray init
+	if (PH_KEY_SIZE != 8)
 	{
 		key_array = (unsigned char**)malloc(sizeof(unsigned char*) * KEY_ARRAY_MAX);
 		key_cnt = (int*)malloc(sizeof(int*) * KEY_ARRAY_MAX);
 		key_array_cnt = 0;
-		max_index = key_size*KEY_ARRAY_MAX;
+//		max_index = key_size*KEY_ARRAY_MAX;
+		max_index = PH_KEY_SIZE*KEY_ARRAY_MAX;
 		key_cnt[0] = max_index;
 		key_array[0] = NULL;
 //		for (i=0;i<KEY_ARRAY_MAX;i++)
@@ -1137,21 +1139,21 @@ inline bool CCEH_vk::compare_key(const volatile uint64_t &key1,unsigned char* co
 inline void CCEH_vk::insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash) // it has to be new key
 {
 
-	if (key_cnt[key_array_index] + key_size >= max_index)
+	if (key_cnt[key_array_index] + PH_KEY_SIZE/*key_size*/ >= max_index)
 	{
 		key_array_index = key_array_cnt.fetch_add(1);
 		key_cnt[key_array_index] = 0;
 		key_array[key_array_index] = (unsigned char*)malloc(max_index);
 	}
 
-	memcpy(&key_array[key_array_index][key_cnt[key_array_index]],key2,key_size);
+	memcpy(&key_array[key_array_index][key_cnt[key_array_index]],key2,PH_KEY_SIZE);//key_size);
 
 	KeyEntry_u key;
 	key.ke.hp.key_array = key_array_index;
 	key.ke.hp.key_offset = key_cnt[key_array_index];
 	key.ke.hp.hash = hash;
 
-	key_cnt[key_array_index]+=key_size;
+	key_cnt[key_array_index]+=PH_KEY_SIZE;//key_size;
 
 	key1 = key.ke_64;
 

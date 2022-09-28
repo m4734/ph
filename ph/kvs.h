@@ -92,7 +92,7 @@ class KVS_ph : public KVS
 	{
 		int i,len,j;
 		unsigned char* result;
-		result = (unsigned char*)malloc(value_size+key_size+PH::len_size);
+		result = (unsigned char*)malloc(value_size+PH_KEY_SIZE+PH_LEN_SIZE);
 
 		int i10 = ops/10;
 		int i10s = 0;

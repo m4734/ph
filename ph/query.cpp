@@ -89,7 +89,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 //		unsigned char* kv_p;
 		ValueEntry ve;
 //		int value_len;
-		const int kls = key_size+len_size;
+		const int kls = PH_KEY_SIZE+PH_LEN_SIZE;//key_size+len_size;
 //		unsigned int offset;
 		update_free_cnt();
 	THREAD_RUN
@@ -196,7 +196,7 @@ int lookup_query(unsigned char* &key_p, std::string *value)
 {
 //	thread_run();
 		ValueEntry ve;
-		const int kls = key_size+len_size;
+		const int kls = PH_KEY_SIZE+PH_LEN_SIZE;//key_size+len_size;
 		update_free_cnt();
 	THREAD_RUN
 		ve = find_point_entry(key_p); // don't create
@@ -845,7 +845,7 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 		{
 			if (old_ve_u.ve.node_offset.file & LOG_BIT)
 			{
-				uint16_t entry_size = len_size+key_size+old_ve_u.ve.len;
+				uint16_t entry_size = PH_KEY_SIZE+PH_LEN_SIZE/*+len_size+key_size*/+old_ve_u.ve.len;
 				if (entry_size%2)
 					++entry_size;
 
@@ -1188,7 +1188,7 @@ int scan_query(Query* query)//,unsigned char** result,int* result_len)
 	{
 		while (query->sorted_kv_max > query->sorted_kv_i)
 		{
-			if(*((uint64_t*)(query->sorted_kv[query->sorted_kv_i]+len_size)) >= *((uint64_t*)query->key_p))
+			if(*((uint64_t*)(query->sorted_kv[query->sorted_kv_i]+PH_LEN_SIZE/*len_size*/)) >= *((uint64_t*)query->key_p))
 				return 0;
 			++query->sorted_kv_i;
 		}

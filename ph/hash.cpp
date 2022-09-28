@@ -86,7 +86,7 @@ void print64(uint64_t v)
 static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test hash from hiredis
 {
 	unsigned int hash = 5381;
-	int len=8;//key_size;//8; // can't change need function OP
+	int len=PH_KEY_SIZE;//key_size;//8; // can't change need function OP
 	while (len--)
 		hash = ((hash << 5) + hash) + (*buf++);
 	return hash;
@@ -253,13 +253,13 @@ _mm_mfence();
 return hash;
 	}
 
-	if (key_size > 8)
+	if (PH_KEY_SIZE/*key_size*/ > 8)
 	{
 		prefix2 = prefix+8;
 		key_p2 = key_p+8;
 	}
 
-	max = key_bit;//key_size * 8; // 64
+	max = PH_KEY_SIZE*8;//key_bit;//key_size * 8; // 64
 	min = 0;
 	mid = (min+max)/2;
 	
