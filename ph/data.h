@@ -28,8 +28,8 @@ extern volatile int file_num;
 #define LOG_BIT ((uint16_t)1<<15)
 
 
-#define SPLIT_QUEUE_LEN 100
-#define SPLIT_MAX 50
+#define SPLIT_QUEUE_LEN 500
+#define SPLIT_MAX SPLIT_QUEUE_LEN-10
 
 	/*
 	const Node_offset INIT_OFFSET={0,0};

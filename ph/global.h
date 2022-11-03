@@ -17,15 +17,19 @@ typedef u_int8_t uint8_t
 typedef u_int16_t uint16_t
 typedef u_int64_t uint64_t
 */
-
-//#define SMALL_NODE
+/*
+#define SMALL_NODE
 #ifdef SMALL_NODE
 	#define NODE_BUFFER 1024-4-4-8 // test
 #else
 	#define NODE_BUFFER 1024*4-4-4-8
 #endif
+*/
+#define NSK 1
+#define NODE_BUFFER 1024*NSK-4-4-8
+
 //extern int node_size;
-#define PART_MAX 1
+#define PART_MAX 4
 //#define PART_MAX 8
 //#define PART_MAX 2 // test
 
@@ -42,7 +46,7 @@ typedef u_int64_t uint64_t
 #endif
 
 #ifdef split_thread
-#define SPLIT_NUM 8
+#define SPLIT_NUM 4
 #else
 #define SPLIT_NUM 0
 #endif

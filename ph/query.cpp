@@ -1319,6 +1319,7 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 	int size;
 	Node_meta* node_meta;
 
+	THREAD_RUN
 	update_free_cnt();
 
 	ve = find_point_entry(key); // no lock
@@ -1381,7 +1382,7 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 
 		node_offset = next_offset.no;
 	}
-
+THREAD_IDLE
 	return result_sum;
 
 

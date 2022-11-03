@@ -9,8 +9,8 @@ namespace PH
 class PH_Thread
 {
 	public:
-/*	volatile*/ unsigned int local_free_cnt[PM_N];
-/*	volatile*/ unsigned int local_seg_free_cnt;
+	volatile unsigned int local_free_cnt[PM_N];
+	volatile unsigned int local_seg_free_cnt;
 
 //	pthread_t tid;
 
@@ -39,7 +39,7 @@ unsigned int min_seg_free_cnt();
 void init_thread();
 void clean_thread();
 
-//void print_thread_info();
+void print_thread_info();
 //int check_slow();
 
 void update_idle();

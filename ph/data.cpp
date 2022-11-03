@@ -67,7 +67,7 @@ Node_offset free_queue[PM_N][FREE_QUEUE_LEN]; // queue len
 // free_local                                   <------------->
 
 
-#define LOCAL_QUEUE_LEN 100
+#define LOCAL_QUEUE_LEN 20
 thread_local Node_offset local_batch_alloc[PM_N][LOCAL_QUEUE_LEN];
 thread_local int lbac[PM_N];//={LOCAL_QUEUE_LEN,};
 thread_local Node_offset local_batch_free[PM_N][LOCAL_QUEUE_LEN];
@@ -75,16 +75,18 @@ thread_local int lbfc[PM_N];//={0,};
 
 thread_local int part_rotation=0;
 
+/*
 // static test
 thread_local uint64_t size_sum;
 thread_local int cnt_sum;
+*/
 
 // Node alloc
 thread_local Node *d0,*d1,*d2;
 
 void clean_thread_local()
 {
-//	printf("ctr\n");
+	printf("ctr\n");
 	int i,j;
 	at_lock(alloc_lock);
 	for (i=0;i<PM_N;i++)
@@ -117,8 +119,8 @@ void clean_thread_local()
 	free(d1);
 	free(d2);
 
-	if (cnt_sum > 0)
-		printf("size %ld cnt %d s/c %ld\n",size_sum,cnt_sum,size_sum/cnt_sum);
+//	if (cnt_sum > 0)
+//		printf("size %ld cnt %d s/c %ld\n",size_sum,cnt_sum,size_sum/cnt_sum);
 }
 
 //#define alloc_test
@@ -480,12 +482,13 @@ void free_node(Node_offset offset)
 //				printf("queue warn\n");
 				int t;
 //				scanf("%d",&t);
+//				printf ("%d %d %d %d \n",part,free_index[part],free_min[part],free_cnt[part]);
 
 			if (free_index[part] + FREE_QUEUE_LEN < free_cnt[part])
 			{
-//				printf("queue full %d %d %d\n",free_min,free_index,free_cnt);
+				printf("queue full %d %d %d %d\n",part,free_index[part],free_min[part],free_cnt[part]);
 			printf("queue full\n");
-//				print_thread_info();
+				print_thread_info();
 				scanf("%d",&t);
 //				break;
 				continue;
@@ -519,6 +522,7 @@ void free_node0(Node_offset offset)
 			if (free_index[part] + FREE_QUEUE_LEN/2 < free_cnt[part])
 			{
 				update_idle();
+//				printf ("%d %d %d %d \n",part,free_index[part],free_min[part],free_cnt[part]);
 
 			if (free_index[part] + FREE_QUEUE_LEN < free_cnt[part])
 			{
@@ -1019,6 +1023,7 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 			memcpy(buffer+old_size+LK_SIZE/*key_size+len_size*/,value,value_len);
 			memcpy(buffer+old_size+entry_size,&z,PH_LEN_SIZE);//len_size);
 			pmem_persist(node_data,sizeof(uint32_t)*3+entry_size+PH_LEN_SIZE);//len_size);
+			_mm_sfence();
 		}
 		else
 		{
@@ -1349,8 +1354,8 @@ inline void cp256(unsigned char* a,unsigned char* b,size_t s)
 	int i=0;
 	while(i < s)
 	{
-		memcpy(a,b,256);
-//		mm64x4(a,b);
+//		memcpy(a,b,256); // debug
+		mm64x4(a,b);
 		i+=256;
 		a+=256;
 		b+=256;
@@ -4460,12 +4465,12 @@ void* split_work(void* iid)
 	Node_offset node_offset;
 //	Node_meta* meta;
 	update_free_cnt();
-	THREAD_RUN
 	while(1)
 	{
 		update_free_cnt();
 		while(split_queue_start[id] < split_queue_end[id])
 		{
+	THREAD_RUN
 			update_free_cnt();
 			i = split_queue_start[id].fetch_add(1);
 			node_offset = split_queue[id][i%SPLIT_QUEUE_LEN];
@@ -4485,38 +4490,40 @@ void* split_work(void* iid)
 					dec_ref(node_offset);
 			}
 			// if fail do not try again
+
+	THREAD_IDLE
 		}
 		usleep(1); // or nop
 //		printf("idle %d %d %d\n",id,(int)split_queue_start[id],(int)split_queue_end[id]);
 		if (split_queue_end[id] == -1)
 			break;
 	}
-	THREAD_IDLE
 		clean_thread_local();
 		return NULL;
 }
 
+thread_local int split_index=0;
 int add_split(Node_offset node_offset)
 {
 //	int i,j;
-	thread_local static int i=-1;
 	int j;
-	while(1)
+	for (j=0;j<num_of_split;j++)
 	{
-		i++;
-		if (i>=num_of_split)
-			i = 0;
+		split_index++;
+		if (split_index>=num_of_split)
+			split_index = 0;
 //	for (;i<num_of_split;i++)
 //	{
-		if (split_queue_end[i] - split_queue_start[i] < SPLIT_MAX && try_at_lock(split_queue_lock[i]))
+		if (split_queue_end[split_index] - split_queue_start[split_index] < SPLIT_MAX && try_at_lock(split_queue_lock[split_index]))
 		{
 //			j = split_queue_end[i].fetch_add(1);
-			j = split_queue_end[i];
+//			j = split_queue_end[i];
 			Node_meta* meta = offset_to_node(node_offset);
 			meta->state = 2;
-			split_queue[i][j%SPLIT_QUEUE_LEN] = node_offset;
-			split_queue_end[i]++;
-			split_queue_lock[i] = 0;
+			split_queue[split_index][split_queue_end[split_index]%SPLIT_QUEUE_LEN] = node_offset;
+			split_queue_end[split_index]++;
+			split_queue_lock[split_index] = 0;
+			split_index++;
 			return 1;
 		}
 //	}
@@ -4547,9 +4554,9 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 {
 //fail:
 //	unsigned char temp_buffer[NODE_BUFFER];
-	uint64_t temp_key[100],tk; // we need max cnt
+	uint64_t temp_key[100*PART_MAX],tk; // we need max cnt
 //	uint16_t temp_len[100],tl;
-	unsigned char* temp_offset[100], *to;
+	unsigned char* temp_offset[100*PART_MAX], *to;
 	int tc=0;
 
 	int cnt=0;
@@ -4607,7 +4614,7 @@ size_sum+=node_meta->size+meta_size;
 	
 		part0++;
 
-size_sum+=node_meta->size+meta_size;
+//size_sum+=node_meta->size+meta_size;
 
 		node_offset = node_meta->next_offset_ig;
 		if (node_offset == INIT_OFFSET)
@@ -4699,7 +4706,7 @@ size_sum+=node_meta->size+meta_size;
 				break;
 		}
 
-cnt_sum+=cnt;
+//cnt_sum+=cnt;
 	return cnt; //temp
 
 }

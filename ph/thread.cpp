@@ -251,7 +251,7 @@ void update_free_cnt()
 	if (my_thread)
 	{
 		my_thread->op_cnt++;
-		if (my_thread->op_cnt % 256 == 0)
+		if (my_thread->op_cnt % 128 == 0)
 		{
 			int i;
 			for (i=0;i<PM_N;i++)
@@ -286,27 +286,30 @@ unsigned int min_free_cnt(int part)
 	unsigned int min=999999999;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (min > thread_list[i].local_free_cnt[part])
+		if (thread_list[i].running && min > thread_list[i].local_free_cnt[part]) // ???
 			min = thread_list[i].local_free_cnt[part];
 	}
 	if (min == 999999999)
 		return free_cnt[part];
 	return min;
 }
-/*
+
 void print_thread_info()
 {
-	int i;
+	int i,j;
 	for (i=0;i<num_of_thread;i++)
 	{
-		if (thread_list[i].local_free_cnt != 999999999)
+		for (j=0;j<PM_N;j++)
 		{
-			printf("thread %d %d %d %d\n",i,thread_list[i].local_free_cnt,thread_list[i].local_seg_free_cnt,thread_list[i].running);
+		if (thread_list[i].local_free_cnt[j] != 999999999)
+		{
+			printf("thread %d part %d / %d\n",i,j,thread_list[i].local_free_cnt[j]);//,thread_list[i].local_seg_free_cnt,thread_list[i].running);
+		}
 		}
 	}
 
 }
-*/
+
 unsigned int min_seg_free_cnt()
 {
 	int i;
