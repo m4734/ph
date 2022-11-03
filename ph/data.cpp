@@ -331,7 +331,11 @@ Node_offset alloc_node0(int part)
 //	offset.offset = offset_cnt;
 
 	int offset_cnt = part_offset_cnt[part];
+#ifdef SMALL_NODE
 	offset.offset = (offset_cnt/(PAGE_SIZE/PM_N/sizeof(Node))*PAGE_SIZE + part*(PAGE_SIZE/PM_N) + (offset_cnt%(PAGE_SIZE/PM_N/sizeof(Node)))*sizeof(Node)) / sizeof(Node);
+#else
+	offset.offset = offset_cnt * PM_N + part;
+#endif
 
 	node = offset_to_node(offset);
 	++part_offset_cnt[part];
@@ -408,7 +412,11 @@ Node_offset alloc_node(int part)
 	offset.file = part_file_num[part];
 
 	int offset_cnt = part_offset_cnt[part];
+#ifdef SMALL_NODE
 	offset.offset = (offset_cnt/(PAGE_SIZE/PM_N/sizeof(Node))*PAGE_SIZE + part*(PAGE_SIZE/PM_N) + (offset_cnt%(PAGE_SIZE/PM_N/sizeof(Node)))*sizeof(Node))	/ sizeof(Node);
+#else
+	offset.offset = offset_cnt * PM_N + part;
+#endif
 
 
 	node = offset_to_node(offset);
@@ -441,10 +449,11 @@ Node_offset alloc_node(int part)
 }
 void free_node(Node_offset offset)
 {
-//	offset_to_node(offset)->state = 2; // test
-//return;
-
+#ifdef SMALL_NODE
 	int part = offset.offset%(PAGE_SIZE/sizeof(Node))/(PAGE_SIZE/PM_N/sizeof(Node));
+#else
+	int part = offset.offset%PM_N;
+#endif
 
 	if (lbfc[part] < LOCAL_QUEUE_LEN)
 	{
@@ -499,7 +508,11 @@ void free_node(Node_offset offset)
 
 void free_node0(Node_offset offset)
 {
+#ifdef SMALL_NODE
 	int part = offset.offset%(PAGE_SIZE/sizeof(Node)/(PAGE_SIZE/PM_N/sizeof(Node)));
+#else
+	int part = offset.offset % PM_N;
+#endif
 
 		while(1) // test
 		{
@@ -590,10 +603,18 @@ void init_data() // init hash first!!!
 //	update_free_cnt(); // temp main thread
 
 	//push for reserve
+#if PM_N > 1
 	alloc_node0(0); // 0 // INIT_OFFSET
 	alloc_node0(1); // 1 SPLIT_OFFSET
 	head_offset.no = alloc_node0(2); // 2 head
 	tail_offset.no = alloc_node0(3); // 3 tail
+#else
+	alloc_node0(0); // 0 // INIT_OFFSET
+	alloc_node0(0); // 1 SPLIT_OFFSET
+	head_offset.no = alloc_node0(0); // 2 head
+	tail_offset.no = alloc_node0(0); // 3 tail
+
+#endif
 
 	head_node = offset_to_node(head_offset.no);
 	tail_node = offset_to_node(tail_offset.no);
@@ -940,8 +961,11 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 		//append node
 		mid_offset = end_offset;
 		mid_meta = end_meta;
-
+#ifdef SMALL_NODE
 		int part = end_offset.offset%(PAGE_SIZE/sizeof(Node))/(PAGE_SIZE/PM_N/sizeof(Node));
+#else
+		int part = end_offset.offset % PM_N;
+#endif
 
 		end_offset = meta->end_offset = alloc_node((part+1)%PM_N);
 		end_meta = offset_to_node(end_offset);
@@ -978,10 +1002,8 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 	meta->group_size+=entry_size;
 
 	const uint16_t z = 0;
-#if 1
 	if (!USE_DRAM)
 	{
-#if 1
 		if (mid_meta) // new end node flush
 		{
 			Node* node_data = offset_to_node_data(end_offset);
@@ -996,7 +1018,7 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 			memcpy(buffer+old_size+PH_LEN_SIZE/*len_size*/,key,PH_KEY_SIZE/*key_size*/);
 			memcpy(buffer+old_size+LK_SIZE/*key_size+len_size*/,value,value_len);
 			memcpy(buffer+old_size+entry_size,&z,PH_LEN_SIZE);//len_size);
-			pmem_persist(node_data,sizeof(uint32_t)*2+entry_size+PH_LEN_SIZE);//len_size);
+			pmem_persist(node_data,sizeof(uint32_t)*3+entry_size+PH_LEN_SIZE);//len_size);
 		}
 		else
 		{
@@ -1029,60 +1051,13 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 		_mm_sfence();
 //		memcpy((void*)&node_data->size,&vl16,sizeof(uint16_t)); // we will remove this
 		}
-#endif
-#if 0
-		memcpy(node_data->buffer+new_size,&vl16,len_size);
-		new_size+=len_size;
-		memcpy(node_data->buffer+new_size,key,key_size);
-		new_size+=key_size;
-		memcpy(node_data->buffer+new_size,value,value_length);
-		new_size+=value_length;
-
-		pmem_persist(node_data->buffer+old_size,key_size+len_size+value_length);
-
-		_mm_sfence();
-
-		pmem_memcpy((void*)&node_data->size,&new_size,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL); // we will remove this
-//		memcpy((void*)&node_data->size,&vl16,sizeof(uint16_t)); // we will remove this
-
-//		pmem_persist((void*)&node_data->size,sizeof(uint16_t)); // we will remove this
-		_mm_sfence();
-//		memcpy((void*)&node_data->size,&vl16,sizeof(uint16_t)); // we will remove this
-#endif
-
-/*
-		pmem_memcpy(node_data->buffer + old_size,key,sizeof(uint64_t),PMEM_F_MEM_NONTEMPORAL); //write key
-		pmem_memcpy(node_data->buffer + old_size + key_size + len_size, value, value_length, PMEM_F_MEM_NONTEMPORAL); //write value
-		_mm_sfence();
-		pmem_memcpy(node_data->buffer + old_size + key_size,&vl16,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL); // validate
-		_mm_sfence();
-		*/
 	}
 	else
 	{
 		memcpy(buffer+old_size+PH_LEN_SIZE/*len_size*/,key,PH_KEY_SIZE);//key_size);
 		memcpy(buffer+old_size+LK_SIZE/*key_size+len_size*/,value,value_len);
-
-//		_mm_sfence();
-
 		memcpy(buffer+old_size,&vl16,PH_LEN_SIZE);//len_size);
-
-
-//i		vl16 = old_size + key_size+len_size+value_length;
-//		pmem_memcpy((void*)&node_data->size,&vl16,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL); // we will remove this
-//		_mm_sfence();
-#if 0
-		*(uint64_t*)(node_data->buffer + old_size) = *((uint64_t*)key);
-		/*
-		int i;
-		for (i=0;i<value_length;i++)
-			node->buffer[old_size+key_size+len_size+i] = value[i];
-			*/
-		memcpy(node_data->buffer + old_size + key_size + len_size, value, value_length);
-		*((uint16_t*)(node_data->buffer + old_size + key_size)) = vl16;
-#endif
 	}
-#endif
 //fence and flush
 //fence
 //	*(uint16_t*)(node->buffer + old_size + key_size) = value_length;
@@ -1374,8 +1349,8 @@ inline void cp256(unsigned char* a,unsigned char* b,size_t s)
 	int i=0;
 	while(i < s)
 	{
-//		memcpy(a,b,256);
-		mm64x4(a,b);
+		memcpy(a,b,256);
+//		mm64x4(a,b);
 		i+=256;
 		a+=256;
 		b+=256;
@@ -4511,7 +4486,7 @@ void* split_work(void* iid)
 			}
 			// if fail do not try again
 		}
-//		usleep(1); // or nop
+		usleep(1); // or nop
 //		printf("idle %d %d %d\n",id,(int)split_queue_start[id],(int)split_queue_end[id]);
 		if (split_queue_end[id] == -1)
 			break;
