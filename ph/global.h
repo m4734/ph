@@ -41,10 +41,11 @@ typedef u_int64_t uint64_t
 
 #define PAGE_SIZE 4096
 
+/*
 #if PART_MAX > 1
 	#define split_thread
 #endif
-
+*/
 #ifdef split_thread
 #define SPLIT_NUM 4
 #else

@@ -295,8 +295,8 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p)
 
 void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 {
-	if (print)
-		printf("insert\n");
+//	if (print)
+//		printf("insert\n");
 	/*
 	*result = empty;
 	*result_len = empty_len;

@@ -15,6 +15,8 @@
 #include "query.h"
 #include "thread.h"
 
+#include "copy.h"
+
 // we need to traverse linked list when we recover and if it is never visited, it is garbage
 
 #define print 0
@@ -509,7 +511,7 @@ void free_node(Node_offset offset)
 		local_batch_free[part][lbfc[part]++] = offset;
 }
 
-void free_node0(Node_offset offset)
+void free_node0(Node_offset offset) // without local batch ...
 {
 #ifdef SMALL_NODE
 	int part = offset.offset%(PAGE_SIZE/sizeof(Node)/(PAGE_SIZE/PM_N/sizeof(Node)));
@@ -586,8 +588,303 @@ void init_file()
 
 }
 
+int check_recover()
+{
+	printf("try recover\n");
+
+
+
+	char file_name[100];
+	char buffer[10];
+	int len,num,i;
+	while(1)
+	{
+	file_num++;
+	strcpy(file_name,pmem_file);
+	strcat(file_name,"data");
+	len = strlen(file_name);
+	num = file_num+1;
+	i = 0;
+	while(num > 0)
+	{
+		buffer[i] = num%10+'0';
+		i++;
+		num/=10;
+	}
+	for (i=i-1;i>=0;i--)
+		file_name[len++] = buffer[i];
+	file_name[len] = 0;
+
+	if (access(file_name,F_OK) == -1)
+	{
+		file_num--;
+		return file_num;
+	}
+
+
+	if (USE_DRAM)
+		pmem_addr[file_num]=(unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS/*|MAP_POPULATE*/,-1,0);
+
+	else
+		pmem_addr[file_num] = (unsigned char*)pmem_map_file(file_name,FILE_SIZE,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
+	meta_addr[file_num] = (unsigned char*)mmap(NULL,META_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
+
+	node_data_array[file_num] = (Node*)pmem_addr[file_num];
+	meta_array[file_num] = (Node_meta*)meta_addr[file_num];
+	}
+
+//	meta_used = 0;
+//	offset_cnt = 0;
+
+
+}
+
+uint64_t pre_LSB[65];
+
+#define DUP_HASH_MAX 1024
+Node_offset dup_hash[DUP_HASH_MAX];
+
+void recover_node(Node_offset node_offset) // recover record and meta
+{
+	static uint64_t prefix64=0;
+	static int prefix_len=0;
+
+	Node* node_data;
+	Node_meta* node_meta;
+	Node_meta* meta0;
+
+	int new_len;
+
+	node_meta = offset_to_node(node_offset);
+	node_data = offset_to_node_data(node_offset);
+
+	meta0 = node_meta;
+
+	new_len = node_data->continue_len;
+
+	if (prefix_len > 0)
+		prefix64+=pre_LSB[prefix_len-1];
+
+	int i;
+	for (i=prefix_len;i<new_len;i++)
+	{
+		//inesrt to range hash table
+		insert_range_entry((unsigned char*)&prefix64,i,SPLIT_OFFSET);
+		prefix64 &= ~pre_LSB[i];
+	}
+
+	insert_range_entry((unsigned char*)&prefix64,new_len,node_offset);
+	prefix_len = new_len;
+
+	int part=0;
+	int tc = 0;
+	uint64_t temp_key[PART_MAX*100];
+	ValueEntry vea[PART_MAX*100];
+	Node_offset temp_offset[PART_MAX];
+
+	unsigned char* buffer;
+
+	node_meta->part = 0;
+	node_meta->state = 0;
+	node_meta->group_size = 0;
+	node_meta->invalidated_size = 0;
+	node_meta->start_offset = node_offset;
+	node_meta->continue_len = prefix_len;
+//	node_meta->prev_offset = 
+
+
+	while(1)
+	{
+		temp_offset[part] = node_offset;
+
+		node_meta = offset_to_node(node_offset);
+		node_data = offset_to_node_data(node_offset);
+
+		cp256((unsigned char*)&d0[part],(unsigned char*)node_data,sizeof(Node));
+//		memcpy((unsigned char*)&d0[part0],(unsigned char*)node_data,node_meta->size + meta_size);
+
+		//alloc node
+	node_meta->inv_kv = (uint16_t*)malloc(sizeof(uint16_t)*4);
+	node_meta->inv_max = 4;
+	node_meta->inv_cnt = 0;
+
+
+		node_meta->size = 0;
+		node_meta->part = part;
+//		node_meta->inv_cnt = 0;
+		node_meta->start_offset = temp_offset[0];
+		node_meta->next_offset_ig = INIT_OFFSET;
+
+		buffer = d0[part].buffer;
+		while(1)
+		{
+			uint16_t vl16;
+			vl16 = *((uint16_t*)buffer);
+			if (vl16 == 0)
+				break;
+			if (vl16 & INV_BIT)
+				vl16-=INV_BIT;
+			else
+			{
+				temp_key[tc] = *((uint64_t*)buffer+PH_LEN_SIZE);
+				if (dup_hash[temp_key[tc]%DUP_HASH_MAX] == temp_offset[0]) // dup???
+				{
+					for (i=tc-1;i>=0;i--)
+					{
+						if (temp_key[i] == temp_key[tc])
+							break;
+					}
+					if (i >= 0)
+					{
+						invalidate_kv(vea[i]);
+						vea[i].kv_offset = 0;
+					}
+				}
+				dup_hash[temp_key[tc]%DUP_HASH_MAX] = temp_offset[0];
+				vea[tc].node_offset = temp_offset[part];
+				vea[tc].kv_offset = buffer-(unsigned char*)&d0[part];
+				tc++;
+			}
+			buffer+=vl16;
+		}
+
+		node_meta->size = buffer-d0[part].buffer;
+		meta0->group_size+=node_meta->size;
+
+
+		part++;
+
+//size_sum+=node_meta->size+meta_size;
+
+		node_meta->next_offset_ig = d0[part].next_offset_ig;
+		node_offset = d0[part].next_offset_ig;
+		if (node_offset == INIT_OFFSET)
+			break;
+
+	}
+
+	for (i=0;i<tc;i++)
+	{
+		if (vea[i].kv_offset > 0)
+			insert_point_entry((unsigned char*)temp_key[i],vea[i]);
+
+	}
+
+	Node_offset_u nu;
+	nu.no = d0[0].next_offset;
+	meta0->next_offset = nu.no_32;
+//	meta0->next_offset = d0[0].next_offset;
+
+}
+
+void recover()
+{
+
+	//init recover
+	int i,j;
+	pre_LSB[63] = 1;
+	for (i=62;i>=0;i--)
+		pre_LSB[i] = pre_LSB[i+1] << 1;
+
+	for (i=0;i<=file_num;i++) // file num xxx
+	{
+		for (j=0;j<MAX_OFFSET;j++)
+			meta_array[i][j].part = PART_MAX+1; // free check
+	}
+
+	Node_offset_u node_offset;
+	Node_offset_u prev_offset;
+	Node* node_data;
+	Node_meta* node_meta;
+
+	node_offset.no = HEAD_OFFSET;
+	node_meta = offset_to_node(node_offset.no);
+	node_data = offset_to_node_data(node_offset.no);
+
+	//head recover
+	node_meta->state = 0;
+	node_meta->part = 0;
+	node_meta->scan_list = NULL;
+	node_meta->prev_offset = 0;
+//	node_meta->next_offset = node_data->next_offset;
+	node_meta->next_offset_ig = INIT_OFFSET;
+
+	prev_offset = node_offset;
+	node_offset.no = node_data->next_offset;
+	node_meta->next_offset = node_offset.no_32;
+
+//	uint64_t prefix64=0;
+//	int prefix_len=0;
+
+	while(1)
+	{
+
+		node_meta = offset_to_node(node_offset.no);
+		node_meta->prev_offset = prev_offset.no_32;
+
+		if (node_offset.no == TAIL_OFFSET)
+			break;
+
+//		node_data = offset_to_node_data(node_offset.no);
+
+		recover_node(node_offset.no); // recover record and meta
+
+		prev_offset = node_offset;
+		node_offset.no_32 = node_meta->next_offset;
+
+
+	}
+
+	//tail recover
+		node_meta = offset_to_node(node_offset.no);
+		node_meta->state = 0;
+		node_meta->part = 0;
+		node_meta->scan_list = NULL;
+		node_meta->next_offset = 0;//INIT_OFFSET;
+		node_meta->next_offset_ig = INIT_OFFSET;
+
+	// collect free nodes
+		Node_offset no;
+		int part;
+	for (i=0;i<=file_num;i++) // file num xxx
+	{
+		for (j=0;j<MAX_OFFSET;j++)
+		{
+			if (meta_array[i][j].part == PART_MAX+1) // free check
+			{
+				no.file = i;
+				no.offset = j;
+//				free_node0(no);
+				part = no.offset % PM_N; // ???
+
+				if (free_index[part] + FREE_QUEUE_LEN < free_cnt[part])
+				{
+					printf("full!!\n");
+					scanf("%d",&part);
+					return;
+				}
+
+				free_queue[part][free_cnt[part]%FREE_QUEUE_LEN] = no;
+				++free_cnt[part];
+				
+			}
+		}
+
+	}
+
+}
+
 void init_data() // init hash first!!!
 {
+	if (check_recover() >= 0)
+	{
+		recover();
+		return;
+	}
+	else
+	{
+		printf("no recovery. new DB\n");
+		file_num = -1;
 	
 	new_file();
 
@@ -675,6 +972,7 @@ void init_data() // init hash first!!!
 
 
 //	exit_thread(); // remove main thread // moved to global
+	}
 
 	if (USE_DRAM)
 		printf("USE_DRAM\n");
@@ -1183,227 +1481,6 @@ void sort_inv(int cnt,uint16_t* array)
 
 }
 
-//#define DRAM_BUF
-inline void pf64x4(unsigned char *ss)
-{
-	__builtin_prefetch(ss,0,1);
-	__builtin_prefetch(ss+1,0,1);
-	__builtin_prefetch(ss+2,0,1);
-	__builtin_prefetch(ss+3,0,1);
-}
-
-inline void Rmm32x8(unsigned char* d,unsigned char *s)
-{
-
-	__m256i *ss = (__m256i*)s;
-	__m256i *dd = (__m256i*)d;
-
-	*(dd+7) = _mm256_stream_load_si256(ss+7);
-	*(dd+6) = _mm256_stream_load_si256(ss+6);
-	*(dd+5) = _mm256_stream_load_si256(ss+5);
-	*(dd+4) = _mm256_stream_load_si256(ss+4);
-	*(dd+3) = _mm256_stream_load_si256(ss+3);
-	*(dd+2) = _mm256_stream_load_si256(ss+2);
-	*(dd+1) = _mm256_stream_load_si256(ss+1);
-	*(dd+0) = _mm256_stream_load_si256(ss+0);
-
-}
-
-
-inline void mm32x8(unsigned char* d,unsigned char *s)
-{
-
-	__m256i *ss = (__m256i*)s;
-	__m256i *dd = (__m256i*)d;
-
-	*dd = _mm256_stream_load_si256(ss);
-	*(dd+1) = _mm256_stream_load_si256(ss+1);
-	*(dd+2) = _mm256_stream_load_si256(ss+2);
-	*(dd+3) = _mm256_stream_load_si256(ss+3);
-	*(dd+4) = _mm256_stream_load_si256(ss+4);
-	*(dd+5) = _mm256_stream_load_si256(ss+5);
-	*(dd+6) = _mm256_stream_load_si256(ss+6);
-	*(dd+7) = _mm256_stream_load_si256(ss+7);
-
-}
-
-inline void mm64x4h1(unsigned char* d,unsigned char *s)
-{
-
-	__m512i *ss = (__m512i*)s;
-	__m512i *dd = (__m512i*)d;
-
-	*dd = _mm512_stream_load_si512(ss);
-	*(dd+2) = _mm512_stream_load_si512(ss+2);
-
-	/*
-	_mm512_store_si512(dd, _mm512_load_si512(ss));
-	_mm512_store_si512(dd+1, _mm512_load_si512(ss+1));
-	_mm512_store_si512(dd+2, _mm512_load_si512(ss+2));
-	_mm512_store_si512(dd+3, _mm512_load_si512(ss+3));
-*/
-
-}
-
-inline void mm64x4h2(unsigned char* d,unsigned char *s)
-{
-
-	__m512i *ss = (__m512i*)s;
-	__m512i *dd = (__m512i*)d;
-
-	*(dd+1) = _mm512_stream_load_si512(ss+1);
-	*(dd+3) = _mm512_stream_load_si512(ss+3);
-
-	/*
-	_mm512_store_si512(dd, _mm512_load_si512(ss));
-	_mm512_store_si512(dd+1, _mm512_load_si512(ss+1));
-	_mm512_store_si512(dd+2, _mm512_load_si512(ss+2));
-	_mm512_store_si512(dd+3, _mm512_load_si512(ss+3));
-*/
-}
-
-inline void mm64x4(unsigned char* d,unsigned char *s)
-{
-
-	__m512i *ss = (__m512i*)s;
-	__m512i *dd = (__m512i*)d;
-
-	*dd = _mm512_stream_load_si512(ss);
-	*(dd+1) = _mm512_stream_load_si512(ss+1);
-	*(dd+2) = _mm512_stream_load_si512(ss+2);
-	*(dd+3) = _mm512_stream_load_si512(ss+3);
-
-	/*
-	_mm512_store_si512(dd, _mm512_load_si512(ss));
-	_mm512_store_si512(dd+1, _mm512_load_si512(ss+1));
-	_mm512_store_si512(dd+2, _mm512_load_si512(ss+2));
-	_mm512_store_si512(dd+3, _mm512_load_si512(ss+3));
-*/
-
-}
-
-
-inline void cl64x4(unsigned char* d,unsigned char *s)
-{
-
-	unsigned char buffer[64];
-
-	__m512i *ss = (__m512i*)s;
-	__m512i *dd = (__m512i*)d;
-/*
-	int i;
-	for (i=0;i<4;i++)
-	{
-		_mm512_stream_load_si512(ss);
-	}
-*/
-	*dd = _mm512_stream_load_si512(ss);
-	*(dd+1) = _mm512_stream_load_si512(ss+1);
-	*(dd+2) = _mm512_stream_load_si512(ss+2);
-	*(dd+3) = _mm512_stream_load_si512(ss+3);
-
-
-}
-
-inline void pf256(unsigned char* a,size_t s)
-{
-//	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);
-
-	
-	int i=0;
-	while(i < s)
-	{
-//		memcpy(a,b,256);
-		pf64x4(a);
-		i+=256;
-		a+=256;
-	}
-	
-}
-inline void cp256h1(unsigned char* a,unsigned char* b,size_t s)
-{
-	int i=0;
-	while(i < s)
-	{
-		mm64x4h1(a,b);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-	
-}
-inline void cp256h2(unsigned char* a,unsigned char* b,size_t s)
-{
-	int i=0;
-	while(i < s)
-	{
-		mm64x4h2(a,b);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-	
-}
-
-inline void cp256(unsigned char* a,unsigned char* b,size_t s)
-{
-//	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);
-
-//	pf256(a,s);
-	
-	int i=0;
-	while(i < s)
-	{
-//		memcpy(a,b,256); // debug
-		mm64x4(a,b);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-	
-}
-
-inline void nt256(unsigned char* a,unsigned char* b,size_t s)
-{
-//	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);
-	int i=0;
-	while(i < s)
-	{
-		pmem_memcpy(a,b,256,PMEM_F_MEM_NONTEMPORAL);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-}
-
-inline void cp256(unsigned char* a,unsigned char* b)
-{
-//	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);
-
-	
-	int i=0;
-	while(i < sizeof(Node))
-	{
-		memcpy(a,b,256);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-	
-}
-
-inline void nt256(unsigned char* a,unsigned char* b)
-{
-//	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);
-	int i=0;
-	while(i < sizeof(Node))
-	{
-		pmem_memcpy(a,b,256,PMEM_F_MEM_NONTEMPORAL);
-		i+=256;
-		a+=256;
-		b+=256;
-	}
-}
 
 int lock_check(Node_offset offset)
 {
