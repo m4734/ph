@@ -455,6 +455,7 @@ _mm_mfence();
 	return INIT_OFFSET;
 }
 
+#ifdef HASH_TEST
 // test
 uint64_t insert_log[65][1000000];
 int insert_a[65][1000000];
@@ -477,6 +478,14 @@ void find_in_log(unsigned char* key_p,int len) // test
 	}
 	printf("not found %d\n",lli);
 }
+#else
+void find_in_log(unsigned char* key_p,int len) // test
+{
+	printf("HASH TEST DISABLED\n");
+}
+
+
+#endif
 
 // there will be no double because it use e lock on the split node but still need cas
 void insert_range_entry(unsigned char* key_p,int len,Node_offset offset) // need to check double
@@ -569,7 +578,7 @@ void init_hash()
 
 	init_cceh();
 
-	point_hash = new CCEH(20);
+	point_hash = new CCEH(10);
 	range_hash_array = new CCEH[64+1];
 
 
@@ -591,6 +600,25 @@ void clean_hash()
 	// clean point hash
 	printf("clean hash\n");
 
+/*
+	int i;
+	uint64_t sum=0;
+
+	printf("point hash depth %d\n",point_hash->depth);
+
+//	sum+= 1<<point_hash->depth;
+//	printf("test sum %ld\n",sum);
+	printf("test %d\n",sizeof(SEG));
+
+	for (i=0;i<65;i++)
+	{
+		printf("range hash %d depth %d\n",i,range_hash_array[i].depth);
+		sum+= 1<<range_hash_array[i].depth;
+	}
+
+	sum= alloc_seg_cnt*sizeof(SEG);
+	printf("hash size %lfGB\n",double(sum)/1024/1024/1024);
+*/
 	delete point_hash;
 	delete[] range_hash_array;
 

@@ -167,7 +167,7 @@ inline void cp256h2(unsigned char* a,unsigned char* b,size_t s)
 	}
 	
 }
-#define AVX
+//#define AVX
 inline void cp256(unsigned char* a,unsigned char* b,size_t s)
 {
 //	pmem_memcpy(a,b,s,PMEM_F_NONTEPMPORAL);

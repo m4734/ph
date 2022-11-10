@@ -30,6 +30,10 @@ std::atomic<int> key_array_cnt;
 thread_local int key_array_index=0;
 int max_index;
 
+//test
+uint64_t alloc_seg_cnt;
+
+
 void at_lock2(std::atomic<uint8_t> &lock)
 {
 	uint8_t z;
@@ -182,6 +186,8 @@ SEG* alloc_seg() // use free list
 	}
 	else
 	{
+//		printf("aaa\n");
+		alloc_seg_cnt++;
 		if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
 			printf("posix_memalign error2\n");
 	}
@@ -1096,6 +1102,8 @@ void clean_cceh()
 {
 	seg_gc();
 
+	printf("SEG size %d hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
+
 	if (key_array)
 	{
 		int i;
@@ -1104,6 +1112,7 @@ void clean_cceh()
 		free(key_array);
 		free(key_cnt);
 	}
+
 
 }
 

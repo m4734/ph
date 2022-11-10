@@ -623,7 +623,10 @@ int check_recover()
 
 
 	if (USE_DRAM)
-		pmem_addr[file_num]=(unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS/*|MAP_POPULATE*/,-1,0);
+	{
+		printf("???");
+	}
+//		pmem_addr[file_num]=(unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS/*|MAP_POPULATE*/,-1,0);
 
 	else
 		pmem_addr[file_num] = (unsigned char*)pmem_map_file(file_name,FILE_SIZE,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
@@ -648,6 +651,7 @@ void recover_node(Node_offset node_offset) // recover record and meta
 {
 	static uint64_t prefix64=0;
 	static int prefix_len=0;
+	static Node node_data_temp[PART_MAX];
 
 	Node* node_data;
 	Node_meta* node_meta;
@@ -700,7 +704,7 @@ void recover_node(Node_offset node_offset) // recover record and meta
 		node_meta = offset_to_node(node_offset);
 		node_data = offset_to_node_data(node_offset);
 
-		cp256((unsigned char*)&d0[part],(unsigned char*)node_data,sizeof(Node));
+		cp256((unsigned char*)&node_data_temp[part],(unsigned char*)node_data,sizeof(Node));
 //		memcpy((unsigned char*)&d0[part0],(unsigned char*)node_data,node_meta->size + meta_size);
 
 		//alloc node
@@ -715,7 +719,7 @@ void recover_node(Node_offset node_offset) // recover record and meta
 		node_meta->start_offset = temp_offset[0];
 		node_meta->next_offset_ig = INIT_OFFSET;
 
-		buffer = d0[part].buffer;
+		buffer = node_data_temp[part].buffer;
 		while(1)
 		{
 			uint16_t vl16;
@@ -726,7 +730,7 @@ void recover_node(Node_offset node_offset) // recover record and meta
 				vl16-=INV_BIT;
 			else
 			{
-				temp_key[tc] = *((uint64_t*)buffer+PH_LEN_SIZE);
+				temp_key[tc] = *((uint64_t*)(buffer+PH_LEN_SIZE));
 				if (dup_hash[temp_key[tc]%DUP_HASH_MAX] == temp_offset[0]) // dup???
 				{
 					for (i=tc-1;i>=0;i--)
@@ -742,36 +746,41 @@ void recover_node(Node_offset node_offset) // recover record and meta
 				}
 				dup_hash[temp_key[tc]%DUP_HASH_MAX] = temp_offset[0];
 				vea[tc].node_offset = temp_offset[part];
-				vea[tc].kv_offset = buffer-(unsigned char*)&d0[part];
+				vea[tc].kv_offset = buffer-(unsigned char*)&node_data_temp[part];
+				vea[tc].len = vl16;
 				tc++;
 			}
-			buffer+=vl16;
+			buffer+=LK_SIZE+vl16;
 		}
 
-		node_meta->size = buffer-d0[part].buffer;
+		node_meta->size = buffer-node_data_temp[part].buffer;
 		meta0->group_size+=node_meta->size;
 
 
-		part++;
 
 //size_sum+=node_meta->size+meta_size;
 
-		node_meta->next_offset_ig = d0[part].next_offset_ig;
-		node_offset = d0[part].next_offset_ig;
+		node_meta->next_offset_ig = node_data_temp[part].next_offset_ig;
+		node_offset = node_data_temp[part].next_offset_ig;
 		if (node_offset == INIT_OFFSET)
 			break;
+
+		part++;
 
 	}
 
 	for (i=0;i<tc;i++)
 	{
 		if (vea[i].kv_offset > 0)
-			insert_point_entry((unsigned char*)temp_key[i],vea[i]);
+			insert_point_entry((unsigned char*)&temp_key[i],vea[i]);
 
 	}
 
+	for (i=0;i<part;i++)
+		offset_to_node(temp_offset[i])->end_offset = temp_offset[part];
+
 	Node_offset_u nu;
-	nu.no = d0[0].next_offset;
+	nu.no = node_data_temp[0].next_offset;
 	meta0->next_offset = nu.no_32;
 //	meta0->next_offset = d0[0].next_offset;
 
@@ -843,7 +852,7 @@ void recover()
 		node_meta->next_offset = 0;//INIT_OFFSET;
 		node_meta->next_offset_ig = INIT_OFFSET;
 
-	// collect free nodes
+	// collect free nodes without alloc lock
 		Node_offset no;
 		int part;
 	for (i=0;i<=file_num;i++) // file num xxx
@@ -878,8 +887,21 @@ void init_data() // init hash first!!!
 {
 	if (check_recover() >= 0)
 	{
+
+		timespec st,et;
+		uint64_t tt;
+
+		printf("start recover\n");
+		clock_gettime(CLOCK_MONOTONIC,&st);
 		recover();
-		return;
+		clock_gettime(CLOCK_MONOTONIC,&et);
+
+		tt = (et.tv_sec-st.tv_sec)*1000000000+et.tv_nsec-st.tv_nsec;
+
+		printf("end recover %lds %ldns\n",tt/1000000000,tt%1000000000);
+
+
+//		return;
 	}
 	else
 	{
@@ -1084,7 +1106,8 @@ void clean_data()
 #endif
 
 //	printf("used %ld size %ld\n",(uint64_t)meta_used/sizeof(Node_meta),(uint64_t)meta_used/sizeof(Node_meta)*sizeof(Node));
-	printf("file cnt %d file size %ld\n",file_num,FILE_SIZE);
+	printf("meta %lfGB\n",double(file_num*MAX_OFFSET*sizeof(Node_meta))/1024/1024/1024);
+	printf("total %lfGB file cnt %d file size %ld\n",file_num,FILE_SIZE,double(file_num*FILE_SIZE)/1024/1024/1024);
 //	printf("index %d min %d cnt %d\n",free_index,free_min,free_cnt);
 
 	//query test

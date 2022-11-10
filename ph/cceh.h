@@ -162,4 +162,7 @@ inline bool zero_check(unsigned char* const &key);
 
 void init_cceh();
 void clean_cceh();
+
+
+
 }
