@@ -1102,7 +1102,10 @@ void clean_cceh()
 {
 	seg_gc();
 
-	printf("SEG size %d hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
+	printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
+	printf("SEG count %ld\n",alloc_seg_cnt);
+
+	printf("seg index %d min %d cnt %d\n",seg_free_index,seg_free_min,seg_free_cnt);
 
 	if (key_array)
 	{

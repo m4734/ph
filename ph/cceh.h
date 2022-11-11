@@ -15,17 +15,17 @@
 
 
 #define CL_BIT 4
-#define CL_PER_SEG (2 << CL_BIT)
+#define CL_PER_SEG (1 << CL_BIT)
 #define LINEAR_MULTI 4
 
-#define SPLIT_MASK (1 << 6)
+#define SPLIT_MASK (1 << 6) // I mean split bit
 
 //#define ctt
 
 namespace PH
 {
 
-const uint64_t seg_mask = ~((uint64_t)CL_SIZE*CL_PER_SEG-1);
+//const uint64_t seg_mask = ~((uint64_t)CL_SIZE*CL_PER_SEG-1);
 
 #define KEY_ARRAY_MAX (1 << 16)
 //unsigned char** key_array = 0;
