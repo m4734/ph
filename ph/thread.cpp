@@ -246,6 +246,8 @@ void update_idle()
 
 #endif
 
+#define wait_for_slow
+
 void update_free_cnt()
 {
 	if (my_thread)
@@ -255,8 +257,35 @@ void update_free_cnt()
 		{
 			int i;
 			for (i=0;i<PM_N;i++)
+			{
 				my_thread->local_free_cnt[i] = free_cnt[i];
+#ifdef wait_for_slow
+				int min = min_free_cnt(i);
+				if (min + FREE_QUEUE_LEN/2 < my_thread->local_free_cnt[i])
+				{
+					printf("in1\n");
+					while(min + FREE_QUEUE_LEN/2 < my_thread->local_free_cnt[i])
+						min = min_free_cnt(i);	
+					printf("out1\n");
+				}
+
+#endif
+
+			}
 			my_thread->local_seg_free_cnt = seg_free_cnt;
+#ifdef wait_for_slow
+			int min = min_seg_free_cnt();
+			if (min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
+			{
+				printf("in2\n");
+				while(min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
+				{
+					update_idle();
+					min = min_seg_free_cnt();
+				}
+					printf("out2\n");
+			}
+#endif
 			
 		}
 	}

@@ -81,6 +81,7 @@ void init_query(Query* query)
 
 int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len_p)
 {
+//	printf("xxx\n");
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -96,6 +97,11 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 #ifdef qtt
 //		clock_gettime(CLOCK_MONOTONIC,&ts3);
 //		_mm_mfence();
+#endif
+
+#ifdef read_lock
+		while(1) // lock version
+		{
 #endif
 		ve = find_point_entry(key_p); // don't create
 #ifdef qtt
@@ -118,6 +124,8 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 //			*result_len_p = 0;
 //thread_idle();
 			THREAD_IDLE
+//		update_free_cnt();
+
 			return 0; // fail
 		}
 //		while(1)
@@ -128,8 +136,11 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 //			if (print)
 //			printf("kv_p %p\n",kv_p);	
 //			offset = data_point_to_offset(kv_p);
+#ifdef read_lock
 //			if (inc_ref(offset,1)) // split state ok
-//			{
+			if (inc_ref(ve.node_offset))
+			{
+#endif
 				// it will not happen
  /*
 				if (kv_p != (unsigned char*)entry->kv_p) // recycled?
@@ -142,7 +153,16 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 
 //				print_kv(kv_p);	
 //				*result_len_p = *((uint16_t*)(kv_p));
+
+
+// len from PMEM
+//				*result_len_p = *((uint16_t*)((unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset));
+
+// len from hash entry		
 				*result_len_p = ve.len;				
+
+
+
 //				*result_len_p = value_size;				
 #if 0
 				if ((*result_len_p & (1 << 15)) != 0) // deleted // it doesn't work now
@@ -159,6 +179,12 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 //				*result = kv_p+key_size+len_size;
 //				memcpy(result_p,kv_p+key_size+len_size,value_size);
 				memcpy(result_p,(unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,*result_len_p);
+#ifdef read_lock
+				dec_ref(ve.node_offset);
+				break;
+			}
+		}
+#endif
 //				memcpy(result_p,(unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,200);
 //				memcpy(result_p,kv_p+key_size+len_size,200);
 			
@@ -174,6 +200,8 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 #endif
 //thread_idle();
 		THREAD_IDLE
+//		update_free_cnt();
+
 				return 1;//ok
 //			}
 			
@@ -205,11 +233,32 @@ int lookup_query(unsigned char* &key_p, std::string *value)
 			value->assign((char*)empty,empty_len);
 //			thread_idle();
 			THREAD_IDLE
+//		update_free_cnt();
+
 			return 0; // failed
 		}
+#if 1
+
+//		while(1)
+//		{
+//			if (inc_ref(ve.node_offset))
+//			{
+				unsigned char* kv_p = (unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset;
+				uint16_t len = *((uint16_t*)(kv_p));
+				value->assign((char*)kv_p+kls,len);
+//				dec_ref(ve.node_offset);
+//				break;
+//			}
+//			ve = find_point_entry(key_p);
+//		}
+
+#else
 		value->assign((char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,ve.len);
+#endif
 //		thread_idle();
 		THREAD_IDLE
+//		update_free_cnt();
+
 		return 1;//ok
 }
 
@@ -469,6 +518,9 @@ _mm_mfence();
 					}
 					*/
 					unlock_entry(unlock);
+
+//					update_free_cnt(); // from  seg list it could be old cache
+
 
 //					ec++;
 					if (ec > 1000)
@@ -795,6 +847,8 @@ _mm_mfence();
 #endif
 	}
 	THREAD_IDLE
+//		update_free_cnt();
+
 #ifdef qtt
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
@@ -922,6 +976,8 @@ void insert_query_l(unsigned char* &key_p, unsigned char* &value_p,int &value_le
 		}
 	}
 	THREAD_IDLE
+//		update_free_cnt();
+
 }
 
 #endif
@@ -1263,6 +1319,8 @@ int next_query(Query* query,std::string* result)
 	{
 		result->assign((char*)empty,empty_len);
 		THREAD_IDLE
+//		update_free_cnt();
+
 		return 0;
 	}
 	int result_len_p;
@@ -1279,6 +1337,8 @@ int next_query(Query* query,std::string* result)
 		if (advance_offset(query) < 0)
 		{
 			THREAD_IDLE
+//		update_free_cnt();
+
 			return 1;
 		}
 //					copy_node(node,offset_to_node(query->scan_offset));
@@ -1287,6 +1347,8 @@ int next_query(Query* query,std::string* result)
 //		query->index_num=0;
 	}
 	THREAD_IDLE
+//		update_free_cnt();
+
 	return 1;
 }
 
@@ -1383,6 +1445,8 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 		node_offset = next_offset.no;
 	}
 THREAD_IDLE
+//		update_free_cnt();
+
 	return result_sum;
 
 

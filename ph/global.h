@@ -30,7 +30,7 @@ typedef u_int64_t uint64_t
 
 //extern int node_size;
 #define PART_MAX 4
-//#define PART_MAX 8
+//#define PART_MAX 16
 //#define PART_MAX 2 // test
 
 #if PART_MAX == 1
@@ -46,6 +46,10 @@ typedef u_int64_t uint64_t
 	#define split_thread
 #endif
 */
+
+//#define split_thread
+//#define try_recover
+
 #ifdef split_thread
 #define SPLIT_NUM 4
 #else

@@ -180,7 +180,7 @@ inline void cp256(unsigned char* a,unsigned char* b,size_t s)
 #ifndef AVX
 		memcpy(a,b,256); // debug
 #else
-		mm64x4(a,b);
+//		mm64x4(a,b);
 #endif
 		i+=256;
 		a+=256;

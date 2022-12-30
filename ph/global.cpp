@@ -60,7 +60,7 @@ void temp_static_conf(int tn, int ks,int vs)
 //	num_of_thread = 1;
 
 	// use max tn
-	tn = 20;
+	tn = 24;
 
 	num_of_thread = tn + num_of_split;	
 //	connection_per_thread = 1;

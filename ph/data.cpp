@@ -55,8 +55,10 @@ volatile int part_offset_cnt[PM_N];
 
 std::atomic <uint8_t> alloc_lock;
 
-//#define NODE_TYPE 5
-#define FREE_QUEUE_LEN 100000
+// FREE_QUEUE_LEN * PM_N * NODE_SIZE
+// = 100000 * 4 * 1024 = 400MB
+
+//#define FREE_QUEUE_LEN 100000 // moved to thread.h
 volatile unsigned int free_cnt[PM_N]; // free_max // atomic or lock?
 volatile unsigned int free_min[PM_N];
 volatile unsigned int free_index[PM_N];
@@ -475,7 +477,7 @@ void free_node(Node_offset offset)
 		int i;
 		for (i=0;i<LOCAL_QUEUE_LEN;i++)
 		{
-
+#if 0
 		while(free_index[part] + FREE_QUEUE_LEN/2 < free_cnt[part]) // test
 		{
 //			if (free_index + FREE_QUEUE_LEN/2 < free_cnt)
@@ -498,7 +500,7 @@ void free_node(Node_offset offset)
 			}
 			break;
 		}
-
+#endif
 		free_queue[part][free_cnt[part]%FREE_QUEUE_LEN] = local_batch_free[part][i];
 		++free_cnt[part];
 		}
@@ -590,6 +592,12 @@ void init_file()
 
 int check_recover()
 {
+
+#ifndef try_recover
+	printf("don't try recover\n");
+	return -1;
+#endif
+
 	printf("try recover\n");
 
 
@@ -1107,7 +1115,7 @@ void clean_data()
 
 //	printf("used %ld size %ld\n",(uint64_t)meta_used/sizeof(Node_meta),(uint64_t)meta_used/sizeof(Node_meta)*sizeof(Node));
 	printf("meta %lfGB\n",double(file_num*MAX_OFFSET*sizeof(Node_meta))/1024/1024/1024);
-	printf("total %lfGB file cnt %d file size %ld\n",file_num,FILE_SIZE,double(file_num*FILE_SIZE)/1024/1024/1024);
+	printf("total %lfGB file cnt %d file size %ld\n",double(file_num*FILE_SIZE)/1024/1024/1024,file_num,FILE_SIZE);
 //	printf("index %d min %d cnt %d\n",free_index,free_min,free_cnt);
 
 	//query test
@@ -1283,6 +1291,10 @@ unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* v
 	{
 		if (end_meta->part == PART_MAX-1)
 			return NULL; // need split
+
+		if (split_or_compact(offset) == 0) //need compact
+			return NULL;
+
 		//append node
 		mid_offset = end_offset;
 		mid_meta = end_meta;
@@ -4386,7 +4398,8 @@ int split_or_compact(Node_offset node_offset)
 	meta = offset_to_node(node_offset);
 //	if (meta->continue_len < 60) // test
 //		return 1;
-	return meta->group_size > meta->invalidated_size*2;
+//	return meta->invalidated_size == 0;
+	return meta->group_size > meta->invalidated_size*2;//2;//4;
 }
 
 

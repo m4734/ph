@@ -113,8 +113,12 @@ inline bool zero_check(unsigned char* const &key);
 	volatile int depth;
 	volatile int seg_cnt;
 	
-//	volatile struct SEG** seg_list;
-	std::atomic<SEG**> seg_list;	
+	struct SEG* volatile * volatile seg_list;
+//	std::atomic<SEG**> seg_list;	
+
+//	volatile void* seg_list;
+
+
 //	std::atomic<bool>* seg_lock;
 //	std::atomic<uint8_t> dir_lock;
 //	std::mutex dir_lock;	

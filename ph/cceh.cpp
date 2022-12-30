@@ -17,7 +17,7 @@ volatile unsigned int seg_free_cnt; // atomic?
 volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
 
-#define FREE_SEG_LEN 10000
+//#define FREE_SEG_LEN 10000 moved to thread.h
 SEG* free_seg_queue[FREE_SEG_LEN];
 
 std::atomic<uint8_t> free_seg_lock;
@@ -140,7 +140,7 @@ inline bool CCEH::zero_check(unsigned char* const &key)
 	return *(uint64_t*)key == INV0;
 }
 
-void inv_seg(SEG* seg)//,int sn)
+void inv_seg(SEG* volatile seg)//,int sn)
 {
 	int i;
 //	uint64_t inv;
@@ -190,6 +190,7 @@ SEG* alloc_seg() // use free list
 		alloc_seg_cnt++;
 		if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
 			printf("posix_memalign error2\n");
+
 	}
 	at_unlock2(free_seg_lock);
 //	seg->seg_lock = new std::mutex;
@@ -247,7 +248,10 @@ void CCEH::init(int in_depth)
 //	if (posix_memalign((void**)&seg_list,64,sizeof(SEG*) * seg_cnt) != 0)
 //		printf("posix memalign error0\n");
 
-	seg_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt);
+	seg_list = (struct SEG** volatile)malloc(sizeof(SEG* volatile) * seg_cnt);
+
+//	seg_list = (void*)malloc(sizeof(volatile void*) * seg_cnt);
+
 //	seg_list = (struct SEG**)posix_memalign(
 //	if (posix_memalign((void**)&seg_list,64,sizeof(SEG*) * seg_cnt) != 0)
 //		printf("posix memalign error0\n");
@@ -300,7 +304,7 @@ void CCEH::clean()
 			free(seg_list[i]);			
 		}
 	}
-	free(seg_list);
+	free((void*)seg_list);
 
 #ifdef ctt
 	printf("depth %d split_cnt %d insert %ld insert_avg %ld split %ld ctt3 %ld insert_cnt %d bc %d find %ld find_cnt %d find_avg %ld \n",depth,sc,ctt1,ctt1/pic,ctt2,ctt3,pic,bc,ctt4,find_cnt,ctt4/find_cnt);
@@ -362,6 +366,12 @@ return ve_u.ve;
 //
 	ve_u.ve.node_offset = INIT_OFFSET;
 
+	/*
+	int tl;
+	tl = seg_list[sn]->lock;
+	if (tl == -1)
+		printf("xxx\n");
+		*/
 
 	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 	{
@@ -416,7 +426,7 @@ retry:
 //	cn = hk >> (64-2);
 	cn = hk >> (64-CL_BIT);	
 
-	seg = seg_list[sn];
+	seg = (SEG*)seg_list[sn];
 
 //	while(seg->lock.compare_exchange_weak(z,1) == 0);
 //	seg->seg_lock->lock();	
@@ -484,10 +494,10 @@ void seg_gc()
 
 void CCEH::dir_double()
 {
-		SEG** new_list;
-	        SEG** old_list;
-		old_list = seg_list;
-	        new_list = (struct SEG**)malloc(sizeof(SEG*) * seg_cnt*2);
+		SEG** volatile new_list;
+	        SEG** volatile old_list;
+		old_list = (struct SEG** volatile)seg_list;
+	        new_list = (struct SEG** volatile)malloc(sizeof(SEG* volatile) * seg_cnt*2);
 //		memcpy(new_list,seg_list,sizeof(SEG*) * seg_cnt);
 //		memcpy((unsigned char*)new_list+sizeof(SEG*)*seg_cnt,seg_list,sizeof(SEG*) * seg_cnt);
 int i;
@@ -637,16 +647,16 @@ void CCEH::split(int sn) // seg locked
 //	mask = (uint64_t)1 << (64-seg->depth-1);
 	mask = (uint64_t)1 << seg->depth;	
 
-	int j,l,nl1,nl2;
-	int nll1[CL_PER_SEG],nll2[CL_PER_SEG],kc;
+	int j,l;//,nl1,nl2;
+//	int nll1[CL_PER_SEG],nll2[CL_PER_SEG],kc;
 	uint64_t hk;
 //	l = 0;
-	for (i=0;i<CL_PER_SEG;i++)
-		nll1[i] = nll2[i] = KVP_PER_CL*i;	
+//	for (i=0;i<CL_PER_SEG;i++)
+//		nll1[i] = nll2[i] = KVP_PER_CL*i;	
 	for (i=0;i<CL_PER_SEG;i++)
 	{
-		nl1 = i*KVP_PER_CL;
-		nl2 = i*KVP_PER_CL;
+	//	nl1 = i*KVP_PER_CL;
+	//	nl2 = i*KVP_PER_CL;
 		l = i*KVP_PER_CL;
 
 		for (j=0;j<KVP_PER_CL;j++)
@@ -669,7 +679,10 @@ void CCEH::split(int sn) // seg locked
 			*/
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
 			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
-			kc = hk >> (64-CL_BIT);
+//			kc = hk >> (64-CL_BIT);
+
+			// rearrange problem
+			/*
 			if (hk & mask)
 			{
 				while(new_kvp_p2[nll2[kc]].key != INV0)
@@ -693,8 +706,13 @@ void CCEH::split(int sn) // seg locked
 				nll1[kc]++;
 				nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
 //				kvp_p[l].key = INV0;
-
 			}
+*/
+			if (hk & mask)
+				new_kvp_p2[l] = kvp_p[l];
+			else
+				new_kvp_p1[l] = kvp_p[l];
+
 			/*
 			else
 			{
@@ -1118,6 +1136,19 @@ void clean_cceh()
 
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 inline unsigned char* CCEH_vk::load_key(const uint64_t &key)
 {

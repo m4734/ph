@@ -335,7 +335,9 @@ _mm_mfence();
 			// it is chaning need retry
 //			printf("fre2 error\n");
 //			return find_range_entry2(key_p,continue_len);
-				
+
+//			update_free_cnt(); // wt???
+
 			return INIT_OFFSET; // need retry but why return?
 		}
 		mid = (min+max)/2;
