@@ -118,7 +118,9 @@ ValueEntry find_point_entry(unsigned char* &key_p)
 		return entry;
 }
 
-volatile uint64_t* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+//volatile uint64_t* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+std::atomic<uint64_t>* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+
 {
 #ifdef htt
 	timespec ts1,ts2;
@@ -128,7 +130,8 @@ volatile uint64_t* find_or_insert_point_entry(unsigned char* &key_p,void* unlock
 #endif
 //	unsigned char* entry;
 //	unsigned char* ptr;
-	volatile uint64_t* entry_p;
+//	volatile uint64_t* entry_p;
+	std::atomic<uint64_t>* entry_p;
 	ValueEntry ve;
 	ve.kv_offset = 0;
 	ve.node_offset = INIT_OFFSET;	

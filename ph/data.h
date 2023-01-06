@@ -4,6 +4,7 @@
 #include <atomic>
 //#include <mutex>
 #include <sys/mman.h>
+//#include <vector>
 
 #include "global.h"
 #include "query.h"
@@ -24,8 +25,8 @@ namespace PH
 
 extern volatile int file_num;
 
-#define INV_BIT ((uint16_t)1<<15)
-#define LOG_BIT ((uint16_t)1<<15)
+#define INV_BIT ((uint16_t)1<<15) // should be removed
+//#define LOG_BIT ((uint16_t)1<<15)
 
 
 #define SPLIT_QUEUE_LEN 500
@@ -66,7 +67,7 @@ struct Node
 //	unsigned int next_offset; //	2^32
 	Node_offset next_offset;
 //	unsigned int part;	
-	Node_offset next_offset_ig; // in group
+	Node_offset next_offset_ig; // in group // cas first from dram
 //	uint8_t continue_len;
 //	uint8_t part;
 	uint16_t continue_len;
@@ -75,72 +76,91 @@ struct Node
 	unsigned char buffer[NODE_BUFFER]; // node size? 256 * n 1024-8-8
 }; // size must be ...
 
+
+
+
+
+
+
+
+struct LENGTH_LIST
+{
+	std::atomic<uint16_t> value[12];
+	std::atomic<void*> next;
+};
+
+void inv_ll(void* ll,int index);
+void set_ll(void* ll,int index,uint16_t value);
+uint16_t get_ll(void* ll,int index);
+void new_ll(std::atomic<void*>* next);
+
 // 8byte atomic --- 8byte align
+
+#define NODE_SPLIT_BIT 1 << 7
+#define ARRAY_INIT_SIZE 16
 
 struct Node_meta
 {
-//	volatile unsigned int next_offset;
-//	volatile unsigned int prev_offset;
-	
-
 
 	volatile uint32_t next_offset; // 4
 
-	Node_offset next_offset_ig; // 4
+	std::atomic<uint32_t> next_offset_ig;//4 // need cas
 
 	volatile uint32_t prev_offset; // 4
 
 	Node_offset start_offset; // 4
-	/*volatile */Node_offset end_offset; // 4
 
-	std::atomic<uint8_t> state;	// 1
+	//16--------------------------------------------------------
+
+//	/*volatile */Node_offset end_offset1; // 4
+//	Node_offset end_offset2; // 4
+	std::atomic<uint32_t> end_offset;
+	std::atomic<uint32_t> end_offset1;
+	std::atomic<uint32_t> end_offset2;
+
+	//28------------------------------------------------------
+
+	std::atomic<uint8_t> state;	// 1 // split or not
+	std::atomic<uint8_t> ts; // 1
+
 	uint8_t part; // 1
+	uint8_t continue_len; // 1
 
-	uint16_t continue_len; // 2
+	//32---------------------------------------------------------
 
-//	volatile Node_offset next_offset;
-//	uint32_t next_offset_ig; //in group
-//	unsigned int part;
-//	volatile Node_offset prev_offset;
-//	Node_offset start_offset;
+	volatile uint16_t size; //size // needed cas but replaced to double check... // 2
 
-	/*volatile */uint16_t size; //size // needed cas but replaced to double check... // 2
+	// used only start node
 	uint16_t invalidated_size; // 2
 	uint16_t group_size; // 2
 
+	//38---------------------------------------------------------------------
 
-//	std::atomic<uint16_t> size;
-//	unsigned int next_offset; //	2^32
-
-//	pthread_mutex_t mutex;	
-//	std::atomic<int> lock;		
-//	uint8_t state;
-//	std::atomic<uint8_t> ref;
-//	uint8_t ref;	
-
-	/*
-	volatile uint16_t size; //size // needed cas but replaced to double check...
-	unsigned int next_offset; //	2^32
-	*/
+	unsigned char padding[64-38-24]; // 64-38-24 = 2
 
 
-	Scan_list* scan_list; // 8
+//	std::atomic<uint16_t> la_lock; //length array lock may not be used // only for max
 
-//	uint16_t ic;
-//	uint16_t inv_kv[100];//NODE_BUFFER/216]; // need to be list
-	uint16_t* inv_kv; // 8
-	uint16_t inv_cnt; // 2
-	uint16_t inv_max; // 2
+	//
 
-#ifdef DOUBLE_LOG
-	uint16_t flush_size;
 
-	uint16_t flush_cnt;
-	uint16_t flush_max;
-	unsigned char** flush_kv;
-#else
-	unsigned char padding[8]; // 8
-#endif
+	//20
+
+//	uint16_t inv_cnt; // 2
+	
+	std::atomic<uint16_t> ll_cnt;
+//	std::atomic<uint16_t> la_max; // 2
+	std::atomic<void*> ll;//length_list;
+
+	//16
+
+//	std::atomic<std::atomic<uint16_t>*> length_array; // 8
+	
+
+//	std::vector<std::atomic<uint16_t>> length_array;
+
+	Scan_list* scan_list; // 8 // when will we use it?
+
 };
 
 extern unsigned char** meta_addr;
@@ -210,6 +230,8 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
+ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len);
+
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 
@@ -236,16 +258,25 @@ void delete_scan_entry(Node_offset &scan_offset,void* query);
 void at_lock(std::atomic<uint8_t> &lock);
 inline void at_unlock(std::atomic<uint8_t> &lock)
 {
-	lock = 0;
+//	lock = 0;
+	lock--;
 }
 inline int try_at_lock(std::atomic<uint8_t> &lock)
 {
+	/*
 	uint8_t z = 0;
 	return lock.compare_exchange_strong(z,1);
+	*/
+	if (lock & (1<<7))
+		return 0;
+	lock++;
+	return 1;
 }
 
 //void invalidate_kv(Node_offset node_offset, unsigned int kv_offset,unsigned int kv_len);
 void invalidate_kv(ValueEntry& ve);
+void invalidate_kv2(ValueEntry& ve);
+
 int split_or_compact(Node_offset node_offset);
 inline int get_continue_len(Node_offset node_offset)
 {
@@ -256,20 +287,29 @@ inline Node_offset get_start_offset(Node_offset& node_offset)
 {
 	return offset_to_node(node_offset)->start_offset;
 }
+/*
 inline void move_to_end_offset(Node_offset& node_offset)
 {
 	node_offset = offset_to_node(node_offset)->end_offset;
 }
-
-inline int inc_ref(Node_offset offset)
+*/
+inline void inc_ref(Node_offset offset)
 {
-	return try_at_lock(offset_to_node(offset)->state);	
+	offset_to_node(offset)->state++;
+//	return try_at_lock(offset_to_node(offset)->state);	
 }
 inline void dec_ref(Node_offset offset)
 {
-	at_unlock(offset_to_node(offset)->state);
-
+	offset_to_node(offset)->state--;
+//	at_unlock(offset_to_node(offset)->state);
 }
+
+inline int check_ref(Node_offset offset)
+{
+	return offset_to_node(offset)->state;
+}
+
+uint16_t get_length_from_ve(ValueEntry& ve);
 
 
 #ifdef split_thread

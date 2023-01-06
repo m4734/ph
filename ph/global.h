@@ -103,7 +103,9 @@ struct ValueEntry
 {
 	Node_offset node_offset;
 	uint16_t kv_offset;
-	uint16_t len;
+//	uint16_t len;
+	uint8_t index;
+	uint8_t ts;
 	
 	/*
 	volatile uint32_t node_offset;
@@ -173,7 +175,8 @@ extern int* range_hash_table_size;
 
 #define PH_KEY_SIZE 8
 #define PH_LEN_SIZE 2
-#define LK_SIZE PH_KEY_SIZE+PH_LEN_SIZE
+#define PH_TS_SIZE 2
+#define PH_LTK_SIZE PH_KEY_SIZE+PH_LEN_SIZE+PH_TS_SIZE
 
 //extern int key_size;
 //extern int len_size;

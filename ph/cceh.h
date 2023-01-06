@@ -31,7 +31,12 @@ namespace PH
 //unsigned char** key_array = 0;
 //int* key_cnt = 0;
 //int key_array_cnt=0;
-struct HandP
+
+//  32bit - 2^31
+// 16bit - 1024 * 64
+// 8bit - 256
+
+struct HandP // hash and pointer?
 {
 	uint32_t hash;
 	uint16_t key_array;
@@ -69,21 +74,27 @@ struct KVP
 	volatile uint64_t value_v;
 	}
 	*/
-	volatile uint64_t key;
-	volatile uint64_t value;
-}; // 8 + 8 = 16
 
-struct KVP_vk
-{
-	//need fix
-	KeyEntry key;
-	ValueEntry value;
-};
+//	volatile uint64_t key;
+//	volatile uint64_t value;
+
+	std::atomic<uint64_t> key;
+	std::atomic<uint64_t> value;
+
+	void operator=(const KVP &kvp)
+	{
+		key = kvp.key.load();
+		value = kvp.value.load();
+	}
+
+}; // 8 + 8 = 16
 
 struct CL
 {
 	struct KVP kvp[KVP_PER_CL];
 }; // 16 * 4 = 64
+
+#define CCEH_SEG_SPLIT_BIT 1<<7
 
 struct SEG
 {
@@ -123,7 +134,8 @@ inline bool zero_check(unsigned char* const &key);
 //	std::atomic<uint8_t> dir_lock;
 //	std::mutex dir_lock;	
 
-	volatile uint64_t inv0_value;//,failed;
+//	volatile uint64_t inv0_value;//,failed;
+	std::atomic<uint64_t> inv0_value;
 //	volatile ValueEntry_u inv0_value	
 
 	void dir_double();
@@ -136,12 +148,17 @@ inline bool zero_check(unsigned char* const &key);
 	public:
 //	int insert(const uint64_t &key,ValueEntry ve);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
-	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+//	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+	std::atomic<uint64_t>* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+
 
 	ValueEntry find(unsigned char* const &key);
 	void remove(unsigned char* const &key); // find with lock
 
 	void unlock_entry2(void* unlock);
+	void try_update(std::atomic<uint64_t> &old_v, uint64_t &new_v);//std::atomic<uint64_t> &new_v); // here?
+
+
 
 	uint64_t dm;
 	int point;
@@ -150,17 +167,6 @@ inline bool zero_check(unsigned char* const &key);
 	uint64_t ctt1,ctt2,ctt3,ctt4;
 
 	std::atomic<uint8_t> dir_lock;
-
-};
-
-class CCEH_vk : public CCEH
-{
-inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	uint64_t hf(unsigned char* const &key);
-inline	unsigned char* load_key(const uint64_t &key); // keyentry
-inline	unsigned char* load_key2(const KeyEntry &key); // keyentry
-inline bool zero_check(unsigned char* const &key);
 
 };
 
