@@ -18,6 +18,8 @@
 #define CL_PER_SEG (1 << CL_BIT)
 #define LINEAR_MULTI 4
 
+#define KVP_PER_SEG KVP_PER_CL*CL_PER_SEG
+
 #define SPLIT_MASK (1 << 6) // I mean split bit
 
 //#define ctt
@@ -94,7 +96,7 @@ struct CL
 	struct KVP kvp[KVP_PER_CL];
 }; // 16 * 4 = 64
 
-#define CCEH_SEG_SPLIT_BIT 1<<7
+#define CCEH_SEG_SPLIT_BIT (1<<7)
 
 struct SEG
 {
@@ -103,7 +105,7 @@ struct SEG
 	std::atomic<uint8_t> lock; // 1 ?
 //	std::mutex* seg_lock;	//struct c++
 //	volatile int depth; // 4
-	int depth;	
+	uint8_t depth;	
 
 }; // 64 * ???
 
@@ -139,7 +141,7 @@ inline bool zero_check(unsigned char* const &key);
 //	volatile ValueEntry_u inv0_value	
 
 	void dir_double();
-	void split(int sn);
+	void split(int sn,uint8_t seg_depth);
 //	void init_seg(int sn);
 	void init(int in_depth);
 	void clean();

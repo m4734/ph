@@ -128,7 +128,8 @@ struct Node_meta
 
 	//32---------------------------------------------------------
 
-	volatile uint16_t size; //size // needed cas but replaced to double check... // 2
+	std::atomic<uint16_t> size_l;
+	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
 
 	// used only start node
 	uint16_t invalidated_size; // 2
@@ -136,7 +137,7 @@ struct Node_meta
 
 	//38---------------------------------------------------------------------
 
-	unsigned char padding[64-38-24]; // 64-38-24 = 2
+//	unsigned char padding[64-38-24]; // 64-38-24 = 2
 
 
 //	std::atomic<uint16_t> la_lock; //length array lock may not be used // only for max

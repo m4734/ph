@@ -714,7 +714,7 @@ void recover_node(Node_offset node_offset) // recover record and meta
 
 
 
-		node_meta->size = 0;
+		node_meta->size_l = node_meta->size_r = 0; // repair again you should erase right
 		node_meta->part = part;
 //		node_meta->inv_cnt = 0;
 		node_meta->start_offset = temp_offset[0].no;
@@ -756,8 +756,8 @@ void recover_node(Node_offset node_offset) // recover record and meta
 			buffer+=PH_LTK_SIZE+vl16;
 		}
 
-		node_meta->size = buffer-node_data_temp[part].buffer;
-		meta0->group_size+=node_meta->size;
+		node_meta->size_r = buffer-node_data_temp[part].buffer; // fix
+		meta0->group_size+=node_meta->size_r; // fix it
 
 
 
@@ -957,7 +957,7 @@ void init_data() // init hash first!!!
 	node_offset.no = alloc_node0(0);	//4 ROOT OFFSET // no thread local
 	Node_meta* node = offset_to_node(node_offset.no);
 	node->state = 0;
-	node->size = 0;
+	node->size_l = node->size_r = 0;
 	node->invalidated_size = 0;
 	node->ll_cnt = 0;
 	node->ll = NULL;
@@ -1143,8 +1143,8 @@ void clean_data()
 #endif
 
 //	printf("used %ld size %ld\n",(uint64_t)meta_used/sizeof(Node_meta),(uint64_t)meta_used/sizeof(Node_meta)*sizeof(Node));
-	printf("meta %lfGB\n",double(file_num*MAX_OFFSET*sizeof(Node_meta))/1024/1024/1024);
-	printf("total %lfGB file cnt %d file size %ld\n",double(file_num*FILE_SIZE)/1024/1024/1024,file_num,FILE_SIZE);
+	printf("meta %lfGB\n",double((file_num+1)*MAX_OFFSET*sizeof(Node_meta))/1024/1024/1024);
+	printf("total %lfGB file cnt %d file size %ld\n",double((file_num+1)*FILE_SIZE)/1024/1024/1024,(file_num+1),FILE_SIZE);
 //	printf("index %d min %d cnt %d\n",free_index,free_min,free_cnt);
 
 	//query test
@@ -1162,6 +1162,15 @@ void clean_data()
 	printf("lookup data %ld %ld\n",qtt7/1000000000,qtt7%1000000000);
 
 #endif
+
+	int sum=0;
+	for (i=0;i<PM_N;i++)
+	{
+		printf("part %d %d\n",i,part_file_num[i]*MAX_OFFSET/PM_N+part_offset_cnt[i]);
+		sum+=part_file_num[i]*MAX_OFFSET/PM_N+part_offset_cnt[i];
+	}
+	printf("sum %d\n",sum);
+
 
 }
 
@@ -1294,15 +1303,15 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 {
 	Node_meta* start_meta;
 	Node_meta* end_meta;
-	start_meta = offset_to_node(start_offset);
-
 	Node_offset_u end_offset;
 
-	end_offset.no_32 = start_meta->end_offset;
+	start_meta = offset_to_node(start_offset);
+
 	inc_ref(start_offset);
 
+#if 0
 	//fence???
-	if (end_offset.no_32 != start_meta->end_offset)
+	if (end_offset.no_32 == 0 || end_offset.no_32 != start_meta->end_offset)
 	{
 		
 		//find new end offset
@@ -1315,9 +1324,11 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 	}
 	else
 		end_meta = offset_to_node(end_offset.no);
+#endif
 
-	std::atomic<uint16_t>* len_cas;
-	uint16_t aligned_size;
+
+//	std::atomic<uint16_t>* len_cas;
+	uint16_t aligned_size,size_r;
 
 	aligned_size = PH_LTK_SIZE+value_len;
 
@@ -1327,8 +1338,20 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 
 	while(1) // insert and append
 	{
+		end_offset.no_32 = start_meta->end_offset;
 
-		if (end_meta->size + aligned_size + PH_LEN_SIZE > NODE_BUFFER) // need append
+		if (end_offset.no_32 == 0)
+		{
+			dec_ref(start_offset);
+			//start_offset = ...
+			inc_ref(start_offset);
+			continue;
+		}
+
+		end_meta = offset_to_node(end_offset.no);
+		size_r = end_meta->size_r;
+
+		if (size_r + aligned_size + PH_LEN_SIZE > NODE_BUFFER) // need append
 		{
 			if (end_meta->next_offset_ig == 0)//INIT_OFFSET) // try new
 			{
@@ -1341,11 +1364,12 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 				new_meta = offset_to_node(new_offset.no);
 
 				new_meta->part = end_meta->part+1;
-				new_meta->size = 0;
+				new_meta->size_l = 2; // creation and end of node
+				new_meta->size_r = 0;
 				new_meta->ll_cnt = 0;
 				new_meta->start_offset = start_offset;
 				new_meta->next_offset_ig = 0;//INIT_OFFSET;
-				new_meta->end_offset = new_offset.no_32;
+//				new_meta->end_offset = new_offset.no_32;
 
 //				Node_data* node_data = offset_to_node_data(new_offset);
 
@@ -1355,20 +1379,37 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 				uint32_t z = 0,off = new_offset.no_32;
 				if (end_meta->next_offset_ig.compare_exchange_strong(z,off))
 				{
+					start_meta->end_offset.compare_exchange_strong(end_offset.no_32,off); // what if .... fail? size_l?
 					pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 
-					end_offset.no = new_offset.no;
-					end_meta = new_meta;
+//					end_offset.no = new_offset.no;
+//					end_meta = new_meta;
+
+//					Node_offset_u temp_offset;
+//					temp_offset.no_32 = start_offset->end_offset;
+//					if (temp_offset.no_32 != 0)
+//						start_offset->end_offset.compare_exchange_strong(temp_offset.no_32,off);
 
 					//alloc new init node
+
+					_mm_sfence(); // creation link
+					new_meta->size_l--;
+					if (end_meta->size_r == end_meta->size_l)
+					{
+						size_r = end_meta->size_r;
+						if (end_meta->size_r.compare_exchange_strong(size_r,NODE_BUFFER+1))
+							new_meta->size_l--;
+					}
 
 					init_node[part] = alloc_node(part);
 					pmem_memcpy(offset_to_node_data(init_node[part]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 
-					continue;
+//					_mm_sfence();
+
+	//				continue;
 				}
 			}
-
+/*
 			{
 				uint32_t off = end_meta->next_offset_ig.load();
 				Node_offset_u new_offset;
@@ -1376,6 +1417,8 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 				end_offset.no = new_offset.no;
 				end_meta = offset_to_node(end_offset.no);
 			}
+*/
+			//retry from finding end node
 		}
 		else // try insert
 		{		
@@ -1383,25 +1426,29 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 			Node* node_data;
 			node_data = offset_to_node_data(end_offset.no);
 			buffer = node_data->buffer;
-			len_cas = (std::atomic<uint16_t>*)(buffer+end_meta->size); // really?
+//			len_cas = (std::atomic<uint16_t>*)(buffer+e_size); // really?
 			uint16_t z = 0;
 			uint16_t vl = value_len;
-			uint8_t ts;
+//			uint8_t ts;
+			uint16_t ts;
 			uint8_t index;
 
-			if (len_cas->compare_exchange_strong(z,vl))
+			if (end_meta->size_r.compare_exchange_strong(size_r,size_r+aligned_size))
 			{
 				// lock from size
 				
 //				index = end_meta->ll_cnt.fetch_add(1);
+				// not now
+				/*
 				index = end_meta->ll_cnt;
 				set_ll(end_meta->ll.load(),index,vl);
+				*/
 				//may fence
 				vl|=(1<<15); ////here??
-				end_meta->ll_cnt++;
+//				end_meta->ll_cnt++;
 
 				//important!!! other threand can do
-				end_meta->size+=aligned_size;
+//				end_meta->size+=aligned_size;
 
 #if 0
 				ts = start_meta->ts.fetch_add(1); // ok??
@@ -1409,7 +1456,7 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 				ts = 0;
 #endif
 
-				buffer = (unsigned char*)len_cas;
+				buffer+=size_r;
 				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
@@ -1422,13 +1469,20 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 
 				_mm_sfence();
 
-				set_ll(end_meta->ll.load(),index,vl); // validate ll
+//				set_ll(end_meta->ll.load(),index,vl); // validate ll
+
+				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
+				uint16_t last_size = size_r+aligned_size;
+				if (end_meta->next_offset_ig != 0 && end_meta->size_r.compare_exchange_strong(last_size,NODE_BUFFER+1))
+					offset_to_node(*((Node_offset*)&end_meta->next_offset_ig))->size_l--; //activate next node if it is end of this node
 
 				ValueEntry rv;
 				rv.node_offset = end_offset.no;
 				rv.kv_offset = buffer-(unsigned char*)node_data;
 				rv.index = index;
 				rv.ts = ts;
+
+				dec_ref(start_offset);
 
 				return rv;
 			}
@@ -1437,8 +1491,8 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 
 	}
 
-
-	dec_ref(start_offset);
+//never come here
+//	dec_ref(start_offset);
 
 }
 

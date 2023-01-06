@@ -460,38 +460,6 @@ _mm_mfence();
 	return INIT_OFFSET;
 }
 
-#ifdef HASH_TEST
-// test
-uint64_t insert_log[65][1000000];
-int insert_a[65][1000000];
-int insert_b[65][1000000];
-std::atomic<int> ll[65];
-// test
-
-void find_in_log(unsigned char* key_p,int len) // test
-{
-	int i,lli;
-	uint64_t v = *((uint64_t*)key_p);
-	lli = ll[len];
-	for (i=0;i<lli;i++)
-	{
-		if ((insert_log[len][i] & pre_bit_mask[len]) == (v & pre_bit_mask[len]))
-		{
-			printf("found %d %d\n",insert_a[len][i],insert_b[len][i]);
-			return;
-		}
-	}
-	printf("not found %d\n",lli);
-}
-#else
-void find_in_log(unsigned char* key_p,int len) // test
-{
-	printf("HASH TEST DISABLED\n");
-}
-
-
-#endif
-
 // there will be no double because it use e lock on the split node but still need cas
 void insert_range_entry(unsigned char* key_p,int len,Node_offset offset) // need to check double
 {

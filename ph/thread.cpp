@@ -96,6 +96,9 @@ void exit_thread()
 void PH_Thread::clean()
 {
 	int i;
+
+	printf("op_cnt %d\n",op_cnt);
+
 	for (i=0;i<PM_N;i++)
 		local_free_cnt[i] = INV9;
 	local_seg_free_cnt = INV9;

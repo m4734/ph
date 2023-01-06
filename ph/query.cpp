@@ -355,6 +355,7 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p)
 // find location
 // do cas
 
+#define INV0 0xffffffffffffffff
 
 void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 {
@@ -385,20 +386,44 @@ _mm_mfence();
 
 	while(1) // offset can be changed when retry
 	{
-		if (print)
-			printf("insert loop\n");
 #ifdef qtt
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
 #endif
-		ve_u.ve.node_offset = INIT_OFFSET; //init - not found yet
+
+#if 0
+		ve_u.ve.node_offset = {0,4};
+	insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len);
+	break;
+#endif
+
+//		ve_u.ve.node_offset = INIT_OFFSET; //init - not found yet
 #ifdef keep_lock		
 	v64_p = find_or_insert_point_entry(key_p,&unlock);
-	old_ve_u.ve_64 = *v64_p;	
+//	old_ve_u.ve_64 = *v64_p;	
+	ve_u.ve_64 = *v64_p;
 #else		
 	// it will not be compatible anymore
-		ve_u.ve = find_point_entry(key_p);		
+//		ve_u.ve = find_point_entry(key_p);		
 #endif
+
+		if (ve_u.ve_64 != INV0) // found the record
+		{
+			ve_u.ve.node_offset = get_start_offset(ve_u.ve.node_offset);
+//			start_offset = get_start_offset(ve_u.ve.node_offset);
+//			ve_u.ve.node_offset = start_offset;//??
+		}
+		else
+		{
+			if ((ve_u.ve.node_offset = find_range_entry2(key_p,&continue_len)) == INIT_OFFSET) // it should be split
+			{
+				unlock_entry(unlock); // escape!!! will continue
+				continue;
+			}
+
+		}
+
+#if 0
 		while(old_ve_u.ve.node_offset != INIT_OFFSET)// found existing record	
 		{
 			start_offset = get_start_offset(old_ve_u.ve.node_offset);
@@ -470,6 +495,7 @@ _mm_mfence();
 //			ve = *vep;
 		//e locked
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
+#endif
 		#ifdef qtt
 	_mm_mfence();		
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
@@ -500,10 +526,15 @@ _mm_mfence();
 	{
 		ov64 = v64_p->load();
 		ov = *(ValueEntry*)(&ov64);
-		if ((ov.ts <= rv.ts) || (ov.ts & (1<<7) != rv.ts & (1<<7)))
+		if ((ov.ts <= rv.ts) || ((ov.ts & (1<<7)) != (rv.ts & (1<<7))))
 		{
 			if (v64_p->compare_exchange_strong(ov64,rv64))
+			{
+				if (ov64 != INV0)
+					invalidate_kv2(ov);
 				break;
+			}
+			//retry
 		}
 		else // timeout?
 			break;
