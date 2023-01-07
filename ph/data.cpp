@@ -1364,7 +1364,7 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 				new_meta = offset_to_node(new_offset.no);
 
 				new_meta->part = end_meta->part+1;
-				new_meta->size_l = 2; // creation and end of node
+				new_meta->size_l = 1;//2; // creation and end of node
 				new_meta->size_r = 0;
 				new_meta->ll_cnt = 0;
 				new_meta->start_offset = start_offset;
@@ -1394,12 +1394,14 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 
 					_mm_sfence(); // creation link
 					new_meta->size_l--;
+#if 0
 					if (end_meta->size_r == end_meta->size_l)
 					{
 						size_r = end_meta->size_r;
 						if (end_meta->size_r.compare_exchange_strong(size_r,NODE_BUFFER+1))
 							new_meta->size_l--;
 					}
+#endif
 
 					init_node[part] = alloc_node(part);
 					pmem_memcpy(offset_to_node_data(init_node[part]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
@@ -1469,12 +1471,19 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 
 				_mm_sfence();
 
-//				set_ll(end_meta->ll.load(),index,vl); // validate ll
 
-				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
+				while (end_meta->size_l != size_r);
+
+					index = end_meta->ll_cnt;
+					set_ll(end_meta->ll.load(),index,vl); // validate ll
+					end_meta->ll_cnt++;
+					end_meta->size_l+=aligned_size;
+//				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
+#if 0
 				uint16_t last_size = size_r+aligned_size;
 				if (end_meta->next_offset_ig != 0 && end_meta->size_r.compare_exchange_strong(last_size,NODE_BUFFER+1))
 					offset_to_node(*((Node_offset*)&end_meta->next_offset_ig))->size_l--; //activate next node if it is end of this node
+#endif
 
 				ValueEntry rv;
 				rv.node_offset = end_offset.no;
@@ -1495,6 +1504,7 @@ ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*
 //	dec_ref(start_offset);
 
 }
+
 
 void new_ll(std::atomic<void*>* next)
 {

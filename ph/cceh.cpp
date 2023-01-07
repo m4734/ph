@@ -787,7 +787,7 @@ void CCEH::split(int sn) // seg locked
 				continue;
 			}
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
-//			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
+			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
 //			kc = hk >> (64-CL_BIT);
 
 			// rearrange problem

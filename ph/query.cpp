@@ -83,6 +83,7 @@ void init_query(Query* query)
 
 int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len_p)
 {
+//	return 0;
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4;
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -158,7 +159,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 //				print_kv(kv_p);	
 //				*result_len_p = *((uint16_t*)(kv_p));
 
-				*result_len_p = len;
+				*result_len_p = len-INV_BIT;
 
 // len from PMEM
 //				*result_len_p = *((uint16_t*)((unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset));
@@ -227,6 +228,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 
 int lookup_query(unsigned char* &key_p, std::string *value)
 {
+//	return 0;
 //	thread_run();
 		ValueEntry ve;
 //		const int kls = PH_KEY_SIZE+PH_LEN_SIZE;//key_size+len_size;
@@ -251,7 +253,12 @@ int lookup_query(unsigned char* &key_p, std::string *value)
 				unsigned char* kv_p = (unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset;
 //				uint16_t len = *((uint16_t*)(kv_p));// ve len disappear??
 				uint16_t len = get_length_from_ve(ve);
-				value->assign((char*)kv_p+PH_LTK_SIZE,len);
+				if (len & INV_BIT)
+				value->assign((char*)kv_p+PH_LTK_SIZE,len-INV_BIT);
+				else
+				{
+			value->assign((char*)empty,empty_len);
+				}
 //				dec_ref(ve.node_offset);
 //				break;
 //			}
