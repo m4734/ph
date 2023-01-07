@@ -33,17 +33,8 @@ int max_index;
 //test
 uint64_t alloc_seg_cnt;
 
-inline void at_lock2(std::atomic<uint8_t> &lock)
-{
-	lock++;
-}
-inline void at_unlock2(std::atomic<uint8_t> &lock)
-{
-	lock--;
-}
-
 // old - blocking
-#if 0
+#if 1
 void at_lock2(std::atomic<uint8_t> &lock)
 {
 	uint8_t z;
@@ -157,12 +148,12 @@ inline bool CCEH::zero_check(unsigned char* const &key)
 
 void inv_seg(SEG* volatile seg)//,int sn)
 {
-	int i;
+//	int i;
 //	uint64_t inv;
 //	SEG* seg;
-	KVP* kvp_p;
+//	KVP* kvp_p;
 //	seg = seg_list[sn];
-	kvp_p = (KVP*)seg->cl;
+//	kvp_p = (KVP*)seg->cl;
 
 	/*
 	if (sn % 2 == 0)
@@ -450,13 +441,15 @@ retry:
 
 //	while(seg->lock.compare_exchange_weak(z,1) == 0);
 //	seg->seg_lock->lock();	
-	at_lock2(seg->lock);	
+//	at_lock2(seg->lock);	
+	seg->lock++;
 	
 //	if (sn != *(uint64_t*)key >> (64-depth)) // didn't fixed?
 	if (sn != hk % ((uint64_t)1 << depth))
 	{
 //		seg->lock = 0;
-		at_unlock2(seg->lock);		
+//		at_unlock2(seg->lock);		
+		seg->lock--;
 //		seg->seg_lock->unlock();
 		goto retry;
 	}
@@ -477,14 +470,16 @@ retry:
 //			(uint64_t)(kvp_p[i].key) = inv;
 //			seg->seg_lock->unlock();
 //			seg->lock = 0;			
-			at_unlock2(seg->lock);			
+//			at_unlock2(seg->lock);			
+			seg->lock--;
 			return;
 		}
 		l++;
 	}
 
 //	seg->lock = 0;
-	at_unlock2(seg->lock);	
+//	at_unlock2(seg->lock);	
+	seg->lock--;
 
 //	seg->seg_lock->unlock();
 
@@ -564,7 +559,7 @@ void print_seg(SEG* seg,int sn)
 	*/
 
 }
-void CCEH::split(int sn,uint8_t seg_depth) // seg locked
+void CCEH::split(int sn) // seg locked
 {
 	SEG* seg;
 	int i;
@@ -575,8 +570,7 @@ void CCEH::split(int sn,uint8_t seg_depth) // seg locked
 	KVP* new_kvp_p2;
 
 	seg = seg_list[sn];
-	if (seg->depth != seg_depth)
-		return;
+
 //	dir_lock.lock();
 //	
 	if (seg->depth == depth)
@@ -590,7 +584,8 @@ void CCEH::split(int sn,uint8_t seg_depth) // seg locked
 		lock = dir_lock;
 			if (lock & SPLIT_MASK)
 			{
-				at_unlock2(seg->lock);
+			//	at_unlock2(seg->lock);
+				seg->lock--;
 				return;
 			}
 			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
@@ -601,7 +596,8 @@ void CCEH::split(int sn,uint8_t seg_depth) // seg locked
 
 		if (seg->depth != depth) // impossible because dir lock
 		{
-			at_unlock2(seg->lock);
+//			at_unlock2(seg->lock);
+			seg->lock--;
 			dir_lock-=SPLIT_MASK;
 			return;
 		}
@@ -990,7 +986,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 		return 0;
 	}
 #endif
-/*
+#if 0
 	if (seg->lock & CCEH_SEG_SPLIT_BIT) // seg spliting
 	{
 		dir_lock--;
@@ -1003,7 +999,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 		dir_lock--;
 		return 0;
 	}
-*/
+#endif
 
 //	if (!point)
 //	printf("%d ",(int)dir_lock);
@@ -1082,7 +1078,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 				continue; // CAS fail find other
 
 //			kvp_p[l].value = ve_u.ve_64;
-			_mm_sfence();
+//			_mm_sfence();
 //			(uint64_t)kvp_p[l].key = *(uint64_t*)key; // need encode
 
 //			insert_key(kvp_p[l].key,key,hk2);
@@ -1095,7 +1091,8 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 			else // when we insert new range entry it has no unlock
 			{
 				kvp_p[l].value = ve_u.ve_64;
-				at_unlock2(seg->lock);
+//				at_unlock2(seg->lock);
+				seg->lock--;
 				dir_lock--;
 			}
 #ifdef ctt
@@ -1206,7 +1203,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 
 	while (seg->lock != CCEH_SEG_SPLIT_BIT+1);
 
-	split(sn % ((uint64_t)1 << seg->depth),seg->depth);	// unlock & free seg
+	split(sn % ((uint64_t)1 << seg->depth));	// unlock & free seg
 				break;
 		}
 	}
@@ -1253,7 +1250,8 @@ void CCEH::unlock_entry2(void* unlock)
 		printf("ue errror?\n");
 	if (unlock)		
 	{
-		at_unlock2(((SEG*)unlock)->lock);
+//		at_unlock2(((SEG*)unlock)->lock);
+		((SEG*)unlock)->lock--;
 		dir_lock--;
 	}
 }

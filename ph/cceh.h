@@ -104,8 +104,8 @@ struct SEG
 
 	std::atomic<uint8_t> lock; // 1 ?
 //	std::mutex* seg_lock;	//struct c++
-//	volatile int depth; // 4
-	uint8_t depth;	
+	volatile int depth; // 4
+//	volatile uint8_t depth;	
 
 }; // 64 * ???
 
@@ -141,7 +141,7 @@ inline bool zero_check(unsigned char* const &key);
 //	volatile ValueEntry_u inv0_value	
 
 	void dir_double();
-	void split(int sn,uint8_t seg_depth);
+	void split(int sn);
 //	void init_seg(int sn);
 	void init(int in_depth);
 	void clean();
