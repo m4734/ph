@@ -674,7 +674,7 @@ void CCEH::split(int sn) // seg locked
 
 	int j,l,kc;
 	uint64_t hk;
-#if  0
+#if 1
 	int entry_count1[CL_PER_SEG+1] = {0,};
 	int entry_count2[CL_PER_SEG+1] = {0,};
 	int diff1[CL_PER_SEG+1] = {0,};
@@ -775,7 +775,7 @@ void CCEH::split(int sn) // seg locked
 	}
 #endif
 
-#if 1
+#if 0
 	for (i=0;i<CL_PER_SEG;i++)
 	{
 		l = i*KVP_PER_CL;
@@ -978,7 +978,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 
 
 // old -  blocking
-#if 1
+#if 0
 	if (try_at_lock2(seg->lock) == 0)
 	{
 //		printf("seg lock fail\n");
@@ -986,7 +986,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 		return 0;
 	}
 #endif
-#if 0
+#if 1
 	if (seg->lock & CCEH_SEG_SPLIT_BIT) // seg spliting
 	{
 		dir_lock--;
