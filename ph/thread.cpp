@@ -249,6 +249,12 @@ void update_idle()
 
 #endif
 
+std::atomic<int> fff=0;
+void ff()
+{
+	printf("lkejfslkjf\n");
+}
+
 #define wait_for_slow
 
 void update_free_cnt()
@@ -280,13 +286,17 @@ void update_free_cnt()
 			int min = min_seg_free_cnt();
 			if (min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
 			{
+				fff++;
 				printf("in2\n");
+				if (fff == 15)
+					ff();
 				while(min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
 				{
 					update_idle();
 					min = min_seg_free_cnt();
 				}
 					printf("out2\n");
+					fff--;
 			}
 #endif
 			
@@ -338,6 +348,10 @@ void print_thread_info()
 			printf("thread %d part %d / %d\n",i,j,thread_list[i].local_free_cnt[j]);//,thread_list[i].local_seg_free_cnt,thread_list[i].running);
 		}
 		}
+	}
+	for (i=0;i<num_of_thread;i++)
+	{
+		printf("%d local_seg_free %d\n",i,thread_list[i].local_seg_free_cnt);
 	}
 
 }

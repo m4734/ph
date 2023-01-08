@@ -18,7 +18,7 @@
 #define CL_PER_SEG (1 << CL_BIT)
 #define LINEAR_MULTI 4
 
-#define KVP_PER_SEG KVP_PER_CL*CL_PER_SEG
+#define KVP_PER_SEG (KVP_PER_CL*CL_PER_SEG)
 
 #define SPLIT_MASK (1 << 6) // I mean split bit
 

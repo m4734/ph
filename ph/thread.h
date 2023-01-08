@@ -6,7 +6,7 @@
 namespace PH
 {
 
-#define FREE_SEG_LEN 10000
+#define FREE_SEG_LEN 100000
 #define FREE_QUEUE_LEN 100000
 
 class PH_Thread

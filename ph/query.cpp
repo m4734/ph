@@ -128,6 +128,7 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 			*result_len_p = empty_len;
 //			*result_len_p = 0;
 //thread_idle();
+			printf("not found?\n");
 			THREAD_IDLE
 //		update_free_cnt();
 
@@ -258,6 +259,7 @@ int lookup_query(unsigned char* &key_p, std::string *value)
 				else
 				{
 			value->assign((char*)empty,empty_len);
+			printf("not found\n");
 				}
 //				dec_ref(ve.node_offset);
 //				break;
@@ -549,8 +551,15 @@ _mm_mfence();
 
 
 	unlock_entry(unlock);
-	// need split?
 
+	// need split?
+	if (need_split(ve_u.ve.node_offset))	
+	{
+		if (split_or_compact(ve_u.ve.node_offset))
+			split3(ve_u.ve.node_offset);
+		else
+			compact3(ve_u.ve.node_offset);
+	}
 
 	break; // finish here
 #if 0

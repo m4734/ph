@@ -220,8 +220,9 @@ void free_seg(SEG* seg)
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
 		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
-//		print_thread_info();
+		print_thread_info();
 		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt);
+		printf("free seg full out\n");
 	}
 	}
 	free_seg_queue[seg_free_cnt%FREE_SEG_LEN] = seg;	
@@ -336,7 +337,7 @@ ValueEntry CCEH::find(unsigned char* const &key)
 	int sn,cn,i;
 	KVP* kvp_p;
 	uint64_t hk;
-	uint32_t hk2;
+//	uint32_t hk2;
 	const int cl_shift = 64-CL_BIT;
 	int l;
 
@@ -352,7 +353,7 @@ return ve_u.ve;
 //	return NULL;
 //	const uint64_t
 	hk = hf(key);
-	hk2 = *(uint32_t*)(&hk);
+//	hk2 = *(uint32_t*)(&hk);
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
 //	sn = *(uint64_t*)key % ((uint64_t)1 << depth);
@@ -426,7 +427,7 @@ void CCEH::remove(unsigned char* const &key)
 	}
 
 	const uint64_t hk = hf(key);
-	const uint32_t hk2 = *(uint32_t*)(&hk);
+//	const uint32_t hk2 = *(uint32_t*)(&hk);
 
 retry:
 //	sn = *(uint64_t*)key >> (64-depth);
@@ -561,6 +562,7 @@ void print_seg(SEG* seg,int sn)
 }
 void CCEH::split(int sn) // seg locked
 {
+//	printf("cceh split\n");
 	SEG* seg;
 	int i;
 //	uint64_t inv,mask;
@@ -695,6 +697,9 @@ void CCEH::split(int sn) // seg locked
 				continue;
 			}
 
+//			if (kvp_p[l].key == 0x8200000000000000)
+//				printf("ca\n");
+
 			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
 			kc = hk >> (64-CL_BIT);
 
@@ -713,6 +718,7 @@ void CCEH::split(int sn) // seg locked
 		}
 	}
 
+	entry_count1[0] = entry_count1[CL_PER_SEG];
 	l = -1;
 	while(l != diff1[0])
 	{
@@ -729,6 +735,7 @@ void CCEH::split(int sn) // seg locked
 	diff1[0] = diff1[CL_PER_SEG];
 	}
 
+	entry_count2[0] = entry_count2[CL_PER_SEG];
 	l = -1;
 	while(l != diff2[0])
 	{
@@ -897,6 +904,8 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 //	/*const*/ int cn;// = hk >>(64-CL_BIT);
 //	int l,d;
 
+//	if (ve.node_offset.offset == 642)
+//		printf("test\n");
 #ifdef ctt
 	pic++;
 	struct timespec ts1,ts2,ts3,ts4;
@@ -1109,18 +1118,16 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 		{
 			if (unlock)
 				*(void**)unlock = seg;
-			else
-				printf("???\n");
-			/*
-			else
+			else // range insert split
 			{
-//				kvp_p[l].value = ve_u.ve_64;
-				try_update(kvp_p[l].value,ve_u.ve_64);
+				kvp_p[l].value = ve_u.ve_64; // SPLIT OFFSET
+//				try_update(kvp_p[l].value,ve_u.ve_64);
+
 				_mm_sfence();
-				at_unlock2(seg->lock);			
+//				at_unlock2(seg->lock);			
+				seg->lock--;
 				dir_lock--;
 			}
-*/
 //			seg->lock = 0;
 //			seg->seg_lock->unlock();			
 #ifdef ctt

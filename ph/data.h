@@ -89,14 +89,14 @@ struct LENGTH_LIST
 	std::atomic<void*> next;
 };
 
-void inv_ll(void* ll,int index);
+uint16_t inv_ll(void* ll,int index);
 void set_ll(void* ll,int index,uint16_t value);
 uint16_t get_ll(void* ll,int index);
 void new_ll(std::atomic<void*>* next);
 
 // 8byte atomic --- 8byte align
 
-#define NODE_SPLIT_BIT 1 << 7
+//#define NODE_SPLIT_BIT 1 << 7
 #define ARRAY_INIT_SIZE 16
 
 struct Node_meta
@@ -311,7 +311,9 @@ inline int check_ref(Node_offset offset)
 }
 
 uint16_t get_length_from_ve(ValueEntry& ve);
-
+void split3(Node_offset offset);
+void compact3(Node_offset offset);
+int need_split(Node_offset &offset);
 
 #ifdef split_thread
 inline int try_split(Node_offset offset)

@@ -235,15 +235,16 @@ Node_offset find_range_entry2(unsigned char* &key_p,int* continue_len) //binary
 	Node_offset hash;
 //	unsigned char prefix[8]={0,}; // 8?
 	unsigned char prefix[16] = {0,};
-	unsigned char* prefix2=0;
-	unsigned char* key_p2=0;
+//	unsigned char* prefix2=0;
+//	unsigned char* key_p2=0;
 //	uint64_t entry; // old name
 /*
 static int cnt=0;
 cnt++;
 if (cnt % 1000000 == 0)
 	printf("cnt %d\n",cnt);
-*/	
+*/
+#if 0
 	if (false && *continue_len > 0)
 	{
 //		return find_range_entry(key_p,continue_len);
@@ -255,13 +256,14 @@ _mm_mfence();
 #endif
 return hash;
 	}
-
+#endif
+#if 0
 	if (PH_KEY_SIZE/*key_size*/ > 8)
 	{
 		prefix2 = prefix+8;
 		key_p2 = key_p+8;
 	}
-
+#endif
 	max = PH_KEY_SIZE*8;//key_bit;//key_size * 8; // 64
 	min = 0;
 	mid = (min+max)/2;
@@ -283,8 +285,8 @@ ValueEntry ve;
 	while(1)	
 	{
 		*(uint64_t*)prefix = *(uint64_t*)key_p & pre_bit_mask[mid];
-		if (prefix2)
-			*(uint64_t*)prefix2 = *(uint64_t*)key_p2 & pre_bit_mask2[mid];
+//		if (prefix2)
+//			*(uint64_t*)prefix2 = *(uint64_t*)key_p2 & pre_bit_mask2[mid];
 /*
 		printf("find mid %d ",mid);
 		print64(*(uint64_t*)prefix);
@@ -330,10 +332,11 @@ _mm_mfence();
 
 		if (mid == (min+max)/2)
 		{
-			/*
+/*			
 		printf("not found mid %d ",mid);
 		print64(*(uint64_t*)prefix);
 		printf("\n");
+		scanf("%d");
 */
 			// it is chaning need retry
 //			printf("fre2 error\n");
@@ -529,7 +532,7 @@ _mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-
+//printf("insert range %lx len %d offset %d %d\n",*(uint64_t*)prefix,len,offset.file,offset.offset);
 }
 
 void init_hash()
