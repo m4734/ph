@@ -1357,13 +1357,40 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 		}
 #endif
 		end_meta = offset_to_node(end_offset.no);
+#if 0
+		if (end_meta->start_offset != start_offset.no)
+		{
+			printf("efeslfnlsenkf???\n");
+			Node_offset_u temp_offset;
+			Node_meta* temp_meta;
+
+			temp_offset.no = start_offset.no;
+			while(temp_offset.no_32)
+			{
+				if (temp_offset.no == end_offset.no)
+					printf("aaa\n");
+				temp_meta = offset_to_node(temp_offset.no);
+				temp_offset.no_32 = temp_meta->next_offset_ig;
+			}
+
+			temp_offset.no = end_meta->start_offset;
+			while(temp_offset.no_32)
+			{
+				if (temp_offset.no == end_offset.no)
+					printf("bbb\n");
+				temp_meta = offset_to_node(temp_offset.no);
+				temp_offset.no_32 = temp_meta->next_offset_ig;
+			}
+
+		}
+#endif
 		size_r = end_meta->size_r;
 
 		if (size_r + aligned_size + PH_LEN_SIZE > NODE_BUFFER) // need append
 		{
 			if (end_meta->next_offset_ig == 0)//INIT_OFFSET) // try new
 			{
-#if 1
+#if 0
 				if (end_meta->part > PART_MAX+1)
 				{
 					continue;
@@ -1391,11 +1418,30 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 
 //				memset(offset_to_node_data(new_offset)->buffer,0,NODE_BUFFER);
 
+				_mm_sfence();
 
 				uint32_t z = 0,off = new_offset.no_32;
 				if (end_meta->next_offset_ig.compare_exchange_strong(z,off))
 				{
-					start_meta->end_offset.compare_exchange_strong(end_offset.no_32,off); // what if .... fail? size_l? // zero is split and it should not be restored
+					uint32_t ttt = end_offset.no_32;
+#if 1
+					start_meta->end_offset.compare_exchange_strong(ttt,off); // what if .... fail? size_l? // zero is split and it should not be restored
+#else
+
+						static std::atomic<int> gc=0;
+						int gg;
+					if (start_meta->end_offset.compare_exchange_strong(ttt,off)) // what if .... fail? size_l? // zero is split and it should not be restored
+					{
+						gg = gc.fetch_add(1);
+						printf("ok gc %d start offset %d %d end_offset %d %d new_offset %d %d\n",gg,start_offset.no.file,start_offset.no.offset,end_offset.no.file,end_offset.no.offset,new_offset.no.file,new_offset.no.offset);
+					}
+					else
+					{
+						gg = gc.fetch_add(1);
+						printf("fail gc %d start offset %d %d end_offset %d %d new_offset %d %d\n",gg,start_offset.no.file,start_offset.no.offset,end_offset.no.file,end_offset.no.offset,new_offset.no.file,new_offset.no.offset);
+					}
+#endif
+
 					pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 
 //					end_offset.no = new_offset.no;
@@ -1428,6 +1474,16 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 	//				continue;
 				}
 			}
+#if 0
+			else
+			{
+				if (start_meta->state == 16)
+				{
+					printf("xx\n");
+					scanf("%d");
+				}
+			}
+#endif
 /*
 			{
 				uint32_t off = end_meta->next_offset_ig.load();
@@ -1440,20 +1496,22 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 			//retry from finding end node
 		}
 		else // try insert
-		{		
+		{	
+
+			if (end_meta->size_r.compare_exchange_strong(size_r,size_r+aligned_size))
+			{
+
 			unsigned char* buffer;
 			Node* node_data;
 			node_data = offset_to_node_data(end_offset.no);
-			buffer = node_data->buffer;
+			buffer = node_data->buffer + size_r;
 //			len_cas = (std::atomic<uint16_t>*)(buffer+e_size); // really?
-			uint16_t z = 0;
+//			uint16_t z = 0;
 			uint16_t vl = value_len;
 //			uint8_t ts;
 			uint16_t ts;
 			uint8_t index;
 
-			if (end_meta->size_r.compare_exchange_strong(size_r,size_r+aligned_size))
-			{
 				// lock from size
 				
 //				index = end_meta->ll_cnt.fetch_add(1);
@@ -1475,7 +1533,6 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 				ts = 0;
 #endif
 
-				buffer+=aligned_size;
 				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
@@ -1657,24 +1714,28 @@ void split3(Node_offset start_offset)
 
 	Node_meta* prev_meta;
 	Node_offset_u prev_offset;
-	prev_offset.no_32 = start_meta->prev_offset;
-	prev_meta = offset_to_node(prev_offset.no);
 
 	while(1)
 	{
-		if (prev_meta->state & NODE_SPLIT_BIT)
+		prev_offset.no_32 = start_meta->prev_offset;
+		prev_meta = offset_to_node(prev_offset.no);
+		uint8_t state = prev_meta->state;
+		if (state & NODE_SPLIT_BIT)
 			return; // already
-		uint8_t state = prev_meta->state;
 		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
+	// we will split because we got prev lock
 
-	while(1)
+	while(1) // wait for next node split
 	{
-		uint8_t state = prev_meta->state;
-		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
+		uint8_t state = start_meta->state;
+		if (state & NODE_SPLIT_BIT)
+			continue;
+		if (start_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
+	
 
 
 	//set split
@@ -1743,7 +1804,10 @@ void split3(Node_offset start_offset)
 
 	_mm_sfence();
 
-	while(start_meta->state == NODE_SPLIT_BIT); // wiat until end
+	while(start_meta->state != NODE_SPLIT_BIT); // wiat until end
+
+//	printf("split3 file %d offset %d\n",start_offset.file,start_offset.offset);
+
 
 	Node_offset_u offset0,offset1,offset2;
 	Node_meta *meta0,*meta1,*meta2;
@@ -1787,7 +1851,7 @@ void split3(Node_offset start_offset)
 		meta0 = offset_to_node(offset0.no);
 		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
 		
-		if (buffer0 == NULL)
+		if (meta0->size_l > 0)
 			fk = *((uint64_t*)(data0.buffer+PH_LEN_SIZE+PH_TS_SIZE));
 
 		buffer0 = data0.buffer;
@@ -1908,8 +1972,6 @@ void split3(Node_offset start_offset)
 
 
 				}
-
-
 			}
 			vea0i++;
 			buffer0+=aligned_size;
@@ -1917,7 +1979,7 @@ void split3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 	}
 
-	printf("node_cnt %d\n",node_cnt);
+//	printf("node_cnt %d gs1 %d gs2 %d\n",node_cnt,s1m->group_size,s2m->group_size);
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
@@ -2025,17 +2087,22 @@ void compact3(Node_offset start_offset)
 
 	while(1)
 	{
-		if (prev_meta->state & NODE_SPLIT_BIT)
-			return; // already
+		prev_offset.no_32 = start_meta->prev_offset;
+		prev_meta = offset_to_node(prev_offset.no);
 		uint8_t state = prev_meta->state;
+		if (state & NODE_SPLIT_BIT)
+			return; // already
 		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
+	// we will split because we got prev lock
 
-	while(1)
+	while(1) // wait for next node split
 	{
-		uint8_t state = prev_meta->state;
-		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
+		uint8_t state = start_meta->state;
+		if (state & NODE_SPLIT_BIT)
+			continue;
+		if (start_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
 
@@ -2087,7 +2154,7 @@ void compact3(Node_offset start_offset)
 
 	_mm_sfence();
 
-	while(start_meta->state == NODE_SPLIT_BIT); // wiat until end
+	while(start_meta->state != NODE_SPLIT_BIT); // wiat until end
 
 	Node_offset_u offset0,offset1;
 	Node_meta *meta0,*meta1;
@@ -2117,8 +2184,11 @@ void compact3(Node_offset start_offset)
 
 	Node_offset_u new_offset;
 
+	int node_cnt = 0;
+
 	while(offset0.no_32)
 	{
+		node_cnt++;
 		meta0 = offset_to_node(offset0.no);
 		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
 		
@@ -2194,6 +2264,8 @@ void compact3(Node_offset start_offset)
 		}
 		offset0.no_32 = meta0->next_offset_ig;
 	}
+
+//	printf("cmp node_cnt %d gs1 %d\n",node_cnt,s1m->group_size);
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;

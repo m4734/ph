@@ -20,7 +20,7 @@
 
 #define KVP_PER_SEG (KVP_PER_CL*CL_PER_SEG)
 
-#define SPLIT_MASK (1 << 6) // I mean split bit
+#define SPLIT_MASK (1 << 7) // I mean split bit
 
 //#define ctt
 
