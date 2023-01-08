@@ -227,6 +227,8 @@ int lookup_query(unsigned char* &key_p, unsigned char* &result_p,int* result_len
 		*/
 }
 
+#define INV_MASK 0x7fff
+
 int lookup_query(unsigned char* &key_p, std::string *value)
 {
 //	return 0;
@@ -242,30 +244,51 @@ int lookup_query(unsigned char* &key_p, std::string *value)
 //			thread_idle();
 			THREAD_IDLE
 //		update_free_cnt();
+				printf("not found0\n");
 
 			return 0; // failed
 		}
 #if 1
 
 //		while(1)
-//		{
+		{
 //			if (inc_ref(ve.node_offset))
 //			{
 				unsigned char* kv_p = (unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset;
 //				uint16_t len = *((uint16_t*)(kv_p));// ve len disappear??
 				uint16_t len = get_length_from_ve(ve);
-				if (len & INV_BIT)
+#if 0
+				if (len & INV_BIT) // moved during query?
+				{
 				value->assign((char*)kv_p+PH_LTK_SIZE,len-INV_BIT);
+				break;
+				}
 				else
 				{
+					continue;
 			value->assign((char*)empty,empty_len);
 			printf("not found\n");
 				}
+#endif
+
+				len&=INV_MASK;
+#if 0
+				if (len != 100)
+					printf("error1\n");
+				uint64_t k1,k2;
+				k1 = *((uint64_t*)key_p);
+				k2 = *((uint64_t*)(kv_p+PH_LEN_SIZE+PH_TS_SIZE));
+				if (k1 != k2)
+					printf("error1\n");
+
+#endif
+				value->assign((char*)kv_p+PH_LTK_SIZE,len);
+
 //				dec_ref(ve.node_offset);
 //				break;
 //			}
 //			ve = find_point_entry(key_p);
-//		}
+		}
 
 #else
 		value->assign((char*)offset_to_node_data(ve.node_offset)+ve.kv_offset+kls,ve.len);
@@ -395,6 +418,11 @@ _mm_mfence();
 
 	while(1) // offset can be changed when retry
 	{
+
+//		if (*(uint64_t*)key_p == 0xd762346c3cc7f756)
+//			printf("nfefsofudn!!\n");
+
+
 #ifdef qtt
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
@@ -418,12 +446,15 @@ _mm_mfence();
 
 		if (ve_u.ve_64 != INV0) // found the record
 		{
+//			if (get_start_offset(ve_u.ve.node_offset) == INIT_OFFSET)
+//				printf("inini\n");
 			ve_u.ve.node_offset = get_start_offset(ve_u.ve.node_offset);
 //			start_offset = get_start_offset(ve_u.ve.node_offset);
 //			ve_u.ve.node_offset = start_offset;//??
 		}
 		else
 		{
+
 			if ((ve_u.ve.node_offset = find_range_entry2(key_p,&continue_len)) == INIT_OFFSET) // it should be split
 			{
 				unlock_entry(unlock); // escape!!! will continue
@@ -531,6 +562,9 @@ _mm_mfence();
 	rv = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len);
 	rv64 = *(uint64_t*)(&rv);
 
+//	if (rv.node_offset.file == 0 && rv.node_offset.offset == 0)
+//		printf("testestset\n");
+
 	while(1)
 	{
 		ov64 = v64_p->load();
@@ -551,6 +585,8 @@ _mm_mfence();
 
 
 	unlock_entry(unlock);
+
+//	break;
 
 	// need split?
 	if (need_split(ve_u.ve.node_offset))	

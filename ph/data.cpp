@@ -1327,6 +1327,23 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 		start_meta = offset_to_node(start_offset.no);
 		end_offset.no_32 = start_meta->end_offset;
 
+#if 0
+		if (start_meta->state & NODE_SPLIT_BIT)
+		{
+			if (end_offset.no_32 == 0)
+			{
+				Node_offset_u temp_offset;
+				temp_offset = start_offset;
+			if (((*((uint64_t*)(key))) & check_bit) == 0)
+				start_offset.no_32 = start_meta->end_offset1;
+			else
+				start_offset.no_32 = start_meta->end_offset2;
+				inc_ref(start_offset.no);
+				dec_ref(temp_offset.no);
+			}
+			continue;
+		}
+#else
 		if (end_offset.no_32 == 0) // split
 		{
 			dec_ref(start_offset.no);
@@ -1338,7 +1355,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 			inc_ref(start_offset.no);
 			continue;
 		}
-
+#endif
 		end_meta = offset_to_node(end_offset.no);
 		size_r = end_meta->size_r;
 
@@ -1346,6 +1363,12 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 		{
 			if (end_meta->next_offset_ig == 0)//INIT_OFFSET) // try new
 			{
+#if 1
+				if (end_meta->part > PART_MAX+1)
+				{
+					continue;
+				}
+#endif
 				Node_meta* new_meta;
 				Node_offset_u new_offset;
 //				int part = (end_meta->part+1)%PM_N;
@@ -1372,7 +1395,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 				uint32_t z = 0,off = new_offset.no_32;
 				if (end_meta->next_offset_ig.compare_exchange_strong(z,off))
 				{
-					start_meta->end_offset.compare_exchange_strong(end_offset.no_32,off); // what if .... fail? size_l?
+					start_meta->end_offset.compare_exchange_strong(end_offset.no_32,off); // what if .... fail? size_l? // zero is split and it should not be restored
 					pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 
 //					end_offset.no = new_offset.no;
@@ -1452,7 +1475,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 				ts = 0;
 #endif
 
-				buffer+=size_r;
+				buffer+=aligned_size;
 				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
@@ -1467,11 +1490,12 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 
 
 				while (end_meta->size_l != size_r);
-
-					index = end_meta->ll_cnt;
-					set_ll(end_meta->ll.load(),index,vl); // validate ll
-					end_meta->ll_cnt++;
-					end_meta->size_l+=aligned_size;
+_mm_sfence();
+				index = end_meta->ll_cnt;
+				set_ll(end_meta->ll.load(),index,vl); // validate ll
+				end_meta->ll_cnt++;
+				_mm_sfence();
+				end_meta->size_l+=aligned_size;
 //				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
 #if 0
 				uint16_t last_size = size_r+aligned_size;
@@ -1533,7 +1557,8 @@ void set_ll(void* ll,int index, uint16_t value)
 		llp->value[index] = value;
 }
 
-#define INVALID_MASK (1<<16)-1
+//#define INVALID_MASK (1<<16)-1
+#define INVALID_MASK 0x7fff
 
 uint16_t inv_ll(void* ll,int index)
 {
@@ -1547,7 +1572,6 @@ uint16_t inv_ll(void* ll,int index)
 	}
 }
 
-#define NODE_SPLIT_BIT (1<<7)
 
 void split_node_init(Node_offset offset)
 {
@@ -1776,7 +1800,7 @@ void split3(Node_offset start_offset)
 			aligned_size = PH_LTK_SIZE+(len & ~(INV_BIT));
 			if (aligned_size % 8)
 				aligned_size+= (8-aligned_size%8);
-			if (len | INV_BIT)
+			if (len & INV_BIT)
 			{
 				key = *((uint64_t*)(buffer0+PH_LEN_SIZE+PH_TS_SIZE));
 				if ((key & bit) == 0)
@@ -1789,7 +1813,6 @@ void split3(Node_offset start_offset)
 						data1.next_offset_ig = new_offset.no;
 						meta1->next_offset_ig = new_offset.no_32;
 						meta1->size_l = buffer1-data1.buffer;
-						meta1->start_offset = s1o.no;
 						s1m->group_size+=meta1->size_l;
 
 						pmem_memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
@@ -1799,6 +1822,7 @@ void split3(Node_offset start_offset)
 
 
 						meta1 = offset_to_node(new_offset.no);
+						meta1->start_offset = s1o.no;
 //						data1 = offset_to_node_data(offset1);
 
 //						meta1->part = temp_meta->part+1;
@@ -1841,7 +1865,6 @@ void split3(Node_offset start_offset)
 						data2.next_offset_ig = new_offset.no;
 						meta2->next_offset_ig = new_offset.no_32;
 						meta2->size_l = buffer2-data2.buffer;
-						meta2->start_offset = s2o.no;
 						s2m->group_size+=meta2->size_l;
 
 						pmem_memcpy(offset_to_node_data(offset2.no),&data2,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
@@ -1851,6 +1874,7 @@ void split3(Node_offset start_offset)
 
 
 						meta2 = offset_to_node(new_offset.no);
+						meta2->start_offset = s2o.no;
 //						data1 = offset_to_node_data(offset1);
 
 //						meta1->part = temp_meta->part+1;
@@ -1893,7 +1917,7 @@ void split3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 	}
 
-//	printf("node_cnt %d\n",node_cnt);
+	printf("node_cnt %d\n",node_cnt);
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
@@ -2075,11 +2099,9 @@ void compact3(Node_offset start_offset)
 
 	unsigned char* buffer0,*buffer_end0,*buffer1;
 	uint16_t len,aligned_size;
-	uint64_t key,bit,fk;
+	uint64_t key,fk;
 
 	buffer1 = data1.buffer;
-
-	bit = (uint64_t)1 << (63-start_meta->continue_len);
 
 	int vea1i,vea0i;
 	vea1i = 0;
@@ -2113,7 +2135,7 @@ void compact3(Node_offset start_offset)
 			aligned_size = PH_LTK_SIZE+(len & ~(INV_BIT));
 			if (aligned_size % 8)
 				aligned_size+= (8-aligned_size%8);
-			if (len | INV_BIT)
+			if (len & INV_BIT)
 			{
 				key = *((uint64_t*)(buffer0+PH_LEN_SIZE+PH_TS_SIZE));
 				{
@@ -2125,7 +2147,6 @@ void compact3(Node_offset start_offset)
 						data1.next_offset_ig = new_offset.no;
 						meta1->next_offset_ig = new_offset.no_32;
 						meta1->size_l = buffer1-data1.buffer;
-						meta1->start_offset = s1o.no;
 						s1m->group_size+=meta1->size_l;
 
 						pmem_memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
@@ -2133,8 +2154,8 @@ void compact3(Node_offset start_offset)
 						split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
 						meta1->ll_cnt = vea1i;
 
-
 						meta1 = offset_to_node(new_offset.no);
+						meta1->start_offset = s1o.no;
 //						data1 = offset_to_node_data(offset1);
 
 //						meta1->part = temp_meta->part+1;
@@ -5002,7 +5023,9 @@ void invalidate_kv2(ValueEntry& ve)
 	meta = offset_to_node(ve.node_offset);
 //	meta->length_array[ve.index]&=INVALID_MASK;
 	uint16_t len;
-	len = (inv_ll(meta->ll,ve.index) & (~INV_BIT));
+	len = (inv_ll(meta->ll,ve.index) & (~INV_BIT)) + PH_LTK_SIZE;
+	if (len % 8)
+		len+=(8-len%8);
 	meta = offset_to_node(meta->start_offset);
 	meta->invalidated_size+=len; // invalidated
 }

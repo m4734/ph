@@ -32,6 +32,7 @@ extern volatile int file_num;
 #define SPLIT_QUEUE_LEN 500
 #define SPLIT_MAX SPLIT_QUEUE_LEN-10
 
+#define NODE_SPLIT_BIT (1<<7)
 	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
@@ -131,11 +132,13 @@ struct Node_meta
 	std::atomic<uint16_t> size_l;
 	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
 
-	// used only start node
-	uint16_t invalidated_size; // 2
-	uint16_t group_size; // 2
+	//36----------------------------------------------------------
 
-	//38---------------------------------------------------------------------
+	// used only start node
+	uint32_t invalidated_size; // 4
+	uint32_t group_size; // 4
+
+	//44---------------------------------------------------------------------
 
 //	unsigned char padding[64-38-24]; // 64-38-24 = 2
 
@@ -149,9 +152,9 @@ struct Node_meta
 
 //	uint16_t inv_cnt; // 2
 	
-	std::atomic<uint16_t> ll_cnt;
+	std::atomic<uint16_t> ll_cnt; // 2
 //	std::atomic<uint16_t> la_max; // 2
-	std::atomic<void*> ll;//length_list;
+	std::atomic<void*> ll;//length_list; // 8
 
 	//16
 
