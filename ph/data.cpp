@@ -5624,7 +5624,7 @@ int split_or_compact(Node_offset node_offset)
 //	if (meta->continue_len < 60) // test
 //		return 1;
 //	return meta->invalidated_size == 0;
-	return meta->group_size > meta->invalidated_size*4;//*2;//2;//4;
+	return meta->group_size > meta->invalidated_size*2;//*2;//2;//4;
 }
 
 
