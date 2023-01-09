@@ -19,7 +19,8 @@ PH_Thread* thread_list;
 thread_local PH_Thread* my_thread = NULL;
 //thread_local unsigned int op_cnt = 0;
 
-extern volatile unsigned int free_cnt[PM_N];
+extern volatile unsigned int free_cnt[PM_N]; // max
+extern volatile unsigned int free_index[PM_N]; // min
 extern int num_of_thread;
 
 extern volatile unsigned int seg_free_cnt;
@@ -100,7 +101,10 @@ void PH_Thread::clean()
 	printf("op_cnt %d\n",op_cnt);
 
 	for (i=0;i<PM_N;i++)
+	{
 		local_free_cnt[i] = INV9;
+		local_free_index[i] = INV9;
+	}
 	local_seg_free_cnt = INV9;
 //	log->clean();
 	clean_thread_local();
@@ -200,15 +204,12 @@ void new_thread()
 			// alloc thread
 //			thread_list[i].tid = pt;
 			for (j=0;j<PM_N;j++)
-				thread_list[i].local_free_cnt[j] = free_cnt[j];
-			thread_list[i].local_seg_free_cnt = seg_free_cnt;
-#ifdef DOUBLE_LOG
-			if (thread_list[i].log == NULL)
 			{
-				thread_list[i].log = new LOG();
-				thread_list[i].log->init();
+				thread_list[i].local_free_cnt[j] = free_cnt[j];
+				thread_list[i].local_free_index[j] = free_index[j];
 			}
-#endif
+			thread_list[i].local_seg_free_cnt = seg_free_cnt;
+			
 			init_data_local();
 			my_thread = &thread_list[i];
 
@@ -235,7 +236,10 @@ void update_idle()
 			if (thread_list[i].running == 0)
 			{
 				for (j=0;j<PM_N;j++)
-				thread_list[i].local_free_cnt[j] = free_cnt[j];
+				{
+					thread_list[i].local_free_cnt[j] = free_cnt[j];
+					thread_list[i].local_free_index[j] = free_index[j];
+				}
 				thread_list[i].local_seg_free_cnt = seg_free_cnt;
 			}
 		}
@@ -268,14 +272,23 @@ void update_free_cnt()
 			for (i=0;i<PM_N;i++)
 			{
 				my_thread->local_free_cnt[i] = free_cnt[i];
+				my_thread->local_free_index[i] = free_index[i];
 #ifdef wait_for_slow
-				int min = min_free_cnt(i);
+				int min = get_min_free_cnt(i);
 				if (min + FREE_QUEUE_LEN/2 < my_thread->local_free_cnt[i])
 				{
 					printf("in1\n");
 					while(min + FREE_QUEUE_LEN/2 < my_thread->local_free_cnt[i])
-						min = min_free_cnt(i);	
+						min = get_min_free_cnt(i);	
 					printf("out1\n");
+				}
+				min = get_min_free_index(i);
+				if (min + FREE_QUEUE_LEN/2 < my_thread->local_free_index[i])
+				{
+					printf("in3\n");
+					while(min + FREE_QUEUE_LEN/2 < my_thread->local_free_index[i])
+						min = get_min_free_index(i);	
+					printf("out3\n");
 				}
 
 #endif
@@ -322,7 +335,7 @@ void update_free_cnt()
 #endif
 }
 
-unsigned int min_free_cnt(int part)
+unsigned int get_min_free_cnt(int part)
 {
 	int i;
 	unsigned int min=999999999;
@@ -335,6 +348,20 @@ unsigned int min_free_cnt(int part)
 		return free_cnt[part];
 	return min;
 }
+unsigned int get_min_free_index(int part)
+{
+	int i;
+	unsigned int min=999999999;
+	for (i=0;i<num_of_thread;i++)
+	{
+		if (thread_list[i].running && min > thread_list[i].local_free_index[part]) // ???
+			min = thread_list[i].local_free_index[part];
+	}
+	if (min == 999999999)
+		return free_index[part];
+	return min;
+}
+
 
 void print_thread_info()
 {
@@ -369,6 +396,8 @@ unsigned int min_seg_free_cnt()
 		return seg_free_cnt;
 	return min;
 }
+
+
 /*
 int check_slow()
 {

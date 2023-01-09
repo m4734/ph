@@ -58,11 +58,23 @@ std::atomic <uint8_t> alloc_lock;
 // FREE_QUEUE_LEN * PM_N * NODE_SIZE
 // = 100000 * 4 * 1024 = 400MB
 
+#if 0
 //#define FREE_QUEUE_LEN 100000 // moved to thread.h
 volatile unsigned int free_cnt[PM_N]; // free_max // atomic or lock?
 volatile unsigned int free_min[PM_N];
 volatile unsigned int free_index[PM_N];
+//Node_offset free_queue[PM_N][FREE_QUEUE_LEN]; // queue len
+Node_offset free_queue[PM_N][10]; // queue len
+#endif
+
+std::atomic<uint64_t> at_part_offset_cnt[PM_N];
+std::atomic<uint32_t> free_cnt[PM_N];
+std::atomic<uint32_t> free_min_cnt[PM_N];
+std::atomic<uint32_t> free_index[PM_N];
+std::atomic<uint32_t> free_min_index[PM_N];
 Node_offset free_queue[PM_N][FREE_QUEUE_LEN]; // queue len
+
+
 
 // free queue [------------------------------------------------------]
 // free_cnt                                                   x
@@ -132,30 +144,6 @@ void clean_thread_local()
 }
 
 //#define alloc_test
-
-//test
-bool test_alloc_check[1000][MAX_OFFSET];
-void test_alloc(Node_offset offset)
-{
-//	printf("alloc %d %d\n",offset.file,offset.offset);
-	if (test_alloc_check[offset.file][offset.offset])
-	{
-		int t;
-		printf("error alloc\n");
-		scanf("%d\n",&t);
-	}
-}
-void test_free(Node_offset offset)
-{
-//	printf("free %d %d\n",offset.file,offset.offset);
-	if (test_alloc_check[offset.file][offset.offset] == 0)
-	{
-		int t;
-		printf("error free\n");
-		scanf("%d\n",&t);
-	}
-}
-
 
 uint64_t tt1,tt2,tt3,tt4,tt5; //test
 uint64_t qtt1,qtt2,qtt3,qtt4,qtt5,qtt6,qtt7,qtt8;
@@ -269,6 +257,125 @@ void new_file()
 //	meta_used = 0;
 //	offset_cnt = 0;
 }
+
+Node_offset alloc_node2_s(int part)
+{
+
+	if (free_index[part] < free_cnt[part])
+	{
+		free_index[part]++;
+		return free_queue[part][free_index[part-1]];
+	}
+
+	uint64_t offset_num = at_part_offset_cnt[part].fetch_add(1),fff,ooo;
+
+	fff = offset_num/(MAX_OFFSET/PM_N);
+	ooo = offset_num%(MAX_OFFSET/PM_N);
+
+	if (fff >= file_num)
+	{
+		at_lock(alloc_lock);
+		while (fff >= file_num)
+			new_file();
+		at_unlock(alloc_lock);
+	}
+
+	Node_offset offset;
+	offset.file = fff;
+	offset.offset = ooo * PM_N + part;
+
+	Node_meta* node;
+	node = offset_to_node(offset);
+//	node->state = 0;//need here? yes because it was 2 // but need here?
+//	node->length_array = (uint16_t*)malloc(sizeof(uint16_t)*ARRAY_INIT_SIZE);
+	node->ll_cnt = 0;
+	node->ll = NULL;
+	new_ll(&node->ll);
+
+#ifdef dtt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	_mm_mfence();
+	tt5 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+	return offset;
+}
+
+
+Node_offset alloc_node2(int part)
+{
+//	return alloc_node2_s(part);
+#ifdef dtt
+	timespec ts1,ts2; // test
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+	_mm_mfence();
+#endif
+	Node_meta* node;
+	Node_offset offset;
+
+	if (free_index[part]+10 >= free_min_cnt[part])
+	{
+		uint32_t old_min,new_min;
+		old_min = free_min_cnt[part];
+		new_min = get_min_free_cnt(part);
+		if (old_min < new_min)
+			free_min_cnt[part].compare_exchange_strong(old_min,new_min);
+	}
+
+	uint32_t index,min,i2;
+	while(1)
+	{
+		index = free_index[part];
+		min = free_min_cnt[part];
+		if (index+10 >= min)
+			break;
+		i2 = index;
+		if (free_index[part].compare_exchange_strong(index,index+1))
+		{
+#ifdef alloc_print
+			Node_offset no;
+			no = free_queue[part][i2%FREE_QUEUE_LEN];
+			printf("alloc %d %d /  %d %d\n",part,i2,no.file,no.offset);
+#endif
+			return free_queue[part][i2%FREE_QUEUE_LEN];
+		}
+	}
+//	if (meta_size < meta_used + sizeof(Node_meta)) // we need check offset_cnt
+
+	uint64_t offset_num = at_part_offset_cnt[part].fetch_add(1),fff,ooo;
+
+	fff = offset_num/(MAX_OFFSET/PM_N);
+	ooo = offset_num%(MAX_OFFSET/PM_N);
+
+	if (fff >= file_num)
+	{
+		at_lock(alloc_lock);
+		while (fff >= file_num)
+			new_file();
+		at_unlock(alloc_lock);
+	}
+
+	offset.file = fff;
+	offset.offset = ooo * PM_N + part;
+
+	node = offset_to_node(offset);
+//	node->state = 0;//need here? yes because it was 2 // but need here?
+//	node->length_array = (uint16_t*)malloc(sizeof(uint16_t)*ARRAY_INIT_SIZE);
+	node->ll_cnt = 0;
+	node->ll = NULL;
+	new_ll(&node->ll);
+
+#ifdef dtt
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	_mm_mfence();
+	tt5 += (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+#ifdef alloc_print
+	printf("alloc2 %d %d\n",offset.file,offset.offset);
+#endif
+	return offset;
+}
+
+#if 0
 
 Node_offset alloc_node0(int part)
 {
@@ -390,7 +497,7 @@ Node_offset alloc_node(int part)
 	if (free_index[part] == free_min[part])
 	{
 		int temp;
-		temp = min_free_cnt(part);
+		temp = get_min_free_cnt(part);
 		if (temp > free_index[part]) // because it is not volatile
 			free_min[part] = temp;
 	}
@@ -442,6 +549,7 @@ Node_offset alloc_node(int part)
 
 	return local_batch_alloc[part][lbac[part]++];
 }
+
 void free_node(Node_offset offset)
 {
 #ifdef SMALL_NODE
@@ -502,6 +610,56 @@ void free_node(Node_offset offset)
 		local_batch_free[part][lbfc[part]++] = offset;
 }
 
+#endif
+
+void free_node_s(Node_offset offset)
+{
+	int part = offset.offset % PM_N;
+
+
+	if (free_index[part] + FREE_QUEUE_LEN - 10 > free_cnt[part])
+	{
+		free_queue[part][free_cnt[part]%FREE_QUEUE_LEN] = offset;
+		free_cnt[part]++;
+	}
+	else
+	{
+		printf("??efesfsen\n");
+		scanf("%d");
+	}
+}
+
+
+void free_node2(Node_offset offset)
+{
+//	free_node_s(offset);
+
+	int part = offset.offset % PM_N;
+	uint32_t old,temp;
+
+	while(1)
+	{
+		temp = old = free_cnt[part];
+		if (free_min_index[part] + FREE_QUEUE_LEN - 10 > old)
+		{
+			if (free_cnt[part].compare_exchange_strong(old,old+1))
+			{
+#ifdef alloc_print
+				printf("free %d %d / %d %d\n",part,temp,offset.file,offset.offset);
+#endif
+				free_queue[part][temp%FREE_QUEUE_LEN] = offset;
+				return;
+			}
+		}
+		temp = get_min_free_index(part);
+		old = free_min_index[part];
+		if (old < temp)
+			free_min_index[part].compare_exchange_strong(old,temp);
+	}
+}
+
+#if 0
+
 void free_node0(Node_offset offset) // without local batch ...
 {
 #ifdef SMALL_NODE
@@ -545,6 +703,7 @@ void free_node0(Node_offset offset) // without local batch ...
 //	printf("free node %p\n",node);
 }
 
+#endif
 
 void init_file()
 {
@@ -922,7 +1081,7 @@ void init_data() // init hash first!!!
 
 	int i;
 	for (i=0;i<PM_N;i++)
-		free_cnt[i] = free_min[i] = free_index[i] = 0;
+		free_cnt[i] = free_min_cnt[i] = free_min_index[i] = free_index[i] = 0;
 
 	uint64_t zero=0;
 
@@ -937,15 +1096,15 @@ void init_data() // init hash first!!!
 
 	//push for reserve
 #if PM_N > 1
-	alloc_node0(0); // 0 // INIT_OFFSET
-	alloc_node0(1); // 1 SPLIT_OFFSET
-	head_offset.no = alloc_node0(2); // 2 head
-	tail_offset.no = alloc_node0(3); // 3 tail
+	alloc_node2(0); // 0 // INIT_OFFSET
+	alloc_node2(1); // 1 SPLIT_OFFSET
+	head_offset.no = alloc_node2(2); // 2 head
+	tail_offset.no = alloc_node2(3); // 3 tail
 #else
-	alloc_node0(0); // 0 // INIT_OFFSET
-	alloc_node0(0); // 1 SPLIT_OFFSET
-	head_offset.no = alloc_node0(0); // 2 head
-	tail_offset.no = alloc_node0(0); // 3 tail
+	alloc_node2(0); // 0 // INIT_OFFSET
+	alloc_node2(0); // 1 SPLIT_OFFSET
+	head_offset.no = alloc_node2(0); // 2 head
+	tail_offset.no = alloc_node2(0); // 3 tail
 
 #endif
 
@@ -954,7 +1113,7 @@ void init_data() // init hash first!!!
 
 //	Node_offset node_offset = alloc_node();
 	Node_offset_u node_offset;
-	node_offset.no = alloc_node0(0);	//4 ROOT OFFSET // no thread local
+	node_offset.no = alloc_node2(0);	//4 ROOT OFFSET // no thread local
 	Node_meta* node = offset_to_node(node_offset.no);
 	node->state = 0;
 	node->size_l = node->size_r = 0;
@@ -1042,7 +1201,7 @@ void init_data_local()
 		lbfc[i] = 0;
 
 
-		init_node[i] = alloc_node(i);
+		init_node[i] = alloc_node2(i);
 		pmem_memcpy(offset_to_node_data(init_node[i]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 	}
 
@@ -1465,7 +1624,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 					}
 #endif
 
-					init_node[part_rotation] = alloc_node(part_rotation);
+					init_node[part_rotation] = alloc_node2(part_rotation);
 					pmem_memcpy(offset_to_node_data(init_node[part_rotation]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 					part_rotation = (part_rotation+1)%PM_N;
 
@@ -1663,7 +1822,8 @@ int need_split(Node_offset &offset)
 	end_offset.no_32 = meta->end_offset;
 	if (end_offset.no_32 == 0)
 		return 0;
-	if (offset_to_node(end_offset.no)->part >= PART_MAX)
+//	if (offset_to_node(end_offset.no)->part >= PART_MAX)
+	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)
 		return 1;
 	return 0;
 }
@@ -1747,16 +1907,16 @@ void split3(Node_offset start_offset)
 	Node_meta* e1m;
 	Node_meta* e2m;
 
-	s1o.no = alloc_node(part_rotation);
+	s1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	s1m = offset_to_node(s1o.no);
-	s2o.no = alloc_node(part_rotation);
+	s2o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	s2m = offset_to_node(s2o.no);
-	e1o.no = alloc_node(part_rotation);
+	e1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	e1m = offset_to_node(e1o.no);
-	e2o.no = alloc_node(part_rotation);
+	e2o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	e2m = offset_to_node(e2o.no);
 
@@ -1873,7 +2033,7 @@ void split3(Node_offset start_offset)
 					{
 						*((uint16_t*)buffer1) = 0; // end len
 
-						new_offset.no = alloc_node(get_next_pm(offset1.no));
+						new_offset.no = alloc_node2(get_next_pm(offset1.no));
 						data1.next_offset_ig = new_offset.no;
 						meta1->next_offset_ig = new_offset.no_32;
 						meta1->size_l = buffer1-data1.buffer;
@@ -1925,7 +2085,7 @@ void split3(Node_offset start_offset)
 					{
 						*((uint16_t*)buffer2) = 0; // end len
 
-						new_offset.no = alloc_node(get_next_pm(offset2.no));
+						new_offset.no = alloc_node2(get_next_pm(offset2.no));
 						data2.next_offset_ig = new_offset.no;
 						meta2->next_offset_ig = new_offset.no_32;
 						meta2->size_l = buffer2-data2.buffer;
@@ -2053,7 +2213,7 @@ void split3(Node_offset start_offset)
 		meta0 = offset_to_node(offset0.no);
 		start_offset = offset0.no;
 		offset0.no_32 = meta0->next_offset_ig;
-		free_node(start_offset);
+		free_node2(start_offset);
 	}
 }
 
@@ -2113,10 +2273,10 @@ void compact3(Node_offset start_offset)
 	Node_meta* s1m;
 	Node_meta* e1m;
 
-	s1o.no = alloc_node(part_rotation);
+	s1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	s1m = offset_to_node(s1o.no);
-	e1o.no = alloc_node(part_rotation);
+	e1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	e1m = offset_to_node(e1o.no);
 
@@ -2213,7 +2373,7 @@ void compact3(Node_offset start_offset)
 					{
 						*((uint16_t*)buffer1) = 0; // end len
 
-						new_offset.no = alloc_node(get_next_pm(offset1.no));
+						new_offset.no = alloc_node2(get_next_pm(offset1.no));
 						data1.next_offset_ig = new_offset.no;
 						meta1->next_offset_ig = new_offset.no_32;
 						meta1->size_l = buffer1-data1.buffer;
@@ -2318,7 +2478,7 @@ void compact3(Node_offset start_offset)
 		meta0 = offset_to_node(offset0.no);
 		start_offset = offset0.no;
 		offset0.no_32 = meta0->next_offset_ig;
-		free_node(start_offset);
+		free_node2(start_offset);
 	}
 }
 
@@ -5464,7 +5624,7 @@ int split_or_compact(Node_offset node_offset)
 //	if (meta->continue_len < 60) // test
 //		return 1;
 //	return meta->invalidated_size == 0;
-	return meta->group_size > meta->invalidated_size*2;//2;//4;
+	return meta->group_size > meta->invalidated_size*4;//*2;//2;//4;
 }
 
 

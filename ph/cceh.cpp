@@ -647,12 +647,6 @@ void CCEH::split(int sn) // seg locked
 	while (seg->lock != CCEH_SEG_SPLIT_BIT+1);
 */
 
-	if (dir_lock >= SPLIT_MASK+100)
-	{
-		printf("dir error1\n");
-		scanf("%d");
-	}
-
 	kvp_p = (KVP*)seg->cl;
 
 	SEG* new_seg1;
@@ -757,12 +751,6 @@ void CCEH::split(int sn) // seg locked
 //	entry_count2[0] = entry_count2[CL_PER_SEG];
 	diff2[0] = diff2[CL_PER_SEG];
 	}
-	if (dir_lock >= SPLIT_MASK+100)
-	{
-		printf("dir error333\n");
-		scanf("%d");
-	}
-
 //	l = 0;
 //	for (i=0;i<CL_PER_SEG;i++)
 	{
@@ -903,13 +891,6 @@ void CCEH::split(int sn) // seg locked
 	//why do we unlock
 //	at_unlock2(seg->lock);
 	free_seg(seg);
-
-	if (dir_lock >= SPLIT_MASK+100)
-	{
-		printf("dir error2\n");
-		scanf("%d");
-	}
-
 
 }
 
