@@ -317,7 +317,7 @@ inline int check_ref(Node_offset offset)
 uint16_t get_length_from_ve(ValueEntry& ve);
 int split3(Node_offset offset);
 int compact3(Node_offset offset);
-int need_split(Node_offset &offset);
+int need_split(Node_offset &offset,int hot);
 
 #ifdef split_thread
 inline int try_split(Node_offset offset)
@@ -328,11 +328,13 @@ inline int try_split(Node_offset offset)
 }
 void* split_work(void* id);
 int add_split(Node_offset node_offset);
+/*
 inline int need_split(Node_offset node_offset,int value_len)
 {
 	Node_meta* meta = offset_to_node(node_offset);
 	return (meta->part == PART_MAX-1);// && (meta->size + len_size + key_size + value_len + len_size > NODE_BUFFER); // %2
 }
+*/
 
 void init_split();
 void clean_split();

@@ -40,6 +40,9 @@ void clean_hash();
 
 void find_in_log(unsigned char* key_p,int len); // test
 
+int find_hot(unsigned char* key_p,int continue_len);
+
+
 /*
 Node_offset test_read(unsigned char* key_p,int len);
 void test_insert(unsigned char* key_p,int len,Node_offset offset);

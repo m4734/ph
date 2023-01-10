@@ -92,6 +92,7 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 	return hash;
 }
 
+
 ValueEntry find_point_entry(unsigned char* &key_p)
 {
 #ifdef htt
@@ -705,5 +706,125 @@ Node_offset test_read(unsigned char* key_p,int len)
 }
 */
 
+uint64_t Murmur ( const void * key )
+{
+	const int len = 64;
+	const uint64_t seed = 5516;
+
+//  const uint64_t m = BIG_CONSTANT(0xc6a4a7935bd1e995);
+  const uint64_t m = 0xc6a4a7935bd1e995;
+
+  const int r = 47;
+
+  uint64_t h = seed ^ (len * m);
+
+  const uint64_t * data = (const uint64_t *)key;
+  const uint64_t * end = data + (len/8);
+
+  while(data != end)
+  {
+    uint64_t k = *data++;
+
+    k *= m; 
+    k ^= k >> r; 
+    k *= m; 
+    
+    h ^= k;
+    h *= m; 
+  }
+
+  const unsigned char * data2 = (const unsigned char*)data;
+
+  switch(len & 7)
+  {
+  case 7: h ^= ((uint64_t) data2[6]) << 48;
+  case 6: h ^= ((uint64_t) data2[5]) << 40;
+  case 5: h ^= ((uint64_t) data2[4]) << 32;
+  case 4: h ^= ((uint64_t) data2[3]) << 24;
+  case 3: h ^= ((uint64_t) data2[2]) << 16;
+  case 2: h ^= ((uint64_t) data2[1]) << 8;
+  case 1: h ^= ((uint64_t) data2[0]);
+          h *= m;
+  };
+ 
+  h ^= h >> r;
+  h *= m;
+  h ^= h >> r;
+
+  return h;
+}
+
+#define HIT_BUCKET_SIZE (1024*4)
+#define HIT_BUCKET_NUM 100
+#define HIT_MAX 10000
+
+thread_local int hit_bucket[HIT_BUCKET_NUM][HIT_BUCKET_SIZE];
+thread_local int hit_cnt;
+
+unsigned int hf2(uint64_t value)
+{
+	unsigned int rv=0;
+	while (value)
+	{
+		rv+= value % HIT_BUCKET_SIZE;
+		value/=HIT_BUCKET_SIZE;
+	}
+	return rv;
+}
+
+int find_hot(unsigned char* key_p,int continue_len)
+{
+//	return 64;
+//	unsigned char prefix[128];
+	uint64_t prefix,p2;
+	int i,min;
+	min=999999999;
+	prefix = *(uint64_t*)key_p;// & pre_bit_mask[continue_len];
+
+
+//	uint64_t hv,hv2;
+//	unsigned int hv;
+//	hv = hash_function(prefix);
+//	hv = MurmurHash64A_L8(prefix);
+//	hv2 = hv % 1024;
+
+	int bn = (hit_cnt/HIT_MAX)%HIT_BUCKET_NUM;
+	p2 = prefix+(prefix/(bn+1));
+
+
+//	uint32_t hv;
+//	hv = hash_function((unsigned char*)&p2)%HIT_BUCKET_SIZE;
+//	uint64_t hv = Murmur(&p2)%HIT_BUCKET_SIZE;
+	int hv = hf2(p2) % HIT_BUCKET_SIZE;
+
+	hit_bucket[bn][hv]++;
+
+	int sum = 0;
+
+	for (i=0;i<HIT_BUCKET_NUM;i++)
+	{
+		if (i == bn)
+			continue;
+		p2 = prefix+(prefix/(i+1));
+//		hv = hash_function((unsigned char*)&p2)%HIT_BUCKET_SIZE;
+//		hv = Murmur(&p2)%HIT_BUCKET_SIZE;
+		hv = hf2(p2) % HIT_BUCKET_SIZE;
+//		if (min > hit_bucket[i][hv])
+//			min = hit_bucket[i][hv];
+		sum+=hit_bucket[i][hv];
+	}
+
+	hit_cnt++;
+	if (hit_cnt % HIT_MAX == 0)
+	{
+		bn = (hit_cnt/HIT_MAX)%HIT_BUCKET_NUM;
+		for (i=0;i<HIT_BUCKET_SIZE;i++)
+			hit_bucket[bn][i] = 0;
+	}
+
+	return sum/(HIT_BUCKET_NUM-1);
+//	return min;
+
+}
 
 }

@@ -1893,7 +1893,30 @@ inline int get_next_pm(Node_offset offset)
 thread_local ValueEntry old_vea1[NODE_ENTRY_MAX],old_vea2[NODE_ENTRY_MAX],new_vea1[NODE_ENTRY_MAX],new_vea2[NODE_ENTRY_MAX];
 thread_local uint64_t temp_key1[NODE_ENTRY_MAX],temp_key2[NODE_ENTRY_MAX];
 
-int need_split(Node_offset &offset)
+//int mm=0;
+
+int cnt=0;
+int hot_to_node(int hot)
+{
+	cnt++;
+	
+	if (cnt % 1000000 == 0)
+	{
+		printf("%d\n",hot);
+	}
+	
+	int i;
+	for (i=0;;i++)
+	{
+		hot>>=2;
+		if (!hot)
+		{
+			return i*10+4;
+		}
+	}
+}
+
+int need_split(Node_offset &offset,int hot)
 {
 	Node_meta* meta;
 	Node_offset_u end_offset;
@@ -1934,7 +1957,7 @@ int need_split(Node_offset &offset)
 */
 //	if (meta->invalidated_size >= NODE_BUFFER*8*2)
 //		return 2;
-	if (meta->invalidated_size >= NODE_BUFFER*8)
+	if (meta->invalidated_size >= NODE_BUFFER*hot_to_node(hot))//8)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
@@ -2484,13 +2507,13 @@ int compact3(Node_offset start_offset)
 	{
 		node_cnt++;
 		meta0 = offset_to_node(offset0.no);
-/*
+
 		if (meta0->size_l == meta0->invalidated_size)
 		{
 			offset0.no_32 = meta0->next_offset_ig;
 			continue;
 		}
-*/
+
 
 		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
 		

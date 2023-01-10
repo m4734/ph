@@ -593,7 +593,9 @@ _mm_mfence();
 
 //	_mm_sfence();
 
-	rv = need_split(ve_u.ve.node_offset);
+	int hot = find_hot(key_p,offset_to_node(ve_u.ve.node_offset)->continue_len);
+
+	rv = need_split(ve_u.ve.node_offset,hot);
 #ifdef split_thread
 	if (rv == 1)
 	{
