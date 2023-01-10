@@ -264,7 +264,7 @@ Node_offset alloc_node2_s(int part)
 	if (free_index[part] < free_cnt[part])
 	{
 		free_index[part]++;
-		return free_queue[part][free_index[part-1]];
+		return free_queue[part][free_index[part]-1];
 	}
 
 	uint64_t offset_num = at_part_offset_cnt[part].fetch_add(1),fff,ooo;
@@ -651,6 +651,9 @@ void free_node2(Node_offset offset)
 				return;
 			}
 		}
+//		my_thread->local_free_cnt[part] = free_cnt[part];
+		if (my_thread)
+			update_free_cnt0();
 		temp = get_min_free_index(part);
 		old = free_min_index[part];
 		if (old < temp)
@@ -1158,6 +1161,12 @@ void init_data() // init hash first!!!
 	head_node->next_offset_ig = 0;//INIT_OFFSET;//0;
 	tail_node->next_offset_ig = 0;//INIT_OFFSET;//0;
 
+	head_node->size_l = head_node->size_r = 0;
+	head_node->group_size = head_node->invalidated_size=0;
+	tail_node->size_l = tail_node->size_r = 0;
+	tail_node->group_size = tail_node->invalidated_size=0;
+
+
 
 	flush_meta(head_offset.no);
 	flush_meta(tail_offset.no);
@@ -1258,6 +1267,75 @@ void clean_inv()
 	// should set INV_BIT before shutdown
 	// maybe hash will ...
 }
+
+void size_test()
+{
+	Node_offset_u offset,offset2;
+	Node_meta* meta,*meta2;
+	offset.no = HEAD_OFFSET;
+	uint64_t gs=0,is=0,nc=0;
+	while(offset.no!=TAIL_OFFSET)
+	{
+		meta = offset_to_node(offset.no);
+
+		offset2 = offset;
+		while(offset2.no_32)
+		{
+			meta2 = offset_to_node(offset2.no);
+			offset2.no_32 = meta2->next_offset_ig;
+			nc++;
+		}
+
+		gs+=meta->group_size;
+		is+=meta->invalidated_size;
+		offset.no_32 = meta->next_offset;
+	}
+	printf("gs %lld is %lld nc %lld\n",gs,is,nc);
+
+	offset.no = HEAD_OFFSET;
+		meta = offset_to_node(offset.no);
+		offset.no_32 = meta->next_offset;
+
+	while(offset.no!=TAIL_OFFSET)
+	{
+		update_idle();
+		update_free_cnt0();
+		int i;
+		for (i=0;i<PM_N;i++)
+			free_index[i] = free_cnt[i].load();
+		compact3(offset.no);
+		meta = offset_to_node(offset.no);
+		gs+=meta->group_size;
+		is+=meta->invalidated_size;
+		offset.no_32 = meta->next_offset;
+	}
+
+	offset.no = HEAD_OFFSET;
+	gs=0;
+	is=0;
+	nc = 0;
+
+	while(offset.no!=TAIL_OFFSET)
+	{
+		meta = offset_to_node(offset.no);
+
+		offset2 = offset;
+		while(offset2.no_32)
+		{
+			meta2 = offset_to_node(offset2.no);
+			offset2.no_32 = meta2->next_offset_ig;
+			nc++;
+		}
+
+		gs+=meta->group_size;
+		is+=meta->invalidated_size;
+		offset.no_32 = meta->next_offset;
+	}
+	printf("gs %lld is %lld nc %lld\n",gs,is,nc);
+
+
+}
+
 void clean_data()
 {
 	printf("clean data\n");
@@ -1325,8 +1403,9 @@ void clean_data()
 	int sum=0;
 	for (i=0;i<PM_N;i++)
 	{
-		printf("part %d %d\n",i,part_file_num[i]*MAX_OFFSET/PM_N+part_offset_cnt[i]);
-		sum+=part_file_num[i]*MAX_OFFSET/PM_N+part_offset_cnt[i];
+		printf("part %d %d\n",i,at_part_offset_cnt[i].load());
+		sum+=at_part_offset_cnt[i];
+		printf("free queue %d %d %d\n",free_index[i].load(),free_cnt[i].load(),free_cnt[i].load()-free_index[i].load());
 	}
 	printf("sum %d\n",sum);
 
@@ -1823,8 +1902,52 @@ int need_split(Node_offset &offset)
 	if (end_offset.no_32 == 0)
 		return 0;
 //	if (offset_to_node(end_offset.no)->part >= PART_MAX)
-	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)
+//	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)
+//		return 1;
+
+//	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4*2)
+//		return 2;
+	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*8)
+	{
+		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
+	}
+
+//	if (meta->group_size-meta->invalidated_size >= NODE_BUFFER*8)
+//		return 1;
+/*
+	if (offset_to_node(offset) != meta)
+		printf("??????\n");
+
+	if (&(offset_to_node(offset)->group_size) != &meta->group_size)
+		printf("?ee\n");
+
+	uint32_t a,b;
+	a = offset_to_node(offset)->group_size;
+	b = meta->group_size;
+
+	if (a != b)
+		printf("ab %d %d\n",a,b);
+
+	if (offset_to_node(offset)->group_size != meta->group_size)
+		printf("??? %d %d\n",offset_to_node(offset)->group_size.load(),meta->group_size.load());
+*/
+//	if (meta->invalidated_size >= NODE_BUFFER*8*2)
+//		return 2;
+	if (meta->invalidated_size >= NODE_BUFFER*8)
+	{
+		offset_to_node(offset)->state |= NODE_SR_BIT;
+		return 1;
+	}
+//	if (meta->group_size >= NODE_BUFFER*10)
+//		return 1;
+#if 0
+	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER*2)
+		return 1;
+	else if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)// || (meta->group_size > meta->invalidated_size*2) == 0)
+		return 2;
+#endif
+
 	return 0;
 }
 
@@ -1849,26 +1972,29 @@ void split3_point_update(Node_meta* meta, ValueEntry* old_vea,ValueEntry* new_ve
 
 }
 
-void split3(Node_offset start_offset)
+int split3(Node_offset start_offset)
 {
 	Node_meta* start_meta;
 	Node_meta* end_meta;
 	Node_offset_u end_offset;
 
 	start_meta = offset_to_node(start_offset);
+/*
+#ifdef split_thread
+	if ((start_meta->state & NODE_SPLIT_BIT)
 
+#endif
+*/
 	if (start_meta->state & NODE_SPLIT_BIT)
-		return; // already
+		return 0; // already
+
+	if ((start_meta->state & NODE_SR_BIT) == 0)
+		return 0;
 
 	end_offset.no_32 = start_meta->end_offset;
 	if (end_offset.no_32 == 0)
-		return;
+		return 0;
 	end_meta = offset_to_node(end_offset.no);
-
-	int part = end_meta->part;
-
-	if (part < PART_MAX)
-		return; // no need to
 
 	// start offset should not be end offset!!!
 
@@ -1881,7 +2007,7 @@ void split3(Node_offset start_offset)
 		prev_meta = offset_to_node(prev_offset.no);
 		uint8_t state = prev_meta->state;
 		if (state & NODE_SPLIT_BIT)
-			return; // already
+			return 0; // already
 		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
@@ -1964,7 +2090,11 @@ void split3(Node_offset start_offset)
 
 	_mm_sfence();
 
-	while(start_meta->state != NODE_SPLIT_BIT); // wiat until end
+//#ifdef split_thread
+	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+//#else
+//	while((start_meta->state  != (NODE_SPLIT_BIT)) ); // wiat until end
+//#endif
 
 //	printf("split3 file %d offset %d\n",start_offset.file,start_offset.offset);
 
@@ -2139,7 +2269,7 @@ void split3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 	}
 
-//	printf("node_cnt %d gs1 %d gs2 %d\n",node_cnt,s1m->group_size,s2m->group_size);
+//	printf("node_cnt %d gs0 %d gs1 %d gs2 %d\n",node_cnt,start_meta->group_size.load(),s1m->group_size.load(),s2m->group_size.load());
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
@@ -2215,9 +2345,10 @@ void split3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 		free_node2(start_offset);
 	}
+	return 1;
 }
 
-void compact3(Node_offset start_offset)
+int compact3(Node_offset start_offset)
 {
 	Node_meta* start_meta;
 	Node_meta* end_meta;
@@ -2226,17 +2357,16 @@ void compact3(Node_offset start_offset)
 	start_meta = offset_to_node(start_offset);
 
 	if (start_meta->state & NODE_SPLIT_BIT)
-		return; // already
+		return 0; // already
+
+	if ((start_meta->state & NODE_SR_BIT) == 0)
+		return 0;
+
 
 	end_offset.no_32 = start_meta->end_offset;
 	if (end_offset.no_32 == 0)
-		return;
+		return 0;
 	end_meta = offset_to_node(end_offset.no);
-
-	int part = end_meta->part;
-
-	if (part < PART_MAX)
-		return; // no need to
 
 	// start offset should not be end offset!!!
 
@@ -2251,7 +2381,7 @@ void compact3(Node_offset start_offset)
 		prev_meta = offset_to_node(prev_offset.no);
 		uint8_t state = prev_meta->state;
 		if (state & NODE_SPLIT_BIT)
-			return; // already
+			return 0; // already
 		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
 				break;
 	}
@@ -2314,7 +2444,11 @@ void compact3(Node_offset start_offset)
 
 	_mm_sfence();
 
-	while(start_meta->state != NODE_SPLIT_BIT); // wiat until end
+//#ifdef split_thread
+	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+//#else
+//	while((start_meta->state != (NODE_SPLIT_BIT)) ); // wiat until end
+//#endif
 
 	Node_offset_u offset0,offset1;
 	Node_meta *meta0,*meta1;
@@ -2350,6 +2484,14 @@ void compact3(Node_offset start_offset)
 	{
 		node_cnt++;
 		meta0 = offset_to_node(offset0.no);
+/*
+		if (meta0->size_l == meta0->invalidated_size)
+		{
+			offset0.no_32 = meta0->next_offset_ig;
+			continue;
+		}
+*/
+
 		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
 		
 		if (buffer0 == NULL)
@@ -2390,6 +2532,8 @@ void compact3(Node_offset start_offset)
 
 //						meta1->part = temp_meta->part+1;
 //						meta1->size_l = 0;
+//						if (vea1i >= NODE_ENTRY_MAX)
+//							printf("nem1 %d\n",vea1i);
 						vea1i = 0;
 						buffer1 = data1.buffer;
 						offset1 = new_offset;
@@ -2425,7 +2569,10 @@ void compact3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 	}
 
-//	printf("cmp node_cnt %d gs1 %d\n",node_cnt,s1m->group_size);
+	if (buffer0 == 0)
+		fk = *((uint64_t*)(offset_to_node_data(start_offset)->buffer+PH_LEN_SIZE+PH_TS_SIZE));
+
+//	printf("cmp node_cnt %d gs0 %d gs1 %d\n",node_cnt,start_meta->group_size.load(),s1m->group_size.load());
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
@@ -2480,6 +2627,8 @@ void compact3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 		free_node2(start_offset);
 	}
+
+	return 1;
 }
 
 
@@ -5623,8 +5772,11 @@ int split_or_compact(Node_offset node_offset)
 	meta = offset_to_node(node_offset);
 //	if (meta->continue_len < 60) // test
 //		return 1;
-//	return meta->invalidated_size == 0;
-	return meta->group_size > meta->invalidated_size*2;//*2;//2;//4;
+	return meta->invalidated_size == 0;
+//	if (meta->group_size-meta->invalidated_size >= PART_MAX*NODE_BUFFER)
+//		return 1;
+//	return meta->group_size > meta->invalidated_size*2;//*2;//2;//4;
+//	return meta->group_size-meta->invalidated_size >= NODE_BUFFER*4;
 }
 
 
@@ -5645,10 +5797,6 @@ int split_or_compact(Node_offset node_offset)
 
 //--------------------------------------------------------------------
 
-std::atomic<int> split_queue_start[SPLIT_NUM];
-std::atomic<int> split_queue_end[SPLIT_NUM];
-std::atomic<Node_offset> split_queue[SPLIT_NUM][SPLIT_QUEUE_LEN];
-std::atomic<uint8_t> split_queue_lock[SPLIT_NUM];
 
 #ifdef idle_thread
 
@@ -5664,35 +5812,52 @@ extern thread_local PH_Thread* my_thread;
 #endif
 
 #ifdef split_thread
+
+std::atomic<int> split_queue_start[SPLIT_NUM];
+std::atomic<int> split_queue_end[SPLIT_NUM];
+//std::atomic<Node_offset> split_queue[SPLIT_NUM][SPLIT_QUEUE_LEN];
+std::atomic<uint32_t> split_queue[SPLIT_NUM][SPLIT_QUEUE_LEN];
+//std::atomic<uint8_t> split_queue_lock[SPLIT_NUM];
+
 void* split_work(void* iid)
 {
 	int i,id = *((int*)iid);
-	Node_offset node_offset;
+	Node_offset_u node_offset;
 //	Node_meta* meta;
-	update_free_cnt();
+//	update_free_cnt();
 	while(1)
 	{
 		update_free_cnt();
 		while(split_queue_start[id] < split_queue_end[id])
 		{
+			update_free_cnt0();
 	THREAD_RUN
-			update_free_cnt();
-			i = split_queue_start[id].fetch_add(1);
-			node_offset = split_queue[id][i%SPLIT_QUEUE_LEN];
+
+			i = split_queue_start[id]%SPLIT_QUEUE_LEN;
+			while(split_queue[id][i] == 0);
+			node_offset.no_32 = split_queue[id][i];
+			split_queue[id][i] = 0;
+			_mm_sfence();
+			split_queue_start[id]++;
+//			i = split_queue_start[id].fetch_add(1) % SPLIT_QUEUE_LEN;
 
 //			meta = offset_to_node(node_offset);
-			if (try_split(node_offset) == 0)
-				continue;
+//			if (try_split(node_offset) == 0)
+//				continue;
 	
-			if (split_or_compact(node_offset))
+			if (split_or_compact(node_offset.no))
 			{
-				if (split2p(node_offset) < 0)
-					dec_ref(node_offset);
+				split3(node_offset.no);
+//				while (split3(node_offset.no) == 0);
+//				if (split2p(node_offset) < 0)
+//					dec_ref(node_offset);
 			}
 			else
 			{
-				if (compact2p(node_offset) < 0)
-					dec_ref(node_offset);
+				compact3(node_offset.no);
+//				while( compact3(node_offset.no) == 0);
+//				if (compact2p(node_offset) < 0)
+//					dec_ref(node_offset);
 			}
 			// if fail do not try again
 
@@ -5712,6 +5877,19 @@ int add_split(Node_offset node_offset)
 {
 //	int i,j;
 	int j;
+	int qe;
+	uint32_t z=0;
+	Node_offset_u nou;
+	nou.no = node_offset;
+
+	Node_meta* meta;
+	meta = offset_to_node(node_offset);
+	uint8_t state = meta->state;
+	if (state & NODE_SPLIT_BIT)
+		return -2;
+//	if (meta->state.compare_exchange_strong(state,state|NODE_SR_BIT) == false)
+//		return -2;
+
 	for (j=0;j<num_of_split;j++)
 	{
 		split_index++;
@@ -5719,17 +5897,28 @@ int add_split(Node_offset node_offset)
 			split_index = 0;
 //	for (;i<num_of_split;i++)
 //	{
-		if (split_queue_end[split_index] - split_queue_start[split_index] < SPLIT_MAX && try_at_lock(split_queue_lock[split_index]))
+		qe = split_queue_end[split_index];
+		if (qe < split_queue_start[split_index] + SPLIT_QUEUE_LEN-10)// && try_at_lock(split_queue_lock[split_index]))
 		{
+			if (split_queue_end[split_index].compare_exchange_strong(qe,qe+1))
+			{
+				split_queue[split_index][qe%SPLIT_QUEUE_LEN] = nou.no_32;
+				return 1;
+			}
+		/*	
+			if (split_queue[split_index][qe%SPLIT_QUEUE_LEN].compare_exchange_strong(z,nou.no_32))
+			{
 //			j = split_queue_end[i].fetch_add(1);
 //			j = split_queue_end[i];
-			Node_meta* meta = offset_to_node(node_offset);
-			meta->state = 2;
-			split_queue[split_index][split_queue_end[split_index]%SPLIT_QUEUE_LEN] = node_offset;
+//			Node_meta* meta = offset_to_node(node_offset);
+//			meta->state = 2;
+//			split_queue[split_index][split_queue_end[split_index]%SPLIT_QUEUE_LEN] = node_offset;
 			split_queue_end[split_index]++;
-			split_queue_lock[split_index] = 0;
-			split_index++;
+//			split_queue_lock[split_index] = 0;
+//			split_index++;
 			return 1;
+			}
+			*/
 		}
 //	}
 //	i = 0;
@@ -5741,7 +5930,7 @@ void init_split()
 {
 	int i;
 	for(i=0;i<num_of_split;i++)
-		split_queue_lock[i] = split_queue_start[i] = split_queue_end[i] = 0;
+		/*split_queue_lock[i] =*/ split_queue_start[i] = split_queue_end[i] = 0;
 
 }
 void clean_split()
@@ -5749,7 +5938,7 @@ void clean_split()
 	int i;
 	for (i=0;i<num_of_split;i++)
 	{
-		printf("split thread %d qe %d\n",i,(int)split_queue_end[i]);
+		printf("split thread %d qs %d qe %d\n",i,(int)split_queue_start[i],(int)split_queue_end[i]);
 		split_queue_end[i] = -1;
 	}
 }

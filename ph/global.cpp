@@ -46,9 +46,14 @@ int empty_len;
 void clean()
 {
 	printf("clean\n");
-	clean_hash();
-	clean_thread();
+
+
+	clean_thread(); // stop job first
+
 	clean_data(); //clean data after log unmap
+
+	clean_hash();
+
 }
 void temp_static_conf(int tn, int ks,int vs)
 {
@@ -57,6 +62,7 @@ void temp_static_conf(int tn, int ks,int vs)
 #else
 	num_of_split = 0; // temp
 #endif
+	printf("num of split %d\n",num_of_split);
 //	num_of_thread = 1;
 
 	// use max tn
@@ -104,6 +110,9 @@ void temp_static_conf(int tn, int ks,int vs)
 	init_thread(); // need alloc mutex later // what?
 	init_hash();
 	init_data();
+
+
+	start_split_thread();
 
 //	exit_thread();
 }

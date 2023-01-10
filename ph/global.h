@@ -26,7 +26,7 @@ typedef u_int64_t uint64_t
 #endif
 */
 #define NSK 1
-#define NODE_BUFFER 1024*NSK-4-4-8
+#define NODE_BUFFER (1024*NSK-4-4-8)
 
 //extern int node_size;
 #define PART_MAX 4

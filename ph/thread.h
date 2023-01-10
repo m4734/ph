@@ -6,8 +6,11 @@
 namespace PH
 {
 
+// 1k node = 4 byte = 1
+// 
+
 #define FREE_SEG_LEN 100000
-#define FREE_QUEUE_LEN 100000
+#define FREE_QUEUE_LEN 10000000
 
 class PH_Thread
 {
@@ -16,6 +19,8 @@ class PH_Thread
 	volatile unsigned int local_free_index[PM_N];
 
 	volatile unsigned int local_seg_free_cnt;
+
+	int ti;
 
 //	pthread_t tid;
 
@@ -35,11 +40,14 @@ extern thread_local PH_Thread* my_thread;
 void reset_thread();
 void exit_thread();
 void update_free_cnt();
+void update_free_cnt0();
+
 unsigned int get_min_free_cnt(int part);
 unsigned int get_min_free_index(int part);
 unsigned int min_seg_free_cnt();
 void init_thread();
 void clean_thread();
+void start_split_thread();
 
 void print_thread_info();
 //int check_slow();

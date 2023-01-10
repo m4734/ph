@@ -29,10 +29,11 @@ extern volatile int file_num;
 //#define LOG_BIT ((uint16_t)1<<15)
 
 
-#define SPLIT_QUEUE_LEN 500
-#define SPLIT_MAX SPLIT_QUEUE_LEN-10
+#define SPLIT_QUEUE_LEN 1000
+//#define SPLIT_MAX SPLIT_QUEUE_LEN-10
 
 #define NODE_SPLIT_BIT (1<<7)
+#define NODE_SR_BIT (1<<6)
 	/*
 	const Node_offset INIT_OFFSET={0,0};
 	const Node_offset SPLIT_OFFSET={0,1};
@@ -135,8 +136,8 @@ struct Node_meta
 	//36----------------------------------------------------------
 
 	// used only start node
-	uint32_t invalidated_size; // 4
-	uint32_t group_size; // 4
+	std::atomic<uint32_t> invalidated_size; // 4
+	std::atomic<uint32_t> group_size; // 4
 
 	//44---------------------------------------------------------------------
 
@@ -314,8 +315,8 @@ inline int check_ref(Node_offset offset)
 }
 
 uint16_t get_length_from_ve(ValueEntry& ve);
-void split3(Node_offset offset);
-void compact3(Node_offset offset);
+int split3(Node_offset offset);
+int compact3(Node_offset offset);
 int need_split(Node_offset &offset);
 
 #ifdef split_thread

@@ -401,6 +401,9 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 	continue_len = 0;
 	int rv;
 
+	ValueEntry rve,ove;
+	uint64_t ove64,rve64;
+
 	ValueEntry_u old_ve_u;
 	Node_offset locked_offset;
 	unsigned char* new_kv_p;
@@ -557,24 +560,22 @@ _mm_mfence();
 //		locked_offset = ve_u.ve.node_offset;	
 
 
-	ValueEntry rv,ov;
-	uint64_t ov64,rv64;
-	rv = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len);
-	rv64 = *(uint64_t*)(&rv);
+	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len);
+	rve64 = *(uint64_t*)(&rve);
 
 //	if (rv.node_offset.file == 0 && rv.node_offset.offset == 0)
 //		printf("testestset\n");
 
 	while(1)
 	{
-		ov64 = v64_p->load();
-		ov = *(ValueEntry*)(&ov64);
-		if ((ov.ts <= rv.ts) || ((ov.ts & (1<<7)) != (rv.ts & (1<<7))))
+		ove64 = v64_p->load();
+		ove = *(ValueEntry*)(&ove64);
+		if ((ove.ts <= rve.ts) || ((ove.ts & (1<<7)) != (rve.ts & (1<<7))))
 		{
-			if (v64_p->compare_exchange_strong(ov64,rv64))
+			if (v64_p->compare_exchange_strong(ove64,rve64))
 			{
-				if (ov64 != INV0)
-					invalidate_kv2(ov);
+				if (ove64 != INV0)
+					invalidate_kv2(ove);
 				break;
 			}
 			//retry
@@ -589,13 +590,43 @@ _mm_mfence();
 //	break;
 
 	// need split?
-	if (need_split(ve_u.ve.node_offset))	
+
+//	_mm_sfence();
+
+	rv = need_split(ve_u.ve.node_offset);
+#ifdef split_thread
+	if (rv == 1)
+	{
+		rv = add_split(ve_u.ve.node_offset);
+//		if (rv == 1)
+//			break;
+		
+		if (rv == -1)
+		{
+//			printf("split queue full!\n");
+		if (split_or_compact(ve_u.ve.node_offset))
+			split3(ve_u.ve.node_offset);
+		else
+			compact3(ve_u.ve.node_offset);
+		}
+		
+	}
+	else if (rv == 2)
 	{
 		if (split_or_compact(ve_u.ve.node_offset))
 			split3(ve_u.ve.node_offset);
 		else
 			compact3(ve_u.ve.node_offset);
 	}
+#else
+	if (rv)
+	{
+		if (split_or_compact(ve_u.ve.node_offset))
+			split3(ve_u.ve.node_offset);
+		else
+			compact3(ve_u.ve.node_offset);
+	}
+#endif
 
 	break; // finish here
 #if 0
