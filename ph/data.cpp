@@ -102,6 +102,11 @@ thread_local Node *d0,*d1,*d2,*append_templete;
 
 thread_local Node_offset init_node[PM_N]; //initiailized
 
+#define PART_MAX2 1000
+thread_local Node* temp_data;
+
+
+
 void clean_thread_local()
 {
 	printf("ctr\n");
@@ -132,6 +137,11 @@ void clean_thread_local()
 
 	}
 	at_unlock(alloc_lock);
+
+
+	free(temp_data);
+//	for (i=0;i<PART_MAX2;i++)
+//		free(temp_data[i]);
 
 	free(d0);
 	free(d1);
@@ -1214,6 +1224,11 @@ void init_data_local()
 		pmem_memcpy(offset_to_node_data(init_node[i]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 	}
 
+//	for (i=0;i<PART_MAX2;i++)
+//		posix_memalign((void**)&temp_data[i],sizeof(Node),sizeof(Node));
+	posix_memalign((void**)&temp_data,sizeof(Node),sizeof(Node)*PART_MAX2);
+
+
 	posix_memalign((void**)&d0,sizeof(Node),sizeof(Node)*PART_MAX);
 	posix_memalign((void**)&d1,sizeof(Node),sizeof(Node)*PART_MAX);
 	posix_memalign((void**)&d2,sizeof(Node),sizeof(Node)*PART_MAX);
@@ -1928,15 +1943,16 @@ int need_split(Node_offset &offset,int hot)
 	if (end_offset.no_32 == 0)
 		return 0;
 //	if (offset_to_node(end_offset.no)->part >= PART_MAX)
+	/*
 	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
 	}
-
+*/
 //	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4*2)
 //		return 2;
-	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4)
+	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*8)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
@@ -5983,11 +5999,9 @@ void clean_split()
 
 #if 1
 
-#define PART_MAX2 1000
 thread_local uint64_t temp_key[100*PART_MAX2];
 thread_local unsigned char* temp_offset[100*PART_MAX2];
 thread_local int tc,tdc;
-thread_local Node temp_data[PART_MAX2];
 
 int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* scan_result)
 {
@@ -6016,7 +6030,8 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 
 
 //	Node d0[PART_MAX];
-	const int meta_size = (unsigned char*)temp_data[0].buffer-(unsigned char*)&temp_data[0];//24;
+//	const int meta_size = (unsigned char*)temp_data[0].buffer-(unsigned char*)&temp_data[0];//24;
+	const int meta_size = 16;
 	tc = 0;
 	tdc = 0;
 
@@ -6039,8 +6054,8 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 			{
 
 			node_data = offset_to_node_data(node_offset2.no);
-///			cp256((unsigned char*)&temp_data[tdc],(unsigned char*)node_data,node_meta->size_l + meta_size);
-			memcpy((unsigned char*)&temp_data[tdc],(unsigned char*)node_data,node_meta->size_l + meta_size);
+			cp256((unsigned char*)&temp_data[tdc],(unsigned char*)node_data,node_meta->size_l + meta_size);
+//			memcpy((unsigned char*)&temp_data[tdc],(unsigned char*)node_data,node_meta->size_l + meta_size);
 
 //		memcpy((unsigned char*)&d0[part0],(unsigned char*)node_data,node_meta->size + meta_size);
 
@@ -6049,6 +6064,7 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 
 			node_offset2.no_32 = node_meta->next_offset_ig;
 		}
+//		printf("scan node %d\n",tdc+1);
 	}
 	tdc = 0;
 
