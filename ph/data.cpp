@@ -866,7 +866,6 @@ void recover_node(Node_offset node_offset) // recover record and meta
 	node_meta->continue_len = prefix_len;
 //	node_meta->prev_offset = 
 
-
 	while(1)
 	{
 		temp_offset[part].no = node_offset;
@@ -887,10 +886,11 @@ void recover_node(Node_offset node_offset) // recover record and meta
 
 
 		node_meta->size_l = node_meta->size_r = 0; // repair again you should erase right
+		node_meta->local_inv = 0;
 		node_meta->part = part;
 //		node_meta->inv_cnt = 0;
 		node_meta->start_offset = temp_offset[0].no;
-		node_meta->next_offset_ig = 0;//INIT_OFFSET;
+//		node_meta->next_offset_ig = 0;//INIT_OFFSET;
 
 		buffer = node_data_temp[part].buffer;
 		while(1)
@@ -899,37 +899,63 @@ void recover_node(Node_offset node_offset) // recover record and meta
 			vl16 = *((uint16_t*)buffer);
 			if (vl16 == 0)
 				break;
-			if (vl16 & INV_BIT)
-				vl16-=INV_BIT;
-			else
+//			if (vl16 & INV_BIT)
+//				vl16-=INV_BIT;
+//			else
+
+			set_ll(node_meta->ll,node_meta->ll_cnt,vl16);
+
+			i = 0;
+			if (vl16 & INV_BIT) // val bit
 			{
-				temp_key[tc] = *((uint64_t*)(buffer+PH_LEN_SIZE));
+				vl16-=INV_BIT;
+				if (vl16 % KV_ALIGN)
+					vl16+=(KV_ALIGN-vl16%KV_ALIGN);
+				temp_key[tc] = *((uint64_t*)(buffer+PH_LEN_SIZE+PH_TS_SIZE));
 				if (dup_hash[temp_key[tc]%DUP_HASH_MAX] == temp_offset[0].no) // dup???
 				{
 					for (i=tc-1;i>=0;i--)
 					{
 						if (temp_key[i] == temp_key[tc])
+						{
 							break;
+						}
 					}
+				
 					if (i >= 0)
 					{
 						invalidate_kv2(vea[i]);
 						vea[i].kv_offset = 0;
+//						node_meta->local_inv+=vl16;
 					}
 				}
+					
+
 				dup_hash[temp_key[tc]%DUP_HASH_MAX] = temp_offset[0].no;
 				vea[tc].node_offset = temp_offset[part].no;
 				vea[tc].kv_offset = buffer-(unsigned char*)&node_data_temp[part];
+				vea[tc].ts = 0;
+				vea[tc].index = node_meta->ll_cnt;
 
 				//!!!need new recovery
 //				vea[tc].len = vl16;
 				tc++;
 			}
+			else
+			{
+				if (vl16 % KV_ALIGN)
+					vl16+=(KV_ALIGN-vl16%KV_ALIGN);
+			}
+
+			node_meta->ll_cnt++;
+
 			buffer+=PH_LTK_SIZE+vl16;
+
+
 		}
 
-		node_meta->size_r = buffer-node_data_temp[part].buffer; // fix
-		meta0->group_size+=node_meta->size_r; // fix it
+		node_meta->size_l = node_meta->size_r = buffer-node_data_temp[part].buffer;
+		meta0->group_size+=node_meta->size_r;
 
 
 
@@ -957,8 +983,10 @@ void recover_node(Node_offset node_offset) // recover record and meta
 
 	}
 
-	for (i=0;i<part;i++)
+	for (i=0;i<part;i++)//???
 		offset_to_node(temp_offset[i].no)->end_offset = temp_offset[part].no_32;
+	offset_to_node(temp_offset[0].no)->end_offset = temp_offset[part].no_32;
+
 
 	Node_offset_u nu;
 	nu.no = node_data_temp[0].next_offset;
@@ -979,7 +1007,11 @@ void recover()
 	for (i=0;i<=file_num;i++) // file num xxx
 	{
 		for (j=0;j<MAX_OFFSET;j++)
-			meta_array[i][j].part = PART_MAX+1; // free check
+		{
+			meta_array[i][j].continue_len = 128; // free check
+
+//			meta_array[i][j].part = PART_MAX+1; // free check
+		}
 	}
 
 	Node_offset_u node_offset;
@@ -1040,7 +1072,8 @@ void recover()
 	{
 		for (j=0;j<MAX_OFFSET;j++)
 		{
-			if (meta_array[i][j].part == PART_MAX+1) // free check
+//			if (meta_array[i][j].part == PART_MAX+1) // free check
+			if (meta_array[i][j].continue_len == 128)
 			{
 				no.file = i;
 				no.offset = j;
@@ -1305,7 +1338,7 @@ void size_test()
 		is+=meta->invalidated_size;
 		offset.no_32 = meta->next_offset;
 	}
-	printf("gs %lld is %lld nc %lld\n",gs,is,nc);
+	printf("gs %ld is %ld nc %ld\n",gs,is,nc);
 
 	offset.no = HEAD_OFFSET;
 		meta = offset_to_node(offset.no);
@@ -1346,7 +1379,7 @@ void size_test()
 		is+=meta->invalidated_size;
 		offset.no_32 = meta->next_offset;
 	}
-	printf("gs %lld is %lld nc %lld\n",gs,is,nc);
+	printf("gs %ld is %ld nc %ld\n",gs,is,nc);
 
 
 }
@@ -1418,7 +1451,7 @@ void clean_data()
 	int sum=0;
 	for (i=0;i<PM_N;i++)
 	{
-		printf("part %d %d\n",i,at_part_offset_cnt[i].load());
+		printf("part %d %ld\n",i,at_part_offset_cnt[i].load());
 		sum+=at_part_offset_cnt[i];
 		printf("free queue %d %d %d\n",free_index[i].load(),free_cnt[i].load(),free_cnt[i].load()-free_index[i].load());
 	}

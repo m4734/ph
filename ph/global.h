@@ -48,7 +48,7 @@ typedef u_int64_t uint64_t
 */
 
 //#define split_thread
-//#define try_recover
+#define try_recover
 
 #ifdef split_thread
 #define SPLIT_NUM 4
