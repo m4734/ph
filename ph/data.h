@@ -130,16 +130,17 @@ struct Node_meta
 
 	//32---------------------------------------------------------
 
-	std::atomic<uint16_t> size_l;
-	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
 
-	//36----------------------------------------------------------
 
 	// used only start node
 	std::atomic<uint32_t> invalidated_size; // 4
 	std::atomic<uint32_t> group_size; // 4
 
-	//44---------------------------------------------------------------------
+	//40---------------------------------------------------------------------
+
+	std::atomic<uint16_t> size_l;
+	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
+	std::atomic<uint16_t> local_inv;
 
 //	unsigned char padding[64-38-24]; // 64-38-24 = 2
 
@@ -154,6 +155,9 @@ struct Node_meta
 //	uint16_t inv_cnt; // 2
 	
 	std::atomic<uint16_t> ll_cnt; // 2
+
+	//48------------
+
 //	std::atomic<uint16_t> la_max; // 2
 	std::atomic<void*> ll;//length_list; // 8
 

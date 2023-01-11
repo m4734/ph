@@ -1242,12 +1242,14 @@ void free_query(Query* query)
 
 size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 {
-	return 0;
-#if 0
+#if 1
+//	printf("%d\n",cnt);
+//	if (cnt == 334)
+//		printf("334\n");
 	ValueEntry ve;
 	int continue_len;
 	Node* node_data;
-	Node_offset start_offset;
+//	Node_offset start_offset;
 	int size;
 	Node_meta* node_meta;
 
@@ -1255,21 +1257,26 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 	update_free_cnt();
 
 	ve = find_point_entry(key); // no lock
-	while(ve.node_offset != INIT_OFFSET)
+//	while(ve.node_offset != INIT_OFFSET)
+	if (ve.node_offset != INIT_OFFSET)
 	{
 
-		start_offset = get_start_offset(ve.node_offset);
+		ve.node_offset = get_start_offset(ve.node_offset);
+		/*
 		if (inc_ref(start_offset))
 		{
 			ve.node_offset = start_offset;
 			break;
 		}
 		ve = find_point_entry(key);
+		*/
 	}
 
 	if (ve.node_offset == INIT_OFFSET)
 	{
 		continue_len = 0;
+		while ((ve.node_offset = find_range_entry2(key,&continue_len)) == INIT_OFFSET);
+/*
 		while(1)
 		{
 			if ((ve.node_offset = find_range_entry2(key,&continue_len)) == INIT_OFFSET)
@@ -1279,40 +1286,45 @@ size_t scan_query2(unsigned char* key,int cnt,std::string* scan_result)
 				break;
 			}
 		}
+		*/
 	}
 
 	// found start node
 	int result_num,result_sum=0;
-	Node_offset node_offset = ve.node_offset;
-	Node_offset_u next_offset;
+	Node_offset_u node_offset;
+	node_offset.no= ve.node_offset;
 //	while(cnt > result_sum)
-	while(1)
+	while(node_offset.no != TAIL_OFFSET)
 	{
-		result_num = scan_node(node_offset,key,cnt-result_sum,scan_result);
+		result_num = scan_node(node_offset.no,key,cnt-result_sum,scan_result);
 		result_sum+=result_num;
 		scan_result+=result_num;
 
 		if (cnt <= result_sum)
 		{
-			dec_ref(node_offset);
-			return result_sum;
+//			dec_ref(node_offset);
+//			return result_sum;
+			return cnt;
 		}
 
-		while(1)
+		node_offset.no_32 = offset_to_node(node_offset.no)->next_offset;
+		/*
+//		while(1)
 		{
 		next_offset.no_32 = offset_to_node(node_offset)->next_offset;
 		if (next_offset.no == TAIL_OFFSET)
 		{
-			dec_ref(node_offset);
+//			dec_ref(node_offset);
 			return result_sum;
 		}
-		if (inc_ref(next_offset.no))
-			break;
+//		if (inc_ref(next_offset.no))
+//			break;
 		}
 
-		dec_ref(node_offset);
+//		dec_ref(node_offset);
 
 		node_offset = next_offset.no;
+		*/
 	}
 THREAD_IDLE
 //		update_free_cnt();
