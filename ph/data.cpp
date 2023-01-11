@@ -1943,8 +1943,8 @@ int need_split(Node_offset &offset,int hot)
 	if (end_offset.no_32 == 0)
 		return 0;
 //	if (offset_to_node(end_offset.no)->part >= PART_MAX)
-	/*
-	if (offset_to_node(offset)->group_size >= PART_MAX*NODE_BUFFER)
+/*	
+	if (offset_to_node(offset)->group_size >= NODE_BUFFER*3)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
@@ -1952,7 +1952,7 @@ int need_split(Node_offset &offset,int hot)
 */
 //	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4*2)
 //		return 2;
-	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*8)
+	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*1)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
@@ -6068,7 +6068,7 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 	}
 	tdc = 0;
 
-
+unsigned char* bug;
 
 	{
 		node_offset2 = node_offset;
@@ -6084,13 +6084,16 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 			for (i=0;i<node_meta->ll_cnt;i++)
 			{
 				len = get_ll(node_meta->ll,i);
-				aligned_size = len & 0x7fff;
+				aligned_size = (len & 0x7fff)+PH_LTK_SIZE;
 				if (aligned_size % 8)
 					aligned_size-=(8-aligned_size%8);
 				if (len & 0x8000)
 				{
 					temp_offset[tc] = buffer;
-					temp_key[tc] = *(uint64_t*)(buffer+PH_LEN_SIZE+PH_TS_SIZE);
+					bug = (buffer+PH_LEN_SIZE+PH_TS_SIZE);
+					temp_key[tc] = *(uint64_t*)bug;
+
+//					temp_key[tc] = *(uint64_t*)((buffer+PH_LEN_SIZE+PH_TS_SIZE));
 					tc++;
 				}
 				buffer+=aligned_size;
@@ -6143,6 +6146,7 @@ int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* 
 				break;
 		}
 
+//		printf("cnt0 %d\n",cnt0);
 //cnt_sum+=cnt;
 	return cnt0; //temp
 
