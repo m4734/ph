@@ -552,6 +552,14 @@ _mm_mfence();
 #endif
 
 
+	if (offset_to_node(ve_u.ve.node_offset)->state & NODE_SPLIT_BIT)
+	{
+		unlock_entry(unlock);
+		continue;
+	}
+
+	inc_ref(ve_u.ve.node_offset);
+
 	// location is found now
 	// hash - v64_p / start_offset - ve_u / old_entry = old_ve
 
@@ -586,6 +594,8 @@ _mm_mfence();
 
 
 	unlock_entry(unlock);
+
+	dec_ref(ve_u.ve.node_offset);
 
 //	break;
 
