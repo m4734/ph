@@ -578,7 +578,7 @@ _mm_mfence();
 	{
 		ove64 = v64_p->load();
 		ove = *(ValueEntry*)(&ove64);
-		if ((ove.ts <= rve.ts) || ((ove.ts & (1<<7)) != (rve.ts & (1<<7))))
+//		if ((ove.ts <= rve.ts) || ((ove.ts & (1<<7)) != (rve.ts & (1<<7))))
 		{
 			if (v64_p->compare_exchange_strong(ove64,rve64))
 			{
@@ -588,8 +588,8 @@ _mm_mfence();
 			}
 			//retry
 		}
-		else // timeout?
-			break;
+//		else // timeout?i
+//			break;
 	}
 
 

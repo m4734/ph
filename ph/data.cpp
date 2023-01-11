@@ -1569,8 +1569,8 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 
 	aligned_size = PH_LTK_SIZE+value_len;
 
-	if (aligned_size % 8)
-		aligned_size+=(8-aligned_size%8);
+	if (aligned_size % KV_ALIGN)
+		aligned_size+=(KV_ALIGN-aligned_size%KV_ALIGN);
 
 	uint64_t check_bit = (uint64_t)1 << (63-start_meta->continue_len);
 
@@ -1764,7 +1764,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 //			uint16_t z = 0;
 			uint16_t vl = value_len;
 //			uint8_t ts;
-			uint16_t ts;
+//			uint16_t ts;
 			uint8_t index;
 
 				// lock from size
@@ -1785,10 +1785,10 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 #if 0
 				ts = start_meta->ts.fetch_add(1); // ok??
 #else
-				ts = 0;
+//				ts = 0;
 #endif
 
-				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
+//				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
 				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
 
@@ -1819,7 +1819,8 @@ _mm_sfence();
 				rv.node_offset = end_offset.no;
 				rv.kv_offset = buffer-(unsigned char*)node_data;
 				rv.index = index;
-				rv.ts = ts;
+//				rv.ts = ts;
+				rv.ts = 0;
 
 				start_meta->group_size+=aligned_size;
 				dec_ref(start_offset.no);
@@ -2176,8 +2177,8 @@ int split3(Node_offset start_offset)
 	vea2i = 0;
 	vea0i = 0;
 
-	uint16_t new_ts;
-	new_ts = 0; // flip
+//	uint16_t new_ts;
+//	new_ts = 0; // flip
 
 
 // valid move inv?
@@ -2205,8 +2206,8 @@ int split3(Node_offset start_offset)
 		{
 			len = get_ll(meta0->ll,vea0i);
 			aligned_size = PH_LTK_SIZE+(len & ~(INV_BIT));
-			if (aligned_size % 8)
-				aligned_size+= (8-aligned_size%8);
+			if (aligned_size % KV_ALIGN)
+				aligned_size+= (KV_ALIGN-aligned_size%KV_ALIGN);
 			if (len & INV_BIT)
 			{
 				key = *((uint64_t*)(buffer0+PH_LEN_SIZE+PH_TS_SIZE));
@@ -2251,11 +2252,11 @@ int split3(Node_offset start_offset)
 					new_vea1[vea1i].node_offset = offset1.no;
 					new_vea1[vea1i].kv_offset = buffer1-(unsigned char*)&data1;
 					new_vea1[vea1i].index = vea1i;
-					new_vea1[vea1i].ts = new_ts; //timestamp
+					new_vea1[vea1i].ts = 0;//new_ts; //timestamp
 
 					temp_key1[vea1i] = key;
 
-					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
+//					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
 
 					memcpy(buffer1,buffer0,aligned_size);
 					buffer1+=aligned_size;
@@ -2305,11 +2306,11 @@ int split3(Node_offset start_offset)
 					new_vea2[vea2i].node_offset = offset2.no;
 					new_vea2[vea2i].kv_offset = buffer2-(unsigned char*)&data2;
 					new_vea2[vea2i].index = vea2i;
-					new_vea2[vea2i].ts = new_ts; //timestamp
+					new_vea2[vea2i].ts = 0;//new_ts; //timestamp
 
 					temp_key2[vea2i] = key;
 
-					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
+//					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
 
 					memcpy(buffer2,buffer0,aligned_size);
 					buffer2+=aligned_size;
@@ -2530,8 +2531,8 @@ int compact3(Node_offset start_offset)
 	vea1i = 0;
 	vea0i = 0;
 
-	uint16_t new_ts;
-	new_ts = 0; // flip
+//	uint16_t new_ts;
+//	new_ts = 0; // flip
 
 
 // valid move inv?
@@ -2567,8 +2568,8 @@ int compact3(Node_offset start_offset)
 		{
 			len = get_ll(meta0->ll,vea0i);
 			aligned_size = PH_LTK_SIZE+(len & ~(INV_BIT));
-			if (aligned_size % 8)
-				aligned_size+= (8-aligned_size%8);
+			if (aligned_size % KV_ALIGN)
+				aligned_size+= (KV_ALIGN-aligned_size%KV_ALIGN);
 			if (len & INV_BIT)
 			{
 				key = *((uint64_t*)(buffer0+PH_LEN_SIZE+PH_TS_SIZE));
@@ -2613,11 +2614,11 @@ int compact3(Node_offset start_offset)
 					new_vea1[vea1i].node_offset = offset1.no;
 					new_vea1[vea1i].kv_offset = buffer1-(unsigned char*)&data1;
 					new_vea1[vea1i].index = vea1i;
-					new_vea1[vea1i].ts = new_ts; //timestamp
+					new_vea1[vea1i].ts = 0;//new_ts; //timestamp
 
 					temp_key1[vea1i] = key;
 
-					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
+//					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
 
 					memcpy(buffer1,buffer0,aligned_size);
 					buffer1+=aligned_size;
@@ -5472,8 +5473,8 @@ void invalidate_kv2(ValueEntry& ve)
 
 	uint16_t len;
 	len = (inv_ll(meta->ll,ve.index) & (~INV_BIT)) + PH_LTK_SIZE;
-	if (len % 8)
-		len+=(8-len%8);
+	if (len % KV_ALIGN)
+		len+=(KV_ALIGN-len%KV_ALIGN);
 	meta->local_inv+=len;
 	meta = offset_to_node(meta->start_offset);
 	meta->invalidated_size+=len; // invalidated
@@ -5824,8 +5825,8 @@ void invalidate_kv(ValueEntry& ve) // old version!!!
 	
 	meta->length_array[meta->la_cnt++] = ve.kv_offset;
 	offset_to_node(meta->start_offset)->invalidated_size+=len+PH_LTK_SIZE;//kl_size; // kv_len is value len
-	if (len%8)
-		offset_to_node(meta->start_offset)->invalidated_size+=(8-len%8);
+	if (len%KV_ALIGN)
+		offset_to_node(meta->start_offset)->invalidated_size+=(KV_ALIGN-len%KV_ALIGN);
 
 //	delete_kv((unsigned char*)offset_to_node_data(ve.node_offset)+ve.kv_offset); // test
 	
@@ -6100,8 +6101,8 @@ unsigned char* bug;
 			{
 				len = get_ll(node_meta->ll,i);
 				aligned_size = (len & 0x7fff)+PH_LTK_SIZE;
-				if (aligned_size % 8)
-					aligned_size-=(8-aligned_size%8);
+				if (aligned_size % KV_ALIGN)
+					aligned_size+=(KV_ALIGN-aligned_size%KV_ALIGN);
 				if (len & 0x8000)
 				{
 					temp_offset[tc] = buffer;

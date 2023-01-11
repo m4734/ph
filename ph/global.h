@@ -56,6 +56,8 @@ typedef u_int64_t uint64_t
 #define SPLIT_NUM 0
 #endif
 
+#define KV_ALIGN 2
+
 namespace PH
 {
 
@@ -175,7 +177,7 @@ extern int* range_hash_table_size;
 
 #define PH_KEY_SIZE 8
 #define PH_LEN_SIZE 2
-#define PH_TS_SIZE 2
+#define PH_TS_SIZE 0
 #define PH_LTK_SIZE PH_KEY_SIZE+PH_LEN_SIZE+PH_TS_SIZE
 
 //extern int key_size;
