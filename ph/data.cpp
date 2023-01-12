@@ -1948,10 +1948,10 @@ thread_local uint64_t temp_key1[NODE_ENTRY_MAX],temp_key2[NODE_ENTRY_MAX];
 //int mm=0;
 
 #define MAX_VAL 8
-#define HOT_RATIO 32
+#define HOT_RATIO 20
 #define VI_RATIO 2
 
-#define MAX_INV 4
+#define MAX_INV 16
 
 int cnt=0;
 int hot_to_node(int hot)
