@@ -1947,9 +1947,16 @@ thread_local uint64_t temp_key1[NODE_ENTRY_MAX],temp_key2[NODE_ENTRY_MAX];
 
 //int mm=0;
 
+#define MAX_VAL 8
+#define HOT_RATIO 32
+#define VI_RATIO 2
+
+#define MAX_INV 4
+
 int cnt=0;
 int hot_to_node(int hot)
 {
+	
 	cnt++;
 	
 	if (cnt % 1000000 == 0)
@@ -1958,14 +1965,36 @@ int hot_to_node(int hot)
 	}
 	
 	int i;
+	hot>>=1;
 	for (i=0;;i++)
 	{
 		hot>>=2;
 		if (!hot)
 		{
-			return i*10+4;
+			return i*HOT_RATIO+MAX_INV;
 		}
 	}
+
+	// 4 250
+	// 6 4 16.5 11.83
+	// 10 4 16.5 11.92
+	// 20 4 16.6 12.02
+	// 20 10 17.25 12.41
+	// 0 16 17.37 12.36
+	// 100 4 16.31 11.55
+	// 200 4 16.31 11.69
+	// 20 24 17.65 12.49
+
+	//8 247
+	//20 48 17.18 12.46
+	//20 24 16.75 12.36
+	//20 16 16.43 12.25
+	//20 8 15.93 11.87
+
+	// 100 4 15.87 10.87
+	// 100 4 15.87 10.87
+
+
 }
 
 int need_split(Node_offset &offset,int hot)
@@ -1986,7 +2015,7 @@ int need_split(Node_offset &offset,int hot)
 */
 //	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4*2)
 //		return 2;
-	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*4)
+	if (offset_to_node(offset)->group_size-offset_to_node(offset)->invalidated_size >= NODE_BUFFER*MAX_VAL)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
@@ -2013,11 +2042,24 @@ int need_split(Node_offset &offset,int hot)
 */
 //	if (meta->invalidated_size >= NODE_BUFFER*8*2)
 //		return 1;
-	if (meta->invalidated_size >= NODE_BUFFER*hot_to_node(hot))//8)
+	/*
+	if (meta->invalidated_size >= NODE_BUFFER*hot_to_node(hot))//MAX_INV)
 	{
 		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 1;
 	}
+	*/
+	if (meta->invalidated_size < NODE_BUFFER*hot_to_node(hot))//MAX_INV)
+		return 0;
+	if (meta->invalidated_size > NODE_BUFFER && meta->invalidated_size * 4 > meta->group_size)//meta->group_size)
+	{
+		offset_to_node(offset)->state |= NODE_SR_BIT;
+		return 1;
+	}
+
+//	if (meta->group_size > meta->invalidated_size * VI_RATIO)
+//		return 1;
+
 //	if (meta->group_size >= NODE_BUFFER*10)
 //		return 1;
 #if 0
@@ -2670,7 +2712,10 @@ int compact3(Node_offset start_offset)
 	if (buffer0 == 0)
 		fk = *((uint64_t*)(offset_to_node_data(start_offset)->buffer+PH_LEN_SIZE+PH_TS_SIZE));
 
-//	printf("cmp node_cnt %d gs0 %d gs1 %d\n",node_cnt,start_meta->group_size.load(),s1m->group_size.load());
+//	static int cc=0;
+//	cc++;
+//	if (node_cnt > 200)
+//		printf("cmp node_cnt %d gs0 %d gs1 %d\n",node_cnt,start_meta->group_size.load(),s1m->group_size.load());
 
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
@@ -5874,6 +5919,11 @@ int split_or_compact(Node_offset node_offset)
 	meta = offset_to_node(node_offset);
 //	if (meta->continue_len < 60) // test
 //		return 1;
+	if (offset_to_node(node_offset)->group_size-offset_to_node(node_offset)->invalidated_size >= NODE_BUFFER*MAX_VAL)
+		return 1;
+	else
+		return 0;
+
 	return meta->invalidated_size == 0;
 //	if (meta->group_size-meta->invalidated_size >= PART_MAX*NODE_BUFFER)
 //		return 1;
@@ -6048,9 +6098,83 @@ void clean_split()
 
 #if 1
 
-thread_local uint64_t temp_key[100*PART_MAX2];
+thread_local uint64_t temp_key[100*PART_MAX2],temp_sb[100*PART_MAX2];
 thread_local unsigned char* temp_offset[100*PART_MAX2];
+thread_local unsigned char* temp_sb2[100*PART_MAX2];
 thread_local int tc,tdc;
+
+
+// ab 0 sb -> temp
+// ab 1 temp -> sb
+void merge_sort(int ab,int loc,int size)
+{
+	if (size <= 1)
+	{
+		if (ab == 1)
+		{
+			temp_sb[loc] = temp_key[loc];
+			temp_sb2[loc] = temp_offset[loc];
+		}
+		/*
+		else
+		{
+			temp_key[loc] = temp_sb[loc];
+			temp_offset[loc] = temp_sb2[loc];
+		}
+		return 1-ab;
+		*/
+		return;
+	}
+
+	int h2 = size/2,h1 = size-h2;
+	merge_sort(1-ab,loc,h1);
+	merge_sort(1-ab,loc+h1,h2);
+
+	uint64_t *src_k,*dst_k;
+	unsigned char **src_o;
+	unsigned char **dst_o;
+
+	if (ab == 1)
+	{
+		src_k = temp_key;
+		dst_k = temp_sb;
+		src_o = temp_offset;
+		dst_o = temp_sb2;
+	}
+	else
+	{
+		dst_k = temp_key;
+		src_k = temp_sb;
+		dst_o = temp_offset;
+		src_o = temp_sb2;
+	}
+
+	int i,l1,l2;
+	l1 = loc;
+	l2 = loc+h1;
+	for (i=loc;i<loc+size;i++)
+	{
+		if (l1 < loc+h1 && (l2 == loc+size || src_k[l1] < src_k[l2]))
+		{
+			dst_k[i] = src_k[l1];
+			dst_o[i] = src_o[l1++];
+		}
+		else
+		{
+			dst_k[i] = src_k[l2];
+			dst_o[i] = src_o[l2++];
+		}
+	}
+/*
+	for (i=loc+1;i<loc+size;i++)
+	{
+		if (dst_k[i-1] > dst_k[i])
+			printf("???\n");
+	}
+*/
+//	return 1-rv;
+
+}
 
 int scan_node(Node_offset offset,unsigned char* key,int result_req,std::string* scan_result)
 {
@@ -6166,8 +6290,9 @@ unsigned char* bug;
 	uint64_t sk;
 	unsigned char* so;
 	int cnt0=0;
-//	const int kls = key_size+len_size;
 
+//	const int kls = key_size+len_size;
+#if 0
 		//sort node
 		for (j=0;j<tc;j++)
 		{
@@ -6184,6 +6309,31 @@ unsigned char* bug;
 				}
 			}
 		}
+#endif
+
+/*
+		if (merge_sort(0,0,tc) == 0)
+		{
+			dst_k = temp_key;
+			dst_o = temp_offset;
+		}
+		else
+		{
+			dst_k = temp_sb;
+			dst_o = temp_sb2;
+		}
+*/
+		merge_sort(0,0,tc);
+/*
+		for (i=1;i<tc;i++)
+		{
+			if (dst_k[i] < dst_k[i-1])
+			{
+				printf("se\n");
+				scanf("%d");
+			}
+		}
+*/
 		for (i=0;i<tc;i++)
 		{
 			if (start_key > temp_key[i])

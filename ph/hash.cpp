@@ -779,7 +779,7 @@ int find_hot(unsigned char* key_p,int continue_len)
 	uint64_t prefix,p2;
 	int i,min;
 	min=999999999;
-	prefix = *(uint64_t*)key_p;// & pre_bit_mask[continue_len];
+	prefix = *(uint64_t*)key_p & pre_bit_mask[continue_len];
 
 
 //	uint64_t hv,hv2;
