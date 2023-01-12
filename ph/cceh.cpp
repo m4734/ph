@@ -588,6 +588,7 @@ void CCEH::split(int sn) // seg locked
 			{
 			//	at_unlock2(seg->lock);
 				seg->lock--;
+				seg->lock-=CCEH_SEG_SPLIT_BIT;
 				return;
 			}
 			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
@@ -598,8 +599,10 @@ void CCEH::split(int sn) // seg locked
 
 		if (seg->depth != depth) // impossible because dir lock
 		{
+			printf("impp\n");
 //			at_unlock2(seg->lock);
 			seg->lock--;
+			seg->lock-=CCEH_SEG_SPLIT_BIT;
 			dir_lock-=SPLIT_MASK;
 			return;
 		}
