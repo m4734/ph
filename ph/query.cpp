@@ -22,6 +22,7 @@
 
 //#define LOCK_FAIL_STOP
 
+
 namespace PH
 {
 
@@ -606,6 +607,9 @@ _mm_mfence();
 	int hot = find_hot(key_p,offset_to_node(ve_u.ve.node_offset)->continue_len);
 
 	rv = need_split(ve_u.ve.node_offset,hot);
+
+
+
 #ifdef split_thread
 	if (rv == 1)
 	{
@@ -631,6 +635,7 @@ _mm_mfence();
 			compact3(ve_u.ve.node_offset);
 	}
 #else
+	/*
 	if (rv)
 	{
 		if (split_or_compact(ve_u.ve.node_offset))
@@ -638,6 +643,18 @@ _mm_mfence();
 		else
 			compact3(ve_u.ve.node_offset);
 	}
+	*/
+	if (rv == 1)
+	{
+		/*
+		if (file_num >= FILE_LIMIT || offset_to_node(ve_u.ve.node_offset)->ll_cnt <= 1)
+			compact3(ve_u.ve.node_offset);
+		else
+		*/
+			split3(ve_u.ve.node_offset);
+	}
+	else if (rv == 2)
+		compact3(ve_u.ve.node_offset);
 #endif
 
 	break; // finish here

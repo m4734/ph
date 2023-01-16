@@ -123,7 +123,7 @@ struct Node_meta
 	//28------------------------------------------------------
 
 	std::atomic<uint8_t> state;	// 1 // split or not
-	std::atomic<uint8_t> ts; // 1
+	std::atomic<uint8_t> tf; // 1
 
 	uint8_t part; // 1
 	uint8_t continue_len; // 1
