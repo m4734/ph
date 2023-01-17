@@ -55,10 +55,11 @@ void clean()
 	clean_hash();
 
 }
-void temp_static_conf(int tn, int ks,int vs)
+void temp_static_conf(int tn, int ks,int vs,int gc)
 {
 #ifdef split_thread
 	num_of_split = SPLIT_NUM;
+	num_of_split = gc;
 #else
 	num_of_split = 0; // temp
 #endif

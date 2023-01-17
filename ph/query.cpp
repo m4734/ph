@@ -559,7 +559,7 @@ _mm_mfence();
 		continue;
 	}
 
-	inc_ref(ve_u.ve.node_offset);
+//	inc_ref(ve_u.ve.node_offset);
 
 	// location is found now
 	// hash - v64_p / start_offset - ve_u / old_entry = old_ve
@@ -569,7 +569,10 @@ _mm_mfence();
 //		locked_offset = ve_u.ve.node_offset;	
 
 
-	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len);
+	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p);
+
+//	dec_ref(ve_u.ve.node_offset);
+#if 0
 	rve64 = *(uint64_t*)(&rve);
 
 //	if (rv.node_offset.file == 0 && rv.node_offset.offset == 0)
@@ -592,11 +595,11 @@ _mm_mfence();
 //		else // timeout?i
 //			break;
 	}
-
+#endif
 
 	unlock_entry(unlock);
 
-	dec_ref(ve_u.ve.node_offset);
+//	dec_ref(ve_u.ve.node_offset);
 
 //	break;
 
@@ -613,26 +616,11 @@ _mm_mfence();
 #ifdef split_thread
 	if (rv == 1)
 	{
-		rv = add_split(ve_u.ve.node_offset);
-//		if (rv == 1)
-//			break;
-		
-		if (rv == -1)
-		{
-//			printf("split queue full!\n");
-		if (split_or_compact(ve_u.ve.node_offset))
 			split3(ve_u.ve.node_offset);
-		else
-			compact3(ve_u.ve.node_offset);
-		}
-		
 	}
 	else if (rv == 2)
 	{
-		if (split_or_compact(ve_u.ve.node_offset))
-			split3(ve_u.ve.node_offset);
-		else
-			compact3(ve_u.ve.node_offset);
+		add_split(ve_u.ve.node_offset);
 	}
 #else
 	/*

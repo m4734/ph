@@ -14,10 +14,10 @@ class KVS_ph// : public KVS
 {
 	public:
 
-	virtual void init(int num,int key,int value)
+	virtual void init(int num,int key,int value,int gc)
 	{
 //		KVS::init(num,key,value,record); // will need this
-		PH::temp_static_conf(num,key,value);
+		PH::temp_static_conf(num,key,value,gc);
 //		init_hash();
 //		init_thread();
 //		init_data();

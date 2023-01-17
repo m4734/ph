@@ -29,7 +29,7 @@ extern volatile int file_num;
 //#define LOG_BIT ((uint16_t)1<<15)
 
 
-#define SPLIT_QUEUE_LEN 1000
+#define SPLIT_QUEUE_LEN 2000
 //#define SPLIT_MAX SPLIT_QUEUE_LEN-10
 
 #define NODE_SPLIT_BIT (1<<7)
@@ -239,7 +239,7 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
-ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len);
+ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p);
 
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);

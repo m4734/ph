@@ -110,7 +110,7 @@ thread_local Node* temp_data;
 
 void clean_thread_local()
 {
-	printf("ctr\n");
+//	printf("ctr\n");
 	int i,j;
 	at_lock(alloc_lock);
 	for (i=0;i<PM_N;i++)
@@ -1587,7 +1587,10 @@ Node_offset append_node(Node_offset& start_offset)
 	return end_offset;	
 }
 #endif
-ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int value_len)
+
+#define INV0 0xffffffffffffffff
+
+ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p)
 {
 	Node_meta* start_meta;
 	Node_meta* end_meta;
@@ -1597,7 +1600,7 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 
 	start_meta = offset_to_node(start_offset.no);
 
-	inc_ref(start_offset.no);
+//	inc_ref(start_offset.no);
 
 //	std::atomic<uint16_t>* len_cas;
 	uint16_t aligned_size,size_r;
@@ -1634,15 +1637,17 @@ ValueEntry insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*val
 #else
 		if (end_offset.no_32 == 0) // split
 		{
-			dec_ref(start_offset.no);
+//			dec_ref(start_offset.no);
 			if (((*((uint64_t*)(key))) & check_bit) == 0)
 				start_offset.no_32 = start_meta->end_offset1;
 			else
 				start_offset.no_32 = start_meta->end_offset2;
 			//start_offset = ...
-			inc_ref(start_offset.no);
+//			inc_ref(start_offset.no);
 			continue;
 		}
+		inc_ref(start_offset.no);
+
 #endif
 		end_meta = offset_to_node(end_offset.no);
 #if 0
@@ -1844,7 +1849,38 @@ _mm_sfence();
 				set_ll(end_meta->ll.load(),index,vl); // validate ll
 				end_meta->ll_cnt++;
 				_mm_sfence();
-				end_meta->size_l+=aligned_size;
+
+				ValueEntry rve,ove;
+				uint64_t ove64,rve64;
+				rve.node_offset = end_offset.no;
+				rve.kv_offset = buffer-(unsigned char*)node_data;
+				rve.index = index;
+//				rv.ts = ts;
+				rve.ts = 0;
+
+
+				rve64 = *(uint64_t*)(&rve);
+
+	while(1)
+	{
+		ove64 = v64_p->load();
+		ove = *(ValueEntry*)(&ove64);
+//		if ((ove.ts <= rve.ts) || ((ove.ts & (1<<7)) != (rve.ts & (1<<7))))
+		{
+			if (v64_p->compare_exchange_strong(ove64,rve64))
+			{
+				if (ove64 != INV0)
+					invalidate_kv2(ove);
+				break;
+			}
+			//retry
+		}
+//		else // timeout?i
+//			break;
+	}
+
+				_mm_sfence();
+				end_meta->size_l+=aligned_size; // end of query
 //				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
 #if 0
 				uint16_t last_size = size_r+aligned_size;
@@ -1852,20 +1888,15 @@ _mm_sfence();
 					offset_to_node(*((Node_offset*)&end_meta->next_offset_ig))->size_l--; //activate next node if it is end of this node
 #endif
 
-				ValueEntry rv;
-				rv.node_offset = end_offset.no;
-				rv.kv_offset = buffer-(unsigned char*)node_data;
-				rv.index = index;
-//				rv.ts = ts;
-				rv.ts = 0;
-
 				start_meta->group_size+=aligned_size;
+
 				dec_ref(start_offset.no);
 
-				return rv;
+				return rve;
 			}
 		}
 
+		dec_ref(start_offset.no);
 
 	}
 
@@ -2009,6 +2040,21 @@ int hot_to_node(int hot)
 // 15.562500 10.6918
 // 24.312500 14.2151 // no comp
 
+// non block
+// 14.187500 6.73659
+
+// gc 20 4
+// 15.937500 10.9187
+// 22.187500 12.4453 // no comp
+// 24.312500 14.2626 // no comp 24 thread
+// 15.437500 10.4759
+
+// gc 16 8
+// 14.562500 8.25418
+// 20.062500 10.6861 // no comp
+
+int compact_threshold = 6;
+
 int need_split(Node_offset &offset,int hot)
 {
 	Node_meta* meta;
@@ -2031,10 +2077,14 @@ int need_split(Node_offset &offset,int hot)
 		return 1;
 	if (meta->invalidated_size < hot_to_node(hot)*NODE_BUFFER)
 		return 0;
-	return 0;
-	if (meta->group_size < meta->invalidated_size*5)
+//	return 0;
+//	if (meta->group_size < meta->invalidated_size*5)
 //	if (meta->invalidated_size >= MAX_INV*NODE_BUFFER)
+	if (meta->invalidated_size > NODE_BUFFER * compact_threshold)
+	{
+//		offset_to_node(offset)->state |= NODE_SR_BIT;
 		return 2;
+	}
 	return 0;
 //	return 0;
 /*
@@ -2161,26 +2211,93 @@ void split3_point_update(Node_meta* meta, ValueEntry* old_vea,ValueEntry* new_ve
 	for (i=0;i<veai;i++)
 	{
 		uc = (unsigned char*)&(temp_key[i]);
+		if (old_vea == NULL)
+		{
 
 		insert_point_entry(uc,new_vea[i]);
+		}
+		else
+		{
 
-		/*
 		v64_p = find_or_insert_point_entry(uc,&unlock);
 		ov64 = *(uint64_t*)(&old_vea[i]);
 		nv64 = *(uint64_t*)(&new_vea[i]);
 		if (v64_p->compare_exchange_strong(ov64,nv64) == false)
 			inv_ll(meta->ll,i);
 		unlock_entry(unlock);
-		*/
+		}
 	}
 
+}
+
+int check_lock(Node_offset offset)
+{
+	Node_meta* start_meta;
+
+	Node_meta* temp_meta;
+	Node_offset_u temp_offset;
+
+	start_meta = offset_to_node(offset);
+
+	// get lock and check prev and next
+
+	while(1) // wait for next node split
+	{
+		uint8_t state = start_meta->state;
+		if (state & NODE_SPLIT_BIT)
+		{
+			return 0; // lock fail???
+		}
+		if (start_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
+				break;
+	}
+
+//	while(1)
+	{
+		temp_offset.no_32 = start_meta->prev_offset;
+		temp_meta = offset_to_node(temp_offset.no);
+		uint8_t state = temp_meta->state & NODE_SPLIT_BIT;
+		if (state)
+		{
+			start_meta->state-=NODE_SPLIT_BIT;
+			return -1; // retry
+		}
+/*
+		uint8_t state = temp_meta->state;
+		if (state & NODE_SPLIT_BIT)
+			return 1; // lock fail
+		if (temp_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
+				break;
+				*/
+	}
+	// we will split because we got prev lock
+
+
+//	while(1)
+	{
+		temp_offset.no_32 = start_meta->next_offset;
+		temp_meta = offset_to_node(temp_offset.no);
+		/*
+		uint8_t state = temp_meta->state;
+		if ((state & NODE_SPLIT_BIT) == 0)
+			break;
+			*/
+		uint8_t state = temp_meta->state & NODE_SPLIT_BIT;
+		if (state)
+		{
+			start_meta->state-=NODE_SPLIT_BIT;
+			return -1;
+		}
+	}
+
+	return 1; //success
 }
 
 int split3(Node_offset start_offset)
 {
 	Node_meta* start_meta;
 //	Node_meta* end_meta;
-//	Node_offset_u end_offset;
+	Node_offset_u end_offset;
 
 	start_meta = offset_to_node(start_offset);
 /*
@@ -2194,38 +2311,23 @@ int split3(Node_offset start_offset)
 
 //	if ((start_meta->state & NODE_SR_BIT) == 0)
 //		return 0;
-/*
+
 	end_offset.no_32 = start_meta->end_offset;
 	if (end_offset.no_32 == 0)
 		return 0;
-	end_meta = offset_to_node(end_offset.no);
-*/
+//	end_meta = offset_to_node(end_offset.no);
+
 	// start offset should not be end offset!!!
 
-	Node_meta* prev_meta;
-	Node_offset_u prev_offset;
+	Node_meta* temp_meta;
+	Node_offset_u temp_offset;
 
-	while(1)
-	{
-		prev_offset.no_32 = start_meta->prev_offset;
-		prev_meta = offset_to_node(prev_offset.no);
-		uint8_t state = prev_meta->state;
-		if (state & NODE_SPLIT_BIT)
-			return 0; // already
-		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
-				break;
-	}
-	// we will split because we got prev lock
-
-	while(1) // wait for next node split
-	{
-		uint8_t state = start_meta->state;
-		if (state & NODE_SPLIT_BIT)
-			continue;
-		if (start_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
-				break;
-	}
-	
+	int rv;
+	rv = check_lock(start_offset);
+	if (rv == 0)
+		return 0; // fail
+	else if (rv == -1)
+		return 1; // retry
 
 
 	//set split
@@ -2297,11 +2399,11 @@ int split3(Node_offset start_offset)
 
 //	_mm_sfence();
 
-//#ifdef split_thread
-//	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
-//#else
+#ifdef split_thread
+	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+#else
 	while((start_meta->state  != (NODE_SPLIT_BIT)) ); // wiat until end
-//#endif
+#endif
 
 //	printf("split3 file %d offset %d\n",start_offset.file,start_offset.offset);
 
@@ -2378,7 +2480,9 @@ int split3(Node_offset start_offset)
 
 						pmem_memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 
-						split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+//						split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+						split3_point_update(meta1,NULL,new_vea1,temp_key1,vea1i);
+
 						meta1->ll_cnt = vea1i;
 
 
@@ -2432,7 +2536,9 @@ int split3(Node_offset start_offset)
 
 						pmem_memcpy(offset_to_node_data(offset2.no),&data2,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 
-						split3_point_update(meta2,old_vea2,new_vea2,temp_key2,vea2i);
+//						split3_point_update(meta2,old_vea2,new_vea2,temp_key2,vea2i);
+						split3_point_update(meta2,NULL,new_vea2,temp_key2,vea2i);
+
 						meta2->ll_cnt = vea2i;
 
 
@@ -2491,7 +2597,8 @@ int split3(Node_offset start_offset)
 
 	s1m->group_size+=meta1->size_l;
 	pmem_memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
-	split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+//	split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+	split3_point_update(meta1,NULL,new_vea1,temp_key1,vea1i);
 	meta1->ll_cnt = vea1i;
 
 //	*((uint16_t*)buffer1) = 0; // end len
@@ -2503,7 +2610,8 @@ int split3(Node_offset start_offset)
 
 	s2m->group_size+=meta2->size_l;
 	pmem_memcpy(offset_to_node_data(offset2.no),&data2,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
-	split3_point_update(meta2,old_vea2,new_vea2,temp_key2,vea2i);
+//	split3_point_update(meta2,old_vea2,new_vea2,temp_key2,vea2i);
+	split3_point_update(meta2,NULL,new_vea2,temp_key2,vea2i);
 	meta2->ll_cnt = vea2i;
 
 
@@ -2521,19 +2629,21 @@ int split3(Node_offset start_offset)
 
 	//connect the list
 	Node* prev_data;
-	Node_offset_u temp_node_offset;
-	temp_node_offset.no_32 = offset_to_node(start_offset)->prev_offset;
-	prev_data = offset_to_node_data(temp_node_offset.no);
+//	Node_offset_u temp_node_offset;
+	temp_offset.no_32 = offset_to_node(start_offset)->prev_offset;
+	prev_data = offset_to_node_data(temp_offset.no);
 	pmem_memcpy(&prev_data->next_offset,&s1o,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 	_mm_sfence();
-	prev_meta->next_offset = s1o.no_32;
 
-	temp_node_offset.no_32 = start_meta->next_offset;
-	offset_to_node(temp_node_offset.no)->prev_offset = s2o.no_32;
+	temp_meta = offset_to_node(temp_offset.no);
+	temp_meta->next_offset = s1o.no_32;
+//	temp_meta->state-=NODE_SPLIT_BIT; // unlock prev meta
+
+	temp_offset.no_32 = start_meta->next_offset;
+	offset_to_node(temp_offset.no)->prev_offset = s2o.no_32;
 
 	_mm_sfence(); // persisted and write volatile
 
-	prev_meta->state-=NODE_SPLIT_BIT; // unlock prev meta
 
 	//range hash
 
@@ -2560,7 +2670,7 @@ int split3(Node_offset start_offset)
 		offset0.no_32 = meta0->next_offset_ig;
 		free_node2(start_offset);
 	}
-	return 1;
+	return 0;
 }
 
 int compact3(Node_offset start_offset)
@@ -2568,104 +2678,89 @@ int compact3(Node_offset start_offset)
 //	printf("ocmpact\n");
 	Node_meta* start_meta;
 //	Node_meta* end_meta;
-//	Node_offset_u end_offset;
+	Node_offset_u end_offset;
 
 	start_meta = offset_to_node(start_offset);
 
 	if (start_meta->state & NODE_SPLIT_BIT)
 		return 0; // already
 
-//	if ((start_meta->state & NODE_SR_BIT) == 0)
-//		return 0;
+	if ((start_meta->state & NODE_SR_BIT) == 0)
+		return 0;
 
 
-//	end_offset.no_32 = start_meta->end_offset;
-//	if (end_offset.no_32 == 0)
-//		return 0;
+	end_offset.no_32 = start_meta->end_offset;
+	if (end_offset.no_32 == 0)
+		return 0;
 //	end_meta = offset_to_node(end_offset.no);
 
 	// start offset should not be end offset!!!
 
-	Node_meta* prev_meta;
-	Node_offset_u prev_offset;
-	prev_offset.no_32 = start_meta->prev_offset;
-	prev_meta = offset_to_node(prev_offset.no);
+	Node_meta* temp_meta;
+	Node_offset_u temp_offset;
 
-	while(1)
-	{
-		prev_offset.no_32 = start_meta->prev_offset;
-		prev_meta = offset_to_node(prev_offset.no);
-		uint8_t state = prev_meta->state;
-		if (state & NODE_SPLIT_BIT)
-			return 0; // already
-		if (prev_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
-				break;
-	}
-	// we will split because we got prev lock
+	int rv;
+	rv = check_lock(start_offset);
+	if (rv == 0)
+		return 0; // fail
+	else if (rv == -1)
+		return 1; // retry
 
-	while(1) // wait for next node split
-	{
-		uint8_t state = start_meta->state;
-		if (state & NODE_SPLIT_BIT)
-			continue;
-		if (start_meta->state.compare_exchange_strong(state , state|NODE_SPLIT_BIT))
-				break;
-	}
 
 	//set split
 
-	Node_offset_u s1o;//,e1o;
+	Node_offset_u s1o,e1o;
 
 	Node_meta* s1m;
-//	Node_meta* e1m;
+	Node_meta* e1m;
 
 	s1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	s1m = offset_to_node(s1o.no);
-	/*
+	
 	e1o.no = alloc_node2(part_rotation);
 	part_rotation = (part_rotation+1)%PM_N;
 	e1m = offset_to_node(e1o.no);
-*/
+
 	split_node_init(s1o.no);
 	s1m->start_offset = s1o.no;
 	s1m->prev_offset = start_meta->prev_offset;
 	s1m->next_offset = start_meta->next_offset;
 	s1m->continue_len = start_meta->continue_len;
 	s1m->tf = 0;
-//	s1m->end_offset = e1o.no_32;
-/*
+	s1m->end_offset = e1o.no_32;
+
 	split_node_init(e1o.no);
 	e1m->start_offset = s1o.no;
 //	e1m->next_offset = e2o.no_32; // for crash
-*/
+
 	_mm_sfence();
 
 // end to e1m
 // e1m to w2m
 
-//	pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset,&e1o.no_32,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset,&e1o.no_32,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 //	pmem_memcpy(&offset_to_node_data(s1o)->next_offset,&s1m->next_offset,16/*sizeof(uint32_t)*/,PMEM_F_MEM_NONTEMPORAL);
 //	pmem_memcpy(&offset_to_node_data(s2o)->next_offset,&s2m->next_offset,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 //	pmem_memcpy(&offset_to_node_data(e1o.no)->next_offset,&e2o.no_32,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 
-//	_mm_sfence();
+	_mm_sfence();
 
-//	start_meta->end_offset1 = s1o.no_32;
-//	start_meta->end_offset2 = s1o.no_32;
+	start_meta->end_offset1 = s1o.no_32;
+	start_meta->end_offset2 = s1o.no_32;
 
-//	_mm_sfence();
+	_mm_sfence();
 
-//	start_meta->end_offset = 0;
+	start_meta->end_offset = 0;
 
 	// do split
 
-//	_mm_sfence();
+	_mm_sfence();
 
 //#ifdef split_thread
-//	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
 //#else
-	while((start_meta->state != (NODE_SPLIT_BIT)) ); // wiat until end
+//	while((start_meta->state != (NODE_SPLIT_BIT)) ); // wiat until end
 //#endif
 
 	Node_offset_u offset0,offset1;
@@ -2712,9 +2807,9 @@ int compact3(Node_offset start_offset)
 			continue;
 		}
 
-//		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
+		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
 		for (i=0;i<sizeof(Node)/256;i++)
-			cf[i] = 0;
+			cf[i] = 1;
 		
 //		if (buffer0 == NULL)
 //			fk = *((uint64_t*)(data0.buffer+PH_LEN_SIZE+PH_TS_SIZE));
@@ -2781,12 +2876,12 @@ int compact3(Node_offset start_offset)
 
 					//alloc new
 					}
-/*
+
 					old_vea1[vea1i].node_offset = offset0.no;
 					old_vea1[vea1i].kv_offset = buffer0-(unsigned char*)&data0;
 					old_vea1[vea1i].index = vea0i;
-					old_vea1[vea1i].ts = *((uint16_t*)(buffer0+PH_LEN_SIZE)); //timestamp
-*/
+					old_vea1[vea1i].ts = 0;//*((uint16_t*)(buffer0+PH_LEN_SIZE)); //timestamp
+
 					new_vea1[vea1i].node_offset = offset1.no;
 					new_vea1[vea1i].kv_offset = buffer1-(unsigned char*)&data1;
 					new_vea1[vea1i].index = vea1i;
@@ -2821,8 +2916,8 @@ int compact3(Node_offset start_offset)
 //	*((uint16_t*)buffer1) = 0; // end len
 	buffer1[0] = buffer1[1] = 0;
 //	offset1 = alloc_node(get_next_pm(offset1));
-	data1.next_offset_ig = INIT_OFFSET;//e1o.no;
-	meta1->next_offset_ig = 0;//e1o.no_32;//offset1;
+	data1.next_offset_ig = e1o.no;
+	meta1->next_offset_ig = e1o.no_32;//offset1;
 	meta1->size_r = meta1->size_l = buffer1-data1.buffer;						
 
 	s1m->group_size+=meta1->size_l;
@@ -2830,7 +2925,8 @@ int compact3(Node_offset start_offset)
 	split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
 	meta1->ll_cnt = vea1i;
 
-	s1m->end_offset = offset1.no_32;
+	//lock free
+//	s1m->end_offset = offset1.no_32;
 
 // write new node meta
 
@@ -2841,19 +2937,20 @@ int compact3(Node_offset start_offset)
 
 	//connect the list
 	Node* prev_data;
-	Node_offset_u temp_node_offset;
-	temp_node_offset.no_32 = offset_to_node(start_offset)->prev_offset;
-	prev_data = offset_to_node_data(temp_node_offset.no);
+//	Node_offset_u temp_offset;
+	temp_offset.no_32 = offset_to_node(start_offset)->prev_offset;
+	prev_data = offset_to_node_data(temp_offset.no);
 	pmem_memcpy(&prev_data->next_offset,&s1o,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 	_mm_sfence();
-	prev_meta->next_offset = s1o.no_32;
 
-	temp_node_offset.no_32 = start_meta->next_offset;
-	offset_to_node(temp_node_offset.no)->prev_offset = s1o.no_32;
+	temp_meta = offset_to_node(temp_offset.no);
+	temp_meta->next_offset = s1o.no_32;
+//	temp_meta->state-=NODE_SPLIT_BIT; // unlock prev meta
+
+	temp_offset.no_32 = start_meta->next_offset;
+	offset_to_node(temp_offset.no)->prev_offset = s1o.no_32;
 
 	_mm_sfence(); // persisted and write volatile
-
-	prev_meta->state-=NODE_SPLIT_BIT; // unlock prev meta
 
 	//range hash
 
@@ -2874,7 +2971,7 @@ int compact3(Node_offset start_offset)
 		free_node2(start_offset);
 	}
 
-	return 1;
+	return 0; // done
 }
 
 
@@ -6016,6 +6113,7 @@ void invalidate_kv(ValueEntry& ve) // old version!!!
 
 int split_or_compact(Node_offset node_offset)
 {
+	return 0;
 	if (file_num >= FILE_LIMIT || offset_to_node(node_offset)->ll_cnt <= 1)
 		return 0;
 	else
@@ -6080,6 +6178,7 @@ void* split_work(void* iid)
 {
 	int i,id = *((int*)iid);
 	Node_offset_u node_offset;
+	int prev_en = 0;
 //	Node_meta* meta;
 //	update_free_cnt();
 	while(1)
@@ -6102,6 +6201,9 @@ void* split_work(void* iid)
 //			if (try_split(node_offset) == 0)
 //				continue;
 	
+			int is;
+			is = offset_to_node(node_offset.no)->invalidated_size;
+
 			if (split_or_compact(node_offset.no))
 			{
 				split3(node_offset.no);
@@ -6111,12 +6213,29 @@ void* split_work(void* iid)
 			}
 			else
 			{
-				compact3(node_offset.no);
-//				while( compact3(node_offset.no) == 0);
+//				compact3(node_offset.no);
+				while ( compact3(node_offset.no)); // lock fail retry
+
 //				if (compact2p(node_offset) < 0)
 //					dec_ref(node_offset);
 			}
 			// if fail do not try again
+
+			if (split_queue_end[id] % 10 == 0)
+			{
+				int en = split_queue_end[id]-split_queue_start[id];
+				if (split_queue_end[id] % 10000 == 0)
+				printf("queue %d / %d ct %d is %d\n",en,SPLIT_QUEUE_LEN,compact_threshold,is);
+				if (en < SPLIT_QUEUE_LEN / 2)
+				{
+					if (compact_threshold > 0 && prev_en > en)
+						compact_threshold--;
+				}
+				else if (en >= SPLIT_QUEUE_LEN/2+SPLIT_QUEUE_LEN/10 && prev_en < en)
+					compact_threshold++;
+				prev_en = en;
+			}
+
 
 	THREAD_IDLE
 		}
@@ -6142,10 +6261,10 @@ int add_split(Node_offset node_offset)
 	Node_meta* meta;
 	meta = offset_to_node(node_offset);
 	uint8_t state = meta->state;
-	if (state & NODE_SPLIT_BIT)
+	if ((state & NODE_SR_BIT) || (state & NODE_SPLIT_BIT))
 		return -2;
-//	if (meta->state.compare_exchange_strong(state,state|NODE_SR_BIT) == false)
-//		return -2;
+	if (meta->state.compare_exchange_strong(state,state|NODE_SR_BIT) == false)
+		return -2;
 
 	for (j=0;j<num_of_split;j++)
 	{
@@ -6180,6 +6299,9 @@ int add_split(Node_offset node_offset)
 //	}
 //	i = 0;
 	}
+	printf("queue full\n");
+//	meta->state-=NODE_SPLIT_BIT;
+	meta->state-=NODE_SR_BIT;
 	return -1;
 }
 
