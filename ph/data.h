@@ -239,7 +239,7 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
-ValueEntry insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p);
+int insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p);
 
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
@@ -321,6 +321,7 @@ inline int check_ref(Node_offset offset)
 uint16_t get_length_from_ve(ValueEntry& ve);
 int split3(Node_offset offset);
 int compact3(Node_offset offset);
+int compact3_lock(Node_offset offset);
 int need_split(Node_offset &offset,int hot);
 
 #ifdef split_thread

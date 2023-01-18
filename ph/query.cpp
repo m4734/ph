@@ -568,8 +568,13 @@ _mm_mfence();
 //		if (rv >= 0) // node is not spliting we will insert
 //		locked_offset = ve_u.ve.node_offset;	
 
+	if (insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p) == 0)
+	{
+		unlock_entry(unlock);
+		continue;
+	}
 
-	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p);
+//	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p);
 
 //	dec_ref(ve_u.ve.node_offset);
 #if 0
