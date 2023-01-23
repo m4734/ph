@@ -28,7 +28,7 @@ typedef u_int64_t uint64_t
 
 #define FILE_LIMIT (20*1024/64)
 
-#define NSK 1
+#define NSK 4
 #define NODE_BUFFER (1024*NSK-4-4-8)
 
 //extern int node_size;
@@ -168,6 +168,8 @@ extern int num_of_thread;
 //extern int total_connection;
 //extern int port;
 
+extern int time_check;
+
 extern int num_of_split;
 
 
@@ -181,7 +183,7 @@ extern int* range_hash_table_size;
 #define PH_KEY_SIZE 8
 #define PH_LEN_SIZE 2
 #define PH_TS_SIZE 0
-#define PH_LTK_SIZE PH_KEY_SIZE+PH_LEN_SIZE+PH_TS_SIZE
+#define PH_LTK_SIZE (PH_KEY_SIZE+PH_LEN_SIZE+PH_TS_SIZE)
 
 //extern int key_size;
 //extern int len_size;

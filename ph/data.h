@@ -239,7 +239,9 @@ inline unsigned int calc_offset_data(void* node) // it will be optimized with de
 void delete_kv(unsigned char* kv_p); // e lock needed
 
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
-int insert_kv2(Node_offset start_offset,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p);
+int insert_kv2(Node_offset &start_offset,unsigned char* &key,unsigned char* &value,int &value_len,std::atomic<uint64_t>* &v64_p);
+void test3(unsigned char* &key_p, unsigned char* &value_p,int &value_len);
+int insert_kv3(/*Node_offset &start_offset,*/unsigned char* &key,unsigned char* &value,int &value_len);//,std::atomic<uint64_t>* &v64_p);
 
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);

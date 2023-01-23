@@ -11,7 +11,7 @@
 //
 namespace PH
 {
-
+int time_check=0;
 int num_of_thread;
 //int connection_per_thread;
 //int total_connection;

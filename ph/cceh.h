@@ -16,7 +16,7 @@
 
 #define CL_BIT 4
 #define CL_PER_SEG (1 << CL_BIT)
-#define LINEAR_MULTI 4
+#define LINEAR_MULTI 2
 
 #define KVP_PER_SEG (KVP_PER_CL*CL_PER_SEG)
 
@@ -152,12 +152,13 @@ inline bool zero_check(unsigned char* const &key);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
 //	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
 	std::atomic<uint64_t>* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+	std::atomic<uint64_t>* find_p_for_insert(unsigned char* const &key,void* &unlock);
 
 
 	ValueEntry find(unsigned char* const &key);
 	void remove(unsigned char* const &key); // find with lock
 
-	void unlock_entry2(void* unlock);
+	void unlock_entry2(void* &unlock);
 	void try_update(std::atomic<uint64_t> &old_v, uint64_t &new_v);//std::atomic<uint64_t> &new_v); // here?
 
 

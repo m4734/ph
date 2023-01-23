@@ -390,8 +390,16 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p)
 
 #define INV0 0xffffffffffffffff
 
+extern int time_check;
+
+
 void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 {
+
+
+
+
+
 	unsigned char* kv_p;
 
 	ValueEntry_u ve_u;
@@ -412,9 +420,11 @@ void insert_query(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 	Node_offset start_offset;
 #ifdef qtt
 	timespec ts1,ts2,ts3,ts4,ts5,ts6;
-
-	clock_gettime(CLOCK_MONOTONIC,&ts1);
-_mm_mfence();
+if (time_check)
+{
+//	clock_gettime(CLOCK_MONOTONIC,&ts1);
+//_mm_mfence();
+}
 #endif
 	update_free_cnt();
 
@@ -428,8 +438,11 @@ _mm_mfence();
 
 
 #ifdef qtt
+		if (time_check)
+		{
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 		_mm_mfence();
+		}
 #endif
 
 #if 0
@@ -440,7 +453,7 @@ _mm_mfence();
 
 //		ve_u.ve.node_offset = INIT_OFFSET; //init - not found yet
 #ifdef keep_lock		
-	v64_p = find_or_insert_point_entry(key_p,&unlock);
+	v64_p = find_or_insert_point_entry(key_p,unlock);
 //	old_ve_u.ve_64 = *v64_p;	
 	ve_u.ve_64 = *v64_p;
 #else		
@@ -450,6 +463,17 @@ _mm_mfence();
 
 		if (ve_u.ve_64 != INV0) // found the record
 		{
+		if (time_check == 0)
+		{
+			time_check = 1;
+			printf("time check\n");
+
+#ifdef qtt
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
+		_mm_mfence();
+
+#endif
+		}
 //			if (get_start_offset(ve_u.ve.node_offset) == INIT_OFFSET)
 //				printf("inini\n");
 			ve_u.ve.node_offset = get_start_offset(ve_u.ve.node_offset);
@@ -541,16 +565,15 @@ _mm_mfence();
 //		if ((kv_p = insert_kv(offset,query->key_p,query->value_p,query->value_len)) == NULL)
 #endif
 		#ifdef qtt
+if (time_check)
+{
 	_mm_mfence();		
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt2+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+}
 #endif
 //	dec_ref(offset);
 //	return 0;
-#ifdef qtt
-	clock_gettime(CLOCK_MONOTONIC,&ts3);
-	_mm_mfence();
-#endif
 
 
 	if (offset_to_node(ve_u.ve.node_offset)->state & NODE_SPLIT_BIT)
@@ -568,12 +591,45 @@ _mm_mfence();
 //		if (rv >= 0) // node is not spliting we will insert
 //		locked_offset = ve_u.ve.node_offset;	
 
+#ifdef qtt
+if (time_check)
+{
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+	_mm_mfence();
+}
+#endif
+#if 0
+	if (time_check)
+	{
+		test3(key_p,value_p,value_len);
+		unlock_entry(unlock);
+		THREAD_IDLE
+		return;
+	}
+#endif
+
+#if 0
+	if (time_check)
+{
+	test3(key_p,value_p,value_len);
+	
+//	if (insert_kv3(/*ve_u.ve.node_offset,*/key_p,value_p,value_len) == 0)
+//	{
+//		unlock_entry(unlock);
+//		continue;
+//	}
+}
+else
+#else
+{
 	if (insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p) == 0)
 	{
 		unlock_entry(unlock);
 		continue;
 	}
 
+}
+#endif
 //	rve = insert_kv2(ve_u.ve.node_offset,key_p,value_p,value_len,v64_p);
 
 //	dec_ref(ve_u.ve.node_offset);
@@ -604,6 +660,17 @@ _mm_mfence();
 
 	unlock_entry(unlock);
 
+#ifdef qtt
+	if (time_check)
+{
+_mm_mfence();
+//	clock_gettime(CLOCK_MONOTONIC,&ts6);
+//	qtt4+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
+	clock_gettime(CLOCK_MONOTONIC,&ts4);
+	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+}
+#endif
+
 //	dec_ref(ve_u.ve.node_offset);
 
 //	break;
@@ -612,7 +679,8 @@ _mm_mfence();
 
 //	_mm_sfence();
 
-	int hot = find_hot(key_p,offset_to_node(ve_u.ve.node_offset)->continue_len);
+//	int hot = find_hot(key_p,offset_to_node(ve_u.ve.node_offset)->continue_len);
+	int hot = 0;
 
 	rv = need_split(ve_u.ve.node_offset,hot);
 
@@ -625,7 +693,7 @@ _mm_mfence();
 	}
 	else if (rv == 2)
 	{
-		add_split(ve_u.ve.node_offset);
+//		add_split(ve_u.ve.node_offset);
 	}
 #else
 	/*
@@ -837,28 +905,34 @@ unlock_entry(unlock);
 //					scanf("%d",&t);// test
 //			thread_idle();
 #ifdef qtt
+			/*
 _mm_mfence();					
 	clock_gettime(CLOCK_MONOTONIC,&ts6);
 	qtt5+=(ts6.tv_sec-ts5.tv_sec)*1000000000+ts6.tv_nsec-ts5.tv_nsec;
+	*/
 #endif
 		}
 		if (print)
 			printf("insert retry\n");	
 #endif
 #ifdef qtt
+			/*
 _mm_mfence();
 
 	clock_gettime(CLOCK_MONOTONIC,&ts4);
 	qtt3+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+	*/
 #endif
 	}
 	THREAD_IDLE
 //		update_free_cnt();
 
 #ifdef qtt
+	/*
 _mm_mfence();
 	clock_gettime(CLOCK_MONOTONIC,&ts2);
 	qtt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+	*/
 #endif
 //	return 0;
 

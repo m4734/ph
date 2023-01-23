@@ -897,6 +897,140 @@ void CCEH::split(int sn) // seg locked
 
 }
 
+
+const int cl_shift = 64-CL_BIT;
+
+std::atomic<uint64_t>* CCEH::find_p_for_insert(unsigned char* const &key,void* &unlock) // also find?
+{
+#ifdef ctt
+	pic++;
+	struct timespec ts1,ts2,ts3,ts4;
+	clock_gettime(CLOCK_MONOTONIC,&ts3);
+	_mm_mfence();
+#endif
+	int sn,cn,i;
+	uint64_t hk;
+	int l;
+	SEG* seg;
+	KVP* kvp_p;
+
+	if (zero_check(key))	
+	{
+		if (unlock)
+			*(void**)unlock = NULL;
+		return /*(ValueEntry_u*)&*/&inv0_value;
+	}
+
+	if (dir_lock & SPLIT_MASK)
+		return 0;
+	dir_lock++;		
+	if (dir_lock & SPLIT_MASK)
+	{
+		dir_lock--;
+		return 0;
+	}
+
+	
+	hk = hf(key);
+	sn = hk & dm;
+	cn = hk >> cl_shift;
+	seg = seg_list[sn];
+#if 1
+	if (seg->lock & CCEH_SEG_SPLIT_BIT) // seg spliting
+	{
+		dir_lock--;
+		return 0;
+	}
+	seg->lock++;
+	if (seg->lock & CCEH_SEG_SPLIT_BIT) // seg spliting
+	{
+		seg->lock--;
+		dir_lock--;
+		return 0;
+	}
+#endif
+#if 1
+/*	KVP* const */kvp_p = (KVP*)seg->cl;
+	l = cn*KVP_PER_CL;	
+#ifdef ctt
+//	clock_gettime(CLOCK_MONOTONIC,&ts1);
+//	_mm_mfence();
+#endif
+	for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
+	{
+#ifdef ctt
+//		bc++;
+#endif
+		l%=KVP_PER_CL*CL_PER_SEG;
+#if 1
+		if (kvp_p[l].key == INV0) // insert
+		{
+			uint64_t zv = INV0;
+			if (kvp_p[l].key.compare_exchange_strong(zv,*(uint64_t*)key) == false)
+			{
+				i--;
+				continue; // CAS fail find other
+			}
+//			*(void**)unlock = seg;
+			unlock = seg;
+#ifdef ctt
+			_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
+#endif
+			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
+		}
+		else if (kvp_p[l].key == *(uint64_t*)key) // update
+		{
+//			*(void**)unlock = seg;
+			unlock = seg;
+#ifdef ctt
+			_mm_mfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+#endif
+			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
+		}
+#endif
+		l++;
+	}
+#endif
+
+	//need split
+#ifdef ctt
+	_mm_mfence();
+	sc++;
+	clock_gettime(CLOCK_MONOTONIC,&ts1);
+#endif
+
+	while(1)
+	{	
+		uint8_t seg_lock = seg->lock;
+		if (seg_lock & CCEH_SEG_SPLIT_BIT)
+		{
+			seg->lock--;
+			break;
+		}
+		if (seg->lock.compare_exchange_strong(seg_lock,seg_lock | CCEH_SEG_SPLIT_BIT))
+		{
+
+	while (seg->lock != CCEH_SEG_SPLIT_BIT+1);
+
+	split(sn % ((uint64_t)1 << seg->depth));	// unlock & free seg
+				break;
+		}
+	}
+
+#ifdef ctt
+	_mm_mfence();
+	clock_gettime(CLOCK_MONOTONIC,&ts2);
+	ctt2+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
+	dir_lock--;	
+	return 0;//failed;	
+}
+
 std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock) // also find?
 {
 //	int sn;
@@ -1087,7 +1221,10 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 			uint64_t zv = INV0;
 //			if (kvp_p[l].value.compare_exchange_strong(zv,ve_u.ve_64) == false)
 			if (kvp_p[l].key.compare_exchange_strong(zv,*(uint64_t*)key) == false)
+			{
+				i--;
 				continue; // CAS fail find other
+			}
 
 //			kvp_p[l].value = ve_u.ve_64;
 //			_mm_sfence();
@@ -1243,7 +1380,7 @@ std::atomic<uint64_t>* CCEH::insert(unsigned char* const &key,ValueEntry &ve,voi
 //	return NULL;
 }
 
-void CCEH::unlock_entry2(void* unlock)
+void CCEH::unlock_entry2(void* &unlock)
 {
 //	SEG* seg = (SEG*)unlock;
 //	printf("unlock_entry2 vep %p seg %p\n",vep,seg);

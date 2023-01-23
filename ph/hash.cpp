@@ -92,14 +92,18 @@ static unsigned int hash_function(const unsigned char *buf/*,int len*/) // test 
 	return hash;
 }
 
+extern int time_check;
 
 ValueEntry find_point_entry(unsigned char* &key_p)
 {
 #ifdef htt
 	timespec ts1,ts2;
+	if (time_check)
+	{
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	fpc++;
 	_mm_mfence();
+	}
 #endif
 //	unsigned char* entry;
 //	unsigned char* ptr;
@@ -112,45 +116,57 @@ ValueEntry find_point_entry(unsigned char* &key_p)
 //	ptr = decode_entry(entry,result_len_p);
 //	return ptr;
 #ifdef htt
+	if (time_check)
+	{
 	_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt1+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+	}
 #endif
 		return entry;
 }
 
 //volatile uint64_t* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
-std::atomic<uint64_t>* find_or_insert_point_entry(unsigned char* &key_p,void* unlock)
+std::atomic<uint64_t>* find_or_insert_point_entry(unsigned char* &key_p,void* &unlock)
 
 {
 #ifdef htt
 	timespec ts1,ts2;
+	if (time_check)
+	{
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	fpc2++;
 	_mm_mfence();
+	}
 #endif
 //	unsigned char* entry;
 //	unsigned char* ptr;
 //	volatile uint64_t* entry_p;
 	std::atomic<uint64_t>* entry_p;
+#if 0
 	ValueEntry ve;
 	ve.kv_offset = 0;
 	ve.node_offset = INIT_OFFSET;	
 	while((entry_p=point_hash->insert((/**(uint64_t*)*/key_p),ve,unlock)) == NULL);
+#endif
+	while((entry_p=point_hash->find_p_for_insert((key_p),unlock)) == NULL);
 
 //	if (entry == NULL)
 //		return NULL;
 //	ptr = decode_entry(entry,result_len_p);
 //	return ptr;
 #ifdef htt
+	if (time_check)
+	{
 	_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			htt5+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+	}
 #endif
 		return entry_p;
 }
 
-void unlock_entry(void* unlock)
+void unlock_entry(void* &unlock)
 {
 	point_hash->unlock_entry2(unlock);
 }

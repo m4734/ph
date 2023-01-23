@@ -269,6 +269,7 @@ void new_file()
 //	offset_cnt = 0;
 }
 
+#define NU (4096*PM_N/sizeof(Node))
 Node_offset alloc_node2_s(int part)
 {
 
@@ -293,7 +294,10 @@ Node_offset alloc_node2_s(int part)
 
 	Node_offset offset;
 	offset.file = fff;
-	offset.offset = ooo * PM_N + part;
+//	offset.offset = ooo * PM_N + part;
+
+	offset.offset = ooo/NU*NU + part*4096 + ooo%(4096/sizeof(Node));
+
 
 	Node_meta* node;
 	node = offset_to_node(offset);
@@ -1536,15 +1540,77 @@ void delete_kv(unsigned char* kv_p) // OP may need
 
 #define INV0 0xffffffffffffffff
 
-int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int value_len,std::atomic<uint64_t>* v64_p)
+extern int time_check;
+
+void test3(unsigned char* &key_p, unsigned char* &value_p,int &value_len)
 {
+		Node* tcd;
+		Node_offset offset;
+//		offset = INIT_OFFSET;
+		uint64_t rn;
+		int rp,o;
+		rp = rand()%PM_N;
+//		rp = 0;
+		rn = rand()%at_part_offset_cnt[rp];
+		offset.file = rn/(MAX_OFFSET/PM_N);
+		o = (rn%(MAX_OFFSET/PM_N));
+		offset.offset = o/NU*NU + rp*4096 + o%(4096/sizeof(Node));
+
+//		offset.offset = (rn%(MAX_OFFSET/PM_N))*PM_N+rp;
+
+		tcd = offset_to_node_data(offset);
+
+		unsigned char buffer2[sizeof(Node)];
+
+		memcpy(buffer2,&value_len,PH_LEN_SIZE); // validation
+		memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE,key_p,PH_KEY_SIZE);
+		memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value_p,value_len);
+				/*
+				if ((uint64_t)buffer % 256 == 0)
+					pmem_memcpy(buffer,buffer2,256,PMEM_F_MEM_NONTEMPORAL); // validation
+				else
+					pmem_memcpy(buffer,buffer2,PH_LTK_SIZE+value_len,PMEM_F_MEM_NONTEMPORAL); // validation
+					*/
+		memcpy((unsigned char*)tcd+512+100,buffer2,PH_LTK_SIZE+value_len); // validation
+		pmem_persist((unsigned char*)tcd+512+100,PH_LTK_SIZE+value_len);
+
+//				pmem_memcpy((unsigned char*)tcd+512,buffer2,256,PMEM_F_MEM_NONTEMPORAL); // validation
+
+		_mm_sfence();
+
+}
+
+
+
+int insert_kv3(/*Node_offset &start_offset,*/unsigned char* &key,unsigned char* &value,int &value_len)//,std::atomic<uint64_t>* &v64_p)
+{
+	if (time_check)
+	{
+		test3(key,value,value_len);
+		return 1;
+	}
+	return 1;
+//	return insert_kv2(start_offset,key,value,value_len,v64_p);
+}
+
+//#define pmemcopy_test
+
+int insert_kv2(Node_offset &start_off,unsigned char* &key,unsigned char* &value,int &value_len,std::atomic<uint64_t>* &v64_p)
+{
+/*
+	if (time_check)
+	{
+	test3(key,value,value_len);
+	return 1;
+	}
+*/
+	unsigned char buffer2[sizeof(Node)];
+
 	Node_meta* start_meta;
 	Node_meta* end_meta;
 	Node_offset_u end_offset;
 	Node_offset_u start_offset;
 	start_offset.no = start_off;
-
-	start_meta = offset_to_node(start_offset.no);
 
 //	inc_ref(start_offset.no);
 
@@ -1556,11 +1622,51 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 	if (aligned_size % KV_ALIGN)
 		aligned_size+=(KV_ALIGN-aligned_size%KV_ALIGN);
 
-	uint64_t check_bit = (uint64_t)1 << (63-start_meta->continue_len);
 
 	uint8_t state;
 
+
+	if (false && time_check)
+	{
+//		return 1;
+#if 1
+		Node* tcd;
+		tcd = offset_to_node_data(start_offset.no);
+#else
+		Node* tcd;
+		Node_offset offsetx;
+//		offset = INIT_OFFSET;
+		uint64_t rn;
+		int rp;
+		rp = rand()%PM_N;
+		rn = rand()%at_part_offset_cnt[rp];
+		offsetx.file = rn/(MAX_OFFSET/PM_N);
+		offsetx.offset = (rn%(MAX_OFFSET/PM_N))*PM_N+rp;
+
+		tcd = offset_to_node_data(offsetx);
+#endif
+		memcpy(buffer2,&value_len,PH_LEN_SIZE); // validation
+				memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
+				memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
+				/*
+				if ((uint64_t)buffer % 256 == 0)
+					pmem_memcpy(buffer,buffer2,256,PMEM_F_MEM_NONTEMPORAL); // validation
+				else
+					pmem_memcpy(buffer,buffer2,PH_LTK_SIZE+value_len,PMEM_F_MEM_NONTEMPORAL); // validation
+					*/
+				memcpy((unsigned char*)tcd+512+100,buffer2,PH_LTK_SIZE+value_len); // validation
+				pmem_persist((unsigned char*)tcd+512+100,PH_LTK_SIZE+value_len);
+
+//				pmem_memcpy((unsigned char*)tcd+512,buffer2,256,PMEM_F_MEM_NONTEMPORAL); // validation
+
+				_mm_sfence();
+
+return 1;
+	}
+
 	start_meta = offset_to_node(start_offset.no);
+
+	uint64_t check_bit = (uint64_t)1 << (63-start_meta->continue_len);
 
 	while(1)
 	{
@@ -1595,53 +1701,36 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 		break;
 	}
 
+	uint16_t empty;
+	int off_l,off_r;
+	const int meta_size = 16;
+
+	if (false && time_check)
+	{
+	test3(key,value,value_len);
+	dec_ref(start_offset.no);
+	return 1;
+	}
+
+
 	// fix start!!!
 	while(1) // insert and append
 	{
 		end_offset.no_32 = start_meta->end_offset;//.load(std::memory_order_seq_cst);
 		end_meta = offset_to_node(end_offset.no);
-#if 0
-		if (end_offset.no_32 == 0)
-		{
-			printf("eklnfelnf\n");
-			scanf("%d");
-			uint32_t aaa;
-			aaa = start_meta->end_offset;
-			if (aaa == start_meta->end_offset)
-				printf("eo\n");
 
-		}
-#endif
-#if 0
-		if (end_meta->start_offset != start_offset.no)
-		{
-			printf("efeslfnlsenkf???\n");
-			Node_offset_u temp_offset;
-			Node_meta* temp_meta;
-
-			temp_offset.no = start_offset.no;
-			while(temp_offset.no_32)
-			{
-				if (temp_offset.no == end_offset.no)
-					printf("aaa\n");
-				temp_meta = offset_to_node(temp_offset.no);
-				temp_offset.no_32 = temp_meta->next_offset_ig;
-			}
-
-			temp_offset.no = end_meta->start_offset;
-			while(temp_offset.no_32)
-			{
-				if (temp_offset.no == end_offset.no)
-					printf("bbb\n");
-				temp_meta = offset_to_node(temp_offset.no);
-				temp_offset.no_32 = temp_meta->next_offset_ig;
-			}
-
-		}
-#endif
 		size_r = end_meta->size_r;
 
-		if (size_r + aligned_size + PH_LEN_SIZE > NODE_BUFFER) // need append
+		off_l = size_r+meta_size;
+		off_r = off_l+aligned_size+PH_LEN_SIZE;
+		empty = 256-off_l%256;
+
+		if (empty < PH_LTK_SIZE || off_r/256 != (off_r+empty)/256)
+			empty = 0;
+
+//		empty = 0;
+
+		if (size_r + empty + aligned_size + PH_LEN_SIZE > NODE_BUFFER) // need append
 		{
 			if (end_meta->next_offset_ig == 0)//INIT_OFFSET) // try new
 			{
@@ -1700,8 +1789,16 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 						printf("fail gc %d start offset %d %d end_offset %d %d new_offset %d %d\n",gg,start_offset.no.file,start_offset.no.offset,end_offset.no.file,end_offset.no.offset,new_offset.no.file,new_offset.no.offset);
 					}
 #endif
+#ifdef pmemoopy_test
+					if (time_check == 0)
+#endif
+//					pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+//						if (time_check == 0)
+						{
+					memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t));
+					pmem_persist(&offset_to_node_data(end_offset.no)->next_offset_ig,sizeof(uint32_t));
+						}
 
-					pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset_ig,&off,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
 
 //					end_offset.no = new_offset.no;
 //					end_meta = new_meta;
@@ -1725,6 +1822,10 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 #endif
 
 					init_node[part_rotation] = alloc_node2(part_rotation);
+#ifdef pmemcopy_test
+					if (time_check == 0)
+#endif
+//						if (time_check == 0)
 					pmem_memcpy(offset_to_node_data(init_node[part_rotation]),append_templete,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
 					part_rotation = (part_rotation+1)%PM_N;
 
@@ -1733,16 +1834,6 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 	//				continue;
 				}
 			}
-#if 0
-			else
-			{
-				if (start_meta->state == 16)
-				{
-					printf("xx\n");
-					scanf("%d");
-				}
-			}
-#endif
 /*
 			{
 				uint32_t off = end_meta->next_offset_ig.load();
@@ -1755,21 +1846,32 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 			//retry from finding end node
 		}
 		else // try insert
-		{	
+		{
+			/*
+	if (time_check)
+	{
+	test3(key,value,value_len);
+	dec_ref(start_offset.no);
+	return 1;
+	}
+	*/
 
-			if (end_meta->size_r.compare_exchange_strong(size_r,size_r+aligned_size))
+//			end_meta->size_r+= empty +aligned_size;
+			if (end_meta->size_r.compare_exchange_strong(size_r,size_r + empty +aligned_size))
 			{
 
+			uint8_t index;
+			uint16_t vl;
 			unsigned char* buffer;
 			Node* node_data;
 			node_data = offset_to_node_data(end_offset.no);
-			buffer = node_data->buffer + size_r;
+
+			buffer = node_data->buffer + size_r + empty;
 //			len_cas = (std::atomic<uint16_t>*)(buffer+e_size); // really?
 //			uint16_t z = 0;
-			uint16_t vl = value_len;
+			vl = value_len;
 //			uint8_t ts;
 //			uint16_t ts;
-			uint8_t index;
 
 				// lock from size
 				
@@ -1785,37 +1887,25 @@ int insert_kv2(Node_offset start_off,unsigned char* key,unsigned char*value,int 
 
 				//important!!! other threand can do
 //				end_meta->size+=aligned_size;
+//#ifdef emp
+			if (empty > 0)
+			{
+				index = end_meta->ll_cnt;
+				set_ll(end_meta->ll.load(),index,empty-PH_LTK_SIZE);
+				end_meta->ll_cnt++;
+				end_meta->local_inv+=empty;
+				start_meta->invalidated_size+=empty;
+//				start_meta->group_size+=empty;
 
-#if 0
-				ts = start_meta->ts.fetch_add(1); // ok??
-#else
-//				ts = 0;
-#endif
+//				if ((uint64_t)buffer % 256 != 0)
+//					printf("%p\n",buffer);
+			}
+//#endif
 
-//				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
-				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
-				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
-
-				pmem_persist(buffer,aligned_size);
-				_mm_sfence();
-
-
-				pmem_memcpy(buffer,&vl,PH_LEN_SIZE,PMEM_F_MEM_NONTEMPORAL); // validation
-
-				_mm_sfence();
-
-				if (end_meta->size_l != size_r)
-					start_meta->tf = 1;
-
-				while (end_meta->size_l != size_r);
-
-
-
-_mm_sfence();
 				index = end_meta->ll_cnt;
 				set_ll(end_meta->ll.load(),index,vl); // validate ll
 				end_meta->ll_cnt++;
-				_mm_sfence();
+//				_mm_sfence();
 
 				ValueEntry rve,ove;
 				uint64_t ove64,rve64;
@@ -1827,6 +1917,70 @@ _mm_sfence();
 
 				rve64 = *(uint64_t*)(&rve);
 
+#if 0
+				ts = start_meta->ts.fetch_add(1); // ok??
+#else
+//				ts = 0;
+#endif
+
+//				memcpy(buffer+PH_LEN_SIZE,&ts,PH_TS_SIZE);
+//				if (time_check == 0)
+				{
+#if 1
+				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
+				memcpy(buffer+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
+				pmem_persist(buffer,aligned_size);
+#else
+#ifdef pmemcopy_test
+				if (false && time_check == 0)
+#endif
+//					if (time_check == 0)
+				{
+					if (time_check)
+					{
+		test3(key,value,value_len);
+	dec_ref(start_offset.no);
+	return 1;
+					}
+					else
+					{
+
+				memcpy(buffer2,&vl,PH_LEN_SIZE); // validation
+				memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE,key,PH_KEY_SIZE);
+				memcpy(buffer2+PH_LEN_SIZE+PH_TS_SIZE+PH_KEY_SIZE,value,value_len);
+
+				memcpy(buffer,buffer2,PH_LTK_SIZE+value_len); // validation
+				pmem_persist(buffer,PH_LTK_SIZE+value_len);
+					}
+
+//				if ((uint64_t)buffer / 256 != ((uint64_t)buffer+PH_LTK_SIZE+value_len)/256)
+//					printf("%p %d\n",buffer,PH_LTK_SIZE+value_len);
+
+
+				}
+			
+#endif
+				_mm_sfence();
+
+
+//				pmem_memcpy(buffer,&vl,PH_LEN_SIZE,PMEM_F_MEM_NONTEMPORAL); // validation
+				memcpy(buffer,&vl,PH_LEN_SIZE); // validation
+				pmem_persist(buffer,PH_LEN_SIZE);
+//				_mm_sfence();
+				}
+				if (end_meta->size_l != size_r)
+				{
+					start_meta->tf = 1;
+
+					while (end_meta->size_l != size_r);
+				}
+
+
+
+_mm_sfence();
+
+//if (time_check == 0)
+{
 	while(1)
 	{
 		ove64 = v64_p->load();
@@ -1844,9 +1998,10 @@ _mm_sfence();
 //		else // timeout?i
 //			break;
 	}
+}
 
 				_mm_sfence();
-				end_meta->size_l+=aligned_size; // end of query
+				end_meta->size_l+=aligned_size + empty; // end of query
 //				while(end_meta->size_l.compare_exchange_strong(size_r,size_r+aligned_size)); // wait until come
 #if 0
 				uint16_t last_size = size_r+aligned_size;
@@ -1854,7 +2009,7 @@ _mm_sfence();
 					offset_to_node(*((Node_offset*)&end_meta->next_offset_ig))->size_l--; //activate next node if it is end of this node
 #endif
 
-				start_meta->group_size+=aligned_size;
+				start_meta->group_size+=aligned_size+empty;
 
 				dec_ref(start_offset.no);
 
@@ -2018,6 +2173,7 @@ int hot_to_node(int hot)
 // 15.437500 10.4759
 
 // 15.312500 10.517 // non block
+// 15.437500 10.7953
 
 // gc 16 8
 // 14.562500 8.25418
@@ -2188,7 +2344,7 @@ void split3_point_update(Node_meta* meta, ValueEntry* old_vea,ValueEntry* new_ve
 		else
 		{
 
-		v64_p = find_or_insert_point_entry(uc,&unlock);
+		v64_p = find_or_insert_point_entry(uc,unlock);
 		ov64 = *(uint64_t*)(&old_vea[i]);
 		nv64 = *(uint64_t*)(&new_vea[i]);
 		if (v64_p->compare_exchange_strong(ov64,nv64) == false)
@@ -3908,8 +4064,8 @@ void* split_work(void* iid)
 			if (split_queue_end[id] % 10 == 0)
 			{
 				int en = split_queue_end[id]-split_queue_start[id];
-				if (split_queue_end[id] % 10000 == 0)
-				printf("queue %d / %d ct %d is %d\n",en,SPLIT_QUEUE_LEN,compact_threshold,is);
+//				if (split_queue_end[id] % 10000 == 0)
+//				printf("queue %d / %d ct %d is %d\n",en,SPLIT_QUEUE_LEN,compact_threshold,is);
 				if (en < SPLIT_QUEUE_LEN / 2)
 				{
 					if (compact_threshold > 0 && prev_en > en)
