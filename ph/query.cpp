@@ -680,9 +680,9 @@ _mm_mfence();
 //	_mm_sfence();
 
 //	int hot = find_hot(key_p,offset_to_node(ve_u.ve.node_offset)->continue_len);
-	int hot = 0;
+//	int hot = 0;
 
-	rv = need_split(ve_u.ve.node_offset,hot);
+	rv = need_split(ve_u.ve.node_offset);
 
 
 

@@ -101,6 +101,8 @@ void new_ll(std::atomic<void*>* next);
 //#define NODE_SPLIT_BIT 1 << 7
 #define ARRAY_INIT_SIZE 16
 
+#define SIZE_R_MASK 0x0000ffff
+
 struct Node_meta
 {
 
@@ -139,7 +141,7 @@ struct Node_meta
 	//40---------------------------------------------------------------------
 
 	std::atomic<uint16_t> size_l;
-	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
+//	std::atomic<uint16_t> size_r; //size // needed cas but replaced to double check... // 2
 	std::atomic<uint16_t> local_inv;
 
 //	unsigned char padding[64-38-24]; // 64-38-24 = 2
@@ -153,8 +155,10 @@ struct Node_meta
 	//20
 
 //	uint16_t inv_cnt; // 2
+
+	std::atomic<uint32_t> size_r_cnt;
 	
-	std::atomic<uint16_t> ll_cnt; // 2
+//	std::atomic<uint16_t> ll_cnt; // 2
 
 	//48------------
 
@@ -241,7 +245,6 @@ void delete_kv(unsigned char* kv_p); // e lock needed
 unsigned char* insert_kv(Node_offset& offset,unsigned char* key,unsigned char* value,int value_length);
 int insert_kv2(Node_offset &start_offset,unsigned char* &key,unsigned char* &value,int &value_len,std::atomic<uint64_t>* &v64_p);
 void test3(unsigned char* &key_p, unsigned char* &value_p,int &value_len);
-int insert_kv3(/*Node_offset &start_offset,*/unsigned char* &key,unsigned char* &value,int &value_len);//,std::atomic<uint64_t>* &v64_p);
 
 int split(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
 int split2p(Node_offset offset);//,unsigned char* prefix);//, unsigned char* prefix, int continue_len);
@@ -324,7 +327,7 @@ uint16_t get_length_from_ve(ValueEntry& ve);
 int split3(Node_offset offset);
 int compact3(Node_offset offset);
 int compact3_lock(Node_offset offset);
-int need_split(Node_offset &offset,int hot);
+int need_split(Node_offset &offset);
 
 #ifdef split_thread
 inline int try_split(Node_offset offset)
