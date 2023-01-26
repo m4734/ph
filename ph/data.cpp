@@ -106,17 +106,30 @@ thread_local Node_offset init_node[PM_N]; //initiailized
 #define PART_MAX2 1000
 thread_local Node* temp_data;
 
-#define MAX_FILE_CNT ((uint64_t)(16)*1024*1024*1024/FILE_SIZE)
-#define INV_RATIO 50
+#define MAX_FILE_CNT ((uint64_t)(14)*1024*1024*1024/FILE_SIZE)
+#define INV_RATIO 40
+
+//inline void pmem_clwb(unsigned char* dst,unsigned char* src,int size)
+inline void pmem_clwb(void* dst,void* src,int size)
+{
+	memcpy(dst,src,size); // validation
+	pmem_persist(dst,size);
+//	_mm_sfence();
+}
 
 inline int need_comp(int group, int invalidated)
 {
+	
+	if (invalidated*11/10 > group)
+		return 1;
 	if (file_num < MAX_FILE_CNT-1 || 
 			(free_cnt[0]-free_index[0] > 1000 &&
 			 free_cnt[1]-free_index[1] > 1000 &&
 			 free_cnt[2]-free_index[2] > 1000 &&
 			 free_cnt[3]-free_index[3] > 1000))//FREE_QUEUE_LEN/2)
-		return group<invalidated*11/10;
+			 return 0;
+//		return group<invalidated*11/10;
+
 	return group < invalidated*(100+INV_RATIO)/INV_RATIO;
 }
 
@@ -1081,8 +1094,8 @@ void size_test()
 //		if (reed_split(offset.no))
 //		if (meta->group_size < meta->invalidated_size*3)
 //		if (meta->group_size < meta->invalidated_size*140/40)
-		if (need_comp(meta->group_size,meta->invalidated_size))
-			printf("st %d %d\n",meta->group_size.load(),meta->invalidated_size.load());
+//		if (need_comp(meta->group_size,meta->invalidated_size))
+//			printf("st %d %d\n",meta->group_size.load(),meta->invalidated_size.load());
 		offset.no_32 = meta->next_offset;
 	}
 	printf("gs %ld is %ld nc %ld\n",gs,is,nc);
@@ -2518,6 +2531,561 @@ int split3(Node_offset start_offset)
 	return 0;
 }
 
+int compact_check(Node_offset start_offset, int ratio) // valid ratio
+{
+	Node_meta* node_meta;
+	Node_offset_u offset;
+	offset.no = start_offset;
+	int cnt=0;
+	int sum=0;
+	while(offset.no_32)
+	{
+		node_meta = offset_to_node(offset.no);
+		if ((node_meta->size_l)*(100-ratio) <= node_meta->local_inv*(100))
+		{
+			cnt++;
+			sum+=node_meta->size_l-node_meta->local_inv;
+			if (sum/(NODE_BUFFER-PH_LEN_SIZE)<cnt)
+				return 1;
+		}
+		offset.no_32 = node_meta->next_offset_ig;
+	}
+	return 0;
+}
+
+int compact_empty(Node_offset_u temp_offset, Node_offset_u offset0) // last , current
+{
+	Node_meta* temp_meta;
+	Node_meta* meta0;
+	temp_meta = offset_to_node(temp_offset.no);
+	int sum = 0;
+	int move = 0;
+
+	if (offset0.no_32 == 0)
+		return 0;
+
+	while(1) // start offset is just recyele
+	{
+		meta0 = offset_to_node(offset0.no);
+		if (meta0->next_offset_ig == 0)
+		{
+			if (move)
+			{
+				temp_meta->next_offset_ig = offset0.no_32;
+				pmem_clwb((unsigned char*)&offset_to_node_data(temp_offset.no)->next_offset_ig,(unsigned char*)&temp_meta->next_offset_ig,sizeof(uint32_t));
+
+			}
+			break;
+		}
+		if (meta0->size_l == meta0->local_inv)
+		{
+	//		start_offset = offset0.no;
+//			free_node2(start_offset);
+			sum+=meta0->size_l;
+			free_node2(offset0.no);
+			move = 1;
+		}
+		else
+		{
+//			if(temp_meta->next_offset_ig != offset0.no_32)
+			if (move)
+			{
+				temp_meta->next_offset_ig = offset0.no_32;
+
+				pmem_clwb((unsigned char*)&offset_to_node_data(temp_offset.no)->next_offset_ig,(unsigned char*)&temp_meta->next_offset_ig,sizeof(uint32_t));
+			}
+			temp_meta = meta0;
+			temp_offset = offset0;
+			move = 0;
+		}
+		offset0.no_32 = meta0->next_offset_ig;
+	}
+
+	_mm_sfence();
+//	printf("%d ",sum);
+	return sum;
+
+}
+
+int compact_empty_temp(Node_offset_u temp_offset, Node_offset_u offset0,Node_offset_u end_offset_u) // last , current
+{
+	Node_meta* temp_meta;
+	Node_meta* meta0;
+	temp_meta = offset_to_node(temp_offset.no);
+	int sum = 0;
+	int move = 0;
+
+	if (offset0.no_32 == 0)
+		return 0;
+
+	while(1) // start offset is just recyele
+	{
+		if (offset0.no_32 == end_offset_u.no_32)
+		{
+			if (move)
+			{
+				temp_meta->next_offset_ig = offset0.no_32;
+				pmem_clwb((unsigned char*)&offset_to_node_data(temp_offset.no)->next_offset_ig,(unsigned char*)&temp_meta->next_offset_ig,sizeof(uint32_t));
+
+			}
+			break;
+		}
+		meta0 = offset_to_node(offset0.no);
+		if (meta0->size_l == meta0->local_inv)
+		{
+			sum+=meta0->size_l;
+			free_node2(offset0.no);
+			move = 1;
+		}
+		else
+		{
+			if (move)
+			{
+				temp_meta->next_offset_ig = offset0.no_32;
+
+				pmem_clwb((unsigned char*)&offset_to_node_data(temp_offset.no)->next_offset_ig,(unsigned char*)&temp_meta->next_offset_ig,sizeof(uint32_t));
+			}
+			temp_meta = meta0;
+			temp_offset = offset0;
+			move = 0;
+		}
+		offset0.no_32 = meta0->next_offset_ig;
+	}
+
+	_mm_sfence();
+	return sum;
+
+}
+
+int compact_temp(Node_offset start_offset)
+{
+//	printf("ocmpact\n");
+	Node_meta* start_meta;
+//	Node_meta* end_meta;
+	Node_offset_u end_offset,start_offset_u;
+
+	start_offset_u.no = start_offset;
+	start_meta = offset_to_node(start_offset);
+
+	if (start_meta->state & NODE_SPLIT_BIT)
+		return 0; // already
+
+	if ((start_meta->state & NODE_SR_BIT) == 0)
+		return 0;
+
+
+	end_offset.no_32 = start_meta->end_offset;
+	if (end_offset.no_32 == 0)//???
+		return 0;
+		
+//	end_meta = offset_to_node(end_offset.no);
+
+	// start offset should not be end offset!!!
+
+	if (start_offset == end_offset.no) // ???
+		return 0;
+
+
+	Node_meta* temp_meta;
+	Node_offset_u temp_offset;
+
+int rv;
+
+		temp_offset.no_32 = start_meta->next_offset_ig;
+		rv = compact_empty_temp(start_offset_u,temp_offset,end_offset);
+		start_meta->invalidated_size-=rv;
+		start_meta->group_size-=rv;
+		_mm_sfence();
+//		const uint8_t m8 = ((uint8_t)(NODE_SPLIT_BIT|NODE_SR_BIT));
+//		start_meta->state&=~(NODE_SPLIT_BIT|NODE_SR_BIT);
+		start_meta->state -= NODE_SR_BIT;
+//		_mm_sfence();
+		return rv;
+}
+
+int compact4(Node_offset start_offset,int ratio)
+{
+//	printf("ocmpact\n");
+	Node_meta* start_meta;
+//	Node_meta* end_meta;
+	Node_offset_u end_offset,start_offset_u;
+
+	start_offset_u.no = start_offset;
+	start_meta = offset_to_node(start_offset);
+
+	if (start_meta->state & NODE_SPLIT_BIT)
+		return 0; // already
+
+	if ((start_meta->state & NODE_SR_BIT) == 0)
+		return 0;
+
+
+	end_offset.no_32 = start_meta->end_offset;
+	if (end_offset.no_32 == 0)//???
+		return 0;
+		
+//	end_meta = offset_to_node(end_offset.no);
+
+	// start offset should not be end offset!!!
+
+	if (start_offset == end_offset.no) // ???
+		return 0;
+
+
+	Node_meta* temp_meta;
+	Node_offset_u temp_offset;
+
+	int rv;
+	rv = check_lock(start_offset);
+	if (rv == 0)
+		return 0; // fail
+	else if (rv == -1)
+		return 1; // retry
+
+	_mm_sfence();
+
+	if (ratio == 0)
+	{
+		temp_offset.no_32 = start_meta->next_offset_ig;
+		rv = compact_empty(start_offset_u,temp_offset);
+		start_meta->invalidated_size-=rv;
+		start_meta->group_size-=rv;
+		_mm_sfence();
+		const uint8_t m8 = ((uint8_t)(NODE_SPLIT_BIT|NODE_SR_BIT));
+//		start_meta->state&=~(NODE_SPLIT_BIT|NODE_SR_BIT);
+		start_meta->state -= (m8);
+//		_mm_sfence();
+		return 0;
+	}
+
+	uint32_t z = 0;
+//#ifdef split_thread
+//	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+//#else
+//	while((start_meta->state != (NODE_SPLIT_BIT)) ); // wiat until end
+//#endif
+
+//	_mm_sfence();
+
+	//set split
+
+	Node_offset_u s1o,e1o;
+
+	Node_meta* s1m;
+	Node_meta* e1m;
+
+	s1o.no = alloc_node2(part_rotation);
+	part_rotation = (part_rotation+1)%PM_N;
+	s1m = offset_to_node(s1o.no);
+	
+	e1o.no = alloc_node2(part_rotation);
+	part_rotation = (part_rotation+1)%PM_N;
+	e1m = offset_to_node(e1o.no);
+
+	split_node_init(s1o.no);
+	s1m->state = NODE_SR_BIT;
+	s1m->start_offset = s1o.no;
+	s1m->prev_offset = start_meta->prev_offset;
+	s1m->next_offset = start_meta->next_offset;
+	s1m->continue_len = start_meta->continue_len;
+	s1m->tf = 0;
+	s1m->end_offset = e1o.no_32;
+
+	split_node_init(e1o.no);
+	e1m->start_offset = s1o.no;
+//	e1m->next_offset = e2o.no_32; // for crash
+
+	_mm_sfence();
+
+// end to e1m
+// e1m to w2m
+
+	pmem_clwb((unsigned char*)&offset_to_node_data(end_offset.no)->next_offset,&e1o.no_32,sizeof(uint32_t));
+
+//	pmem_memcpy(&offset_to_node_data(end_offset.no)->next_offset,&e1o.no_32,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+//	pmem_memcpy(&offset_to_node_data(s1o)->next_offset,&s1m->next_offset,16/*sizeof(uint32_t)*/,PMEM_F_MEM_NONTEMPORAL);
+//	pmem_memcpy(&offset_to_node_data(s2o)->next_offset,&s2m->next_offset,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+//	pmem_memcpy(&offset_to_node_data(e1o.no)->next_offset,&e2o.no_32,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+
+	_mm_sfence();
+
+	start_meta->end_offset1 = s1o.no_32;
+	start_meta->end_offset2 = s1o.no_32;
+
+	_mm_sfence();
+
+	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end
+
+//	start_meta->end_offset = 0;
+
+	// do split
+
+	_mm_sfence();
+
+	Node_offset_u offset0,offset1;
+	Node_meta *meta0,*meta1;
+//	Node data0,data1;
+
+	offset0.no = start_offset;
+	offset1.no = s1o.no;
+	meta1 = s1m;
+
+	unsigned char* buffer0,*buffer_end0,*buffer1;
+	uint16_t len,aligned_size;
+	uint64_t key,fk;
+
+	buffer1 = d1->buffer;
+
+	int vea1i,vea0i;
+	vea1i = 0;
+	vea0i = 0;
+
+//	uint16_t new_ts;
+//	new_ts = 0; // flip
+
+
+// valid move inv?
+
+	buffer0 = NULL;
+
+	Node_offset_u new_offset,last_offset;
+
+	int node_cnt = 0;
+	int i,cf[sizeof(Node)/256];
+
+	fk = *((uint64_t*)(offset_to_node_data(start_offset)->buffer+PH_LEN_SIZE+PH_TS_SIZE));
+	last_offset.no = start_offset;
+
+	while(offset0.no_32)
+	{
+		node_cnt++;
+		meta0 = offset_to_node(offset0.no);
+
+
+		if (meta0->size_l == meta0->local_inv)
+		{
+			offset0.no_32 = meta0->next_offset_ig;
+			continue;
+		}
+	
+		if ((meta0->size_l)*(100-ratio) > meta0->local_inv*(100))
+		{
+			last_offset = offset0;
+			meta0->start_offset = s1o.no;
+			offset0.no_32 = meta0->next_offset_ig;
+			s1m->group_size+=meta0->size_l;
+			s1m->invalidated_size+=meta0->local_inv;
+			continue;
+		}
+	
+#if 0
+		memcpy(&data0,offset_to_node_data(offset0.no),sizeof(Node));
+		for (i=0;i<sizeof(Node)/256;i++)
+			cf[i] = 1;
+#else
+		for (i=0;i<sizeof(Node)/256;i++)
+			cf[i] = 0;
+#endif		
+//		if (buffer0 == NULL)
+//			fk = *((uint64_t*)(data0.buffer+PH_LEN_SIZE+PH_TS_SIZE));
+
+		buffer0 = d0->buffer;
+		buffer_end0 = buffer0+meta0->size_l;
+		vea0i = 0;
+
+		while(buffer0 < buffer_end0)
+		{
+			len = get_ll(meta0->ll,vea0i);
+			aligned_size = PH_LTK_SIZE+(len & ~(INV_BIT));
+			if (aligned_size % KV_ALIGN)
+				aligned_size+= (KV_ALIGN-aligned_size%KV_ALIGN);
+			if (len & INV_BIT)
+			{
+				unsigned char* uci = buffer0;
+				int cfi = (uci-(unsigned char*)d0)/256;
+
+				while(1)
+				{
+					if (cf[cfi] == 0)
+					{
+						cf[cfi] = 1;
+						memcpy((unsigned char*)d0+256*cfi,(unsigned char*)offset_to_node_data(offset0.no)+256*cfi,256);
+					}
+					uci+=256;
+					cfi++;
+					if (uci >= buffer0+aligned_size || uci-d0->buffer >= NODE_BUFFER)
+						break;
+
+				}
+
+				key = *((uint64_t*)(buffer0+PH_LEN_SIZE+PH_TS_SIZE));
+				{
+					if (buffer1 + aligned_size+PH_LEN_SIZE > d1->buffer+NODE_BUFFER)
+					{
+						*((uint16_t*)buffer1) = 0; // end len
+
+						new_offset.no = alloc_node2(get_next_pm(offset1.no));
+						d1->next_offset_ig = new_offset.no;
+						meta1->next_offset_ig = new_offset.no_32;
+						meta1->size_l = buffer1-d1->buffer;
+						s1m->group_size+=meta1->size_l;
+
+						pmem_memcpy(offset_to_node_data(offset1.no),d1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
+//						memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node));
+
+						_mm_sfence();
+
+//						meta1->ll_cnt = vea1i;
+						meta1->size_r_cnt = (vea1i << 16) + meta1->size_l;
+
+						split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+
+						meta1 = offset_to_node(new_offset.no);
+						meta1->start_offset = s1o.no;
+						meta1->next_offset = 0;
+						meta1->local_inv=0;
+//						data1 = offset_to_node_data(offset1);
+
+//						meta1->part = temp_meta->part+1;
+//						meta1->size_l = 0;
+//						if (vea1i >= NODE_ENTRY_MAX)
+//							printf("nem1 %d\n",vea1i);
+						vea1i = 0;
+						buffer1 = d1->buffer;
+						offset1 = new_offset;
+
+					//alloc new
+					}
+
+					old_vea1[vea1i].node_offset = offset0.no;
+					old_vea1[vea1i].kv_offset = buffer0-(unsigned char*)d0;
+					old_vea1[vea1i].index = vea0i;
+					old_vea1[vea1i].ts = 0;//*((uint16_t*)(buffer0+PH_LEN_SIZE)); //timestamp
+
+					new_vea1[vea1i].node_offset = offset1.no;
+					new_vea1[vea1i].kv_offset = buffer1-(unsigned char*)d1;
+					new_vea1[vea1i].index = vea1i;
+					new_vea1[vea1i].ts = 0;//new_ts; //timestamp
+
+					temp_key1[vea1i] = key;
+
+//					*((uint16_t*)(buffer0+PH_LEN_SIZE)) = 0; //timestamp
+
+					memcpy(buffer1,buffer0,aligned_size);
+					buffer1+=aligned_size;
+
+					set_ll(meta1->ll,vea1i,len);
+					vea1i++;
+					
+				}
+			}
+			vea0i++;
+			buffer0+=aligned_size;
+		}
+		meta0->local_inv = meta0->size_l.load();
+		offset0.no_32 = meta0->next_offset_ig;
+	}
+
+//	if (buffer0 == 0)
+//		fk = *((uint64_t*)(offset_to_node_data(start_offset)->buffer+PH_LEN_SIZE+PH_TS_SIZE));
+
+//	static int cc=0;
+//	cc++;
+//	if (node_cnt > 200)
+//		printf("cmp node_cnt %d gs0 %d gs1 %d\n",node_cnt,start_meta->group_size.load(),s1m->group_size.load());
+
+//	*((uint16_t*)buffer1) = 0; // end len
+	buffer1[0] = buffer1[1] = 0;
+//	offset1 = alloc_node(get_next_pm(offset1));
+
+//	d1->next_offset_ig = e1o.no;
+//	meta1->next_offset_ig = e1o.no_32;//offset1;
+	d1->next_offset_ig = start_offset_u.no;
+	meta1->next_offset_ig = start_offset_u.no_32;//offset1;
+	meta1->size_l = buffer1-d1->buffer;						
+
+	s1m->group_size+=meta1->size_l;
+
+//	s1m->group_size+=NODE_BUFFER-meta1->size_l;
+//	s1m->invalidated_size+=NODE_BUFFER-meta1->size_l;
+	meta1->local_inv+=NODE_BUFFER-meta1->size_l;
+
+
+	pmem_memcpy(offset_to_node_data(offset1.no),d1,sizeof(Node),PMEM_F_MEM_NONTEMPORAL);
+//	memcpy(offset_to_node_data(offset1.no),&data1,sizeof(Node));
+//	meta1->ll_cnt = vea1i;
+	meta1->size_r_cnt = (vea1i << 16) + meta1->size_l;
+
+	split3_point_update(meta1,old_vea1,new_vea1,temp_key1,vea1i);
+	//lock free
+//	s1m->end_offset = offset1.no_32;
+
+// write new node meta
+
+	/*
+	pmem_memcpy(&offset_to_node_data(s1o.no)->next_offset,(void*)(&s1m->next_offset),sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+	pmem_memcpy(&offset_to_node_data(s1o.no)->continue_len,&s1m->continue_len,sizeof(uint16_t),PMEM_F_MEM_NONTEMPORAL);
+*/
+	memcpy(&offset_to_node_data(s1o.no)->next_offset,(void*)(&s1m->next_offset),sizeof(uint32_t));
+	memcpy(&offset_to_node_data(s1o.no)->continue_len,&s1m->continue_len,sizeof(uint16_t));
+	pmem_persist(&offset_to_node_data(s1o.no)->next_offset,sizeof(uint32_t)*3);
+
+
+	//free node
+
+	rv = compact_empty(offset1,start_offset_u);
+
+	_mm_sfence();
+
+	temp_meta = offset_to_node(last_offset.no);
+	temp_meta->next_offset_ig = e1o.no_32;
+
+	pmem_clwb((unsigned char*)&offset_to_node_data(last_offset.no)->next_offset_ig,&e1o.no_32,sizeof(uint32_t));
+	_mm_sfence();
+	if (start_meta->size_l != start_meta->local_inv)
+	{
+		start_meta->next_offset = 0;//INIT_OFFSET;
+		pmem_clwb(offset_to_node_data(start_offset),&z,sizeof(uint32_t));
+	}
+	temp_meta = offset_to_node(end_offset.no);
+	if (temp_meta->size_l != temp_meta->local_inv)
+	{
+		temp_meta->next_offset = 0;//INIT_OFFSET;
+		pmem_clwb(offset_to_node_data(end_offset.no),&z,sizeof(uint32_t));
+	}
+
+	_mm_sfence(); // ready to link
+
+	//connect the list
+	Node* prev_data;
+//	Node_offset_u temp_offset;
+	temp_offset.no_32 = offset_to_node(start_offset)->prev_offset;
+	prev_data = offset_to_node_data(temp_offset.no);
+//	pmem_memcpy(&prev_data->next_offset,&s1o,sizeof(uint32_t),PMEM_F_MEM_NONTEMPORAL);
+	pmem_clwb(&prev_data->next_offset,&s1o,sizeof(uint32_t));
+	_mm_sfence();
+
+	temp_meta = offset_to_node(temp_offset.no);
+	temp_meta->next_offset = s1o.no_32;
+//	temp_meta->state-=NODE_SPLIT_BIT; // unlock prev meta
+
+	temp_offset.no_32 = start_meta->next_offset;
+	offset_to_node(temp_offset.no)->prev_offset = s1o.no_32;
+
+//	_mm_sfence(); // persisted and write volatile
+
+	//range hash
+
+	insert_range_entry((unsigned char*)&fk,start_meta->continue_len,s1o.no);
+
+
+	_mm_sfence();
+
+	s1m->state-=NODE_SR_BIT;//NODE_SPLIT_BIT;
+
+	return 0; // done
+}
+
 int compact3(Node_offset start_offset)
 {
 //	printf("ocmpact\n");
@@ -2552,6 +3120,31 @@ int compact3(Node_offset start_offset)
 		return 1; // retry
 
 	_mm_sfence();
+
+	if (true)
+	{
+		Node_offset_u s2;
+		temp_offset.no_32 = start_meta->next_offset_ig;
+		s2.no = start_offset;
+		rv = compact_empty(s2,temp_offset);
+		start_meta->invalidated_size-=rv;
+		start_meta->group_size-=rv;
+		_mm_sfence();
+
+		if (need_comp(start_meta->group_size,start_meta->invalidated_size) == 0)
+		{
+
+
+		const uint8_t m8 = ((uint8_t)(NODE_SPLIT_BIT|NODE_SR_BIT));
+//		start_meta->state&=~(NODE_SPLIT_BIT|NODE_SR_BIT);
+		start_meta->state -= (m8);
+//		_mm_sfence();
+		return 0;
+		}
+	}
+
+
+
 
 //#ifdef split_thread
 //	while((start_meta->state & ~(NODE_SPLIT_BIT | NODE_SR_BIT)) != 0); // wiat until end

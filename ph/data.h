@@ -329,6 +329,11 @@ int compact3(Node_offset offset);
 int compact3_lock(Node_offset offset);
 int need_split(Node_offset &offset);
 
+int compact4(Node_offset start_offset,int ratio);
+int compact_check(Node_offset start_offset,int ratio);
+int compact_temp(Node_offset start_offset);
+
+
 #ifdef split_thread
 inline int try_split(Node_offset offset)
 {

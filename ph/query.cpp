@@ -575,13 +575,13 @@ if (time_check)
 //	dec_ref(offset);
 //	return 0;
 
-/*
+#if 0 // remove this before  !!!!!!
 	if (offset_to_node(ve_u.ve.node_offset)->state & NODE_SPLIT_BIT)
 	{
 		unlock_entry(unlock);
 		continue;
 	}
-*/
+#endif 
 //	inc_ref(ve_u.ve.node_offset);
 
 	// location is found now
@@ -696,8 +696,19 @@ _mm_mfence();
 //		add_split(ve_u.ve.node_offset);
 //		while (compact3_lock(ve_u.ve.node_offset));
 
-		while (compact3(ve_u.ve.node_offset));
 
+//		if (compact_check(ve_u.ve.node_offset,0))
+//			while(compact4(ve_u.ve.node_offset,0));
+//		else
+//		compact_temp(ve_u.ve.node_offset);
+//		if (need_split(ve_u.ve.node_offset))
+			while (compact3(ve_u.ve.node_offset));
+/*		
+		else if (compact_check(ve_u.ve.node_offset,50))
+			while(compact4(ve_u.ve.node_offset,50));
+		else
+			while(compact4(ve_u.ve.node_offset,99));
+*/
 	}
 	else if (rv == 3)
 	{
