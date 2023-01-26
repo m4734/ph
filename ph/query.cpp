@@ -699,6 +699,10 @@ _mm_mfence();
 		while (compact3(ve_u.ve.node_offset));
 
 	}
+	else if (rv == 3)
+	{
+		while (compact3_lock(ve_u.ve.node_offset));
+	}
 #else
 	/*
 	if (rv)

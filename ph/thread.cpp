@@ -282,7 +282,7 @@ void update_free_cnt0()
 				for (i=0;i<PM_N;i++)
 				{
 					min = get_min_free_cnt(i);
-					if (min + FREE_QUEUE_LEN/2 < my_thread->local_free_cnt[i])
+					if (min + FREE_QUEUE_LEN/10 < my_thread->local_free_cnt[i])
 					{
 						retry = 1;
 					}
@@ -293,7 +293,7 @@ void update_free_cnt0()
 					printf("out1\n");
 					*/
 					min = get_min_free_index(i);
-					if (min + FREE_QUEUE_LEN/2 < my_thread->local_free_index[i])
+					if (min + FREE_QUEUE_LEN/10 < my_thread->local_free_index[i])
 					{
 						retry = 2;
 					}
@@ -305,7 +305,7 @@ void update_free_cnt0()
 					*/
 				}
 				int min = min_seg_free_cnt();
-				if (min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
+				if (min + FREE_SEG_LEN/10 < my_thread->local_seg_free_cnt)
 				{
 					retry = 3;
 					/*
@@ -335,7 +335,7 @@ void update_free_cnt0()
 						}	
 //						printf("retry1\n");
 					}
-					if (min + FREE_QUEUE_LEN/-100 < my_thread->local_free_index[i])
+					if (min + FREE_QUEUE_LEN-100 < my_thread->local_free_index[i])
 					{
 						if (in == 0)
 						{
@@ -344,7 +344,7 @@ void update_free_cnt0()
 						}
 //						printf("retry2\n");
 					}
-					if (min + FREE_SEG_LEN/-100 < my_thread->local_seg_free_cnt)
+					if (min + FREE_SEG_LEN-100 < my_thread->local_seg_free_cnt)
 					{
 						if (in == 0)
 						{
