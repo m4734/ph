@@ -134,10 +134,20 @@ inline uint64_t CCEH::hf(unsigned char* const &key) // len 8?
 	return std::_Hash_bytes(key,8,5516);	
 //	return *(uint64_t*)key;	
 }
+inline uint64_t CCEH::hf(uint64_t key)
+{
+	return std::_Hash_bytes((unsigned char* const)&key,8,5516);
+}
 
+/*
 inline bool CCEH::zero_check(unsigned char* const &key)
 {
 	return *(uint64_t*)key == INV0;
+}
+*/
+inline bool zero_check(uint64_t &key)
+{
+	return key == INV0;
 }
 
 void inv_seg(SEG* volatile seg)//,int sn)
@@ -311,7 +321,8 @@ void CCEH::clean()
 #endif
 }
 
-ValueEntry CCEH::find(unsigned char* const &key)
+//ValueEntry CCEH::find(unsigned char* const &key)
+bool CCEH::read(uint64_t &key,uint64_t *ret)
 {
 	/*
 	if (point)
@@ -330,23 +341,26 @@ ValueEntry CCEH::find(unsigned char* const &key)
 	int sn,cn,i;
 	KVP* kvp_p;
 	uint64_t hk;
-	uint32_t hk2;
+//	uint32_t hk2;
 	const int cl_shift = 64-CL_BIT;
 	int l;
 
-	ValueEntry_u ve_u;
 //	if (key == (void*)INV0 && key_size == 8) // wrong!
 	if (zero_check(key))	
 	{
+		*ret = zero_entry.value;
+		if (zero_entry.version & KVP_DELETE)
+			return false;
+		return true;
 //		return &inv0_value;
-		ve_u.ve_64 = inv0_value;
-return ve_u.ve;		
+//		ve_u.ve_64 = inv0_value;
+//return ve_u.ve;		
 	}
 //if (point)
 //	return NULL;
 //	const uint64_t
 	hk = hf(key);
-	hk2 = *(uint32_t*)(&hk);
+//	hk2 = *(uint32_t*)(&hk);
 //	sn = *(uint64_t*)key >> (64-depth);
 //	cn = *(uint64_t*)key % CL_PER_SEG;
 //	sn = *(uint64_t*)key % ((uint64_t)1 << depth);
@@ -357,7 +371,7 @@ return ve_u.ve;
 	cn = hk >> cl_shift;	
 
 //	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
-	kvp_p = (KVP*)seg_list[sn]->cl;	
+	kvp_p = (KVP*)seg_list[sn]->cl;
 	l = cn*KVP_PER_CL;
 //	if (point)
 //return NULL;
@@ -379,24 +393,31 @@ return ve_u.ve;
 		l%=CL_PER_SEG*KVP_PER_CL;
 //		if ((uint64_t)kvp_p[l].key == *(uint64_t*)key)
 //		if (kvp_p[l].key == key)		
-		if (compare_key(kvp_p[l].key,key,hk2))		
+//		if (compare_key(kvvpp_p[l].key,key,hk2))
+		if (kvp_p[l].key == key)
 		{
 #ifdef ctt
 			_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts2);
 			ctt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
-			ve_u.ve_64 = kvp_p[l].value;
-			break;
+//			ve_u.ve_64 = kvp_p[l].value;
+			*ret = kvp_p[l].value;
+			return true;
+//			break;
 //			return ValueEntry(kvp_p[l].value);
 		}
 		l++;
 	}
-	return ve_u.ve;
+//	return ve_u.ve;
+	return false;
 }
 
 void CCEH::remove(unsigned char* const &key)
 {
+
+// may not now
+
 	int sn,cn,i;
 //	uint64_t inv;
 	KVP* kvp_p;
@@ -678,7 +699,8 @@ void CCEH::split(int sn) // seg locked
 			}
 			*/
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
-			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
+//			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
+			hk = hf(kvp_p[l].key);
 //			kc = hk >> (64-CL_BIT);
 
 			// rearrange problem
@@ -778,7 +800,20 @@ void CCEH::split(int sn) // seg locked
 	free_seg(seg);
 }
 
-volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
+//volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
+
+KVVPP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p)
+{
+	KVVPP* ret;
+	while(true)
+	{
+		ret = insert_with_fail(key,unlock_p);
+		if (ret != NULL)
+			return ret;
+	}
+}
+
+KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 {
 //	int sn;
 //	uint64_t inv;
@@ -800,36 +835,38 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 	const int cl_shift = 64-CL_BIT;
 	int l;
 	SEG* seg;
-	KVP* kvp_p;
-
-	ValueEntry_u ve_u;
-	ve_u.ve = ve;
+	KKVVP* kkvvp_p;
 
 //	if (key == (void*)INV0 && key_size == 8)	 // wrong!
 	if (zero_check(key))	
 	{
+		at_lock2(zero_lock);
+		*unlock_p = &zero_lock;
+		return &zero_entry;
+		#if 0
 		inv0_value = ve_u.ve_64;
 		if (unlock)
 			*(void**)unlock = NULL;
 		return /*(ValueEntry_u*)&*/&inv0_value;
+#endif
 	}
 
 //	int lock = dir_lock;
 	// just use cas
 	if (dir_lock & SPLIT_MASK)
-		return 0;
+		return NULL;
 //	if (dir_lock.compare_exchange_strong(lock,lock+1) == 0)
 //		return 0;
 	dir_lock++;		
 	if (dir_lock & SPLIT_MASK)
 	{
 		dir_lock--;
-		return 0;
+		return NULL;
 	}
 
 	
 	hk = hf(key);
-	hk2 = *(uint32_t*)(&hk);
+//	hk2 = *(uint32_t*)(&hk);
 //retry:
 //while(1)
 //{
@@ -869,7 +906,7 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 	{
 //		printf("seg lock fail\n");
 		dir_lock--;
-		return 0;
+		return NULL;
 	}
 //	if (!point)
 //	printf("%d ",(int)dir_lock);
@@ -940,55 +977,24 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 //		if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
 //			break;
 #if 1
-		if (kvp_p[l].key == INV0) // insert
+		if (kvp_p[l].key == INV0 || kvp_p[l].key == key) // insert new // or update
 		{
-			kvp_p[l].value = ve_u.ve_64;
-			_mm_sfence();
-//			(uint64_t)kvp_p[l].key = *(uint64_t*)key; // need encode
-			insert_key(kvp_p[l].key,key,hk2);			
+//			kvvpp_p[l].key = key;
+//			kvvpp_p[l].value
+//			kvvpp_p[l].version = 0;
 
-//			seg->lock = 0;
-//			seg->seg_lock->unlock();			
-			if (unlock)
-				*(void**)unlock = seg;
-			else
-			{
-				at_unlock2(seg->lock);
-				dir_lock--;
-			}
+//			_mm_sfence(); // value first!!!!
+
+
+			*unlock = &seg->lock;
 #ifdef ctt
 			_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
 //			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
 #endif
-			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
+			return /*(ValueEntry_u*)&*/&kvp_p[l];
 		}
-//		else if (kvp_p[l].key == key) // update
-		else if (compare_key(kvp_p[l].key,key,hk2))		
-		{
-			if (unlock)
-				*(void**)unlock = seg;
-			else
-			{
-				kvp_p[l].value = ve_u.ve_64;
-				_mm_sfence();
-				at_unlock2(seg->lock);			
-				dir_lock--;
-			}
-
-//			seg->lock = 0;
-//			seg->seg_lock->unlock();			
-#ifdef ctt
-			_mm_mfence();
-			clock_gettime(CLOCK_MONOTONIC,&ts4);
-			ctt1+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
-//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
-//			ctt3+=(ts4.tv_sec-ts1.tv_sec)*1000000000+ts4.tv_nsec-ts1.tv_nsec;
-#endif
-			return /*(ValueEntry_u*)&*/&kvp_p[l].value;
-		}
-#endif
 		l++;
 	}
 #endif
@@ -1063,7 +1069,8 @@ volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* u
 
 //	goto retry;
 	dir_lock--;	
-	return 0;//failed;	
+//	printf("CCEH insert failed\n");
+	return NULL;//failed;	
 //never
 //	return NULL;
 }
@@ -1148,7 +1155,7 @@ void clean_cceh()
 
 
 
-
+#if 0
 
 inline unsigned char* CCEH_vk::load_key(const uint64_t &key)
 {
@@ -1224,5 +1231,6 @@ inline bool CCEH_vk::zero_check(unsigned char* const &key)
 {
 	return false;
 }
+#endif
 
 }

@@ -1,51 +1,136 @@
 #include <libpmem.h>
 #include <string.h>
 #include <x86intrin.h>
+#include <stdio.h> // test
 
 #include "log.h"
-#include "data.h"
-#include "hash.h"
+//#include "data.h"
+//#include "hash.h"
 
 //using namespace PH;
-#ifdef DOUBLE_LOG
 namespace PH
 {
 
-// len key value file offset index
-#define LF_SIZE 2+2+2
+size_t log_size;
+int log_max;
+DoubleLog* doubleLogList;
 
-extern unsigned char** pmem_addr;
-
-std::atomic<uint8_t> log_file_cnt;
-
-void init_log()
+void init_log(int num_pmem, int num_log)
 {
-//	global_ts = 0;
-	log_file_cnt = 0;
-}
 
-void LOG::init()
-{
-	file_max = 0;
-	file_index = 0;
-//	kv_in_offset = {INIT_OFFSET,0,0};
-//	kv_out_offset = {INIT_OFFSET,0,0};
+	printf("init log\n");
 
-	new_log_file();
-	new_log_file();
+	log_max = num_pmem*num_log;
+	doubleLogList = new DoubleLog[log_max];
+	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 
-	kv_in = {0,0};
-	kv_out = {0,0};
-}
-
-void LOG::clean()
-{
-	int i;
-	for (i=0;i<file_max;i++)
+	int i,j;
+	for (i=0;i<num_pmem;i++)
 	{
-		munmap(pmem_addr[dram_num[i]],FILE_SIZE);
-		pmem_unmap(pmem_array[i],FILE_SIZE);
+		for (j=0;j<num_log;j++)
+		{
+			char path[100];
+			int len;
+			sprintf(path,"/mnt/pmem%d/log%d",i,j);
+			len = strlen(path);
+			path[len] = 0;
+			doubleLogList[i*num_log+j].init(path,log_size);
+		}
 	}
+}
+
+void clean_log()
+{
+
+	printf("clean log\n");
+
+	int i;
+	for (i=0;i<log_max;i++)
+	{
+		doubleLogList[i].clean();
+	}
+
+	delete[] doubleLogList; // array
+
+//	printf("clean now\n");
+}
+
+#define SKIP_MEMSET
+
+void DoubleLog::init(char* filePath, size_t req_size)
+{
+//	tail_offset = LOG_BLOCK_SIZE;
+//	head_offset = LOG_BLOCK_SIZE;
+
+//	printf("size %lu\n",req_size);
+
+	int is_pmem;
+	pmemLogAddr = (unsigned char*)pmem_map_file(filePath,req_size,PMEM_FILE_CREATE,0777,&my_size,&is_pmem);
+	if (my_size != req_size)
+		printf("my_size %lu is not req_size %lu\n",my_size,req_size);
+	if (is_pmem == 0)
+		printf("is not pmem\n");
+#ifdef SKIP_MEMSET
+	printf("----------------skip memset----------------------\n");
+#else
+	memset(pmemLogAddr,0,my_size);
+#endif
+
+	head_p = pmemLogAddr;
+	tail_p = pmemLogAddr;
+	end_p = pmemLogAddr + my_size;
+}
+
+void DoubleLog::clean()
+{
+//	printf("%lu %lu\n",my_size,log_size);
+	pmem_unmap(pmemLogAddr,my_size);
+}
+
+void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
+{
+	//fixed size;
+	const size_t len = sizeof(BaseLogEntry);
+
+	if (head_p+len >= end_p) // check the space
+	{
+		// need turn
+//		tail_offset = 0; // ------------------------------------------------------- not this
+		head_p = pmemLogAddr;
+	}
+
+	// use checksum or write twice
+
+	// 1 write kv
+	//baseLogEntry->dver = 0;
+	unsigned char* src = (unsigned char*)baseLogEntry_p;
+	const size_t header_size = sizeof(uint64_t);
+	memcpy(head_p+header_size,src+header_size,len-header_size);
+	pmem_persist(head_p+header_size,len-header_size);
+	_mm_sfence();
+
+	// 4 add dram list
+
+	// 5 add to key list
+
+	// 2 lock index ------------------------------------- lock from here
+
+	// 3 get and write new version <- persist
+	uint64_t version;
+	//--------------------------------------------------- make version
+	memcpy(head_p,&version,header_size);
+	pmem_persist(head_p,header_size);
+	_mm_sfence();
+
+	// 6 update index
+
+	// 7 unlock index -------------------------------------- lock to here
+
+	// 8 remove old dram list
+
+	head_p+=len;
+
+	// 9 check GC
 }
 
 // point hash - lock
@@ -95,6 +180,8 @@ void LOG::insert_log(unsigned char* &key_p, unsigned char* &value_p,int value_le
 
 }
 #endif
+
+#if 0
 ValueEntry LOG::insert_log(Node_offset start_node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len)
 {
 	ValueEntry rv;
@@ -274,40 +361,6 @@ void LOG::ready(int value_len)
 		}
 	}
 }
-void LOG::new_log_file()
-{
-	int cnt;
-	cnt = log_file_cnt.fetch_add(1)+1;
-
-	char file_name[100];
-	char buffer[10];
-	int len,num,i;
-	strcpy(file_name,pmem_file);
-	strcat(file_name,"log");
-	len = strlen(file_name);
-	num = cnt;
-	i = 0;
-	while (num > 0)
-	{
-		buffer[i] = num%10+'0';
-		i++;
-		num/=10;
-	}
-	for (i=i-1;i>=0;i--)
-		file_name[len++] = buffer[i];
-	file_name[len] = 0;
-
-
-	int is_pmem;
-	size_t pmem_len;
-//	dram_array[file_max] = (unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
-//	pmem_addr[MAX_FILE_NUM-cnt] = dram_array[file_max];
-	pmem_addr[MAX_FILE_NUM-cnt] = (unsigned char*)mmap(NULL,FILE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
-	dram_num[file_max] = MAX_FILE_NUM-cnt;
-	pmem_array[file_max] = (unsigned char*)pmem_map_file(file_name,FILE_SIZE,PMEM_FILE_CREATE,0777,&pmem_len,&is_pmem);
-
-	file_max++;
-}
-}
-
 #endif
+}
+

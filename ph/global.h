@@ -17,144 +17,11 @@ typedef u_int8_t uint8_t
 typedef u_int16_t uint16_t
 typedef u_int64_t uint64_t
 */
-/*
-#define SMALL_NODE
-#ifdef SMALL_NODE
-	#define NODE_BUFFER 1024-4-4-8 // test
-#else
-	#define NODE_BUFFER 1024*4-4-4-8
-#endif
-*/
-#define NSK 1
-#define NODE_BUFFER 1024*NSK-4-4-8
 
-//extern int node_size;
-#define PART_MAX 4
-//#define PART_MAX 16
-//#define PART_MAX 2 // test
-
-#if PART_MAX == 1
-	#define PM_N 1
-#else
-	#define PM_N 4
-#endif
-
-#define PAGE_SIZE 4096
-
-/*
-#if PART_MAX > 1
-	#define split_thread
-#endif
-*/
-
-//#define split_thread
-//#define try_recover
-
-#ifdef split_thread
-#define SPLIT_NUM 4
-#else
-#define SPLIT_NUM 0
-#endif
+#define VALUE_SIZE 100
 
 namespace PH
 {
-
-struct Node_offset
-{
-	uint16_t file;
-	uint16_t offset;
-	bool operator==(const Node_offset &v) { return (file == v.file) && (offset == v.offset); }
-	bool operator!=(const Node_offset &v) { return (file != v.file) || (offset != v.offset); }
-
-	/*
-	Node_offset& operator=(Node_offset &v) { 
-		(file = v.file);
-		(offset = v.offset);
-       return *this;
-	}
-	*/
-};
-
-	const Node_offset INIT_OFFSET={0,0};
-	const Node_offset SPLIT_OFFSET={0,1};
-const Node_offset HEAD_OFFSET={0,2};
-const Node_offset TAIL_OFFSET={0,3};
-
-struct Node_offset_u
-{
-	union
-	{
-		Node_offset no;
-		uint32_t no_32;
-	};
-};
-
-const Node_offset_u TAIL_OFFSET_u = {0,3};
-/*
-struct ValueEntry2
-{
-	uint32_t kv_offset; // offset in file
-	uint16_t file;
-	uint16_t len;
-};
-*/
-struct ValueEntry
-//class ValueEntry
-{
-	Node_offset node_offset;
-	uint16_t kv_offset;
-	uint16_t len;
-	
-	/*
-	volatile uint32_t node_offset;
-	volatile uint16_t kv_offset;
-	volatile uint16_t len;
-*/
-//	public:
-/*	
-	uint32_t node_offset;
-	uint16_t kv_offset;
-	uint16_t len;
-	
-	volatile ValueEntry& operator=(const ValueEntry& ve) volatile { 
-		node_offset = ve.node_offset;
-		kv_offset = ve.kv_offset;
-		len = ve.len;
-		return *this;
-	}
-	
-	volatile ValueEntry& operator=(const volatile ValueEntry& ve) volatile { 
-		node_offset = ve.node_offset;
-		kv_offset = ve.kv_offset;
-		len = ve.len;
-		return *this;
-	}
-
-	
-	ValueEntry& operator=(const volatile ValueEntry& ve) { 
-		node_offset = ve.node_offset;
-		kv_offset = ve.kv_offset;
-		len = ve.len;
-		return *this;
-	}
-	
-	ValueEntry& operator=(const ValueEntry& ve) { 
-		node_offset = ve.node_offset;
-		kv_offset = ve.kv_offset;
-		len = ve.len;
-		return *this;
-	}
-*/
-};
-
-struct ValueEntry_u
-{
-	union
-	{
-		ValueEntry ve;
-		uint64_t ve_64;
-	};
-};
 
 extern int num_of_thread;
 //extern int connection_per_thread;
@@ -199,6 +66,7 @@ extern int empty_len;
 
 void temp_static_conf(int tn,int ks,int vs);
 void clean();
+
 // multiple definition
 /*
 {

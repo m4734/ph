@@ -2,53 +2,24 @@
 
 #include <pthread.h>
 #include <atomic>
-//#include <mutex>
 #include <sys/mman.h>
 
 #include "global.h"
 #include "query.h"
 
-//#define split_bit (1<<15)
-//#define free_bit (1<14)
-
-//#define HEAD_OFFSET 1
-//#define TAIL_OFFSET 2
-
-//const Node_offset HEAD_OFFSET={0,1};
-//const Node_offset TAIL_OFFSET={0,2};
-
-//#define dtt
-
 namespace PH
 {
 
+struct BaseLogEntry
+{
+	uint64_t dver; // delete + version
+	uint64_t key; // key
+	unsigned char value[VALUE_SIZE];
+	unsigned char pad[4];
+}; // 8 + 8 + 100 = 116 + 4 = 120
+// need 8bytes align
+
 extern volatile int file_num;
-
-#define INV_BIT ((uint16_t)1<<15)
-#define LOG_BIT ((uint16_t)1<<15)
-
-
-#define SPLIT_QUEUE_LEN 500
-#define SPLIT_MAX SPLIT_QUEUE_LEN-10
-
-	/*
-	const Node_offset INIT_OFFSET={0,0};
-	const Node_offset SPLIT_OFFSET={0,1};
-const Node_offset HEAD_OFFSET={0,2};
-const Node_offset TAIL_OFFSET={0,3};
-*/
-/*
-struct Node_offset
-{
-	uint16_t file;
-	uint16_t offset;
-};
-*/
-struct Scan_list
-{
-	void* query; //need offset and mutex
-	struct Scan_list* next;
-};
 
 struct Node
 //class Node

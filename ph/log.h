@@ -1,49 +1,33 @@
 #include <atomic>
 
-#include "global.h"
-#ifdef DOUBLE_LOG
+#include "global2.h"
+#include "data2.h"
+
 namespace PH
 {
 
-#define LOG_RATIO 10
+//#define LOG_SIZE_PER_PMEM (12*1024*1024*1024) // 128GB / 10% / threads
+const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
+//#define LOG_BLOCK_SIZE 4096
 
-extern int file_num;	
-
-//std::atomic<uint32_t> global_ts=0;
-extern std::atomic<uint8_t> log_file_cnt;
-
-void init_log();
+void init_log(int num_pmem,int num_log);
 void clean_log();
 
-struct LogOffset
+class DoubleLog
 {
-//	uint16_t file;
-	unsigned int file;
-	unsigned int offset;
-};
+//	size_t log_size;
+	size_t my_size;
+//	size_t head_offset,tail_offset;
 
-class LOG
-{
-	int file_max;
-	int file_index;
-//	Node_offset kv_in;
-//	Node_offset kv_out;
-	LogOffset kv_in;
-	LogOffset kv_out;
-//	unsigned char* dram_array[100];
-	int dram_num[100];
-	unsigned char* pmem_array[100];
-	// use pmem_addr
+	unsigned char* pmemLogAddr;
+	unsigned char* head_p;
+	unsigned char* tail_p;
+	unsigned char* end_p;
 
 	public:
-	void init();
+	void init(char* filePath,size_t size);
 	void clean();
-	ValueEntry insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p);
-	ValueEntry insert_log(Node_offset node_offset,unsigned char* &key_p, unsigned char* &value_p,int value_len);
-	void ready(int value_len);
-	private:
-	void new_log_file();
-//	void flush(unsigned char* kvp);
+//	void insert_log(unsigned char* addr, int len);
+	void insert_log(struct BaseLogEntry *baseLogEntry_p);
 };
 }
-#endif

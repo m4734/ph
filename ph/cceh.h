@@ -10,7 +10,8 @@
 #define INV0 0xffffffffffffffff
 
 //fixed
-#define KVP_PER_CL 4 // 16 * 4 = 64
+//#define KVP_PER_CL 4 // 16 * 4 = 64
+#define KVP_PER_CL 2 // 32 * 2 = 64
 #define CL_SIZE 64
 
 
@@ -31,7 +32,7 @@ namespace PH
 //unsigned char** key_array = 0;
 //int* key_cnt = 0;
 //int key_array_cnt=0;
-struct HandP
+struct HandP // hash and pointer??
 {
 	uint32_t hash;
 	uint16_t key_array;
@@ -49,7 +50,7 @@ union KeyEntry_u
 	KeyEntry ke;
 	uint64_t ke_64;
 };
-
+#if 0
 struct KVP
 {
 //	volatile unsigned char* key; // or key ptr // key value in 8B key
@@ -72,14 +73,26 @@ struct KVP
 	volatile uint64_t key;
 	volatile uint64_t value;
 }; // 8 + 8 = 16
+#endif
+#define KVP_DELETE (1<<62)
 
+struct KVP // key value version pad pair
+{
+	volatile uint64_t key;
+	volatile uint64_t value; //addr
+//	volatile unsigned char* addr;
+	volatile uint64_t version; // Delete / Version
+//	std::atomic<uint64_t> version;
+	volatile uint64_t padding;
+}; // 32Bytes
+/*
 struct KVP_vk
 {
 	//need fix
 	KeyEntry key;
 	ValueEntry value;
 };
-
+*/
 struct CL
 {
 	struct KVP kvp[KVP_PER_CL];
@@ -103,11 +116,14 @@ class CCEH
 	CCEH(int in_depth);
 	~CCEH();
 
-inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
-inline	uint64_t hf(unsigned char* const &key);
-inline	unsigned char* load_key(const uint64_t &key);
-inline bool zero_check(unsigned char* const &key);
+	private:
+
+//	inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
+//	inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
+	inline	uint64_t hf(unsigned char* const &key); // hash function
+	inline uint64_t hf(uint64_t key);
+//	inline	unsigned char* load_key(const uint64_t &key);
+//	inline bool zero_check(unsigned char* const &key);
 
 
 	volatile int depth;
@@ -123,7 +139,8 @@ inline bool zero_check(unsigned char* const &key);
 //	std::atomic<uint8_t> dir_lock;
 //	std::mutex dir_lock;	
 
-	volatile uint64_t inv0_value;//,failed;
+//	volatile uint64_t inv0_value;//,failed;
+//	volatile unsigned char* inv0_value;
 //	volatile ValueEntry_u inv0_value	
 
 	void dir_double();
@@ -136,12 +153,20 @@ inline bool zero_check(unsigned char* const &key);
 	public:
 //	int insert(const uint64_t &key,ValueEntry ve);
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
-	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+//	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
+	
+	KVP* insert(uint64_t &key,std::atomic<uint8_t> **unlock_p); // lock
+	KVP* insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p); // lock
 
-	ValueEntry find(unsigned char* const &key);
-	void remove(unsigned char* const &key); // find with lock
+	void lock(KVP* kvp);	
+	void unlock(KVP* kvp);
 
-	void unlock_entry2(void* unlock);
+	bool read(uint64_t &key,uint64_t *ret);
+	void remove(uint64_t &key);
+
+//	void unlock_entry2(void* unlock);
+
+	private:
 
 	uint64_t dm;
 	int point;
@@ -151,8 +176,10 @@ inline bool zero_check(unsigned char* const &key);
 
 	std::atomic<uint8_t> dir_lock;
 
+	KVP zero_entry;
+	std::atomic<uint8_t> zero_lock;
 };
-
+#if 0
 class CCEH_vk : public CCEH
 {
 inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
@@ -163,7 +190,7 @@ inline	unsigned char* load_key2(const KeyEntry &key); // keyentry
 inline bool zero_check(unsigned char* const &key);
 
 };
-
+#endif
 void init_cceh();
 void clean_cceh();
 

@@ -12,7 +12,9 @@
 namespace PH
 {
 
-int num_of_thread;
+int num_thread;
+int num_pmem;
+int num_log;
 //int connection_per_thread;
 //int total_connection;
 //int port;
@@ -98,14 +100,15 @@ void temp_static_conf(int tn, int ks,int vs)
 	pmem_file[strlen("/mnt/pmem0/")] = 0;
 
 	init_file(); // before log
-#ifdef DOUBLE_LOG
 	init_log(); //before new log file
-#endif
+
 	init_thread(); // need alloc mutex later // what?
 	init_hash();
 	init_data();
 
 //	exit_thread();
 }
+
+
 
 }
