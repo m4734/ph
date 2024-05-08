@@ -1,3 +1,8 @@
+
+#ifndef PH_LOG
+#define PH_LOG
+
+
 #include <atomic>
 
 #include "global2.h"
@@ -29,5 +34,10 @@ class DoubleLog
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
 	void insert_log(struct BaseLogEntry *baseLogEntry_p);
+	void write_version(uint64_t version);
+
+	std::atomic<uint8_t> use=0; 
 };
 }
+
+#endif

@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+//#include "thread2.h"
+
 namespace PH
 {
 
@@ -14,6 +16,10 @@ private:
 int num_thread;
 int num_pmem;
 int num_log;
+
+//thread_local PH_Query_Thread my_thread;
+void new_query_thread();
+void clean_query_thread();
 
 public:
 void global_init(int num_thread,int num_pmem,int num_log);

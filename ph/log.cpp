@@ -24,17 +24,17 @@ void init_log(int num_pmem, int num_log)
 	doubleLogList = new DoubleLog[log_max];
 	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 
-	int i,j;
-	for (i=0;i<num_pmem;i++)
+	int i,j,cnt=0;
+	for (i=0;i<num_log;i++)
 	{
-		for (j=0;j<num_log;j++)
+		for (j=0;j<num_pmem;j++) // inner loop pmem
 		{
 			char path[100];
 			int len;
-			sprintf(path,"/mnt/pmem%d/log%d",i,j);
+			sprintf(path,"/mnt/pmem%d/log%d",j,i);
 			len = strlen(path);
 			path[len] = 0;
-			doubleLogList[i*num_log+j].init(path,log_size);
+			doubleLogList[cnt++].init(path,log_size);
 		}
 	}
 }
@@ -87,12 +87,14 @@ void DoubleLog::clean()
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
+const size_t ble_len = sizeof(BaseLogEntry);
+const size_t header_size = sizeof(uint64_t);
+
 void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
 {
 	//fixed size;
-	const size_t len = sizeof(BaseLogEntry);
 
-	if (head_p+len >= end_p) // check the space
+	if (head_p+ble_len >= end_p) // check the space
 	{
 		// need turn
 //		tail_offset = 0; // ------------------------------------------------------- not this
@@ -104,33 +106,22 @@ void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
 	// 1 write kv
 	//baseLogEntry->dver = 0;
 	unsigned char* src = (unsigned char*)baseLogEntry_p;
-	const size_t header_size = sizeof(uint64_t);
-	memcpy(head_p+header_size,src+header_size,len-header_size);
-	pmem_persist(head_p+header_size,len-header_size);
+	memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
+	pmem_persist(head_p+header_size,ble_len-header_size);
 	_mm_sfence();
 
-	// 4 add dram list
+}
 
-	// 5 add to key list
+#define VERSION
 
-	// 2 lock index ------------------------------------- lock from here
-
-	// 3 get and write new version <- persist
-	uint64_t version;
-	//--------------------------------------------------- make version
+void DoubleLog::write_version(uint64_t version)
+{
+#ifdef VERSION
 	memcpy(head_p,&version,header_size);
 	pmem_persist(head_p,header_size);
 	_mm_sfence();
-
-	// 6 update index
-
-	// 7 unlock index -------------------------------------- lock to here
-
-	// 8 remove old dram list
-
-	head_p+=len;
-
-	// 9 check GC
+#endif
+	head_p+=ble_len;
 }
 
 // point hash - lock
