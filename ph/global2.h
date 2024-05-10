@@ -13,16 +13,21 @@ class PH_Interface
 {
 
 private:
+
+// moved to global but not good
+/*
 int num_thread;
 int num_pmem;
 int num_log;
+*/
+
 
 //thread_local PH_Query_Thread my_thread;
 void new_query_thread();
 void clean_query_thread();
 
 public:
-void global_init(int num_thread,int num_pmem,int num_log);
+void global_init(int num_thread,int num_pmem);
 void global_clean();
 
 //--------------------------------------------------------------

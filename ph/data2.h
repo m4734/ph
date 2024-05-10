@@ -1,5 +1,7 @@
 #include <cstdint>
 
+#define VERSION_SIZE 8
+#define KEY_SIZE 8
 #define VALUE_SIZE 100
 
 struct BaseLogEntry

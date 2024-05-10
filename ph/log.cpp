@@ -15,6 +15,8 @@ size_t log_size;
 int log_max;
 DoubleLog* doubleLogList;
 
+//#define INTERLEAVE
+
 void init_log(int num_pmem, int num_log)
 {
 
@@ -23,7 +25,7 @@ void init_log(int num_pmem, int num_log)
 	log_max = num_pmem*num_log;
 	doubleLogList = new DoubleLog[log_max];
 	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
-
+	
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)
 	{
@@ -31,7 +33,11 @@ void init_log(int num_pmem, int num_log)
 		{
 			char path[100];
 			int len;
+#ifdef INTERLEAVE
+			sprintf(path,"/mnt/pmem4/log%d",cnt);
+#else
 			sprintf(path,"/mnt/pmem%d/log%d",j,i);
+#endif
 			len = strlen(path);
 			path[len] = 0;
 			doubleLogList[cnt++].init(path,log_size);
@@ -90,16 +96,21 @@ void DoubleLog::clean()
 const size_t ble_len = sizeof(BaseLogEntry);
 const size_t header_size = sizeof(uint64_t);
 
-void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
+void DoubleLog::ready_log()
 {
-	//fixed size;
-
 	if (head_p+ble_len >= end_p) // check the space
 	{
 		// need turn
 //		tail_offset = 0; // ------------------------------------------------------- not this
 		head_p = pmemLogAddr;
 	}
+}
+
+void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
+{
+	//fixed size;
+
+	ready_log();
 
 	// use checksum or write twice
 
@@ -111,6 +122,27 @@ void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
 	_mm_sfence();
 
 }
+
+void DoubleLog::insert_log(uint64_t key,unsigned char *value)
+{
+	//fixed size;
+
+	ready_log();
+
+	// use checksum or write twice
+
+	// 1 write kv
+	//baseLogEntry->dver = 0;
+	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
+	memcpy(head_p+VERSION_SIZE, &key, sizeof(uint64_t));
+	memcpy(head_p+VERSION_SIZE+KEY_SIZE, value, VALUE_SIZE);
+//	pmem_persist(head_p+header_size,ble_len-header_size);
+	pmem_persist(head_p+VERSION_SIZE,KEY_SIZE+VALUE_SIZE);
+	_mm_sfence();
+
+}
+
+
 
 #define VERSION
 

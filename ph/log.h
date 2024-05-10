@@ -33,8 +33,12 @@ class DoubleLog
 	void init(char* filePath,size_t size);
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
+	void ready_log();
 	void insert_log(struct BaseLogEntry *baseLogEntry_p);
+	void insert_log(uint64_t key,unsigned char* value);
 	void write_version(uint64_t version);
+
+	inline unsigned char* get_head_p() { return head_p; }
 
 	std::atomic<uint8_t> use=0; 
 };

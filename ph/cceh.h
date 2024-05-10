@@ -74,7 +74,7 @@ struct KVP
 	volatile uint64_t value;
 }; // 8 + 8 = 16
 #endif
-#define KVP_DELETE (1<<62)
+#define KVP_DELETE (size_t(1)<<62)
 
 struct KVP // key value version pad pair
 {
@@ -155,8 +155,8 @@ class CCEH
 //	int insert2(const uint64_t &key,ValueEntry ve, int sn, int cn);
 //	volatile uint64_t* insert(unsigned char* const &key,ValueEntry &ve,void* unlock = 0);
 	
-	KVP* insert(uint64_t &key,std::atomic<uint8_t> **unlock_p); // lock
-	KVP* insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p); // lock
+	KVP* insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock); // lock
+	KVP* insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock); // lock
 
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
@@ -165,6 +165,7 @@ class CCEH
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);
+	void unlock_entry2(std::atomic<uint8_t> *lock_p,volatile uint8_t &read_lock);
 
 	private:
 
@@ -174,7 +175,8 @@ class CCEH
 	int sc,pic,bc,find_cnt;
 	uint64_t ctt1,ctt2,ctt3,ctt4;
 
-	std::atomic<uint8_t> dir_lock;
+//	std::atomic<uint8_t> dir_lock;
+	std::atomic<uint8_t> write_lock;
 
 	KVP zero_entry;
 	std::atomic<uint8_t> zero_lock;

@@ -1,5 +1,3 @@
-#include "cceh.h"
-#include "thread.h"
 
 #include <queue>
 #include <string.h> //memset
@@ -10,14 +8,28 @@
 
 #include <time.h> //test
 
+#include "cceh.h"
+#include "thread2.h"
+#include "lock.h"
+
 namespace PH
 {
+
+extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
+extern int num_thread;
+
+CCEH* hash_index;
+
 //std::queue <SEG*> seg_free_list;
 volatile unsigned int seg_free_cnt; // atomic?
 volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
 
 //#define FREE_SEG_LEN 10000 moved to thread.h
+
+#define FREE_SEG_LEN 10000
+#define FREE_QUEUE_LEN 100000
+
 SEG* free_seg_queue[FREE_SEG_LEN];
 
 std::atomic<uint8_t> free_seg_lock;
@@ -32,29 +44,6 @@ int max_index;
 
 //test
 uint64_t alloc_seg_cnt;
-
-
-void at_lock2(std::atomic<uint8_t> &lock)
-{
-	uint8_t z;
-	while(true)
-	{
-		z = 0;
-		if (lock.compare_exchange_strong(z,1))
-			return;
-	}
-}
-void at_unlock2(std::atomic<uint8_t> &lock)
-{
-	lock = 0;
-//	lock.store(0,std::memory_order_release);
-}
-
-int try_at_lock2(std::atomic<uint8_t> &lock)
-{
-	uint8_t z=0;
-	return lock.compare_exchange_strong(z,1);
-}
 
 uint64_t MurmurHash64A_L8 ( const void * key )
 {
@@ -103,7 +92,7 @@ uint64_t MurmurHash64A_L8 ( const void * key )
 
   return h;
 }
-
+#if 0
 inline unsigned char* CCEH::load_key(const uint64_t &key)
 {
 	return (unsigned char*)&key;
@@ -117,7 +106,7 @@ inline void CCEH::insert_key(volatile uint64_t &key1,unsigned char* const &key2,
 {
 	key1 = (*((uint64_t*)key2));
 }
-
+#endif
 inline uint64_t CCEH::hf(unsigned char* const &key) // len 8?
 {
 /*	
@@ -220,7 +209,7 @@ void free_seg(SEG* seg)
 	at_lock2(free_seg_lock);
 	if (seg_free_index+FREE_SEG_LEN/2 <= seg_free_cnt)
 	{
-		update_idle();
+//		update_idle(); // not now
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
 		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
@@ -281,9 +270,10 @@ void CCEH::init(int in_depth)
 		seg_list[i]->depth = depth;
 	}
 
-	/*failed = */inv0_value = 0;
+//	/*failed = */inv0_value = 0;
 
-	dir_lock = 0;
+//	dir_lock = 0;
+	write_lock = 0;
 	free_seg_lock = 0;
 
 	//test
@@ -349,9 +339,10 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 	if (zero_check(key))	
 	{
 		*ret = zero_entry.value;
-		if (zero_entry.version & KVP_DELETE)
+		if (zero_entry.version & (KVP_DELETE))
 			return false;
-		return true;
+		else
+			return true;
 //		return &inv0_value;
 //		ve_u.ve_64 = inv0_value;
 //return ve_u.ve;		
@@ -378,7 +369,7 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 //	const int ll = (hk >> (64-CL_BIT)) * KVP_PER_CL;
 //	const int ll = cn*KVP_PER_CL;
 //
-	ve_u.ve.node_offset = INIT_OFFSET;
+//	ve_u.ve.node_offset = INIT_OFFSET;
 
 	/*
 	int tl;
@@ -413,11 +404,12 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 	return false;
 }
 
-void CCEH::remove(unsigned char* const &key)
+//void CCEH::remove(unsigned char* const &key)
+void CCEH::remove(uint64_t &key)
 {
 
 // may not now
-
+#if 0
 	int sn,cn,i;
 //	uint64_t inv;
 	KVP* kvp_p;
@@ -490,6 +482,7 @@ retry:
 
 	// not found
 	return;
+#endif
 }
 
 void seg_gc()
@@ -515,6 +508,7 @@ void seg_gc()
 
 void CCEH::dir_double()
 {
+	printf("cceh dir double\n");
 		SEG** volatile new_list;
 	        SEG** volatile old_list;
 		old_list = (struct SEG** volatile)seg_list;
@@ -566,6 +560,7 @@ void print_seg(SEG* seg,int sn)
 }
 void CCEH::split(int sn) // seg locked
 {
+//	printf("split\n");
 	SEG* seg;
 	int i;
 //	uint64_t inv,mask;
@@ -598,13 +593,16 @@ void CCEH::split(int sn) // seg locked
 
 		while (1)
 		{
-		lock = dir_lock;
-			if (lock & SPLIT_MASK)
+//		lock = dir_lock;
+		lock = write_lock;
+//			if (lock & SPLIT_MASK)
+			if (lock)
 			{
 				at_unlock2(seg->lock);
 				return;
 			}
-			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
+//			if (dir_lock.compare_exchange_strong(lock,lock | SPLIT_MASK))
+			if (write_lock.compare_exchange_strong(lock,lock+1))
 				break;
 		}
 
@@ -613,11 +611,24 @@ void CCEH::split(int sn) // seg locked
 		if (seg->depth != depth) // impossible because dir lock
 		{
 			at_unlock2(seg->lock);
-			dir_lock-=SPLIT_MASK;
+//			dir_lock-=SPLIT_MASK;
+			write_lock--;
 			return;
 		}
 
-		while(dir_lock != SPLIT_MASK+1); // without me
+//		while(dir_lock != SPLIT_MASK+1); // without me
+		//lock separation
+		while(true)
+		{
+			for (i=0;i<num_thread;i++)
+			{
+				if (query_thread_list[i].run && query_thread_list[i].read_lock)
+					break;
+			}
+			if (i >= num_thread)
+				break;
+		}
+
 		//use no op
 
 //		while(dir_lock.compare_exchange_weak(0,1) == 0);
@@ -629,7 +640,8 @@ void CCEH::split(int sn) // seg locked
 
 		}
 
-		dir_lock-=SPLIT_MASK;
+//		dir_lock-=SPLIT_MASK;
+		write_lock--;
 //		dir_lock.unlock();
 
 //		dir_lock = 0;
@@ -802,18 +814,18 @@ void CCEH::split(int sn) // seg locked
 
 //volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
 
-KVVPP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p)
+KVP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock)
 {
-	KVVPP* ret;
+	KVP* ret;
 	while(true)
 	{
-		ret = insert_with_fail(key,unlock_p);
+		ret = insert_with_fail(key,unlock_p,read_lock);
 		if (ret != NULL)
 			return ret;
 	}
 }
 
-KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
+KVP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock)
 {
 //	int sn;
 //	uint64_t inv;
@@ -835,13 +847,16 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 	const int cl_shift = 64-CL_BIT;
 	int l;
 	SEG* seg;
-	KKVVP* kkvvp_p;
+	KVP* kvp_p;
 
 //	if (key == (void*)INV0 && key_size == 8)	 // wrong!
+#if 0
 	if (zero_check(key))	
 	{
+		printf("zero\n");
 		at_lock2(zero_lock);
 		*unlock_p = &zero_lock;
+		dir_lock++; // need but ok?
 		return &zero_entry;
 		#if 0
 		inv0_value = ve_u.ve_64;
@@ -850,21 +865,50 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 		return /*(ValueEntry_u*)&*/&inv0_value;
 #endif
 	}
+#endif
 
 //	int lock = dir_lock;
 	// just use cas
-	if (dir_lock & SPLIT_MASK)
-		return NULL;
-//	if (dir_lock.compare_exchange_strong(lock,lock+1) == 0)
-//		return 0;
-	dir_lock++;		
-	if (dir_lock & SPLIT_MASK)
+//	if (dir_lock & SPLIT_MASK)
+#if 1
+	if (write_lock)
 	{
-		dir_lock--;
+		printf("splittt\n");
 		return NULL;
 	}
-
+#endif
+//	if (dir_lock.compare_exchange_strong(lock,lock+1) == 0)
+//		return 0;
+//return NULL;
+//	dir_lock++;		
+//	dir_lock--;
+	++read_lock;
+//	return NULL;
+//	if (dir_lock & SPLIT_MASK)
+#if 1
+	if (write_lock)
+	{
+		printf("split?\n");
+//		dir_lock--;
+		--read_lock;
+		return NULL;
+	}
+#endif
+//dir_lock--;
+	--read_lock;
+//return NULL;
+//	*unlock_p = &seg->lock;
+//	return (KVP*)seg;
 	
+
+	if (zero_check(key))	
+	{
+		printf("zero\n");
+		at_lock2(zero_lock);
+		*unlock_p = &zero_lock;
+		return &zero_entry;
+	}
+
 	hk = hf(key);
 //	hk2 = *(uint32_t*)(&hk);
 //retry:
@@ -904,8 +948,15 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 //	seg->seg_lock->lock();
 	if (try_at_lock2(seg->lock) == 0)
 	{
+		/*
+		static int seg_fail=0;
+		seg_fail++;
+		if (seg_fail % 1000 == 0)
+			printf("seg fail %d\n",seg_fail);
+			*/
 //		printf("seg lock fail\n");
-		dir_lock--;
+//		dir_lock--;
+		--read_lock;
 		return NULL;
 	}
 //	if (!point)
@@ -940,7 +991,7 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 		return 1;
 	}
 #endif
-#if 1
+//#if 1
 //	kvp_p = (KVP*)((unsigned char*)(seg->cl) + cn*CL_SIZE);
 /*	KVP* const */kvp_p = (KVP*)seg->cl;
 	l = cn*KVP_PER_CL;	
@@ -986,7 +1037,7 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 //			_mm_sfence(); // value first!!!!
 
 
-			*unlock = &seg->lock;
+			*unlock_p = &seg->lock;
 #ifdef ctt
 			_mm_mfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
@@ -1068,14 +1119,16 @@ KVVPP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p)
 //}
 
 //	goto retry;
-	dir_lock--;	
+//	dir_lock--;	
+	--read_lock;
 //	printf("CCEH insert failed\n");
 	return NULL;//failed;	
 //never
 //	return NULL;
 }
 
-void CCEH::unlock_entry2(void* unlock)
+//void CCEH::unlock_entry2(void* unlock)
+void CCEH::unlock_entry2(std::atomic<uint8_t> *lock_p,volatile uint8_t &read_lock)
 {
 //	SEG* seg = (SEG*)unlock;
 //	printf("unlock_entry2 vep %p seg %p\n",vep,seg);
@@ -1090,15 +1143,18 @@ void CCEH::unlock_entry2(void* unlock)
 	*/
 	if (!point)
 		printf("ue errror?\n");
-	if (unlock)		
+	if (lock_p)		
 	{
-		at_unlock2(((SEG*)unlock)->lock);
-		dir_lock--;
+//		at_unlock2(((SEG*)unlock)->lock);
+		at_unlock2(*lock_p);
+//		dir_lock--;
+		--read_lock;
 	}
 }
 
 void init_cceh()
 {
+	printf("init cceh\n");
 	seg_free_cnt = seg_free_min = seg_free_index = 0;
 	printf("sizeof KVP %ld\n",sizeof(KVP));
 	printf("sizeof CL %ld\n",sizeof(CL));
@@ -1121,10 +1177,12 @@ void init_cceh()
 //			key_cnt[i] = 0;
 	}
 
+	hash_index = new CCEH(20); // M
 }
 
 void clean_cceh()
 {
+	printf("clean cceh\n");
 	seg_gc();
 
 	printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
@@ -1141,6 +1199,7 @@ void clean_cceh()
 		free(key_cnt);
 	}
 
+	delete hash_index;
 
 }
 

@@ -29,6 +29,8 @@ class PH_Thread
 
 	void init();
 	void clean();
+
+//	unsigned char pad[64];
 };
 
 extern thread_local PH_Thread* my_thread;
