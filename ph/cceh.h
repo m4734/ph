@@ -4,7 +4,7 @@
 #include<atomic>
 //#include <mutex>
 
-#include "global.h" //value entry
+//#include "global.h" //value entry
 
 //#define INV0 0
 #define INV0 0xffffffffffffffff
@@ -74,7 +74,6 @@ struct KVP
 	volatile uint64_t value;
 }; // 8 + 8 = 16
 #endif
-#define KVP_DELETE (size_t(1)<<62)
 
 struct KVP // key value version pad pair
 {

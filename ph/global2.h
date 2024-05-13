@@ -37,6 +37,8 @@ int delete_op(uint64_t key);
 int scan_op(uint64_t start_key,uint64_t end_key);
 int next_op(unsigned char* buf);
 
+int end_op();
+
 };
 
 }

@@ -63,6 +63,78 @@ void clean_log()
 
 #define SKIP_MEMSET
 
+void DoubleLog::alloc_new_dram_pool()
+{
+//	printf("aaaaaa %lu\n",sizeof(Dram_List)*DRAM_LIST_UNIT);
+	dram_list_pool[dram_list_pool_cnt] = (Dram_List*)malloc(sizeof(Dram_List)*DRAM_LIST_UNIT);
+	++dram_list_pool_cnt;
+	if (dram_list_pool_cnt >= dram_list_pool_max)
+		printf("impl realloc\n"); // not now
+	dram_list_pool_alloced = 0;
+}
+
+Dram_List* DoubleLog::alloc_new_dram_list()
+{
+	if (free_dram_list_head)
+	{
+		Dram_List* rv = free_dram_list_head;
+		free_dram_list_head = free_dram_list_head->next;
+		return rv;
+	}
+
+	if (dram_list_pool_alloced >= DRAM_LIST_UNIT)
+	{
+//		printf("new?\n");
+		alloc_new_dram_pool();
+	}
+	return &dram_list_pool[dram_list_pool_cnt-1][dram_list_pool_alloced++];
+}
+
+Dram_List* DoubleLog::append_new_dram_list(uint64_t version,uint64_t key,unsigned char* value)
+{
+	Dram_List* dl = alloc_new_dram_list();
+	dl->ble.header = version;
+	dl->ble.key = key;
+	memcpy(dl->ble.value,value,VALUE_SIZE);
+
+	if (dram_list_head)
+		dram_list_head->next = dl;
+	dl->prev = dram_list_head;
+	dl->next = NULL;
+	dram_list_head = dl;
+
+	return dl;
+}
+
+void DoubleLog::remove_dram_list(Dram_List* dl)
+{
+	//remove from
+	if (dl->next && dl->prev)
+	{
+		dl->next->prev = dl->prev;
+		dl->prev->next = dl->next;
+	}
+	else if (dl->next) // tail
+	{
+		dl->next->prev = NULL;
+		dram_list_tail = dl->next;
+	}
+	else if (dl->prev) // head
+	{
+		dl->prev->next = NULL;
+		dram_list_head = dl->prev;
+	}
+	else
+	{
+		dram_list_head = dram_list_tail = NULL;
+	}
+
+	//add to
+	//prev?
+	dl->next = free_dram_list_head;
+	free_dram_list_head = dl;
+}
+
 void DoubleLog::init(char* filePath, size_t req_size)
 {
 //	tail_offset = LOG_BLOCK_SIZE;
@@ -85,11 +157,26 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	head_p = pmemLogAddr;
 	tail_p = pmemLogAddr;
 	end_p = pmemLogAddr + my_size;
+
+	dram_list_pool_max = LIST_POOL_UNIT;
+	dram_list_pool = (Dram_List**)malloc(sizeof(Dram_List*)*dram_list_pool_max);
+	dram_list_pool_cnt = 0;
+	alloc_new_dram_pool();
+//	dram_list_pool_alloced = 0;
+
+	free_dram_list_head = NULL;
+	dram_list_head = dram_list_tail = NULL;
 }
 
 void DoubleLog::clean()
 {
 //	printf("%lu %lu\n",my_size,log_size);
+
+	int i;
+	for (i=0;i<dram_list_pool_cnt;i++)
+		free(dram_list_pool[i]);
+	free(dram_list_pool);
+
 	pmem_unmap(pmemLogAddr,my_size);
 }
 

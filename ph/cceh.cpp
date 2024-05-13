@@ -11,6 +11,7 @@
 #include "cceh.h"
 #include "thread2.h"
 #include "lock.h"
+#include "data2.h"
 
 namespace PH
 {
@@ -339,7 +340,7 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 	if (zero_check(key))	
 	{
 		*ret = zero_entry.value;
-		if (zero_entry.version & (KVP_DELETE))
+		if (zero_entry.version & (VER_DELETE))
 			return false;
 		else
 			return true;
@@ -1164,13 +1165,13 @@ void init_cceh()
 		r_mask[i] = r_mask[i-1]*2+1;
 
 //	if (key_size != 8) // ke yarray init
-	if (PH_KEY_SIZE != 8)
+	if (KEY_SIZE != 8)
 	{
 		key_array = (unsigned char**)malloc(sizeof(unsigned char*) * KEY_ARRAY_MAX);
 		key_cnt = (int*)malloc(sizeof(int*) * KEY_ARRAY_MAX);
 		key_array_cnt = 0;
 //		max_index = key_size*KEY_ARRAY_MAX;
-		max_index = PH_KEY_SIZE*KEY_ARRAY_MAX;
+		max_index = KEY_SIZE*KEY_ARRAY_MAX;
 		key_cnt[0] = max_index;
 		key_array[0] = NULL;
 //		for (i=0;i<KEY_ARRAY_MAX;i++)

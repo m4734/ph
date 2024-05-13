@@ -119,12 +119,21 @@ void PH_Query_Thread::clean()
 }
 
 #define INDEX
+#define USE_DRAM_CACHE
 
 int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 {
 	update_free_cnt();
 
-//	unsigned char* head_p;
+	my_log->ready_log();
+	unsigned char* new_addr;
+	unsigned char* old_addr;
+	unsigned char* head_p = my_log->get_head_p();
+
+#ifdef USE_DRAM_CACHE
+	Dram_List* dl;
+#endif
+
 #if 0 
 	unsigned char* checksum_i = (unsigned char*)&ble;
 	int i,cnt=0;
@@ -155,9 +164,6 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 */
 
 
-	// 4 add dram list
-
-
 	// 2 lock index ------------------------------------- lock from here
 
 #ifdef INDEX
@@ -165,26 +171,37 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	std::atomic<uint8_t> *seg_lock;
 	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 //	kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
+	old_addr = (unsigned char*)kvp_p->value;
 #endif
 
 	// 3 get and write new version <- persist
 
-	uint64_t version;
+	uint64_t old_version,new_version;
 #ifdef INDEX
-	
-	version = kvp_p->version;
-	++version;
-	
+	old_version = kvp_p->version;
+	new_version = old_version+1;
+	remove_loc_mask(new_version);
+	set_prev_loc(new_version,old_version);
+	set_loc_hot(new_version);
+#endif
+	// 4 add dram list
+#ifdef USE_DRAM_CACHE
+	dl = my_log->append_new_dram_list(new_version,key,value);
+	new_addr = (unsigned char*)dl; // DRAM CACHE
+#else
+	new_addr = head_p; // PMEM
 #endif
 
 	//--------------------------------------------------- make version
 //if (kvp_p)
-	my_log->write_version(version);
+	my_log->write_version(new_version);
 
 	// 6 update index
 #ifdef INDEX
 	
-	kvp_p->value = (uint64_t)my_log->get_head_p();
+//	kvp_p->value = (uint64_t)my_log->get_head_p();
+	kvp_p->value = (uint64_t)new_addr;
+	kvp_p->version = new_version;
 	_mm_sfence(); // value first!
 	if (kvp_p->key != key) // not so good
 	{
@@ -202,7 +219,14 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	// 5 add to key list if new key
 
 	// 8 remove old dram list
-
+#ifdef USE_DRAM_CACHE
+	if (is_loc_hot(old_version))
+	{
+//		printf("old\n");
+		dl = (Dram_List*)old_addr; 
+		my_log->remove_dram_list(dl);
+	}
+#endif
 	// 9 check GC
 
 	return 0;
@@ -210,6 +234,12 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf)
 {
 	update_free_cnt();
+
+	uint64_t ret;
+	hash_index->read(key,&ret);
+	if (ret == 0)
+		return -1;
+	memcpy(buf,((unsigned char*)ret)+VERSION_SIZE+KEY_SIZE,VALUE_SIZE);
 
 	return 0;
 }

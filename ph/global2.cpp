@@ -96,4 +96,11 @@ int PH_Interface::next_op(unsigned char* buf)
 	return my_query_thread->next_op(buf);
 }
 
+int PH_Interface::end_op()
+{
+	if (my_query_thread)
+		my_query_thread->clean();
+	return 0;
+}
+
 }
