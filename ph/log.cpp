@@ -2,6 +2,7 @@
 #include <string.h>
 #include <x86intrin.h>
 #include <stdio.h> // test
+#include <sys/mman.h> // mmap
 
 #include "log.h"
 //#include "data.h"
@@ -62,7 +63,7 @@ void clean_log()
 }
 
 #define SKIP_MEMSET
-
+#if 0
 void DoubleLog::alloc_new_dram_pool()
 {
 //	printf("aaaaaa %lu\n",sizeof(Dram_List)*DRAM_LIST_UNIT);
@@ -134,6 +135,7 @@ void DoubleLog::remove_dram_list(Dram_List* dl)
 	dl->next = free_dram_list_head;
 	free_dram_list_head = dl;
 }
+#endif
 
 void DoubleLog::init(char* filePath, size_t req_size)
 {
@@ -154,6 +156,7 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	memset(pmemLogAddr,0,my_size);
 #endif
 
+#if 0
 	head_p = pmemLogAddr;
 	tail_p = pmemLogAddr;
 	end_p = pmemLogAddr + my_size;
@@ -166,17 +169,32 @@ void DoubleLog::init(char* filePath, size_t req_size)
 
 	free_dram_list_head = NULL;
 	dram_list_head = dram_list_tail = NULL;
+#endif
+
+	head_offset = tail_offset = 0;
+	end_offset = my_size;
+
+#ifdef USE_DRAM_CACHE
+	dramLogAddr = (unsigned char*)mmap(NULL,req_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+	if (!dramLogAddr)
+		printf("dram mmap error\n");
+#endif
+
 }
 
 void DoubleLog::clean()
 {
 //	printf("%lu %lu\n",my_size,log_size);
-
+#if 0
 	int i;
 	for (i=0;i<dram_list_pool_cnt;i++)
 		free(dram_list_pool[i]);
 	free(dram_list_pool);
+#endif
 
+#ifdef USE_DRAM_CACHE
+	munmap(dramLogAddr,my_size);
+#endif
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
@@ -185,19 +203,17 @@ const size_t header_size = sizeof(uint64_t);
 
 void DoubleLog::ready_log()
 {
-	if (head_p+ble_len >= end_p) // check the space
+	if (head_offset+ble_len >= end_offset) // check the space
 	{
 		// need turn
 //		tail_offset = 0; // ------------------------------------------------------- not this
-		head_p = pmemLogAddr;
+		head_offset = 0;
 	}
 }
-
+#if 0
 void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
 {
 	//fixed size;
-
-	ready_log();
 
 	// use checksum or write twice
 
@@ -209,26 +225,53 @@ void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
 	_mm_sfence();
 
 }
-
-void DoubleLog::insert_log(uint64_t key,unsigned char *value)
+#endif
+void DoubleLog::insert_pmem_log(uint64_t key,unsigned char *value)
 {
 	//fixed size;
-
-	ready_log();
 
 	// use checksum or write twice
 
 	// 1 write kv
 	//baseLogEntry->dver = 0;
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
+	unsigned char* head_p = pmemLogAddr + head_offset;
 	memcpy(head_p+VERSION_SIZE, &key, sizeof(uint64_t));
 	memcpy(head_p+VERSION_SIZE+KEY_SIZE, value, VALUE_SIZE);
 //	pmem_persist(head_p+header_size,ble_len-header_size);
 	pmem_persist(head_p+VERSION_SIZE,KEY_SIZE+VALUE_SIZE);
 	_mm_sfence();
-
 }
+#if 0
+const size_t CACHE_MASK = 0xffffffffffffffc0; // 64 // 1111...11000000
+void clwb(unsigned char* addr,size_t len)
+{
+	int i;
+	unsigned char* start = (addr & CACHE_MASK);
+	if (len % 64 > 0)
+		len+=64;
+	for (i=0;i<len;i+=64)
+		_mm_clwb((void*)(start+i));
+}
+#endif
+void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *value)
+{
+	//fixed size;
 
+	// use checksum or write twice
+
+	// 1 write kv
+	//baseLogEntry->dver = 0;
+	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
+	unsigned char* head_p = dramLogAddr + head_offset;
+	memcpy(head_p,&version,VERSION_SIZE);
+	memcpy(head_p+VERSION_SIZE, &key, KEY_SIZE);
+	memcpy(head_p+VERSION_SIZE+KEY_SIZE, value, VALUE_SIZE);
+
+//	_mm_clwb();
+//	clwb(head_p,ENTRY_SIZE);
+	_mm_sfence();
+}
 
 
 #define VERSION
@@ -236,11 +279,11 @@ void DoubleLog::insert_log(uint64_t key,unsigned char *value)
 void DoubleLog::write_version(uint64_t version)
 {
 #ifdef VERSION
-	memcpy(head_p,&version,header_size);
-	pmem_persist(head_p,header_size);
+	memcpy(pmemLogAddr+head_offset ,&version,header_size);
+	pmem_persist(pmemLogAddr + head_offset ,header_size);
 	_mm_sfence();
 #endif
-	head_p+=ble_len;
+	head_offset+=ble_len;
 }
 
 // point hash - lock

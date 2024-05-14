@@ -8,6 +8,13 @@
 #define VALUE_SIZE 100
 #define KEY_RANGE 1000000
 
+#define THREAD_NUM 16
+#define PMEM_NUM 4
+
+//#define THREAD_NUM 1
+//#define PMEM_NUM 1
+
+
 enum OP_TYPE
 {
 	INSERT_OP,
@@ -70,12 +77,6 @@ void *run(void *parameter)
 	para->phi->end_op();
 	return NULL;
 }
-
-//#define THREAD_NUM 16
-//#define PMEM_NUM 4
-
-#define THREAD_NUM 1
-#define PMEM_NUM 1
 
 //#define LOG_PER_PMEM 4
 void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)

@@ -15,6 +15,7 @@
 const size_t VERSION_SIZE = 8;
 const size_t KEY_SIZE = 8;
 const size_t VALUE_SIZE = 100;
+const size_t ENTRY_SIZE = VERSION_SIZE + KEY_SIZE + VALUE_SIZE;
 
 const size_t VER_DRAM_VALID = (size_t(1)<<63);
 const size_t VER_DELETE = (size_t(1)<<62);
@@ -48,6 +49,18 @@ void inline set_loc_hot(uint64_t &version)
 void inline set_prev_loc(uint64_t &dst_version,uint64_t &src_version)
 {
 	dst_version |= ((src_version&VER_CL_MASK) >> 2);
+}
+void inline set_valid(uint64_t &version)
+{
+	version |= VER_DRAM_VALID;
+}
+void inline set_invalid(uint64_t &version)
+{
+	version &= (~VER_DRAM_VALID);
+}
+void inline set_invalid(uint64_t *version)
+{
+	*version &= (~VER_DRAM_VALID);
 }
 
 

@@ -119,20 +119,15 @@ void PH_Query_Thread::clean()
 }
 
 #define INDEX
-#define USE_DRAM_CACHE
 
 int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 {
 	update_free_cnt();
 
-	my_log->ready_log();
 	unsigned char* new_addr;
 	unsigned char* old_addr;
-	unsigned char* head_p = my_log->get_head_p();
-
-#ifdef USE_DRAM_CACHE
-	Dram_List* dl;
-#endif
+	unsigned char* pmem_head_p = my_log->get_pmem_head_p();
+	unsigned char* dram_head_p = my_log->get_dram_head_p();
 
 #if 0 
 	unsigned char* checksum_i = (unsigned char*)&ble;
@@ -153,7 +148,8 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	//baseLogEntry->dver = 0;
 //	my_log->insert_log(&ble);
 
-	my_log->insert_log(key,value);
+	my_log->ready_log();
+	my_log->insert_pmem_log(key,value);
 
 //	my_log->ready_log();
 //	head_p = my_log->get_head_p();
@@ -186,10 +182,10 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 #endif
 	// 4 add dram list
 #ifdef USE_DRAM_CACHE
-	dl = my_log->append_new_dram_list(new_version,key,value);
-	new_addr = (unsigned char*)dl; // DRAM CACHE
+	new_addr = dram_head_p;
+	my_log->insert_dram_log(new_version,key,value);
 #else
-	new_addr = head_p; // PMEM
+	new_addr = pmem_head_p; // PMEM
 #endif
 
 	//--------------------------------------------------- make version
@@ -223,8 +219,9 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	if (is_loc_hot(old_version))
 	{
 //		printf("old\n");
-		dl = (Dram_List*)old_addr; 
-		my_log->remove_dram_list(dl);
+//		dl = (Dram_List*)old_addr; 
+//		my_log->remove_dram_list(dl);
+		set_invalid((uint64_t*)old_addr);
 	}
 #endif
 	// 9 check GC
