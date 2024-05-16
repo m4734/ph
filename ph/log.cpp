@@ -175,7 +175,7 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	end_offset = my_size;
 
 #ifdef USE_DRAM_CACHE
-	dramLogAddr = (unsigned char*)mmap(NULL,req_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+	dramLogAddr = (unsigned char*)mmap(NULL,req_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
 	if (!dramLogAddr)
 		printf("dram mmap error\n");
 #endif
