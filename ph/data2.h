@@ -1,4 +1,8 @@
 #include <cstdint>
+#include <atomic>
+
+namespace PH
+{
 
 /*
 #define VERSION_SIZE 8
@@ -73,3 +77,65 @@ struct BaseLogEntry
 }; // 8 + 8 + 100 = 116 + 4 = 120
 // need 8bytes align
 
+struct NodeOffset
+{
+	uint32_t file_num;
+	uint32_t offset;
+};
+
+const size_t NODE_SIZE = 4096; // 4KB
+const size_t NODE_BUFFER = NODE_SIZE-8; // unstable
+const size_t POOL_MAX = 1024;
+const size_t POOL_SIZE = 1024*1024*1024;//1GB
+const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
+
+struct Node
+{
+	NodeOffset next_offset; // 8 byte
+//	uint64_t next_offset;
+	unsigned char buffer[NODE_BUFFER];
+};
+
+struct NodeMeta
+{
+//	volatile uint64_t next_offset;
+	volatile NodeMeta* next_p;
+//	size_t pool_num;
+//	uint64_t 
+	NodeOffset my_offset;
+	Node* node;
+
+};
+
+class NodeAllocator
+{
+	public:
+	void init();
+	void clean();
+
+//	Node* get_node(NodeMeta* nm);
+	void alloc_pool();
+
+	private:
+	unsigned char** nodeMetaPoolList;
+	unsigned char** nodePoolList;
+
+	//volatile?? lock
+	int pool_cnt;
+	int* node_cnt;
+
+	NodeMeta* start_node;
+	NodeMeta* end_node;
+
+	volatile NodeMeta* free_head_p=NULL;
+
+	
+	std::atomic<uint8_t> lock=0;
+
+	NodeMeta* alloc_node();
+	void free_node(NodeMeta* nm);
+	size_t alloc_cnt;
+
+};
+
+}
