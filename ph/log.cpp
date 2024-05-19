@@ -6,16 +6,19 @@
 #include <unistd.h> //usleep
 
 #include "log.h"
-//#include "data.h"
+#include "data2.h"
 //#include "hash.h"
 
 //using namespace PH;
 namespace PH
 {
 
+
+//const size_t ble_len = sizeof(BaseLogEntry);
+
 size_t log_size;
 int log_max;
-DoubleLog* doubleLogList;
+DoubleLog* doubleLogList; // should be private
 
 //#define INTERLEAVE
 
@@ -42,6 +45,7 @@ void init_log(int num_pmem, int num_log)
 #endif
 			len = strlen(path);
 			path[len] = 0;
+			doubleLogList[cnt].log_num = cnt;
 			doubleLogList[cnt++].init(path,log_size);
 		}
 	}
@@ -247,10 +251,10 @@ void DoubleLog::insert_pmem_log(uint64_t key,unsigned char *value)
 	//baseLogEntry->dver = 0;
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
 	unsigned char* head_p = pmemLogAddr + head_offset;
-	memcpy(head_p+VERSION_SIZE, &key, sizeof(uint64_t));
-	memcpy(head_p+VERSION_SIZE+KEY_SIZE, value, VALUE_SIZE);
+	memcpy(head_p+HEADER_SIZE, &key, sizeof(uint64_t));
+	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
 //	pmem_persist(head_p+header_size,ble_len-header_size);
-	pmem_persist(head_p+VERSION_SIZE,KEY_SIZE+VALUE_SIZE);
+	pmem_persist(head_p+HEADER_SIZE,KEY_SIZE+VALUE_SIZE);
 	_mm_sfence();
 }
 #if 0
@@ -275,9 +279,9 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *va
 	//baseLogEntry->dver = 0;
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
 	unsigned char* head_p = dramLogAddr + head_offset;
-	memcpy(head_p,&version,VERSION_SIZE);
-	memcpy(head_p+VERSION_SIZE, &key, KEY_SIZE);
-	memcpy(head_p+VERSION_SIZE+KEY_SIZE, value, VALUE_SIZE);
+	memcpy(head_p,&version,HEADER_SIZE);
+	memcpy(head_p+HEADER_SIZE, &key, KEY_SIZE);
+	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
 
 //	_mm_clwb();
 //	clwb(head_p,ENTRY_SIZE);

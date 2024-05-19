@@ -5,6 +5,7 @@
 
 #include "skiplist.h"
 #include "lock.h"
+#include "data2.h"
 
 namespace PH
 {
@@ -15,8 +16,13 @@ const size_t NODE_POOL_SIZE = 1024*1024;
 const size_t KEY_MIN = 0x0000000000000000;
 const size_t KEY_MAX = 0xffffffffffffffff;
 
-const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
+//const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
+// should be private
+Skiplist* skiplist;
+PH_List* list;
+
+extern NodeAllocator* nodeAllocator;
 
 size_t getRandomLevel()
 {
@@ -91,7 +97,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 	while(node_alloc_lock);
 	at_lock2(node_alloc_lock);
 
-	if (node_free_head)
+	if (node_free_head) // no pmem alloc...
 	{
 		Skiplist_Node* rv = node_free_head;
 		node_free_head = node_free_head->next[0];
@@ -113,6 +119,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 	node->lock = 0;
 	node->delete_lock = 0;
 	node->setLevel();
+	node->my_node = nodeAllocator->alloc_node();
 
 //	if (node_pool_cnt < NODE_POOL_SIZE)
 	{
@@ -309,6 +316,7 @@ List_Node* PH_List::alloc_list_node()
 	node->lock = 0;
 	node->next = NULL;
 	node->prev = NULL;
+	node->my_node = nodeAllocator->alloc_node();
 
 //	if (node_pool_cnt < NODE_POOL_SIZE)
 	{

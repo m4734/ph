@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+//#include "skiplist.h"
 //#include "thread2.h"
 
 namespace PH
@@ -41,6 +42,10 @@ int scan_op(uint64_t start_key,uint64_t end_key);
 int next_op(unsigned char* buf);
 
 int end_op();
+
+
+//Skiplist* skiplist;
+//PH_List* list;
 
 };
 

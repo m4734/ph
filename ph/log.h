@@ -6,7 +6,7 @@
 #include <atomic>
 
 #include "global2.h"
-#include "data2.h"
+//#include "data2.h"
 
 namespace PH
 {
@@ -22,7 +22,6 @@ const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
 const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
 
-const size_t ble_len = sizeof(BaseLogEntry);
 const size_t header_size = sizeof(uint64_t);
 
 
@@ -99,6 +98,8 @@ class DoubleLog
 	Dram_List* append_new_dram_list(uint64_t version,uint64_t key,unsigned char* value);
 	void remove_dram_list(Dram_List* dl);
 #endif
+	int log_num;
+
 	std::atomic<uint8_t> use=0;
 	std::atomic<uint8_t> evict_alloc=0;
 };

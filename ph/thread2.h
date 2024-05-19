@@ -1,7 +1,10 @@
 //#include "log.h"
+//#include "global2.h"
 
 #include <cstdint>
 #include <atomic>
+
+//#include "skiplist.h"
 
 namespace PH
 {
@@ -11,6 +14,9 @@ namespace PH
 //thread_local Thread my_thread;
 
 class DoubleLog;
+
+//class Skiplist;
+//class PH_List;
 
 class PH_Query_Thread
 {
@@ -33,12 +39,14 @@ int next_op(unsigned char* buf);
 
 int local_seg_free_cnt=0;
 int run = 0;
-std::atomic<uint8_t> lock=0;
 
+std::atomic<uint8_t> lock=0;
 //	std::atomic<uint8_t> read_lock=0;
 	volatile uint8_t read_lock = 0;
 
 	unsigned char padding[64];
+
+
 };
 
 class PH_Evict_Thread
@@ -51,6 +59,9 @@ class PH_Evict_Thread
 	void init();
 	void clean();
 	void run();
+
+//	Skiplist* skiplist;
+//	PH_List* list;
 
 	std::atomic<uint8_t> alloc=0;
 };

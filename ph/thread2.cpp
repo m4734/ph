@@ -7,6 +7,8 @@
 #include "log.h"
 #include "lock.h"
 #include "cceh.h"
+#include "skiplist.h"
+#include "data2.h"
 
 namespace PH
 {
@@ -18,6 +20,7 @@ extern int num_evict_thread;
 extern DoubleLog* doubleLogList;
 extern volatile unsigned int seg_free_cnt;
 extern CCEH* hash_index;
+extern const size_t ble_len;
 
 
 // need to be private...
@@ -25,6 +28,9 @@ extern CCEH* hash_index;
 PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
+extern Skiplist* skiplist;
+extern PH_List* list;
+//extern const size_t MAX_LEVEL;
 
 //---------------------------------------------- seg
 
@@ -243,7 +249,7 @@ int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf)
 	hash_index->read(key,&ret);
 	if (ret == 0)
 		return -1;
-	memcpy(buf,((unsigned char*)ret)+VERSION_SIZE+KEY_SIZE,VALUE_SIZE);
+	memcpy(buf,((unsigned char*)ret)+HEADER_SIZE+KEY_SIZE,VALUE_SIZE);
 
 	return 0;
 }
@@ -335,6 +341,8 @@ int try_hard_evict(DoubleLog* dl)
 
 	dl->head_sum+=ble_len;
 
+	// do we need flush?
+
 	return 1;
 }
 
@@ -342,19 +350,31 @@ int try_soft_evict(DoubleLog* dl) // need return???
 {
 	unsigned char* addr;
 	size_t adv_offset=0;
-	uint64_t header;
+	uint64_t header,key;
 	int rv = 0;
 //	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
+
+	Skiplist_Node* prev[MAX_LEVEL];
+	Skiplist_Node* next[MAX_LEVEL];
+	Skiplist_Node* node;
+	LogLoc ll;
 	
 	while(dl->tail_sum+adv_offset + ble_len <= dl->head_sum && adv_offset <= SOFT_EVICT_SPACE )
 	{
 		addr = dl->dramLogAddr + ((dl->tail_sum + adv_offset) % dl->my_size);
 		header = *(uint64_t*)addr;
+		key = *(uint64_t*)(addr+HEADER_SIZE);
 
 		if (is_valid(header))
 		{
 			rv = 1;
 			// regist the log num and size_t
+			node = skiplist->find_node(key,prev,next);
+			ll.log_num = dl->log_num;
+			ll.offset = dl->tail_sum+adv_offset;
+			node->entry_list.push_back(ll);
+			// need to try flush
+//			node->try_hot_to_warm();
 		}
 
 		adv_offset+=ble_len;

@@ -16,10 +16,10 @@ namespace PH
 #define VER_PL_LOC2 (size_t(1)<<58)
 */
 
-const size_t VERSION_SIZE = 8;
+const size_t HEADER_SIZE = 8;
 const size_t KEY_SIZE = 8;
 const size_t VALUE_SIZE = 100;
-const size_t ENTRY_SIZE = VERSION_SIZE + KEY_SIZE + VALUE_SIZE;
+const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
 
 const size_t VER_DRAM_VALID = (size_t(1)<<63);
 const size_t VER_DELETE = (size_t(1)<<62);
@@ -31,6 +31,7 @@ const size_t VER_PL_LOC2 = (size_t(1)<<58);
 const size_t VER_LOC_MASK = (VER_CL_LOC1+VER_CL_LOC2+VER_PL_LOC1+VER_PL_LOC2);
 const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
 const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
+
 
 // 0 0
 // 0 1 hot
@@ -81,6 +82,8 @@ struct BaseLogEntry
 }; // 8 + 8 + 100 = 116 + 4 = 120
 // need 8bytes align
 
+const size_t ble_len = sizeof(BaseLogEntry);
+
 struct NodeOffset
 {
 	uint32_t file_num;
@@ -118,9 +121,14 @@ class NodeAllocator
 	void clean();
 
 //	Node* get_node(NodeMeta* nm);
-	void alloc_pool();
+	NodeMeta* alloc_node();
+	void free_node(NodeMeta* nm);
 
 	private:
+
+
+	void alloc_pool();
+
 	unsigned char** nodeMetaPoolList;
 	unsigned char** nodePoolList;
 
@@ -136,8 +144,6 @@ class NodeAllocator
 	
 	std::atomic<uint8_t> lock=0;
 
-	NodeMeta* alloc_node();
-	void free_node(NodeMeta* nm);
 	size_t alloc_cnt;
 
 };

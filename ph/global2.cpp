@@ -5,12 +5,19 @@
 #include "thread2.h"
 #include "cceh.h"
 #include "lock.h"
+#include "skiplist.h"
+#include "data2.h"
 
 namespace PH
 {
 
 extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
+
+extern Skiplist* skiplist;
+extern PH_List* list;
+
+extern NodeAllocator* nodeAllocator;
 
 thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
@@ -88,15 +95,28 @@ void PH_Interface::global_init(int n_t,int n_p,int n_e)
 
 	init_cceh();
 
+	nodeAllocator = new NodeAllocator;
+	nodeAllocator->init();
+
 //	init_evict();
+	skiplist = new Skiplist;
+	list = new PH_List;
+	skiplist->init();
+	list->init();
 
 }
 void PH_Interface::global_clean()
 {
 	printf("global clean\n");
 
-	clean_cceh();
+	list->clean();
+	skiplist->clean();
+	delete list;
+	delete skiplist;
 
+	nodeAllocator->clean();
+
+	clean_cceh();
 	clean_log();
 }
 

@@ -10,6 +10,8 @@
 namespace PH
 {
 
+	NodeAllocator* nodeAllocator;
+
 	extern int num_pmem;
 
 	void inline linkNext(NodeMeta* nm)
