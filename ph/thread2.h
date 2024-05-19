@@ -7,6 +7,7 @@ namespace PH
 {
 
 #define QUERY_THREAD_MAX 100
+#define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
 class DoubleLog;
@@ -38,6 +39,20 @@ std::atomic<uint8_t> lock=0;
 	volatile uint8_t read_lock = 0;
 
 	unsigned char padding[64];
+};
+
+class PH_Evict_Thread
+{
+	private:
+	DoubleLog** log_list;
+	int log_cnt;
+
+	public:
+	void init();
+	void clean();
+	void run();
+
+	std::atomic<uint8_t> alloc=0;
 };
 
 unsigned int min_seg_free_cnt();

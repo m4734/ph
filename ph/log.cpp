@@ -3,6 +3,7 @@
 #include <x86intrin.h>
 #include <stdio.h> // test
 #include <sys/mman.h> // mmap
+#include <unistd.h> //usleep
 
 #include "log.h"
 //#include "data.h"
@@ -172,6 +173,7 @@ void DoubleLog::init(char* filePath, size_t req_size)
 #endif
 
 	head_offset = tail_offset = 0;
+	head_sum = tail_sum = 0;
 	end_offset = my_size;
 
 #ifdef USE_DRAM_CACHE
@@ -180,6 +182,9 @@ void DoubleLog::init(char* filePath, size_t req_size)
 		printf("dram mmap error\n");
 #endif
 
+
+	use = 0;
+	evict_alloc = 0;
 }
 
 void DoubleLog::clean()
@@ -198,8 +203,6 @@ void DoubleLog::clean()
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
-const size_t ble_len = sizeof(BaseLogEntry);
-const size_t header_size = sizeof(uint64_t);
 
 void DoubleLog::ready_log()
 {
@@ -207,8 +210,16 @@ void DoubleLog::ready_log()
 	{
 		// need turn
 //		tail_offset = 0; // ------------------------------------------------------- not this
+		head_sum+=(end_offset-head_offset);
 		head_offset = 0;
 	}
+//	while(head_offset <= tail_offset && tail_offset < head_offset+ble_len)
+	while(tail_sum+ble_len > head_sum)
+	{
+		printf("log full\n");
+		usleep(1);// sleep
+	}
+
 }
 #if 0
 void DoubleLog::insert_log(struct BaseLogEntry *baseLogEntry_p)
@@ -284,6 +295,7 @@ void DoubleLog::write_version(uint64_t version)
 	_mm_sfence();
 #endif
 	head_offset+=ble_len;
+	head_sum+=ble_len;
 }
 
 // point hash - lock

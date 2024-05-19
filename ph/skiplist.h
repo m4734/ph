@@ -69,5 +69,40 @@ class Skiplist
 //	void split(
 };
 
+class List_Node
+{
+	public:
+	List_Node() : key(0), next(NULL), prev(NULL), lock(0) {};
+	size_t key;
+	List_Node* next;
+	List_Node* prev;
+
+	std::atomic<uint8_t> lock;
+};
+
+class PH_List
+{
+	public:
+	List_Node* start_node;
+	List_Node* end_node;
+
+	List_Node** node_pool_list;
+	size_t node_pool_cnt;
+	size_t node_pool_list_cnt;
+
+	std::atomic<uint8_t> node_alloc_lock;
+	List_Node* node_free_head;
+
+	void init();
+	void clean();
+
+	List_Node* alloc_list_node();
+	void free_list_node(List_Node* node);
+
+	List_Node* find_node(size_t key,List_Node* node);
+	void insert_node(List_Node* prev,List_Node* node);
+	void delete_node(List_Node* node);
+
+};
 
 }

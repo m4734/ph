@@ -19,6 +19,13 @@ const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 //const size_t LIST_POOL_UNIT = 1024;
 //#define LOG_BLOCK_SIZE 4096
 
+const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
+const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
+
+const size_t ble_len = sizeof(BaseLogEntry);
+const size_t header_size = sizeof(uint64_t);
+
+
 void init_log(int num_pmem,int num_log);
 void clean_log();
 /*
@@ -31,6 +38,10 @@ struct Dram_List
 */
 class DoubleLog
 {
+
+
+	public: // lazy
+
 //	size_t log_size;
 	size_t my_size;
 //	size_t head_offset,tail_offset;
@@ -42,8 +53,14 @@ class DoubleLog
 
 	unsigned char* dramLogAddr;
 //	unsigned char* dram_head_p;
-	size_t head_offset;
-	size_t tail_offset;
+
+
+	volatile size_t head_offset;
+	volatile size_t tail_offset;
+
+	volatile size_t head_sum;
+	volatile size_t tail_sum;
+
 	size_t end_offset;
 
 #if 0
@@ -73,11 +90,17 @@ class DoubleLog
 
 	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }
 	inline unsigned char* get_dram_head_p() { return dramLogAddr+head_offset; }
+//	inline size_t get_empty_space() { return (tail_offset+my_size-head_offset) % my_size; }
+	inline unsigned char* get_dram_tail_p() { return dramLogAddr+tail_offset; }
+
+//	inline size_t get_head_sum() { return head_sum; }
+//	inline size_t get_tail_sum() { return tail_sum; }
 #if 0
 	Dram_List* append_new_dram_list(uint64_t version,uint64_t key,unsigned char* value);
 	void remove_dram_list(Dram_List* dl);
 #endif
-	std::atomic<uint8_t> use=0; 
+	std::atomic<uint8_t> use=0;
+	std::atomic<uint8_t> evict_alloc=0;
 };
 }
 

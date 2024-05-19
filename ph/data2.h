@@ -66,6 +66,10 @@ void inline set_invalid(uint64_t *version)
 {
 	*version &= (~VER_DRAM_VALID);
 }
+bool inline is_valid(uint64_t &version)
+{
+	return version & VER_DRAM_VALID;
+}
 
 
 struct BaseLogEntry

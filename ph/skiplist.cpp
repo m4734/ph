@@ -232,5 +232,144 @@ void Skiplist::insert_node(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_No
 	}
 }
 
+//---------------------------------------------- list
+
+void PH_List::init()
+{
+//	node_pool_list = (Tree_Node**)malloc(sizeof(Skiplist_Node*) * NODE_POOL_LIST_SIZE);
+	node_pool_list = new List_Node*[NODE_POOL_LIST_SIZE];
+
+//	node_pool_list[0] = (Tree_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
+	node_pool_list[0] = new List_Node[NODE_POOL_SIZE];
+	node_pool_cnt=0;
+	node_pool_list_cnt = 0;
+//	node_free_head = NULL;
+
+//	node_alloc_lock = 0;
+
+	int i;
+
+	start_node = alloc_list_node();
+	start_node->key = KEY_MIN;
+
+	end_node = alloc_list_node();
+	end_node->key = KEY_MAX;
+
+	List_Node* node = alloc_list_node();
+	start_node->next = node;
+	node->next = end_node;
+	node->prev = start_node;
+	end_node->prev = node;
+
+}
+
+void PH_List::clean()
+{
+	int i;
+	for (i=0;i<=node_pool_list_cnt;i++)
+	{
+//		free(node_pool_list[i]);
+		delete node_pool_list[i];
+	}
+//	free(node_pool_list);
+	delete node_pool_list;
+}
+
+
+List_Node* PH_List::alloc_list_node()
+{
+	//just use lock
+	while(node_alloc_lock);
+	at_lock2(node_alloc_lock);
+
+	if (node_free_head)
+	{
+		List_Node* rv = node_free_head;
+		node_free_head = node_free_head->next;
+
+		rv->lock = 0;
+		rv->next = NULL;
+		rv->prev = NULL;
+
+		at_unlock2(node_alloc_lock);
+		return rv;
+	}
+	
+
+	if (node_pool_cnt >= NODE_POOL_SIZE)
+	{
+		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
+			printf("no space for node!\n");
+		++node_pool_list_cnt;
+		node_pool_list[node_pool_list_cnt] = new List_Node[NODE_POOL_SIZE];//(Skiplist_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
+		node_pool_cnt = 0;
+	}
+
+	List_Node* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+	node->lock = 0;
+	node->next = NULL;
+	node->prev = NULL;
+
+//	if (node_pool_cnt < NODE_POOL_SIZE)
+	{
+		node_pool_cnt++;
+		at_unlock2(node_alloc_lock);
+		return node;
+	}
+}
+
+void PH_List::free_list_node(List_Node* node)
+{
+	at_lock2(node_alloc_lock);
+	node->next = node_free_head;
+	node_free_head = node;
+	at_unlock2(node_alloc_lock);
+}
+
+List_Node* PH_List::find_node(size_t key,List_Node* node) 
+{
+
+	while(node->next && node->next->key < key)
+	{
+		node = node->next;
+	}
+	return node;
+
+}
+
+void PH_List::delete_node(List_Node* node) // never delete head or tail
+{
+
+	List_Node* prev = node->prev;
+	List_Node* next = node->next;
+
+	at_lock2(prev->lock);
+	at_lock2(node->lock);
+	at_lock2(next->lock); // always not null
+
+	prev->next = next;
+	next->prev = prev;
+
+	at_unlock2(next->lock);
+	at_unlock2(node->lock);
+	at_unlock2(prev->lock);
+
+}
+
+void PH_List::insert_node(List_Node* prev, List_Node* node)
+{
+	List_Node* next = prev->next;
+
+	at_lock2(prev->lock);
+	at_lock2(next->lock); // always not null
+
+	prev->next = node;
+	node->next = next;
+	node->prev = prev;
+	next->prev = node;
+
+	at_unlock2(next->lock);
+	at_unlock2(prev->lock);
+}
 
 }

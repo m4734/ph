@@ -26,8 +26,11 @@ int num_log;
 void new_query_thread();
 void clean_query_thread();
 
+void new_evict_thread();
+void clean_evict_thread();
+
 public:
-void global_init(int num_thread,int num_pmem);
+void global_init(int num_thread,int num_pmem,int num_evict);
 void global_clean();
 
 //--------------------------------------------------------------

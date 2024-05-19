@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <cstring>
 #include <x86intrin.h> //fence
+#include <unistd.h> //usleep
 
 #include "thread2.h"
 #include "log.h"
@@ -11,12 +12,18 @@ namespace PH
 {
 
 extern int num_thread;
+extern int num_evict_thread;
 extern int log_max;
+extern int num_evict_thread;
 extern DoubleLog* doubleLogList;
 extern volatile unsigned int seg_free_cnt;
 extern CCEH* hash_index;
 
+
+// need to be private...
+
 PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
+PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
 
 //---------------------------------------------- seg
@@ -259,5 +266,128 @@ int PH_Query_Thread::next_op(unsigned char* buf)
 	return 0;
 }
 
+//--------------------------------------------------------------------------------
+
+void PH_Evict_Thread::init()
+{
+
+	int ln = log_max / num_evict_thread;
+
+	log_cnt = 0;
+	log_list = new DoubleLog*[ln];
+
+	int i;
+	for (i=0;i<log_max;i++)
+	{
+		while (doubleLogList[i].evict_alloc == 0)
+		{
+//			if (doubleLogList[i].use.compare_exchange_strong(z,1))
+			if (try_at_lock2(doubleLogList[i].evict_alloc))
+			{
+				log_list[log_cnt++] = &doubleLogList[i];
+				break;
+			}
+		}
+		if (log_cnt >= ln)
+			break;
+	}
+
+	for (i=log_cnt;i<ln;i++)
+		log_list[i] = NULL;
+}
+
+void PH_Evict_Thread::clean()
+{
+	int i;
+	for (i=0;i<log_cnt;i++)
+	{
+		if (log_list[i]) // don't need
+			free(log_list[i]);
+	}
+}
+
+int try_hard_evict(DoubleLog* dl)
+{
+//	size_t head_sum = dl->get_head_sum();
+//	size_t tail_sum = dl->get_tail_sum();
+
+	unsigned char* addr;
+	uint64_t header;
+
+	//pass invalid
+	while(dl->tail_sum+ble_len <= dl->head_sum)
+	{
+		addr = dl->dramLogAddr+(dl->tail_sum%dl->my_size);
+		header = *(uint64_t*)addr;
+
+		if (is_valid(header))
+			break;
+		dl->tail_sum+=ble_len;
+	}
+
+	//check
+	if (dl->tail_sum + HARD_EVICT_SPACE <= dl->head_sum)
+		return 0;
+
+	//need hard evict
+	addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
+	// evict now
+
+	dl->head_sum+=ble_len;
+
+	return 1;
+}
+
+int try_soft_evict(DoubleLog* dl) // need return???
+{
+	unsigned char* addr;
+	size_t adv_offset=0;
+	uint64_t header;
+	int rv = 0;
+//	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
+	
+	while(dl->tail_sum+adv_offset + ble_len <= dl->head_sum && adv_offset <= SOFT_EVICT_SPACE )
+	{
+		addr = dl->dramLogAddr + ((dl->tail_sum + adv_offset) % dl->my_size);
+		header = *(uint64_t*)addr;
+
+		if (is_valid(header))
+		{
+			rv = 1;
+			// regist the log num and size_t
+		}
+
+		adv_offset+=ble_len;
+		// don't move tail sum
+	}
+	return rv;
+}
+
+int evict_log(DoubleLog* dl)
+{
+	int diff=0;
+	if (try_hard_evict(dl))
+		diff = 1;
+	if (try_soft_evict(dl))
+		diff = 1;
+	return diff;		
+}
+
+void PH_Evict_Thread::run()
+{
+	int i,done;
+//	while(done == 0)
+	while(true)
+	{
+		done = 1;
+		for (i=0;i<log_cnt;i++)
+		{
+			if (evict_log(log_list[i]))
+				done = 0;
+		}
+		if (done)
+			usleep(1);
+	}
+}
 
 }

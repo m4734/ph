@@ -10,6 +10,7 @@
 
 #define THREAD_NUM 16
 #define PMEM_NUM 4
+#define EVICT_NUM 8
 
 //#define THREAD_NUM 1
 //#define PMEM_NUM 1
@@ -132,7 +133,7 @@ int main()
 
 	PH::PH_Interface phi;
 
-	phi.global_init(THREAD_NUM,PMEM_NUM);
+	phi.global_init(THREAD_NUM,PMEM_NUM,EVICT_NUM);
 
 	size_t ops=1000000000;
 

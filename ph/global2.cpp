@@ -10,16 +10,21 @@ namespace PH
 {
 
 extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
+extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
 thread_local PH_Query_Thread* my_query_thread = NULL;
+thread_local PH_Evict_Thread* my_evict_thread = NULL;
 
 // should be private....
 int num_thread;
 int num_pmem;
 int num_log;
+int num_evict_thread;
 
 void PH_Interface::new_query_thread()
 {
+	if (my_query_thread)
+		printf("new query thread error\n");
 	int i;
 	for (i=0;i<QUERY_THREAD_MAX;i++)
 	{
@@ -44,16 +49,46 @@ void PH_Interface::clean_query_thread()
 	my_query_thread = NULL;
 }
 
-void PH_Interface::global_init(int n_t,int n_p)
+void PH_Interface::new_evict_thread()
+{
+	if (my_evict_thread)
+		printf("new evict thread error\n");
+	int i;
+	for (i=0;i<EVICT_THREAD_MAX;i++)
+	{
+		while(evict_thread_list[i].alloc == 0)
+		{
+			if (try_at_lock2(evict_thread_list[i].alloc))
+				my_evict_thread = &evict_thread_list[i];
+		}
+		if (my_evict_thread)
+			break;
+	}
+
+	my_evict_thread->init();
+}
+
+void PH_Interface::clean_evict_thread()
+{
+	my_evict_thread->clean();
+
+	at_unlock2(my_evict_thread->alloc);
+	my_evict_thread=NULL;
+}
+
+void PH_Interface::global_init(int n_t,int n_p,int n_e)
 {
 	printf("global init\n");
 	num_thread = n_t;
 	num_pmem = n_p;
 	num_log = (n_t-1)/n_p+1;
+	num_evict_thread = n_e;
 
 	init_log(num_pmem,num_log);
 
 	init_cceh();
+
+//	init_evict();
 
 }
 void PH_Interface::global_clean()
