@@ -105,6 +105,20 @@ class DoubleLog
 	std::atomic<uint8_t> use=0;
 	std::atomic<uint8_t> evict_alloc=0;
 };
+
+extern DoubleLog* doubleLogList;
+
+inline unsigned char* value_to_log_addr(uint64_t value)
+{
+	return doubleLogList[(value & VALUE_SECOND_MASK)>>VALUE_SECOND_SHIFT].dramLogAddr + (value & VALUE_THIRD_MASK);
+}
+
+inline uint64_t log_addr_to_value(int log_num,size_t offset)
+{
+	return size_t(1) << VALUE_FIRST_SHIFT + size_t(log_num) << VALUE_SECOND_SHIFT + offset;
+}
+
+
 }
 
 #endif

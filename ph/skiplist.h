@@ -1,12 +1,15 @@
 #include<vector>
 #include<atomic>
 
+#include "addr.h"
+
 namespace PH
 {
 
 const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
-class NodeMeta;
+//class NodeMeta;
+//struct NodeAddr;
 
 #if 0
 class Skiplist_Node;
@@ -39,7 +42,8 @@ class List_Node
 	List_Node* next;
 	List_Node* prev;
 
-	NodeMeta* my_node;
+//	NodeMeta* my_node;
+	NodeAddr data_node_addr;
 
 	std::atomic<uint8_t> lock;
 };
@@ -47,6 +51,8 @@ class List_Node
 class PH_List
 {
 	public:
+
+	List_Node* empty_node;
 	List_Node* start_node;
 	List_Node* end_node;
 
@@ -89,7 +95,8 @@ class Skiplist_Node
 	size_t level;
 	size_t built;
 	List_Node* list_node;
-	NodeMeta* my_node;
+//	NodeMeta* my_node;
+	NodeAddr data_node_addr;
 
 //	Tree_Node* next;
 	std::atomic<uint8_t> lock;
@@ -102,6 +109,7 @@ class Skiplist_Node
 class Skiplist
 {
 	private:
+	Skiplist_Node* empty_node;
 	Skiplist_Node* start_node;
 	Skiplist_Node* end_node;
 

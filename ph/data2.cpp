@@ -15,13 +15,26 @@ namespace PH
 
 	extern int num_pmem;
 
-	void linkNext(NodeMeta* nm)
+	void NodeAllocator::linkNext(NodeAddr nodeAddr)
 	{
-		memset(nm->node,0,NODE_SIZE);
-		nm->node->next_offset = nm->my_offset;
-		pmem_persist(&nm->node->next_offset,sizeof(NodeOffset));
+		NodeMeta* nm = nodeAddr_to_nodeMeta(nodeAddr);
+		Node* pmem_node = nodeAddr_to_node(nodeAddr);
+		memset(pmem_node,0,NODE_SIZE);
+		pmem_node->next_offset = nm->next_p->my_offset;
+		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
 		_mm_sfence();
-		nm->size = sizeof(NodeOffset);
+//		nm->size = sizeof(NodeAddr);
+
+	}
+
+	void NodeAllocator::linkNext(NodeMeta* nm)
+	{
+		Node* pmem_node = nodeAddr_to_node(nm->my_offset);
+		memset(pmem_node,0,NODE_SIZE);
+		pmem_node->next_offset = nm->next_p->my_offset;
+		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
+		_mm_sfence();
+//		nm->size = sizeof(NodeAddr);
 	}
 
 	void NodeAllocator::init()
@@ -35,13 +48,16 @@ namespace PH
 		free_head_p = NULL;
 		alloc_cnt = 0;
 
+//		free_head = 0;
+//		free_tail = 0;
+
 		alloc_pool();
 
-		start_node = alloc_node();
-		end_node = alloc_node();
+//		start_node = alloc_node();
+//		end_node = alloc_node();
 
-		start_node->next_p = end_node;
-		linkNext(start_node);
+//		start_node->next_p = end_node;
+//		linkNext(start_node);
 
 	}
 	void NodeAllocator::clean()
@@ -82,7 +98,8 @@ namespace PH
 		pool_cnt += num_pmem;
 	}
 
-	NodeMeta* NodeAllocator::alloc_node()
+//	NodeMeta* NodeAllocator::alloc_node()
+	NodeAddr NodeAllocator::alloc_node()
 	{
 		at_lock2(lock);
 		NodeMeta *nm;
@@ -91,7 +108,8 @@ namespace PH
 			nm = (NodeMeta*)free_head_p;
 			free_head_p = free_head_p->next_p;
 			at_unlock2(lock);
-			return nm;
+//			return nm;
+			return nm->my_offset;
 		}
 		
 		if (node_cnt[pool_cnt - num_pmem + alloc_cnt % num_pmem] >= POOL_NODE_MAX)
@@ -99,12 +117,12 @@ namespace PH
 
 		size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
 
-		nm = (NodeMeta*)nodeMetaPoolList[node_cnt[pool_num]];
+		nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
 //		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
-		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-		nm->my_offset.file_num = pool_num;
+//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
+		nm->my_offset.pool_num = pool_num;
 		nm->my_offset.offset = node_cnt[pool_num];
-		nm->size = 0;
+		nm->size = sizeof(NodeAddr);
 		nm->slot_cnt = 0;
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
@@ -114,7 +132,8 @@ namespace PH
 		++alloc_cnt;
 
 		at_unlock2(lock);
-		return nm;
+//		return nm;
+		return nm->my_offset;
 	}
 
 	void NodeAllocator::free_node(NodeMeta* nm)

@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <atomic>
 
+#include "addr.h"
+
 namespace PH
 {
 
@@ -33,11 +35,21 @@ const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
 const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
 
 const size_t VER_NUM_MASK = (size_t(1)<<58)-1;
+/*
+inline unsigned char* value_to_node_addr(uint64_t value)
+{
+	return nodePoolList[(value & VALUE_SECOND_MASK) >> VALUE_SECOND_SHIFT] + value & VALUE_THIRD_MASK;
+}
 
-size_t inline get_ver_num(uint64_t version)
+
+inline size_t get_ver_num(uint64_t version)
 {
 	return version & VER_NUM_MASK;
 }
+*/
+
+
+
 
 // 0 0
 // 0 1 hot
@@ -112,12 +124,13 @@ struct BaseLogEntry
 // need 8bytes align
 
 const size_t ble_len = sizeof(BaseLogEntry);
-
+/*
 struct NodeOffset
 {
 	uint32_t file_num;
 	uint32_t offset;
 };
+*/
 
 const size_t NODE_SIZE = 4096; // 4KB
 const size_t NODE_BUFFER_SIZE = NODE_SIZE-8; // unstable
@@ -129,25 +142,35 @@ const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
 struct Node
 {
-	NodeOffset next_offset; // 8 byte
+//	NodeOffset next_offset; // 8 byte
 //	uint64_t next_offset;
+	NodeAddr next_offset;
 	unsigned char buffer[NODE_BUFFER_SIZE];
 };
 
 struct NodeMeta
 {
 //	volatile uint64_t next_offset;
-	volatile NodeMeta* next_p;
+//	volatile NodeMeta* next_p;
+	NodeMeta* next_p;
 	size_t size;
 //	size_t pool_num;
 //	uint64_t 
-	NodeOffset my_offset;
-	Node* node;
+//	NodeOffset my_offset;
+//	uint64_t my_offset;
+	NodeAddr my_offset;
+//	Node* node;
 	bool valid[NODE_SLOT_MAX];
 	int slot_cnt;
+
+	std::atomic<uint8_t> lock;
 };
 
-void linkNext(NodeMeta* nm);
+
+//void linkNext(NodeMeta* nm);
+//void linkNext(NodeAddr nodeAddr);
+
+
 
 class NodeAllocator
 {
@@ -156,25 +179,36 @@ class NodeAllocator
 	void clean();
 
 //	Node* get_node(NodeMeta* nm);
-	NodeMeta* alloc_node();
+	//NodeMeta* alloc_node();
+	NodeAddr alloc_node();
 	void free_node(NodeMeta* nm);
 
-	private:
+//	private:
+	public:
 
+
+	void linkNext(NodeMeta* nm);
+	void linkNext(NodeAddr nodeAddr);
 
 	void alloc_pool();
 
 	unsigned char** nodeMetaPoolList;
 	unsigned char** nodePoolList;
+//	NodeMeta** nodeMetaPoolList;
+//	Node** nodePoolList;
+
 
 	//volatile?? lock
 	int pool_cnt;
 	int* node_cnt;
 
-	NodeMeta* start_node;
-	NodeMeta* end_node;
+//	NodeMeta* start_node;
+//	NodeMeta* end_node;
 
-	volatile NodeMeta* free_head_p=NULL;
+//	size_t free_head;
+//	size_t free_tail;
+//	volatile NodeMeta* free_head_p=NULL;
+	NodeMeta* free_head_p;
 
 	
 	std::atomic<uint8_t> lock=0;
@@ -182,5 +216,16 @@ class NodeAllocator
 	size_t alloc_cnt;
 
 };
+
+extern NodeAllocator* nodeAllocator;
+
+inline Node* nodeAddr_to_node(NodeAddr nodeAddr)
+{
+	return (Node*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.offset);
+}
+inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
+{
+	return (NodeMeta*)(nodeAllocator->nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.offset);
+}
 
 }

@@ -101,10 +101,17 @@ void PH_Interface::global_init(int n_t,int n_p,int n_e)
 	nodeAllocator->init();
 
 //	init_evict();
-	skiplist = new Skiplist;
+
+// list fisrt
+// alloc 0 list start
+// alloc 1 list end
+// alloc 2 skiplist start
+// alloc 3 skiplist end
+
 	list = new PH_List;
-	skiplist->init();
 	list->init();
+	skiplist = new Skiplist;
+	skiplist->init();
 
 }
 void PH_Interface::global_clean()

@@ -9,6 +9,12 @@
 
 namespace PH
 {
+ // 2 // 10 // 52
+const size_t VALUE_FIRST_MASK = 0xc000000000000000; // 11000000 ...
+const int VALUE_FIRST_SHIFT = 62;
+const size_t VALUE_SECOND_MASK = 0x3ff0000000000000; // 001111 ... 00
+const int VALUE_SECOND_SHIFT = 52;
+const size_t VALUE_THIRD_MASK = 0x000fffffffffffff;
 
 class PH_Interface
 {
