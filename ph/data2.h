@@ -32,6 +32,12 @@ const size_t VER_LOC_MASK = (VER_CL_LOC1+VER_CL_LOC2+VER_PL_LOC1+VER_PL_LOC2);
 const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
 const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
 
+const size_t VER_NUM_MASK = (size_t(1)<<58)-1;
+
+size_t inline get_ver_num(uint64_t version)
+{
+	return version & VER_NUM_MASK;
+}
 
 // 0 0
 // 0 1 hot
@@ -43,14 +49,33 @@ bool inline is_loc_hot(uint64_t version)
 {
 	return (((version & VER_CL_LOC1) == 0) && (version & VER_CL_LOC2));
 }
+#if 0
 void inline remove_loc_mask(uint64_t &version)
 {
 	version &= VER_LOC_INV_MASK;
 }
-void inline set_loc_hot(uint64_t &version)
+#endif
+uint64_t inline set_loc_hot(uint64_t version)
 {
+	version &= VER_LOC_INV_MASK;
 	version |= VER_CL_LOC2;
+	return version;
 }
+uint64_t inline set_loc_cold(uint64_t version)
+{
+	version &= VER_LOC_INV_MASK;
+	version |= VER_CL_LOC1 | VER_CL_LOC2;
+	return version;
+}
+uint64_t inline set_loc_warm(uint64_t version)
+{
+	version &= VER_LOC_INV_MASK;
+	version |= VER_CL_LOC1;
+	return version;
+}
+
+
+
 void inline set_prev_loc(uint64_t &dst_version,uint64_t &src_version)
 {
 	dst_version |= ((src_version&VER_CL_MASK) >> 2);
@@ -100,7 +125,7 @@ const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
 const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
 
-const size_t NODE_SLOT_SIZE = NODE_BUFFER_SIZE/ble_len;
+const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
 struct Node
 {
@@ -118,7 +143,8 @@ struct NodeMeta
 //	uint64_t 
 	NodeOffset my_offset;
 	Node* node;
-	bool valid[NODE_SLOT_SIZE];
+	bool valid[NODE_SLOT_MAX];
+	int slot_cnt;
 };
 
 void linkNext(NodeMeta* nm);

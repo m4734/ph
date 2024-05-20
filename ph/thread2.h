@@ -32,6 +32,8 @@ class PH_Thread
 	volatile size_t local_seg_free_cnt;
 	size_t op_cnt;
 
+	size_t recent_log_tails[64];
+
 	unsigned char padding[64];
 };
 
@@ -77,5 +79,6 @@ class PH_Evict_Thread : public PH_Thread
 };
 
 unsigned int min_seg_free_cnt();
+size_t get_min_tail(int log_num);
 
 }

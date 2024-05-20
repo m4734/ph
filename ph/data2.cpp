@@ -105,6 +105,10 @@ namespace PH
 		nm->my_offset.file_num = pool_num;
 		nm->my_offset.offset = node_cnt[pool_num];
 		nm->size = 0;
+		nm->slot_cnt = 0;
+		int i;
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nm->valid[i] = false;
 
 		++node_cnt[pool_num];
 		++alloc_cnt;

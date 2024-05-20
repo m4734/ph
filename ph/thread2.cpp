@@ -55,6 +55,18 @@ unsigned int min_seg_free_cnt()
 	return min;
 }
 
+size_t get_min_tail(int log_num)
+{
+	int i;
+	size_t min = 0xffffffffffffffff;
+	for (i=0;i<num_query_thread;i++)
+	{
+		if (query_thread_list[i].run && min > query_thread_list[i].recent_log_tails[i])
+			min = query_thread_list[i].recent_log_tails[i];
+	}
+	return min;
+}
+
 void PH_Thread::update_free_cnt()
 {
 		op_cnt++;
@@ -92,6 +104,17 @@ void PH_Thread::update_free_cnt()
 	}
 	new_thread();
 #endif
+
+
+	// log tail update
+	if (op_cnt % 128 == 0)
+	{
+		int i;
+		for (i=0;i<log_max;i++)
+		{
+			recent_log_tails[i] = doubleLogList[i].tail_sum;
+		}
+	}
 }
 
 //-------------------------------------------------
@@ -125,6 +148,8 @@ void PH_Query_Thread::init()
 //	local_seg_free_cnt = INV9;
 	local_seg_free_cnt = seg_free_cnt;
 
+//	recent_log_tails = new size_t[log_num];
+
 	read_lock = 0;
 
 	run = 1;
@@ -136,6 +161,8 @@ void PH_Query_Thread::clean()
 	my_log = NULL;
 
 	run = 0;
+
+//	delete recent_log_tails;
 }
 
 #define INDEX
@@ -146,8 +173,8 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 
 	unsigned char* new_addr;
 	unsigned char* old_addr;
-	unsigned char* pmem_head_p = my_log->get_pmem_head_p();
-	unsigned char* dram_head_p = my_log->get_dram_head_p();
+	unsigned char* pmem_head_p;// = my_log->get_pmem_head_p();
+	unsigned char* dram_head_p;// = my_log->get_dram_head_p();
 
 #if 0 
 	unsigned char* checksum_i = (unsigned char*)&ble;
@@ -169,6 +196,10 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 //	my_log->insert_log(&ble);
 
 	my_log->ready_log();
+
+	pmem_head_p = my_log->pmemLogAddr + my_log->head_sum%my_log->my_size;
+	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
+
 	my_log->insert_pmem_log(key,value);
 
 //	my_log->ready_log();
@@ -196,9 +227,7 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 #ifdef INDEX
 	old_version = kvp_p->version;
 	new_version = old_version+1;
-	remove_loc_mask(new_version);
-	set_prev_loc(new_version,old_version);
-	set_loc_hot(new_version);
+	new_version = set_loc_hot(new_version);
 #endif
 	// 4 add dram list
 #ifdef USE_DRAM_CACHE
@@ -211,6 +240,7 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	//--------------------------------------------------- make version
 //if (kvp_p)
 	my_log->write_version(new_version);
+	my_log->head_sum+=ble_len;
 
 	// 6 update index
 #ifdef INDEX
@@ -363,7 +393,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 			while (key > ln->next->key)
 				ln = ln->next;
 
-			for (i=0;i<NODE_SLOT_SIZE;i++)
+			for (i=0;i<NODE_SLOT_MAX;i++)
 			{
 				if (ln->my_node->valid[i] == false)
 				{
@@ -371,27 +401,30 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 					if (kvp_p->value != (uint64_t)addr) // moved
 					{
-						hash_index->unlock_entry2(seg_lock,read_lock);
+						hash_index->unlock_entry2(seg_lock,read_lock); // unlock
 						break;
 					}
 
 
 					pmem_entry_write((unsigned char*)ln->my_node->node + sizeof(NodeOffset) + ble_len*i , addr, ble_len);
-					ln->my_node->valid[i] = true;
+					ln->my_node->valid[i] = true; // validate
 
 					// modify hash index here
 //					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+
+//					set_loc_cold(kvp_p->version);
+					kvp_p->version = set_loc_cold(kvp_p->version);
 					kvp_p->value = (uint64_t)addr;
 					_mm_sfence();
 					hash_index->unlock_entry2(seg_lock,read_lock);
 					
 
-					nm->valid[cnt] = false;
+					nm->valid[cnt] = false; //invalidate
 					cnt++;
 					break;
 				}
 			}
-			if (i >= NODE_SLOT_SIZE) // need split
+			if (i >= NODE_SLOT_MAX) // need split
 			{
 				//split here
 				continue;
@@ -399,6 +432,8 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 		}
 		offset+=ble_len;
 	}
+
+	// split or init
 
 }
 
@@ -417,6 +452,9 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 	Node* dst_node = node->my_node->node;
 
 	uint64_t* old_torn_header = NULL;
+	bool moved[NODE_SLOT_MAX] = {false,};
+
+	std::atomic<uint8_t>* seg_lock;
 /*
 	if (node->my_node->entry_sum == 0) // impossible???
 	{
@@ -424,7 +462,7 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 		write_size+=sizeof(NodeOffset);
 	}
 	*/
-	if (node->torn_left)
+	if (node->torn_left) // prepare torn right
 	{
 		dl = &doubleLogList[node->torn_entry.log_num];
 		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
@@ -441,8 +479,11 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 		header = (uint64_t*)addr;
 		if (dl->tail_sum > ll.offset || is_valid(header) == false)
+		{
+			node->entry_list[i].log_num = -1; // invalid
 			continue;
-		memcpy(temp_node.buffer,addr,ble_len);
+		}
+		memcpy(temp_node.buffer+write_size,addr,ble_len);
 		write_size+=ble_len;
 	}
 
@@ -460,25 +501,60 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 		node->torn_left = ble_len-node->torn_right;
 		write_size-=node->torn_right;
 		pmem_node_nt_write(dst_node, &temp_node,node->my_node->size,write_size);
-		--entry_list_cnt;
+		--entry_list_cnt; // for torn
 	}
-	node->my_node->size+=write_size;
 
 	// invalidate
 
+	KVP* kvp_p;
+	size_t key;
+	unsigned char* dst_addr = (unsigned char*)dst_node + node->my_node->size;
+
 	if (old_torn_header)
-		set_invalid(old_torn_header);
+	{
+		key = *(uint64_t*)((unsigned char*)old_torn_header+HEADER_SIZE);
+		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+		if (kvp_p->value == (uint64_t)old_torn_header)
+		{
+			kvp_p->value = (uint64_t)dst_addr;
+			kvp_p->version = set_loc_warm(kvp_p->version);
+			node->my_node->valid[node->my_node->slot_cnt++] = true; // validate
+		}
+		else
+			node->my_node->valid[node->my_node->slot_cnt++] = false; // validate fail
+
+		hash_index->unlock_entry2(seg_lock,read_lock);
+		set_invalid(old_torn_header); // invalidate
+		dst_addr+=ble_len;
+	}
 
 	for (i-0;i<entry_list_cnt;i++)
 	{
 		ll = node->entry_list[i];
+		if (ll.log_num == -1)
+			continue;
 		dl = &doubleLogList[ll.log_num];
 		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 		header = (uint64_t*)addr;
-		if (dl->tail_sum > ll.offset || is_valid(header) == false)
-			continue;
-		set_invalid(header);
+		key = *(uint64_t*)(addr+HEADER_SIZE);
+//		if (dl->tail_sum > ll.offset || is_valid(header) == false)
+//			continue;
+		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+		if (kvp_p->value == (uint64_t)addr)
+		{
+			kvp_p->value = (uint64_t)dst_addr;
+			kvp_p->version = set_loc_warm(kvp_p->version);
+			node->my_node->valid[node->my_node->slot_cnt++] = true; // validate
+		}
+		else
+			node->my_node->valid[node->my_node->slot_cnt++] = false; // validate fail
+
+		hash_index->unlock_entry2(seg_lock,read_lock);
+		set_invalid(header); // invalidate
+		dst_addr+=ble_len;
 	}
+
+	node->my_node->size+=write_size;
 	node->entry_list.clear();
 
 }
@@ -567,6 +643,7 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 
 			if (node->my_node->size + node->torn_left + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
 			{
+				// warm is full
 				hot_to_warm(node,true);
 				warm_to_cold(node);
 			}

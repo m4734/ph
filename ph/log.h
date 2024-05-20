@@ -54,13 +54,15 @@ class DoubleLog
 //	unsigned char* dram_head_p;
 
 
-	volatile size_t head_offset;
-	volatile size_t tail_offset;
+//	volatile size_t head_offset;
+//	volatile size_t tail_offset;
 
 	volatile size_t head_sum;
 	volatile size_t tail_sum;
 
-	size_t end_offset;
+//	size_t end_offset;
+
+	size_t min_tail_sum;
 
 #if 0
 	Dram_List** dram_list_pool = NULL; //1024*1024
@@ -87,10 +89,10 @@ class DoubleLog
 	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value);
 	void write_version(uint64_t version);
 
-	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }
-	inline unsigned char* get_dram_head_p() { return dramLogAddr+head_offset; }
+//	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }
+//	inline unsigned char* get_dram_head_p() { return dramLogAddr+head_offset; }
 //	inline size_t get_empty_space() { return (tail_offset+my_size-head_offset) % my_size; }
-	inline unsigned char* get_dram_tail_p() { return dramLogAddr+tail_offset; }
+//	inline unsigned char* get_dram_tail_p() { return dramLogAddr+tail_offset; }
 
 //	inline size_t get_head_sum() { return head_sum; }
 //	inline size_t get_tail_sum() { return tail_sum; }

@@ -7,6 +7,7 @@
 
 #include "log.h"
 #include "data2.h"
+#include "thread2.h"
 //#include "hash.h"
 
 //using namespace PH;
@@ -176,9 +177,7 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	dram_list_head = dram_list_tail = NULL;
 #endif
 
-	head_offset = tail_offset = 0;
 	head_sum = tail_sum = 0;
-	end_offset = my_size;
 
 #ifdef USE_DRAM_CACHE
 	dramLogAddr = (unsigned char*)mmap(NULL,req_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);
@@ -189,6 +188,7 @@ void DoubleLog::init(char* filePath, size_t req_size)
 
 	use = 0;
 	evict_alloc = 0;
+	min_tail_sum = 0;
 }
 
 void DoubleLog::clean()
@@ -210,18 +210,24 @@ void DoubleLog::clean()
 
 void DoubleLog::ready_log()
 {
-	if (head_offset+ble_len >= end_offset) // check the space
-	{
-		// need turn
-//		tail_offset = 0; // ------------------------------------------------------- not this
-		head_sum+=(end_offset-head_offset);
-		head_offset = 0;
-	}
-//	while(head_offset <= tail_offset && tail_offset < head_offset+ble_len)
-	while(tail_sum+ble_len > head_sum)
+	size_t offset;
+	offset = head_sum % my_size;
+	if (offset+ble_len > my_size) // check the space
+		head_sum+=(my_size-offset);
+
+	offset = tail_sum % my_size;
+	if (offset+ble_len > my_size)
+		tail_sum+=(my_size-offset);
+
+	//	while(head_offset <= tail_offset && tail_offset < head_offset+ble_len)
+//	while(tail_sum+ble_len > head_sum)
+	if (min_tail_sum + my_size > head_sum)
+		min_tail_sum = get_min_tail(log_num);
+	while(min_tail_sum + my_size > head_sum)
 	{
 		printf("log full\n");
 		usleep(1);// sleep
+		min_tail_sum = get_min_tail(log_num);
 	}
 
 }
@@ -250,7 +256,7 @@ void DoubleLog::insert_pmem_log(uint64_t key,unsigned char *value)
 	// 1 write kv
 	//baseLogEntry->dver = 0;
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
-	unsigned char* head_p = pmemLogAddr + head_offset;
+	unsigned char* head_p = pmemLogAddr + head_sum%my_size;
 	memcpy(head_p+HEADER_SIZE, &key, sizeof(uint64_t));
 	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
 //	pmem_persist(head_p+header_size,ble_len-header_size);
@@ -278,7 +284,7 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *va
 	// 1 write kv
 	//baseLogEntry->dver = 0;
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
-	unsigned char* head_p = dramLogAddr + head_offset;
+	unsigned char* head_p = dramLogAddr + head_sum%my_size;
 	memcpy(head_p,&version,HEADER_SIZE);
 	memcpy(head_p+HEADER_SIZE, &key, KEY_SIZE);
 	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
@@ -294,12 +300,10 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *va
 void DoubleLog::write_version(uint64_t version)
 {
 #ifdef VERSION
-	memcpy(pmemLogAddr+head_offset ,&version,header_size);
-	pmem_persist(pmemLogAddr + head_offset ,header_size);
+	memcpy(pmemLogAddr+head_sum%my_size ,&version,header_size);
+	pmem_persist(pmemLogAddr + head_sum%my_size ,header_size);
 	_mm_sfence();
 #endif
-	head_offset+=ble_len;
-	head_sum+=ble_len;
 }
 
 // point hash - lock
