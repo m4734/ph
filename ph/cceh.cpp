@@ -16,8 +16,13 @@
 namespace PH
 {
 
+//extern PH_Thread thread_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
+//extern int num_thread;
+
 extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
-extern int num_thread;
+extern int num_query_thread;
+extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
+extern int num_evict_thread;
 
 CCEH* hash_index;
 
@@ -621,13 +626,21 @@ void CCEH::split(int sn) // seg locked
 		//lock separation
 		while(true)
 		{
-			for (i=0;i<num_thread;i++)
+			for (i=0;i<num_query_thread;i++)
 			{
 				if (query_thread_list[i].run && query_thread_list[i].read_lock)
 					break;
 			}
-			if (i >= num_thread)
-				break;
+			if (i < num_query_thread)
+				continue;
+			for (i=0;i<num_evict_thread;i++)
+			{
+				if (evict_thread_list[i].run && evict_thread_list[i].read_lock)
+					break;
+			}
+			if (i < num_evict_thread)
+				continue;
+			break;
 		}
 
 		//use no op

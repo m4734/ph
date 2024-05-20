@@ -76,6 +76,9 @@ void Skiplist::init()
 	start_node->next[0] = node;
 	node->next[0] = end_node;
 
+	linkNext(start_node->my_node);
+	linkNext(node->my_node);
+
 }
 
 void Skiplist::clean()
@@ -267,6 +270,9 @@ void PH_List::init()
 	node->next = end_node;
 	node->prev = start_node;
 	end_node->prev = node;
+
+	linkNext(start_node->my_node);
+	linkNext(node->my_node);
 
 }
 

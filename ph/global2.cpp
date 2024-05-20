@@ -26,6 +26,7 @@ thread_local PH_Evict_Thread* my_evict_thread = NULL;
 int num_thread;
 int num_pmem;
 int num_log;
+int num_query_thread;
 int num_evict_thread;
 
 void PH_Interface::new_query_thread()
@@ -63,9 +64,9 @@ void PH_Interface::new_evict_thread()
 	int i;
 	for (i=0;i<EVICT_THREAD_MAX;i++)
 	{
-		while(evict_thread_list[i].alloc == 0)
+		while(evict_thread_list[i].lock == 0)
 		{
-			if (try_at_lock2(evict_thread_list[i].alloc))
+			if (try_at_lock2(evict_thread_list[i].lock))
 				my_evict_thread = &evict_thread_list[i];
 		}
 		if (my_evict_thread)
@@ -79,17 +80,18 @@ void PH_Interface::clean_evict_thread()
 {
 	my_evict_thread->clean();
 
-	at_unlock2(my_evict_thread->alloc);
+	at_unlock2(my_evict_thread->lock);
 	my_evict_thread=NULL;
 }
 
 void PH_Interface::global_init(int n_t,int n_p,int n_e)
 {
 	printf("global init\n");
-	num_thread = n_t;
+	num_query_thread = n_t;
 	num_pmem = n_p;
 	num_log = (n_t-1)/n_p+1;
 	num_evict_thread = n_e;
+	num_thread = num_query_thread + num_evict_thread;
 
 	init_log(num_pmem,num_log);
 

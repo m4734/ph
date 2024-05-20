@@ -2,6 +2,7 @@
 #include <cstring>
 #include <x86intrin.h> //fence
 #include <unistd.h> //usleep
+#include <libpmem.h> 
 
 #include "thread2.h"
 #include "log.h"
@@ -13,10 +14,10 @@
 namespace PH
 {
 
-extern int num_thread;
+//extern int num_thread;
+extern int num_query_thread;
 extern int num_evict_thread;
 extern int log_max;
-extern int num_evict_thread;
 extern DoubleLog* doubleLogList;
 extern volatile unsigned int seg_free_cnt;
 extern CCEH* hash_index;
@@ -25,6 +26,7 @@ extern const size_t ble_len;
 
 // need to be private...
 
+//PH_Thread thred_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
@@ -38,17 +40,22 @@ unsigned int min_seg_free_cnt()
 {
 	int i;
 	unsigned int min=999999999;
-	for (i=0;i<num_thread;i++)
+	for (i=0;i<num_query_thread;i++)
 	{
 		if (query_thread_list[i].run && min > query_thread_list[i].local_seg_free_cnt)
 			min = query_thread_list[i].local_seg_free_cnt;
+	}
+	for (i=0;i<num_evict_thread;i++)
+	{
+		if (evict_thread_list[i].run && min > evict_thread_list[i].local_seg_free_cnt)
+			min = evict_thread_list[i].local_seg_free_cnt;
 	}
 	if (min == 999999999)
 		return seg_free_cnt;
 	return min;
 }
 
-void PH_Query_Thread::update_free_cnt()
+void PH_Thread::update_free_cnt()
 {
 		op_cnt++;
 		if (op_cnt % 128 == 0)
@@ -300,10 +307,15 @@ void PH_Evict_Thread::init()
 
 	for (i=log_cnt;i<ln;i++)
 		log_list[i] = NULL;
+
+	read_lock = 0;
+	run = 1;
 }
 
 void PH_Evict_Thread::clean()
 {
+	run = 0;
+
 	int i;
 	for (i=0;i<log_cnt;i++)
 	{
@@ -312,13 +324,171 @@ void PH_Evict_Thread::clean()
 	}
 }
 
-int try_hard_evict(DoubleLog* dl)
+void pmem_node_nt_write(Node* dst_node,Node* src_node, size_t offset, size_t len)
 {
-//	size_t head_sum = dl->get_head_sum();
-//	size_t tail_sum = dl->get_tail_sum();
+	pmem_memcpy((unsigned char*)dst_node+offset,(unsigned char*)src_node+offset,len,PMEM_F_MEM_NONTEMPORAL);
+	_mm_sfence();
+}
+
+
+void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
+{
+	memcpy(dst,src,len);
+	pmem_persist(dst,len);
+	_mm_sfence();
+}
+
+const size_t PMEM_BUFFER_SIZE = 256;
+
+void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
+{
+
+	List_Node* ln;
+	NodeMeta *nm = node->my_node;
+	size_t offset = sizeof(NodeOffset);
+	int cnt = 0;
+	uint64_t key;
+	unsigned char* addr = (unsigned char*)nm->node;
+	int i;
+
+	KVP* kvp_p;
+	std::atomic<uint8_t> *seg_lock;
+
+	while (offset < NODE_SIZE)
+	{
+		if (nm->valid[cnt])
+		{
+			key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+			ln = node->list_node;
+			while (key > ln->next->key)
+				ln = ln->next;
+
+			for (i=0;i<NODE_SLOT_SIZE;i++)
+			{
+				if (ln->my_node->valid[i] == false)
+				{
+					// lock here
+					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					if (kvp_p->value != (uint64_t)addr) // moved
+					{
+						hash_index->unlock_entry2(seg_lock,read_lock);
+						break;
+					}
+
+
+					pmem_entry_write((unsigned char*)ln->my_node->node + sizeof(NodeOffset) + ble_len*i , addr, ble_len);
+					ln->my_node->valid[i] = true;
+
+					// modify hash index here
+//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					kvp_p->value = (uint64_t)addr;
+					_mm_sfence();
+					hash_index->unlock_entry2(seg_lock,read_lock);
+					
+
+					nm->valid[cnt] = false;
+					cnt++;
+					break;
+				}
+			}
+			if (i >= NODE_SLOT_SIZE) // need split
+			{
+				//split here
+				continue;
+			}
+		}
+		offset+=ble_len;
+	}
+
+}
+
+void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
+{
+	int i;
+	LogLoc ll;
+	unsigned char* addr;
+	uint64_t* header;
+	DoubleLog* dl;
+//	unsigned char node_buffer[NODE_SIZE]; 
+	size_t entry_list_cnt;
+
+	size_t write_size=0;
+	Node temp_node;
+	Node* dst_node = node->my_node->node;
+
+	uint64_t* old_torn_header = NULL;
+/*
+	if (node->my_node->entry_sum == 0) // impossible???
+	{
+		temp_node.next_offset = node->next_offset;
+		write_size+=sizeof(NodeOffset);
+	}
+	*/
+	if (node->torn_left)
+	{
+		dl = &doubleLogList[node->torn_entry.log_num];
+		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+		old_torn_header = (uint64_t*)addr;
+		memcpy(temp_node.buffer+node->my_node->size,addr+node->torn_left,ble_len-node->torn_left);
+		write_size+=ble_len-node->torn_left;
+	}
+
+	entry_list_cnt = node->entry_list.size();
+	for (i-0;i<entry_list_cnt;i++)
+	{
+		ll = node->entry_list[i];
+		dl = &doubleLogList[ll.log_num];
+		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+		header = (uint64_t*)addr;
+		if (dl->tail_sum > ll.offset || is_valid(header) == false)
+			continue;
+		memcpy(temp_node.buffer,addr,ble_len);
+		write_size+=ble_len;
+	}
+
+	// we may need to cut!!!
+	if (force)
+	{
+		pmem_node_nt_write(dst_node, &temp_node,node->my_node->size ,write_size);
+		node->torn_left = 0;
+		node->torn_right = 0;
+	}
+	else if (write_size > 0)
+	{
+		node->torn_entry = ll;
+		node->torn_right = write_size % PMEM_BUFFER_SIZE;
+		node->torn_left = ble_len-node->torn_right;
+		write_size-=node->torn_right;
+		pmem_node_nt_write(dst_node, &temp_node,node->my_node->size,write_size);
+		--entry_list_cnt;
+	}
+	node->my_node->size+=write_size;
+
+	// invalidate
+
+	if (old_torn_header)
+		set_invalid(old_torn_header);
+
+	for (i-0;i<entry_list_cnt;i++)
+	{
+		ll = node->entry_list[i];
+		dl = &doubleLogList[ll.log_num];
+		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+		header = (uint64_t*)addr;
+		if (dl->tail_sum > ll.offset || is_valid(header) == false)
+			continue;
+		set_invalid(header);
+	}
+	node->entry_list.clear();
+
+}
+
+int PH_Evict_Thread::try_push(DoubleLog* dl)
+{
 
 	unsigned char* addr;
 	uint64_t header;
+	int rv=0;
 
 	//pass invalid
 	while(dl->tail_sum+ble_len <= dl->head_sum)
@@ -329,24 +499,48 @@ int try_hard_evict(DoubleLog* dl)
 		if (is_valid(header))
 			break;
 		dl->tail_sum+=ble_len;
+		rv = 1;
 	}
+	return rv;
+}
+
+int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
+{
+//	size_t head_sum = dl->get_head_sum();
+//	size_t tail_sum = dl->get_tail_sum();
+
+	unsigned char* addr;
+	uint64_t header;
+	uint64_t key;
+	int rv=0;
+
+//	if (try_push(dl))
+//		rv = 1;
 
 	//check
 	if (dl->tail_sum + HARD_EVICT_SPACE <= dl->head_sum)
-		return 0;
+		return rv;
 
 	//need hard evict
 	addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
+	key = *(uint64_t*)(addr+HEADER_SIZE);
 	// evict now
 
-	dl->head_sum+=ble_len;
+	Skiplist_Node* prev[MAX_LEVEL+1];
+	Skiplist_Node* next[MAX_LEVEL+1];
+	Skiplist_Node* node;
+
+	node = skiplist->find_node(key,prev,next);
+	hot_to_warm(node,true);
+
+//	dl->head_sum+=ble_len;
 
 	// do we need flush?
 
 	return 1;
 }
 
-int try_soft_evict(DoubleLog* dl) // need return???
+int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 {
 	unsigned char* addr;
 	size_t adv_offset=0;
@@ -354,8 +548,8 @@ int try_soft_evict(DoubleLog* dl) // need return???
 	int rv = 0;
 //	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
 
-	Skiplist_Node* prev[MAX_LEVEL];
-	Skiplist_Node* next[MAX_LEVEL];
+	Skiplist_Node* prev[MAX_LEVEL+1];
+	Skiplist_Node* next[MAX_LEVEL+1];
 	Skiplist_Node* node;
 	LogLoc ll;
 	
@@ -370,11 +564,19 @@ int try_soft_evict(DoubleLog* dl) // need return???
 			rv = 1;
 			// regist the log num and size_t
 			node = skiplist->find_node(key,prev,next);
+
+			if (node->my_node->size + node->torn_left + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
+			{
+				hot_to_warm(node,true);
+				warm_to_cold(node);
+			}
+
 			ll.log_num = dl->log_num;
 			ll.offset = dl->tail_sum+adv_offset;
 			node->entry_list.push_back(ll);
 			// need to try flush
 //			node->try_hot_to_warm();
+			hot_to_warm(node,false);
 		}
 
 		adv_offset+=ble_len;
@@ -383,22 +585,28 @@ int try_soft_evict(DoubleLog* dl) // need return???
 	return rv;
 }
 
-int evict_log(DoubleLog* dl)
+int PH_Evict_Thread::evict_log(DoubleLog* dl)
 {
 	int diff=0;
+	if (try_soft_evict(dl))
+		diff = 1;
+	if (try_push(dl))
+		diff = 1;
 	if (try_hard_evict(dl))
 		diff = 1;
-	if (try_soft_evict(dl))
+	if (try_push(dl))
 		diff = 1;
 	return diff;		
 }
 
-void PH_Evict_Thread::run()
+void PH_Evict_Thread::evict_loop()
 {
 	int i,done;
 //	while(done == 0)
 	while(true)
 	{
+		update_free_cnt();
+
 		done = 1;
 		for (i=0;i<log_cnt;i++)
 		{

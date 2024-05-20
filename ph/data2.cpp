@@ -3,6 +3,7 @@
 #include <stdlib.h> //malloc
 #include <x86intrin.h> // fence
 #include <libpmem.h>
+#include <string.h> //memset
 
 #include "lock.h"
 #include "data2.h"
@@ -14,11 +15,13 @@ namespace PH
 
 	extern int num_pmem;
 
-	void inline linkNext(NodeMeta* nm)
+	void linkNext(NodeMeta* nm)
 	{
-		nm->next_p->node->next_offset = nm->my_offset;
-		pmem_persist(&nm->next_p->node->next_offset,sizeof(NodeOffset));
+		memset(nm->node,0,NODE_SIZE);
+		nm->node->next_offset = nm->my_offset;
+		pmem_persist(&nm->node->next_offset,sizeof(NodeOffset));
 		_mm_sfence();
+		nm->size = sizeof(NodeOffset);
 	}
 
 	void NodeAllocator::init()
@@ -101,6 +104,7 @@ namespace PH
 		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
 		nm->my_offset.file_num = pool_num;
 		nm->my_offset.offset = node_cnt[pool_num];
+		nm->size = 0;
 
 		++node_cnt[pool_num];
 		++alloc_cnt;

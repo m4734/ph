@@ -71,6 +71,10 @@ bool inline is_valid(uint64_t &version)
 {
 	return version & VER_DRAM_VALID;
 }
+bool inline is_valid(uint64_t *version)
+{
+	return *version & VER_DRAM_VALID;
+}
 
 
 struct BaseLogEntry
@@ -91,28 +95,33 @@ struct NodeOffset
 };
 
 const size_t NODE_SIZE = 4096; // 4KB
-const size_t NODE_BUFFER = NODE_SIZE-8; // unstable
+const size_t NODE_BUFFER_SIZE = NODE_SIZE-8; // unstable
 const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
 const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
+
+const size_t NODE_SLOT_SIZE = NODE_BUFFER_SIZE/ble_len;
 
 struct Node
 {
 	NodeOffset next_offset; // 8 byte
 //	uint64_t next_offset;
-	unsigned char buffer[NODE_BUFFER];
+	unsigned char buffer[NODE_BUFFER_SIZE];
 };
 
 struct NodeMeta
 {
 //	volatile uint64_t next_offset;
 	volatile NodeMeta* next_p;
+	size_t size;
 //	size_t pool_num;
 //	uint64_t 
 	NodeOffset my_offset;
 	Node* node;
-
+	bool valid[NODE_SLOT_SIZE];
 };
+
+void linkNext(NodeMeta* nm);
 
 class NodeAllocator
 {

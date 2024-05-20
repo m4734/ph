@@ -14,18 +14,31 @@ namespace PH
 //thread_local Thread my_thread;
 
 class DoubleLog;
+class Skiplist_Node;
 
 //class Skiplist;
 //class PH_List;
 
-class PH_Query_Thread
+class PH_Thread
+{
+	public:
+	PH_Thread() : lock(0),read_lock(0),run(0),local_seg_free_cnt(0),op_cnt(0) {}
+
+	void update_free_cnt();
+
+	std::atomic<uint8_t> lock;
+	volatile uint8_t read_lock;
+	volatile uint8_t run;
+	volatile size_t local_seg_free_cnt;
+	size_t op_cnt;
+
+	unsigned char padding[64];
+};
+
+class PH_Query_Thread : public PH_Thread
 {
 	private:
 	DoubleLog* my_log;
-
-	void update_free_cnt();
-	int op_cnt;
-
 
 	public:
 	void init();
@@ -37,33 +50,30 @@ int delete_op(uint64_t key);
 int scan_op(uint64_t start_key,uint64_t end_key);
 int next_op(unsigned char* buf);
 
-int local_seg_free_cnt=0;
-int run = 0;
-
-std::atomic<uint8_t> lock=0;
-//	std::atomic<uint8_t> read_lock=0;
-	volatile uint8_t read_lock = 0;
-
-	unsigned char padding[64];
-
-
 };
 
-class PH_Evict_Thread
+class PH_Evict_Thread : public PH_Thread
 {
 	private:
+
+	int evict_log(DoubleLog* dl);
+	int try_soft_evict(DoubleLog* dl);
+	int try_hard_evict(DoubleLog* dl);
+	int try_push(DoubleLog* dl);
+	void hot_to_warm(Skiplist_Node* node,bool force);
+	void warm_to_cold(Skiplist_Node* node);
+
 	DoubleLog** log_list;
 	int log_cnt;
 
 	public:
 	void init();
 	void clean();
-	void run();
+	void evict_loop();
 
 //	Skiplist* skiplist;
 //	PH_List* list;
 
-	std::atomic<uint8_t> alloc=0;
 };
 
 unsigned int min_seg_free_cnt();

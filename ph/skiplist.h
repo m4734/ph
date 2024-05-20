@@ -82,6 +82,9 @@ class Skiplist_Node
 	std::atomic<Skiplist_Node*> *next = NULL;
 
 	std::vector<LogLoc> entry_list;
+	LogLoc torn_entry;
+	size_t torn_left=0;
+	size_t torn_right=0;
 
 	size_t level;
 	size_t built;
