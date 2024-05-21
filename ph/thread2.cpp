@@ -596,8 +596,13 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
 		nm->size = sizeof(NodeAddr);
-
 		new_sn->key = half_key;
+
+		List_Node* list_node = node->list_node;
+		while(list_node->next->key <= half_key)
+			list_node = list_node->next;
+		new_sn->list_node = list_node;
+
 		Skiplist_Node* prev[MAX_LEVEL+1];
 		Skiplist_Node* next[MAX_LEVEL+1];
 		skiplist->insert_node(new_sn,prev,next);
