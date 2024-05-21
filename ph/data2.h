@@ -148,6 +148,7 @@ struct Node
 	unsigned char buffer[NODE_BUFFER_SIZE];
 };
 
+
 struct NodeMeta
 {
 //	volatile uint64_t next_offset;
@@ -166,6 +167,8 @@ struct NodeMeta
 	std::atomic<uint8_t> lock;
 };
 
+
+uint64_t find_half_in_node(NodeMeta* nm,Node* node);
 
 //void linkNext(NodeMeta* nm);
 //void linkNext(NodeAddr nodeAddr);

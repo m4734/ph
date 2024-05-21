@@ -143,4 +143,34 @@ namespace PH
 		free_head_p = nm;
 		at_unlock2(lock);
 	}
+
+	uint64_t find_half_in_node(NodeMeta* nm,Node* node) // USE DRAM NODE!!!!
+	{
+		int i,j;
+		uint64_t keys[NODE_SLOT_MAX];
+		uint64_t new_key;
+		int cnt = 0;
+		size_t offset = sizeof(NodeAddr);
+		unsigned char* addr = (unsigned char*)node;
+
+		for (i=0;i<NODE_SLOT_MAX;i++)
+		{
+			if (nm->valid[i] == false)
+				continue;
+			new_key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+			offset+=ble_len;
+			for (j=cnt;j>0;j--)
+			{
+				if (new_key < keys[j-1])
+					keys[j] = keys[j-1];
+				else
+					break;
+			}
+			keys[j] = new_key;
+			cnt++;
+		}
+		return keys[cnt/2];
+	}
+
+
 }

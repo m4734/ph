@@ -443,6 +443,12 @@ void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 	pmem_persist(dst,len);
 	_mm_sfence();
 }
+void pmem_next_write(Node* dst_node,NodeAddr nodeAddr)
+{
+	dst_node->next_offset = nodeAddr;
+	pmem_persist(dst_node,sizeof(NodeAddr));
+	_mm_sfence();
+}
 
 const size_t PMEM_BUFFER_SIZE = 256;
 
@@ -519,13 +525,59 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 				}
 			}
 
-			at_unlock2(ln_nm->lock);//-----------------------------------------unlock
 
 			if (i >= NODE_SLOT_MAX) // need split
 			{
 				//split cold here
-				continue;
+				//find half
+
+				Node temp_node = *ln_n; // in dram
+				Node temp_new_node;
+				uint64_t half_key;
+				uint64_t key;
+
+				size_t offset;
+				unsigned char* addr;
+				addr = (unsigned char*)&temp_node;
+				offset = sizeof(NodeAddr);
+				
+				half_key = find_half_in_node(ln_nm,&temp_node);
+
+				List_Node* nln = list->alloc_list_node();
+				NodeMeta* new_nm = nodeAddr_to_nodeMeta(nln->data_node_addr);
+
+				for (i=0;i<NODE_SLOT_MAX;i++)
+				{
+					if (ln_nm->valid[i] == false)
+					{
+						new_nm->valid[i] = false;
+						offset+=ble_len;
+						continue;
+					}
+					key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+					if (key > half_key)
+					{
+						new_nm->valid[i] = true;
+						memcpy((unsigned char*)&temp_new_node+offset,(unsigned char*)&temp_node+offset,ble_len);
+
+					}
+					offset+=ble_len;
+				}
+
+				temp_new_node.next_offset = ln_nm->next_p->my_offset;
+				pmem_node_nt_write(nodeAddr_to_node(nln->data_node_addr),&temp_new_node,0,NODE_SIZE);
+				new_nm->next_p = ln_nm->next_p;
+
+				pmem_next_write(ln_n,new_nm->my_offset);
+				ln_nm->next_p = new_nm;
+
+				list->insert_node(ln,nln);
+
+
+//				continue;
 			}
+
+			at_unlock2(ln_nm->lock);//-----------------------------------------unlock
 		}
 		offset+=ble_len;
 	}
