@@ -114,9 +114,34 @@ void PH_Interface::global_init(int n_t,int n_p,int n_e)
 	skiplist->init();
 
 }
+
+void PH_Interface::exit_threads()
+{
+	int i;
+	for (i=0;i<num_query_thread;i++)
+	{
+		if (query_thread_list[i].lock == 0)
+			continue;
+		query_thread_list[i].exit = 1;
+	}
+	for (i=0;i<num_evict_thread;i++)
+	{
+		if (evict_thread_list[i].lock == 0)
+			continue;
+		evict_thread_list[i].exit = 1;
+	}
+
+	for (i=0;i<num_evict_thread;i++)
+	{
+		pthread_join(evict_pthreads[i],NULL);
+	}
+}
+
 void PH_Interface::global_clean()
 {
 	printf("global clean\n");
+
+	exit_threads();
 
 	list->clean();
 	skiplist->clean();
@@ -165,6 +190,31 @@ int PH_Interface::end_op()
 	if (my_query_thread)
 		my_query_thread->clean();
 	return 0;
+}
+
+void PH_Interface::run_evict_direct()
+{
+	if (my_evict_thread == NULL)
+		new_evict_thread();
+	my_evict_thread->evict_loop();
+	clean_evict_thread();
+}
+
+//void PH_Interface::*run_evict(void* p)
+void *run_evict(void* p)
+{
+	PH_Interface* phi = (PH_Interface*)p;
+	phi->run_evict_direct();
+	return NULL;
+}
+
+void PH_Interface::run_evict_thread()
+{
+	int i;
+	for (i=0;i<num_evict_thread;i++)
+	{
+		pthread_create(&evict_pthreads[i],NULL,run_evict,this);
+	}
 }
 
 }

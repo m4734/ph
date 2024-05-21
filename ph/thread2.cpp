@@ -137,6 +137,7 @@ void PH_Query_Thread::init()
 	int i;
 
 	my_log = 0;
+	exit = 0;
 
 	for (i=0;i<log_max;i++)
 	{
@@ -389,8 +390,9 @@ int PH_Query_Thread::next_op(unsigned char* buf)
 
 void PH_Evict_Thread::init()
 {
+	exit = 0;
 
-	int ln = log_max / num_evict_thread;
+	int ln = (log_max-1) / num_evict_thread+1;
 
 	log_cnt = 0;
 	log_list = new DoubleLog*[ln];
@@ -886,7 +888,7 @@ void PH_Evict_Thread::evict_loop()
 {
 	int i,done;
 //	while(done == 0)
-	while(true)
+	while(exit == 0)
 	{
 		update_free_cnt();
 
@@ -899,6 +901,7 @@ void PH_Evict_Thread::evict_loop()
 		if (done)
 			usleep(1);
 	}
+	run = 0;
 }
 
 }

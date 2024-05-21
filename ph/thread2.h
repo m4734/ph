@@ -22,13 +22,14 @@ class Skiplist_Node;
 class PH_Thread
 {
 	public:
-	PH_Thread() : lock(0),read_lock(0),run(0),local_seg_free_cnt(0),op_cnt(0) {}
+	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),local_seg_free_cnt(0),op_cnt(0) {}
 
 	void update_free_cnt();
 
 	std::atomic<uint8_t> lock;
 	volatile uint8_t read_lock;
 	volatile uint8_t run;
+	volatile uint8_t exit;
 	volatile size_t local_seg_free_cnt;
 	size_t op_cnt;
 

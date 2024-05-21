@@ -8,12 +8,13 @@
 #define VALUE_SIZE 100
 #define KEY_RANGE 1000000
 
-#define THREAD_NUM 16
-#define PMEM_NUM 4
-#define EVICT_NUM 8
+//#define THREAD_NUM 16
+//#define PMEM_NUM 4
+//#define EVICT_NUM 8
 
-//#define THREAD_NUM 1
-//#define PMEM_NUM 1
+#define THREAD_NUM 1
+#define PMEM_NUM 1
+#define EVICT_NUM 1
 
 
 enum OP_TYPE

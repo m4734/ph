@@ -3,6 +3,7 @@
 #define GLOBAL2
 
 #include <cstdint>
+#include <pthread.h>
 
 //#include "skiplist.h"
 //#include "thread2.h"
@@ -36,6 +37,12 @@ void clean_query_thread();
 void new_evict_thread();
 void clean_evict_thread();
 
+void exit_threads();
+
+pthread_t evict_pthreads[100];
+
+//void *run_evict(void* p);
+
 public:
 void global_init(int num_thread,int num_pmem,int num_evict);
 void global_clean();
@@ -49,6 +56,8 @@ int next_op(unsigned char* buf);
 
 int end_op();
 
+void run_evict_direct();
+void run_evict_thread();
 
 //Skiplist* skiplist;
 //PH_List* list;
