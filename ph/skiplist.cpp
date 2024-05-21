@@ -10,8 +10,12 @@
 namespace PH
 {
 
-const size_t NODE_POOL_LIST_SIZE = 1024;
+//const size_t DATA_SIZE = 100*1000*1000 * 100;//100M * 100B = 10G
+
+//const size_t NODE_POOL_LIST_SIZE = 1024;
+const size_t NODE_POOL_LIST_SIZE = 1;
 const size_t NODE_POOL_SIZE = 1024*1024;
+//const size_t SKIP_LIST_NODE_POOL_LIMIT = DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 
 const size_t KEY_MIN = 0x0000000000000000;
 const size_t KEY_MAX = 0xffffffffffffffff;
@@ -110,7 +114,10 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 	if (node_pool_cnt >= NODE_POOL_SIZE)
 	{
 		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
+		{
 			printf("no space for node!\n");
+			return NULL;
+		}
 		++node_pool_list_cnt;
 		node_pool_list[node_pool_list_cnt] = new Skiplist_Node[NODE_POOL_SIZE];//(Skiplist_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
 		node_pool_cnt = 0;

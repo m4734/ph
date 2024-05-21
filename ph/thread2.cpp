@@ -457,10 +457,11 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 	List_Node* ln;
 	NodeMeta *nm = nodeAddr_to_nodeMeta(node->data_node_addr);
+	Node data_node = *nodeAddr_to_node(node->data_node_addr); // dram copy
 	size_t offset = sizeof(NodeAddr);
 	int cnt = 0;
 	uint64_t key;
-	unsigned char* addr = (unsigned char*)nodeAddr_to_node(node->data_node_addr);
+	unsigned char* addr = (unsigned char*)&data_node;
 	EntryAddr old_ea,new_ea;
 	int i;
 
@@ -584,6 +585,30 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 	// split or init warm
 	at_lock2(nm->lock);
+
+	Skiplist_Node* new_sn = skiplist->alloc_sl_node();
+
+	if (new_sn) // split
+	{
+		uint64_t half_key;
+		half_key = find_half_in_node(nm,&data_node);
+
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nm->valid[i] = false;
+		nm->size = sizeof(NodeAddr);
+
+		new_sn->key = half_key;
+		Skiplist_Node* prev[MAX_LEVEL+1];
+		Skiplist_Node* next[MAX_LEVEL+1];
+		skiplist->insert_node(new_sn,prev,next);
+	}
+	else // init
+	{
+		int i;
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nm->valid[i] = false;
+		nm->size = sizeof(NodeAddr);
+	}
 
 	at_unlock2(nm->lock);
 
