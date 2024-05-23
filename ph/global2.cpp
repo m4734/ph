@@ -107,12 +107,12 @@ void PH_Interface::global_init(int n_t,int n_p,int n_e)
 // alloc 1 list end
 // alloc 2 skiplist start
 // alloc 3 skiplist end
-
 	list = new PH_List;
 	list->init();
 	skiplist = new Skiplist;
 	skiplist->init();
 
+	printf("global init end\n");
 }
 
 void PH_Interface::exit_threads()
@@ -131,9 +131,15 @@ void PH_Interface::exit_threads()
 		evict_thread_list[i].exit = 1;
 	}
 
+	// query join???
+
 	for (i=0;i<num_evict_thread;i++)
 	{
-		pthread_join(evict_pthreads[i],NULL);
+		if (evict_thread_list[i].exit)
+		{
+			pthread_join(evict_pthreads[i],NULL);
+			evict_thread_list[i].exit = 0;
+		}
 	}
 }
 
@@ -142,12 +148,12 @@ void PH_Interface::global_clean()
 	printf("global clean\n");
 
 	exit_threads();
-
-	list->clean();
+printf("cc\n");
 	skiplist->clean();
-	delete list;
 	delete skiplist;
-
+	list->clean();
+	delete list;
+printf("ccc\n");
 	nodeAllocator->clean();
 
 	clean_cceh();
@@ -210,6 +216,7 @@ void *run_evict(void* p)
 
 void PH_Interface::run_evict_thread()
 {
+	printf("run evict thread\n");
 	int i;
 	for (i=0;i<num_evict_thread;i++)
 	{

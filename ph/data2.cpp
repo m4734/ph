@@ -14,24 +14,27 @@ namespace PH
 	NodeAllocator* nodeAllocator;
 
 	extern int num_pmem;
-
+#if 0
 	void NodeAllocator::linkNext(NodeAddr nodeAddr)
 	{
 		NodeMeta* nm = nodeAddr_to_nodeMeta(nodeAddr);
 		Node* pmem_node = nodeAddr_to_node(nodeAddr);
 		memset(pmem_node,0,NODE_SIZE);
+		printf("efefe\n");
 		pmem_node->next_offset = nm->next_p->my_offset;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
 		_mm_sfence();
+		printf("xxxxx\n");
 //		nm->size = sizeof(NodeAddr);
 
 	}
-
-	void NodeAllocator::linkNext(NodeMeta* nm)
+#endif
+	void NodeAllocator::linkNext(NodeMeta* nm1,NodeMeta* nm2)
 	{
-		Node* pmem_node = nodeAddr_to_node(nm->my_offset);
+		nm1->next_p = nm2;
+		Node* pmem_node = nodeAddr_to_node(nm1->my_offset);
 		memset(pmem_node,0,NODE_SIZE);
-		pmem_node->next_offset = nm->next_p->my_offset;
+		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
 		_mm_sfence();
 //		nm->size = sizeof(NodeAddr);

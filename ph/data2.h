@@ -190,8 +190,8 @@ class NodeAllocator
 	public:
 
 
-	void linkNext(NodeMeta* nm);
-	void linkNext(NodeAddr nodeAddr);
+	void linkNext(NodeMeta* nm1,NodeMeta* nm2);
+//	void linkNext(NodeAddr nodeAddr);
 
 	void alloc_pool();
 

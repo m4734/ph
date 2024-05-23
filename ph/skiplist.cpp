@@ -13,9 +13,9 @@ namespace PH
 //const size_t DATA_SIZE = 100*1000*1000 * 100;//100M * 100B = 10G
 
 //const size_t NODE_POOL_LIST_SIZE = 1024;
-const size_t NODE_POOL_LIST_SIZE = 1;
-const size_t NODE_POOL_SIZE = 1024*1024;
-//const size_t SKIP_LIST_NODE_POOL_LIMIT = DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
+const size_t NODE_POOL_LIST_SIZE = 1024*1024;
+const size_t NODE_POOL_SIZE = 1024; //4MB?
+const size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 
 const size_t KEY_MIN = 0x0000000000000000;
 const size_t KEY_MAX = 0xffffffffffffffff;
@@ -35,6 +35,7 @@ size_t getRandomLevel()
 
 void Skiplist_Node::setLevel(size_t l)
 {
+	level = l;
 	delete next;
 	next = new std::atomic<Skiplist_Node*>[l+1];
 	built = 0;
@@ -57,42 +58,50 @@ void Skiplist::init()
 	node_pool_list[0] = new Skiplist_Node[NODE_POOL_SIZE];
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
-//	node_free_head = NULL;
+	node_free_head = NULL;
 
-//	node_alloc_lock = 0;
-
-	int i;
+	node_alloc_lock = 0;
 
 	empty_node = alloc_sl_node();
-	//
 	empty_node->key = KEY_MIN;
 
 	start_node = alloc_sl_node();
-	start_node->level = MAX_LEVEL;
+	start_node->setLevel(MAX_LEVEL);
 	start_node->key = KEY_MIN;
 
 	end_node = alloc_sl_node();
-	end_node->level = MAX_LEVEL;
+//	end_node->built = MAX_LEVEL;
+	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
 
-	for (i=0;i<MAX_LEVEL;i++)
+	int i;
+	for (i=0;i<=MAX_LEVEL;i++)
 		start_node->next[i] = end_node;
+	start_node->built = MAX_LEVEL;
 
-	nodeAllocator->linkNext(empty_node->data_node_addr);
-	nodeAllocator->linkNext(start_node->data_node_addr);
+	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	NodeMeta* nm_end = nodeAddr_to_nodeMeta(end_node->data_node_addr);
+
+	nodeAllocator->linkNext(nm_empty,nm_start);
+	nodeAllocator->linkNext(nm_start,nm_end);
+
+//	nodeAllocator->linkNext(empty_node->data_node_addr);
+//	nodeAllocator->linkNext(start_node->data_node_addr);
 
 }
 
 void Skiplist::clean()
 {
+	printf("sc cnt %d pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)
 	{
 //		free(node_pool_list[i]);
-		delete node_pool_list[i];
+		delete[] node_pool_list[i];
 	}
 //	free(node_pool_list);
-	delete node_pool_list;
+	delete[] node_pool_list;
 }
 
 
@@ -113,7 +122,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 
 	if (node_pool_cnt >= NODE_POOL_SIZE)
 	{
-		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
+		if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
 		{
 			printf("no space for node!\n");
 			return NULL;
@@ -126,6 +135,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 	Skiplist_Node* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
 	node->lock = 0;
 	node->delete_lock = 0;
+	node->next = NULL;
 	node->setLevel();
 	node->data_node_addr = nodeAllocator->alloc_node();
 
@@ -258,11 +268,10 @@ void PH_List::init()
 	node_pool_list[0] = new List_Node[NODE_POOL_SIZE];
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
-//	node_free_head = NULL;
+	node_free_head = NULL;
 
-//	node_alloc_lock = 0;
+	node_alloc_lock = 0;
 
-	int i;
 
 	empty_node = alloc_list_node();
 	empty_node->key = KEY_MIN;
@@ -279,21 +288,26 @@ void PH_List::init()
 	start_node->prev = empty_node;
 	end_node->prev = start_node;
 
-	nodeAllocator->linkNext(empty_node->data_node_addr);
-	nodeAllocator->linkNext(start_node->data_node_addr);
+	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	NodeMeta* nm_end = nodeAddr_to_nodeMeta(end_node->data_node_addr);
 
+	nodeAllocator->linkNext(nm_empty,nm_start);
+	nodeAllocator->linkNext(nm_start,nm_end);
 }
 
 void PH_List::clean()
 {
+	printf("lc cnt %d pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)
 	{
 //		free(node_pool_list[i]);
-		delete node_pool_list[i];
+		delete[] node_pool_list[i];
 	}
 //	free(node_pool_list);
-	delete node_pool_list;
+	delete[] node_pool_list;
 }
 
 

@@ -120,8 +120,8 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 	double dops=ops;
 	printf("time sum %lu ns\n",time);
 	printf("lat avg %lu ns\n",time/(ops/THREAD_NUM));
-	printf("Mops avg %lf\n",dops/1000/1000/(time/1000/1000/1000));
-	printf("GB/s avg %lf\n",dops*(116)/1024/1024/1024/(time/1000/1000/1000));
+	printf("Mops avg %lf\n",dops*1000/time);
+	printf("GB/s avg %lf\n",dops*(8+8+VALUE_SIZE+4)*1000*1000*1000/1024/1024/1024/time);
 
 }
 int main()
@@ -136,11 +136,16 @@ int main()
 
 	phi.global_init(THREAD_NUM,PMEM_NUM,EVICT_NUM);
 
-	size_t ops=1000000000;
+#if 1
+	phi.run_evict_thread();
 
+	size_t ops=1000000;//*1000;
+//	size_t ops=1;
+	printf("insert\n");
 	work(phi,ops,INSERT_OP);
+	printf("read\n");
 	work(phi,ops,READ_OP);
-
+#endif
 	phi.global_clean();
 	printf("ph_test end\n");
 	return 0;

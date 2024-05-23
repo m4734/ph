@@ -36,7 +36,7 @@ extern PH_List* list;
 
 union EntryAddr
 {
-	union
+	struct
 	{
 		size_t loc : 2;
 		size_t file_num : 14;
@@ -264,16 +264,19 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 
 	// 6 update index
 #ifdef INDEX
-	
+bool new_key;	
 //	kvp_p->value = (uint64_t)my_log->get_head_p();
 	kvp_p->value = new_addr;
 	kvp_p->version = new_version;
 	_mm_sfence(); // value first!
 	if (kvp_p->key != key) // not so good
 	{
+		new_key = true;
 		kvp_p->key = key;
 		_mm_sfence();
 	}
+	else
+		new_key = false;
 	
 #endif
 
@@ -286,6 +289,8 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 
 	// 8 remove old dram list
 #ifdef USE_DRAM_CACHE
+	if (new_key)
+		return 0;
 	EntryAddr old_ea;
 	unsigned char* addr;
 	old_ea.value = old_addr;
@@ -424,12 +429,7 @@ void PH_Evict_Thread::clean()
 {
 	run = 0;
 
-	int i;
-	for (i=0;i<log_cnt;i++)
-	{
-		if (log_list[i]) // don't need
-			free(log_list[i]);
-	}
+	delete[] log_list;
 }
 
 void pmem_node_nt_write(Node* dst_node,Node* src_node, size_t offset, size_t len)
@@ -456,7 +456,7 @@ const size_t PMEM_BUFFER_SIZE = 256;
 
 void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 {
-
+	printf("warm_to_cold\n");
 	List_Node* ln;
 	NodeMeta *nm = nodeAddr_to_nodeMeta(node->data_node_addr);
 	Node data_node = *nodeAddr_to_node(node->data_node_addr); // dram copy
@@ -623,6 +623,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 {
+	printf("hot to warn\n");
 	int i;
 	LogLoc ll;
 	unsigned char* addr;
@@ -800,7 +801,7 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 //		rv = 1;
 
 	//check
-	if (dl->tail_sum + HARD_EVICT_SPACE <= dl->head_sum)
+	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
 		return rv;
 
 	//need hard evict
@@ -888,6 +889,7 @@ void PH_Evict_Thread::evict_loop()
 {
 	int i,done;
 //	while(done == 0)
+printf("evict start\n");
 	while(exit == 0)
 	{
 		update_free_cnt();
@@ -899,9 +901,10 @@ void PH_Evict_Thread::evict_loop()
 				done = 0;
 		}
 		if (done)
-			usleep(1);
+			usleep(1000);
 	}
 	run = 0;
+	printf("evict end\n");
 }
 
 }

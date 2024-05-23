@@ -65,7 +65,7 @@ void clean_log()
 
 	delete[] doubleLogList; // array
 
-//	printf("clean now\n");
+	printf("clean now\n");
 }
 
 #define SKIP_MEMSET
@@ -200,7 +200,7 @@ void DoubleLog::clean()
 		free(dram_list_pool[i]);
 	free(dram_list_pool);
 #endif
-
+printf(" my size %lu\n",my_size);
 #ifdef USE_DRAM_CACHE
 	munmap(dramLogAddr,my_size);
 #endif
@@ -221,12 +221,12 @@ void DoubleLog::ready_log()
 
 	//	while(head_offset <= tail_offset && tail_offset < head_offset+ble_len)
 //	while(tail_sum+ble_len > head_sum)
-	if (min_tail_sum + my_size > head_sum)
+	if (min_tail_sum + my_size < head_sum)
 		min_tail_sum = get_min_tail(log_num);
-	while(min_tail_sum + my_size > head_sum)
+	while(min_tail_sum + my_size < head_sum)
 	{
 		printf("log full\n");
-		usleep(1);// sleep
+		usleep(1000);// sleep
 		min_tail_sum = get_min_tail(log_num);
 	}
 
