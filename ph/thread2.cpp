@@ -72,8 +72,8 @@ size_t get_min_tail(int log_num)
 	size_t min = 0xffffffffffffffff;
 	for (i=0;i<num_query_thread;i++)
 	{
-		if (query_thread_list[i].run && min > query_thread_list[i].recent_log_tails[i])
-			min = query_thread_list[i].recent_log_tails[i];
+		if (query_thread_list[i].run && min > query_thread_list[i].recent_log_tails[log_num])
+			min = query_thread_list[i].recent_log_tails[log_num];
 	}
 	return min;
 }
@@ -173,6 +173,7 @@ void PH_Query_Thread::clean()
 	my_log = NULL;
 
 	run = 0;
+	read_lock = 0;
 
 //	delete recent_log_tails;
 }
@@ -428,6 +429,7 @@ void PH_Evict_Thread::init()
 void PH_Evict_Thread::clean()
 {
 	run = 0;
+	read_lock = 0;
 
 	delete[] log_list;
 }
@@ -782,6 +784,9 @@ int PH_Evict_Thread::try_push(DoubleLog* dl)
 		if (is_valid(header))
 			break;
 		dl->tail_sum+=ble_len;
+//		dl->check_turn(dl->tail_sum,ble_len);
+		if (dl->tail_sum%dl->my_size + ble_len > dl->my_size)
+			dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 		rv = 1;
 	}
 	return rv;
@@ -836,8 +841,12 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 	Skiplist_Node* node;
 	NodeMeta* nm;
 	LogLoc ll;
+
+	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
+		return rv;
 	
-	while(dl->tail_sum+adv_offset + ble_len <= dl->head_sum && adv_offset <= SOFT_EVICT_SPACE )
+//	while(dl->tail_sum+adv_offset + ble_len <= dl->head_sum && adv_offset <= SOFT_EVICT_SPACE )
+	while (adv_offset <= SOFT_EVICT_SPACE)
 	{
 		addr = dl->dramLogAddr + ((dl->tail_sum + adv_offset) % dl->my_size);
 		header = *(uint64_t*)addr;
@@ -866,6 +875,11 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 		}
 
 		adv_offset+=ble_len;
+		if ((dl->tail_sum+adv_offset)%dl->my_size  + ble_len > dl->my_size)
+			adv_offset+=(dl->my_size-((dl->tail_sum+adv_offset)%dl->my_size));
+//		dl->check_turn(tail_sum,ble_len);
+
+
 		// don't move tail sum
 	}
 	return rv;

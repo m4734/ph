@@ -569,6 +569,7 @@ void CCEH::split(int sn) // seg locked
 //	printf("split\n");
 	SEG* seg;
 	int i;
+	int cnt;
 //	uint64_t inv,mask;
 	uint64_t mask;	
 	KVP* kvp_p;
@@ -626,19 +627,20 @@ void CCEH::split(int sn) // seg locked
 		//lock separation
 		while(true)
 		{
+			cnt = 0;
 			for (i=0;i<num_query_thread;i++)
 			{
-				if (query_thread_list[i].run && query_thread_list[i].read_lock)
-					break;
+//				if (query_thread_list[i].run && query_thread_list[i].read_lock)
+				if (query_thread_list[i].read_lock)
+					++cnt;
 			}
-			if (i < num_query_thread)
-				continue;
 			for (i=0;i<num_evict_thread;i++)
 			{
-				if (evict_thread_list[i].run && evict_thread_list[i].read_lock)
-					break;
+//				if (evict_thread_list[i].run && evict_thread_list[i].read_lock)
+				if (evict_thread_list[i].read_lock)
+					++cnt;
 			}
-			if (i < num_evict_thread)
+			if (cnt < 1) // my read_lock
 				continue;
 			break;
 		}
@@ -887,7 +889,7 @@ KVP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p,volati
 #if 1
 	if (write_lock)
 	{
-		printf("splittt\n");
+//		printf("splittt\n");
 		return NULL;
 	}
 #endif
@@ -909,7 +911,7 @@ KVP* CCEH::insert_with_fail(uint64_t &key,std::atomic<uint8_t> **unlock_p,volati
 	}
 #endif
 //dir_lock--;
-	--read_lock;
+//	--read_lock;
 //return NULL;
 //	*unlock_p = &seg->lock;
 //	return (KVP*)seg;

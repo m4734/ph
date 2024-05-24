@@ -84,6 +84,8 @@ class DoubleLog
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
 	void ready_log();
+//	void check_turn(size_t &sum, size_t len);
+
 //	void insert_log(struct BaseLogEntry *baseLogEntry_p);
 	void insert_pmem_log(uint64_t key,unsigned char* value);
 	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value);

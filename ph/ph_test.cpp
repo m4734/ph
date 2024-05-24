@@ -6,16 +6,17 @@
 
 
 #define VALUE_SIZE 100
-#define KEY_RANGE 1000000
+#define KEY_RANGE 1000000000 //100M = 10G
 
 //#define THREAD_NUM 16
 //#define PMEM_NUM 4
 //#define EVICT_NUM 8
 
-#define THREAD_NUM 1
+#define THREAD_NUM 4
 #define PMEM_NUM 1
 #define EVICT_NUM 1
 
+#define PRINT_OPS
 
 enum OP_TYPE
 {
@@ -43,18 +44,32 @@ void *run(void *parameter)
 	uint64_t key;
 	unsigned char value[VALUE_SIZE];
 
-	struct timespec ts1,ts2;
+	struct timespec ts1,ts2,ts3,ts4;
 	para->time = 0;
 
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	if (para->op_type == INSERT_OP)
 	{
+#ifdef PRINT_OPS
+		size_t old_ops=0;
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
+#endif
 	for (i=0;i<para->ops;i++)
 	{
 		key = (para->op_id+i)%KEY_RANGE;
 		*(uint64_t*)value = para->op_id+i;
 		para->phi->insert_op(key,value);
 	//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
+#ifdef PRINT_OPS
+		clock_gettime(CLOCK_MONOTONIC,&ts4);
+		if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+		{
+			printf("old ops %lu ops %lu diff %lu\n",old_ops,i,i-old_ops);
+			old_ops = i;
+			ts3 = ts4;
+
+		}
+#endif
 
 	}
 	}
@@ -139,7 +154,7 @@ int main()
 #if 1
 	phi.run_evict_thread();
 
-	size_t ops=1000000;//*1000;
+	size_t ops=1000000*1000;
 //	size_t ops=1;
 	printf("insert\n");
 	work(phi,ops,INSERT_OP);

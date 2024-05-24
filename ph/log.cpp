@@ -31,6 +31,8 @@ void init_log(int num_pmem, int num_log)
 	log_max = num_pmem*num_log;
 	doubleLogList = new DoubleLog[log_max];
 	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
+
+	printf("LOG NUM %d LOG SIZE %lfGB\n",num_log,double(log_size)/1024/1024/1024);
 	
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)
@@ -206,26 +208,28 @@ printf(" my size %lu\n",my_size);
 #endif
 	pmem_unmap(pmemLogAddr,my_size);
 }
-
-
+/*
+void DoubleLog::check_turn(size_t &sum, size_t len)
+{
+	size_t offset = sum % my_size;
+	if (offset+len > my_size) // check the space
+		sum+=(my_size-offset);
+}
+*/
 void DoubleLog::ready_log()
 {
-	size_t offset;
-	offset = head_sum % my_size;
+//	check_turn(head_sum,ble_len);
+	size_t offset = head_sum % my_size;
 	if (offset+ble_len > my_size) // check the space
 		head_sum+=(my_size-offset);
 
-	offset = tail_sum % my_size;
-	if (offset+ble_len > my_size)
-		tail_sum+=(my_size-offset);
 
-	//	while(head_offset <= tail_offset && tail_offset < head_offset+ble_len)
-//	while(tail_sum+ble_len > head_sum)
 	if (min_tail_sum + my_size < head_sum)
 		min_tail_sum = get_min_tail(log_num);
 	while(min_tail_sum + my_size < head_sum)
 	{
-		printf("log full\n");
+		printf("log %d full\n",log_num);
+		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
 		usleep(1000);// sleep
 		min_tail_sum = get_min_tail(log_num);
 	}
