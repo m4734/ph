@@ -5,6 +5,7 @@
 #include <atomic>
 
 //#include "skiplist.h"
+#include "shared.h"
 
 namespace PH
 {
@@ -68,6 +69,8 @@ class PH_Evict_Thread : public PH_Thread
 
 	DoubleLog** log_list;
 	int log_cnt;
+
+	DataNode temp_node;
 
 	public:
 	void init();

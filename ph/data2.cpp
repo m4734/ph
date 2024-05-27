@@ -32,7 +32,7 @@ namespace PH
 	void NodeAllocator::linkNext(NodeMeta* nm1,NodeMeta* nm2)
 	{
 		nm1->next_p = nm2;
-		Node* pmem_node = nodeAddr_to_node(nm1->my_offset);
+		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
 		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
@@ -125,7 +125,7 @@ namespace PH
 //		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
 		nm->my_offset.pool_num = pool_num;
 		nm->my_offset.offset = node_cnt[pool_num];
-		nm->size = sizeof(NodeAddr);
+		nm->written_size = 0;
 		nm->slot_cnt = 0;
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
@@ -147,7 +147,7 @@ namespace PH
 		at_unlock2(lock);
 	}
 
-	uint64_t find_half_in_node(NodeMeta* nm,Node* node) // USE DRAM NODE!!!!
+	uint64_t find_half_in_node(NodeMeta* nm,DataNode* node) // USE DRAM NODE!!!!
 	{
 		int i,j;
 		uint64_t keys[NODE_SLOT_MAX];

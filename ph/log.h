@@ -19,8 +19,9 @@ const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 //const size_t LIST_POOL_UNIT = 1024;
 //#define LOG_BLOCK_SIZE 4096
 
-const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
-const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
+//const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
+//const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
+
 
 const size_t header_size = sizeof(uint64_t);
 
@@ -43,6 +44,7 @@ class DoubleLog
 
 //	size_t log_size;
 	size_t my_size;
+	size_t soft_adv_offset;
 //	size_t head_offset,tail_offset;
 
 	unsigned char* pmemLogAddr;

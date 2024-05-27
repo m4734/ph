@@ -10,12 +10,16 @@
 namespace PH
 {
 
+extern size_t HARD_EVICT_SPACE;
+extern size_t SOFT_EVICT_SPACE;
+
 //const size_t DATA_SIZE = 100*1000*1000 * 100;//100M * 100B = 10G
 
 //const size_t NODE_POOL_LIST_SIZE = 1024;
 const size_t NODE_POOL_LIST_SIZE = 1024*1024;
 const size_t NODE_POOL_SIZE = 1024; //4MB?
 const size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
+//4MB * 1024 * 4 * 3 = 4GB * 12GB
 
 const size_t KEY_MIN = 0x0000000000000000;
 const size_t KEY_MAX = 0xffffffffffffffff;
@@ -64,15 +68,18 @@ void Skiplist::init()
 
 	empty_node = alloc_sl_node();
 	empty_node->key = KEY_MIN;
+	empty_node->list_node = list->empty_node; // may not need
 
 	start_node = alloc_sl_node();
 	start_node->setLevel(MAX_LEVEL);
 	start_node->key = KEY_MIN;
+	start_node->list_node = list->start_node;
 
 	end_node = alloc_sl_node();
 //	end_node->built = MAX_LEVEL;
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
+	end_node->list_node = list->empty_node;
 
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
@@ -93,7 +100,7 @@ void Skiplist::init()
 
 void Skiplist::clean()
 {
-	printf("sc cnt %d pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+	printf("sc cnt %ld pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)
 	{
@@ -164,7 +171,7 @@ Skiplist_Node* Skiplist::find_node(size_t key,Skiplist_Node** prev,Skiplist_Node
 		while(true)
 		{
 			while(node->next[i].load()->delete_lock);
-			if (node->next[i].load()->key >= key)
+			if (node->next[i].load()->key <= key)
 				node = node->next[i];
 			else
 				break;
@@ -298,7 +305,7 @@ void PH_List::init()
 
 void PH_List::clean()
 {
-	printf("lc cnt %d pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+	printf("lc cnt %ld pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
 
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)

@@ -14,6 +14,9 @@
 namespace PH
 {
 
+extern size_t HARD_EVICT_SPACE;
+extern size_t SOFT_EVICT_SPACE;
+
 //extern int num_thread;
 extern int num_query_thread;
 extern int num_evict_thread;
@@ -247,6 +250,7 @@ int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 	old_version = kvp_p->version;
 	new_version = old_version+1;
 	new_version = set_loc_hot(new_version);
+	set_valid(new_version);
 #endif
 	// 4 add dram list
 #ifdef USE_DRAM_CACHE
@@ -277,8 +281,7 @@ bool new_key;
 		_mm_sfence();
 	}
 	else
-		new_key = false;
-	
+		new_key = false;	
 #endif
 
 	// 7 unlock index -------------------------------------- lock to here
@@ -434,9 +437,14 @@ void PH_Evict_Thread::clean()
 	delete[] log_list;
 }
 
-void pmem_node_nt_write(Node* dst_node,Node* src_node, size_t offset, size_t len)
+void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
 {
 	pmem_memcpy((unsigned char*)dst_node+offset,(unsigned char*)src_node+offset,len,PMEM_F_MEM_NONTEMPORAL);
+	_mm_sfence();
+}
+void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len)
+{
+	pmem_memcpy(dst_addr,src_addr,len,PMEM_F_MEM_NONTEMPORAL);
 	_mm_sfence();
 }
 
@@ -447,7 +455,7 @@ void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 	pmem_persist(dst,len);
 	_mm_sfence();
 }
-void pmem_next_write(Node* dst_node,NodeAddr nodeAddr)
+void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
 {
 	dst_node->next_offset = nodeAddr;
 	pmem_persist(dst_node,sizeof(NodeAddr));
@@ -461,7 +469,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 	printf("warm_to_cold\n");
 	List_Node* ln;
 	NodeMeta *nm = nodeAddr_to_nodeMeta(node->data_node_addr);
-	Node data_node = *nodeAddr_to_node(node->data_node_addr); // dram copy
+	DataNode data_node = *nodeAddr_to_node(node->data_node_addr); // dram copy
 	size_t offset = sizeof(NodeAddr);
 	int cnt = 0;
 	uint64_t key;
@@ -488,7 +496,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 				ln = ln->next;
 
 			NodeMeta* ln_nm = nodeAddr_to_nodeMeta(ln->data_node_addr);
-			Node* ln_n = nodeAddr_to_node(ln->data_node_addr);
+			DataNode* ln_n = nodeAddr_to_node(ln->data_node_addr);
 			new_ea.file_num = ln->data_node_addr.pool_num;
 //			new_ea.offset = ln->data_node_addr.offset*NODE_SIZE;
 
@@ -536,8 +544,8 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 				//split cold here
 				//find half
 
-				Node temp_node = *ln_n; // in dram
-				Node temp_new_node;
+				DataNode temp_node = *ln_n; // in dram
+				DataNode temp_new_node;
 				uint64_t half_key;
 				uint64_t key;
 
@@ -599,7 +607,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
-		nm->size = sizeof(NodeAddr);
+		nm->written_size = 0;
 		new_sn->key = half_key;
 
 		List_Node* list_node = node->list_node;
@@ -616,7 +624,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
-		nm->size = sizeof(NodeAddr);
+		nm->written_size = 0;
 	}
 
 	at_unlock2(nm->lock);
@@ -625,7 +633,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 {
-	printf("hot to warn\n");
+//	printf("hot to warn\n");
 	int i;
 	LogLoc ll;
 	unsigned char* addr;
@@ -634,18 +642,20 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 //	unsigned char node_buffer[NODE_SIZE]; 
 	size_t entry_list_cnt;
 
-	size_t write_size=0;
 
 	NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
 	at_lock2(nodeMeta->lock);//------------------------------------------------lock here
 
-	Node temp_node;
-	Node* dst_node = nodeAddr_to_node(node->data_node_addr);
+//	Node temp_node;
+	DataNode* dst_node = nodeAddr_to_node(node->data_node_addr);
 
 	uint64_t* old_torn_header = NULL;
 	EntryAddr old_torn_addr;
 	size_t old_torn_right = node->torn_right;
 	bool moved[NODE_SLOT_MAX] = {false,};
+
+	size_t write_size=0;
+	unsigned char* buffer_write_start = temp_node.buffer+nodeMeta->written_size;
 
 	std::atomic<uint8_t>* seg_lock;
 /*
@@ -663,7 +673,7 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 		old_torn_addr.loc = 0;
 		old_torn_addr.file_num = node->torn_entry.log_num;
 		old_torn_addr.offset = ll.offset%dl->my_size;
-		memcpy(temp_node.buffer+nodeMeta->size,addr+node->torn_left,node->torn_right); // cop torn wright
+		memcpy(buffer_write_start,addr+node->torn_left,node->torn_right); // cop torn wright
 		write_size+=node->torn_right;
 	}
 
@@ -679,28 +689,29 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 			node->entry_list[i].log_num = -1; // invalid
 			continue;
 		}
-		memcpy(temp_node.buffer+write_size,addr,ble_len);
+		memcpy(buffer_write_start+write_size,addr,ble_len);
 		write_size+=ble_len;
 	}
 
 	// we may need to cut!!!
 	if (force)
 	{
-		pmem_node_nt_write(dst_node, &temp_node,nodeMeta->size ,write_size);
+		pmem_nt_write(dst_node->buffer + nodeMeta->written_size , buffer_write_start , write_size);
 		node->torn_left = 0;
 		node->torn_right = 0;
 	}
 	else if (write_size > 0)
 	{
 		node->torn_entry = ll;
-		node->torn_right = write_size % PMEM_BUFFER_SIZE;
+		node->torn_right = (sizeof(NodeAddr)+nodeMeta->written_size+write_size) % PMEM_BUFFER_SIZE;
 		node->torn_left = ble_len-node->torn_right;
 		write_size-=node->torn_right;
-		pmem_node_nt_write(dst_node, &temp_node,nodeMeta->size,write_size);
+//		pmem_node_nt_write(dst_node, &temp_node,nodeMeta->size,write_size);
+		pmem_nt_write(dst_node->buffer + nodeMeta->written_size , buffer_write_start , write_size);
 		--entry_list_cnt; // for torn
 	}
 
-	// invalidate
+	// invalidate from here
 
 	KVP* kvp_p;
 	size_t key;
@@ -708,7 +719,7 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 	EntryAddr dst_addr,src_addr;
 	dst_addr.loc = 2; // warm	
 	dst_addr.file_num = nodeMeta->my_offset.pool_num;
-	dst_addr.offset = nodeMeta->my_offset.offset + nodeMeta->size;
+	dst_addr.offset = nodeMeta->my_offset.offset + + sizeof(NodeAddr) + nodeMeta->written_size;
 
 	if (old_torn_header)
 	{
@@ -761,8 +772,9 @@ void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
 		dst_addr.offset+=ble_len;
 	}
 
-	nodeMeta->size+=write_size;
+	nodeMeta->written_size+=write_size;
 	node->entry_list.clear();
+	node->entry_size_sum = 0;
 
 	at_unlock2(nodeMeta->lock);//--------------------------------------------- unlock here
 
@@ -802,11 +814,9 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 	uint64_t key;
 	int rv=0;
 
-//	if (try_push(dl))
-//		rv = 1;
-
 	//check
-	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
+//	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
+	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
 		return rv;
 
 	//need hard evict
@@ -842,11 +852,17 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 	NodeMeta* nm;
 	LogLoc ll;
 
-	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
-		return rv;
+//	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
+//		return rv;
 	
 //	while(dl->tail_sum+adv_offset + ble_len <= dl->head_sum && adv_offset <= SOFT_EVICT_SPACE )
-	while (adv_offset <= SOFT_EVICT_SPACE)
+//	while (adv_offset <= SOFT_EVICT_SPACE)
+
+//
+	if (dl->soft_adv_offset < dl->tail_sum) // jump if passed
+		dl->soft_adv_offset = dl->tail_sum;
+
+	while(dl->soft_adv_offset + ble_len + dl->my_size <= dl->head_sum + SOFT_EVICT_SPACE)
 	{
 		addr = dl->dramLogAddr + ((dl->tail_sum + adv_offset) % dl->my_size);
 		header = *(uint64_t*)addr;
@@ -859,24 +875,31 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 			node = skiplist->find_node(key,prev,next);
 			nm = nodeAddr_to_nodeMeta(node->data_node_addr);
 
-			if (nm->size + node->torn_right + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
+
+			if (sizeof(NodeAddr) + nm->written_size + node->entry_size_sum + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
 			{
 				// warm is full
 				hot_to_warm(node,true);
 				warm_to_cold(node);
+				continue; // retry
 			}
 
+			//add entry
 			ll.log_num = dl->log_num;
-			ll.offset = dl->tail_sum+adv_offset;
+			ll.offset = dl->soft_adv_offset;
 			node->entry_list.push_back(ll);
+			node->entry_size_sum+=ble_len;
+
 			// need to try flush
 //			node->try_hot_to_warm();
+#ifdef SOFT_FLUSH
 			hot_to_warm(node,false);
+#endif
 		}
 
-		adv_offset+=ble_len;
-		if ((dl->tail_sum+adv_offset)%dl->my_size  + ble_len > dl->my_size)
-			adv_offset+=(dl->my_size-((dl->tail_sum+adv_offset)%dl->my_size));
+		dl->soft_adv_offset+=ble_len;
+		if ((dl->soft_adv_offset)%dl->my_size  + ble_len > dl->my_size)
+			adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
 //		dl->check_turn(tail_sum,ble_len);
 
 

@@ -21,6 +21,9 @@ size_t log_size;
 int log_max;
 DoubleLog* doubleLogList; // should be private
 
+size_t HARD_EVICT_SPACE;
+size_t SOFT_EVICT_SPACE;
+
 //#define INTERLEAVE
 
 void init_log(int num_pmem, int num_log)
@@ -191,6 +194,8 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	use = 0;
 	evict_alloc = 0;
 	min_tail_sum = 0;
+
+	soft_adv_offset = 0;
 }
 
 void DoubleLog::clean()

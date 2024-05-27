@@ -1,7 +1,7 @@
 #include<vector>
 #include<atomic>
 
-#include "addr.h"
+#include "shared.h"
 
 namespace PH
 {
@@ -91,6 +91,7 @@ class Skiplist_Node
 	LogLoc torn_entry;
 	size_t torn_left=0;
 	size_t torn_right=0;
+	size_t entry_size_sum=0;
 
 	size_t level;
 	size_t built;

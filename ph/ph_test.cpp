@@ -2,11 +2,15 @@
 #include <time.h>
 #include <pthread.h>
 
+#include <stdlib.h>
+
 #include "global2.h"
 
 
 #define VALUE_SIZE 100
-#define KEY_RANGE 1000000000 //100M = 10G
+const size_t KEY_RANGE = 100*1000*1000; // 100M *100B = 10GB
+const size_t TOTAL_OPS = 1000*1000*1000; // 1G ops
+//#define KEY_RANGE 1000000000 //100M = 10G
 
 //#define THREAD_NUM 16
 //#define PMEM_NUM 4
@@ -36,6 +40,15 @@ struct Parameter
 
 //#define VALIDATION
 
+size_t key_gen()
+{
+	size_t v1,v2,v3;
+	v1 = rand()%1000;
+	v2 = rand()%1000;
+	v3 = rand()%1000;
+	return (v1 + v2 * 1000 + v3 * 1000000) % KEY_RANGE;
+}
+
 void *run(void *parameter)
 {
 	int i;
@@ -56,7 +69,9 @@ void *run(void *parameter)
 #endif
 	for (i=0;i<para->ops;i++)
 	{
-		key = (para->op_id+i)%KEY_RANGE;
+//		key = (para->op_id+i)%KEY_RANGE;
+//		key = rand() % KEY_RANGE;
+		key = key_gen();
 		*(uint64_t*)value = para->op_id+i;
 		para->phi->insert_op(key,value);
 	//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
@@ -64,7 +79,7 @@ void *run(void *parameter)
 		clock_gettime(CLOCK_MONOTONIC,&ts4);
 		if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
 		{
-			printf("old ops %lu ops %lu diff %lu\n",old_ops,i,i-old_ops);
+			printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
 			old_ops = i;
 			ts3 = ts4;
 
@@ -111,7 +126,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 		para[i].op_type = op_type;
 	}
 
-	printf("key range %u\n",KEY_RANGE);
+	printf("key range %lu\n",KEY_RANGE);
 	printf("ops %lu\n",ops);
 
 //---------------------------- run
@@ -154,8 +169,8 @@ int main()
 #if 1
 	phi.run_evict_thread();
 
-	size_t ops=1000000*1000;
-//	size_t ops=1;
+	size_t ops=TOTAL_OPS;
+
 	printf("insert\n");
 	work(phi,ops,INSERT_OP);
 	printf("read\n");

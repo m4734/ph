@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <atomic>
 
-#include "addr.h"
+#include "shared.h"
 
 namespace PH
 {
@@ -132,29 +132,18 @@ struct NodeOffset
 };
 */
 
-const size_t NODE_SIZE = 4096; // 4KB
-const size_t NODE_BUFFER_SIZE = NODE_SIZE-8; // unstable
 const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
 const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
 
 const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
-struct Node
-{
-//	NodeOffset next_offset; // 8 byte
-//	uint64_t next_offset;
-	NodeAddr next_offset;
-	unsigned char buffer[NODE_BUFFER_SIZE];
-};
-
-
 struct NodeMeta
 {
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
 	NodeMeta* next_p;
-	size_t size;
+	size_t written_size;
 //	size_t pool_num;
 //	uint64_t 
 //	NodeOffset my_offset;
@@ -162,13 +151,13 @@ struct NodeMeta
 	NodeAddr my_offset;
 //	Node* node;
 	bool valid[NODE_SLOT_MAX];
-	int slot_cnt;
+	int slot_cnt; // filled slot for warm
 
 	std::atomic<uint8_t> lock;
 };
 
 
-uint64_t find_half_in_node(NodeMeta* nm,Node* node);
+uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
 
 //void linkNext(NodeMeta* nm);
 //void linkNext(NodeAddr nodeAddr);
@@ -222,9 +211,9 @@ class NodeAllocator
 
 extern NodeAllocator* nodeAllocator;
 
-inline Node* nodeAddr_to_node(NodeAddr nodeAddr)
+inline DataNode* nodeAddr_to_node(NodeAddr nodeAddr)
 {
-	return (Node*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.offset);
+	return (DataNode*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.offset);
 }
 inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
 {

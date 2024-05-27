@@ -11,6 +11,9 @@
 namespace PH
 {
 
+extern size_t HARD_EVICT_SPACE;
+extern size_t SOFT_EVICT_SPACE;
+
 extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
@@ -89,9 +92,12 @@ void PH_Interface::global_init(int n_t,int n_p,int n_e)
 	printf("global init\n");
 	num_query_thread = n_t;
 	num_pmem = n_p;
-	num_log = (n_t-1)/n_p+1;
+	num_log = (n_t-1)/n_p+1; // num_log per pmem
 	num_evict_thread = n_e;
 	num_thread = num_query_thread + num_evict_thread;
+
+	HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20/ num_log;
+	SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10/ num_log;
 
 	init_log(num_pmem,num_log);
 

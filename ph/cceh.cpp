@@ -216,11 +216,13 @@ void free_seg(SEG* seg)
 	if (seg_free_index+FREE_SEG_LEN/2 <= seg_free_cnt)
 	{
 //		update_idle(); // not now
+			seg_free_index = min_seg_free_cnt();
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
 		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
 //		print_thread_info();
-		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt);
+		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt)
+			seg_free_index = min_seg_free_cnt();
 	}
 	}
 	free_seg_queue[seg_free_cnt%FREE_SEG_LEN] = seg;	
@@ -514,7 +516,7 @@ void seg_gc()
 
 void CCEH::dir_double()
 {
-	printf("cceh dir double\n");
+	printf("cceh dir double depth %d\n",depth);
 		SEG** volatile new_list;
 	        SEG** volatile old_list;
 		old_list = (struct SEG** volatile)seg_list;
