@@ -1,4 +1,4 @@
-cscope 15 $HOME/pmem/ph/ph               0000550171
+cscope 15 $HOME/pmem/ph/ph               0000550037
 	@/home/cgmin/pmem/ph/ph/cceh.cpp
 
 2 
@@ -32436,7 +32436,7 @@ gëR™domLevñ
 ;
 
 40 
-	gSkùli°_Node
+	gSkùli°Node
 ::
 £tLevñ
 (
@@ -32466,7 +32466,7 @@ dñëe
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *>[
 l
 +1];
@@ -32476,7 +32476,7 @@ l
  = 0;
 
 48 
-	gSkùli°_Node
+	gSkùli°Node
 ::
 £tLevñ
 ()
@@ -32502,7 +32502,7 @@ dñëe
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *>[
 Àvñ
 +1];
@@ -32522,7 +32522,7 @@ node_poﬁ_li°
  = 
 √w
  
-Skùli°_Node
+Skùli°Node
 *[
 NODE_POOL_LIST_SIZE
 ];
@@ -32532,7 +32532,7 @@ NODE_POOL_LIST_SIZE
 [0] = 
 √w
  
-Skùli°_Node
+Skùli°Node
 [
 NODE_POOL_SIZE
 ];
@@ -32766,7 +32766,7 @@ i
 ;
 
 115 
-Skùli°_Node
+Skùli°Node
 * 
 	gSkùli°
 ::
@@ -32788,7 +32788,7 @@ node_Æloc_lock
 )
 
 123 
-Skùli°_Node
+Skùli°Node
 * 
 	grv
  = 
@@ -32844,7 +32844,7 @@ node_poﬁ_li°_˙t
 ] = 
 √w
  
-Skùli°_Node
+Skùli°Node
 [
 NODE_POOL_SIZE
 ];
@@ -32854,7 +32854,7 @@ NODE_POOL_SIZE
  = 0;
 
 142 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
  = &
@@ -32920,7 +32920,7 @@ node_Æloc_lock
 ::
 ‰ì_¶_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 )
@@ -32952,7 +32952,7 @@ node_Æloc_lock
 );
 
 165 
-Skùli°_Node
+Skùli°Node
 * 
 	gSkùli°
 ::
@@ -32961,14 +32961,14 @@ föd_node
 size_t
  
 key
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
 167 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
  = 
@@ -33050,12 +33050,12 @@ node
 ::
 dñëe_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -33106,12 +33106,12 @@ boﬁ
 ::
 dñëe_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -33128,13 +33128,13 @@ lock
 ;
 
 212 
-Skùli°_Node
+Skùli°Node
 * 
 	g≤
 ;
 
 213 
-Skùli°_Node
+Skùli°Node
 * 
 	g¬
 ;
@@ -33230,12 +33230,12 @@ boﬁ
 ::
 ö£π_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -33244,7 +33244,7 @@ node
 ;
 
 240 
-Skùli°_Node
+Skùli°Node
  *
 	g≤
 ;
@@ -33340,12 +33340,12 @@ node
 ::
 ö£π_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -33382,7 +33382,7 @@ node_poﬁ_li°
  = 
 √w
  
-Li°_Node
+Li°Node
 *[
 NODE_POOL_LIST_SIZE
 ];
@@ -33392,7 +33392,7 @@ NODE_POOL_LIST_SIZE
 [0] = 
 √w
  
-Li°_Node
+Li°Node
 [
 NODE_POOL_SIZE
 ];
@@ -33584,7 +33584,7 @@ i
 ;
 
 321 
-Li°_Node
+Li°Node
 * 
 	gPH_Li°
 ::
@@ -33606,7 +33606,7 @@ node_Æloc_lock
 )
 
 329 
-Li°_Node
+Li°Node
 * 
 	grv
  = 
@@ -33680,7 +33680,7 @@ node_poﬁ_li°_˙t
 ] = 
 √w
  
-Li°_Node
+Li°Node
 [
 NODE_POOL_SIZE
 ];
@@ -33690,7 +33690,7 @@ NODE_POOL_SIZE
  = 0;
 
 350 
-Li°_Node
+Li°Node
 * 
 	gnode
  = &
@@ -33752,7 +33752,7 @@ node_Æloc_lock
 ::
 ‰ì_li°_node
 (
-Li°_Node
+Li°Node
 * 
 node
 )
@@ -33784,7 +33784,7 @@ node_Æloc_lock
 );
 
 372 
-Li°_Node
+Li°Node
 * 
 	gPH_Li°
 ::
@@ -33793,7 +33793,7 @@ föd_node
 size_t
  
 key
-,Li°_Node* 
+,Li°Node* 
 node
 )
 
@@ -33822,13 +33822,13 @@ node
 ::
 dñëe_node
 (
-Li°_Node
+Li°Node
 * 
 node
 )
 
 386 
-Li°_Node
+Li°Node
 * 
 ¥ev
  = 
@@ -33836,7 +33836,7 @@ node
 ->prev;
 
 387 
-Li°_Node
+Li°Node
 * 
 	g√xt
  = 
@@ -33914,15 +33914,15 @@ lock
 ::
 ö£π_node
 (
-Li°_Node
+Li°Node
 * 
 ¥ev
-, Li°_Node* 
+, Li°Node* 
 node
 )
 
 404 
-Li°_Node
+Li°Node
 * 
 	g√xt
  = 
@@ -34024,7 +34024,7 @@ size_t
 15 
 ˛ass
  
-	gSkùli°_Node
+	gSkùli°Node
 ;
 
 16 ˛as†
@@ -34056,7 +34056,7 @@ lﬂd
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *> 
 ¢p
 =
@@ -34142,25 +34142,25 @@ lock
 :
 
 55 
-Li°_Node
+Li°Node
 * 
 em±y_node
 ;
 
 56 
-Li°_Node
+Li°Node
 * 
 	g°¨t_node
 ;
 
 57 
-Li°_Node
+Li°Node
 * 
 	gíd_node
 ;
 
 59 
-Li°_Node
+Li°Node
 ** 
 	gnode_poﬁ_li°
 ;
@@ -34188,7 +34188,7 @@ node_Æloc_lock
 ;
 
 64 
-Li°_Node
+Li°Node
 * 
 	gnode_‰ì_hód
 ;
@@ -34202,7 +34202,7 @@ Li°_Node
 ();
 
 69 
-Li°_Node
+Li°Node
 * 
 Æloc_li°_node
 ();
@@ -34210,43 +34210,43 @@ Li°_Node
 70 
 ‰ì_li°_node
 (
-Li°_Node
+Li°Node
 * 
 node
 );
 
 72 
-Li°_Node
+Li°Node
 * 
 föd_node
 (
 size_t
  
 key
-,Li°_Node* 
+,Li°Node* 
 node
 );
 
 73 
 ö£π_node
 (
-Li°_Node
+Li°Node
 * 
 ¥ev
-,Li°_Node* 
+,Li°Node* 
 node
 );
 
 74 
 dñëe_node
 (
-Li°_Node
+Li°Node
 * 
 node
 );
 
 80 ˛as†
-	cSkùli°_Node
+	cSkùli°Node
 
 
 82 
@@ -34254,7 +34254,7 @@ node
 :
 
 83 ~
-Skùli°_Node
+Skùli°Node
 (Ë{ 
 dñëe
  
@@ -34272,7 +34272,7 @@ size_t
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *> *
 √xt
  = 
@@ -34326,7 +34326,7 @@ size_t
 ;
 
 98 
-Li°_Node
+Li°Node
 * 
 	gli°_node
 ;
@@ -34378,25 +34378,25 @@ l
 :
 
 113 
-Skùli°_Node
+Skùli°Node
 * 
 em±y_node
 ;
 
 114 
-Skùli°_Node
+Skùli°Node
 * 
 	g°¨t_node
 ;
 
 115 
-Skùli°_Node
+Skùli°Node
 * 
 	gíd_node
 ;
 
 117 
-Skùli°_Node
+Skùli°Node
 ** 
 	gnode_poﬁ_li°
 ;
@@ -34424,7 +34424,7 @@ node_Æloc_lock
 ;
 
 122 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode_‰ì_hód
 ;
@@ -34442,7 +34442,7 @@ Skùli°_Node
 ();
 
 128 
-Skùli°_Node
+Skùli°Node
 * 
 Æloc_¶_node
 ();
@@ -34450,22 +34450,22 @@ Skùli°_Node
 129 
 ‰ì_¶_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 );
 
 131 
-Skùli°_Node
+Skùli°Node
 * 
 föd_node
 (
 size_t
  
 key
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -34474,24 +34474,24 @@ boﬁ
  
 dñëe_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
 133 
 dñëe_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -34500,24 +34500,24 @@ boﬁ
  
 ö£π_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
 135 
 ö£π_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -37120,7 +37120,7 @@ nodeAddr_to_node
 (
 li°Node
 ->
-nodeAddr
+d©a_node_addr
 );
 
 471 
@@ -37132,7 +37132,7 @@ nodeAddr_to_nodeMëa
 (
 li°Node
 ->
-nodeAddr
+d©a_node_addr
 );
 
 474 
@@ -37194,7 +37194,7 @@ li°_nodeMëa
 );
 
 486 
-Li°_Node
+Li°Node
 * 
 	g√w_li°Node
  = 
@@ -37366,7 +37366,7 @@ li°Node
 ::
 w¨m_to_cﬁd
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 )
@@ -37376,7 +37376,7 @@ node
 ("warm_to_cold\n");
 
 522 
-Li°_Node
+Li°Node
 * 
 	gli°Node
 ;
@@ -37800,7 +37800,7 @@ lock
 );
 
 616 
-Skùli°_Node
+Skùli°Node
 * 
 	g√w_skùNode
  = 
@@ -37866,7 +37866,7 @@ hÆf_key
 ;
 
 629 
-Li°_Node
+Li°Node
 * 
 	gli°_node
  = 
@@ -37902,7 +37902,7 @@ li°_node
 ;
 
 634 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -37910,7 +37910,7 @@ MAX_LEVEL
 +1];
 
 635 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -37974,7 +37974,7 @@ lock
 ::
 hŸ_to_w¨m
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 ,
@@ -38954,7 +38954,7 @@ HEADER_SIZE
 );
 
 846 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -38962,7 +38962,7 @@ MAX_LEVEL
 +1];
 
 847 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -38970,7 +38970,7 @@ MAX_LEVEL
 +1];
 
 848 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
 ;
@@ -39030,7 +39030,7 @@ uöt64_t
  = 0;
 
 868 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -39038,7 +39038,7 @@ MAX_LEVEL
 +1];
 
 869 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -39046,7 +39046,7 @@ MAX_LEVEL
 +1];
 
 870 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
 ;
@@ -39439,15 +39439,21 @@ u¶ìp
 	gSkùli°_Node
 ;
 
-23 ˛as†
+19 
+˛ass
+ 
+	gLi°Node
+;
+
+24 ˛as†
 	cPH_Thªad
 
 
-25 
+26 
 	gpublic
 :
 
-26 
+27 
 PH_Thªad
 (Ë: 
 lock
@@ -39463,11 +39469,11 @@ loˇl_£g_‰ì_˙t
 ›_˙t
 (0) {}
 
-28 
+29 
 upd©e_‰ì_˙t
 ();
 
-30 
+31 
 	g°d
 ::
 ©omic
@@ -39477,47 +39483,47 @@ uöt8_t
 lock
 ;
 
-31 vﬁ©ûê
+32 vﬁ©ûê
 uöt8_t
  
 	gªad_lock
 ;
 
-32 vﬁ©ûê
+33 vﬁ©ûê
 uöt8_t
  
 	grun
 ;
 
-33 vﬁ©ûê
+34 vﬁ©ûê
 uöt8_t
  
 	gexô
 ;
 
-34 vﬁ©ûê
+35 vﬁ©ûê
 size_t
  
 	gloˇl_£g_‰ì_˙t
 ;
 
-35 
+36 
 size_t
  
 	g›_˙t
 ;
 
-37 
+38 
 size_t
  
 	gª˚¡_log_èûs
 [64];
 
-39 
+40 
 	g∑ddög
 [64];
 
-42 ˛as†
+43 ˛as†
 	cPH_Quîy_Thªad
  : 
 public
@@ -39525,29 +39531,29 @@ public
 PH_Thªad
 
 
-44 
+45 
 ¥iv©e
 :
 
-45 
+46 
 DoubÀLog
 * 
 my_log
 ;
 
-47 
+48 
 	gpublic
 :
 
-48 
+49 
 öô
 ();
 
-49 
+50 
 ˛ón
 ();
 
-51 
+52 
 ö£π_›
 (
 uöt64_t
@@ -39557,7 +39563,7 @@ key
 vÆue
 );
 
-52 
+53 
 ªad_›
 (
 uöt64_t
@@ -39567,7 +39573,7 @@ key
 buf
 );
 
-53 
+54 
 dñëe_›
 (
 uöt64_t
@@ -39575,7 +39581,7 @@ uöt64_t
 key
 );
 
-54 
+55 
 sˇn_›
 (
 uöt64_t
@@ -39585,13 +39591,13 @@ uöt64_t
 íd_key
 );
 
-55 
+56 
 √xt_›
 (* 
 buf
 );
 
-59 ˛as†
+60 ˛as†
 	cPH_Evi˘_Thªad
  : 
 public
@@ -39599,11 +39605,11 @@ public
 PH_Thªad
 
 
-61 
+62 
 ¥iv©e
 :
 
-63 
+64 
 evi˘_log
 (
 DoubÀLog
@@ -39611,7 +39617,7 @@ DoubÀLog
 dl
 );
 
-64 
+65 
 åy_so·_evi˘
 (
 DoubÀLog
@@ -39619,7 +39625,7 @@ DoubÀLog
 dl
 );
 
-65 
+66 
 åy_h¨d_evi˘
 (
 DoubÀLog
@@ -39627,7 +39633,7 @@ DoubÀLog
 dl
 );
 
-66 
+67 
 åy_push
 (
 DoubÀLog
@@ -39635,10 +39641,10 @@ DoubÀLog
 dl
 );
 
-67 
+68 
 hŸ_to_w¨m
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 ,
@@ -39647,15 +39653,15 @@ boﬁ
 f‹˚
 );
 
-68 
+69 
 w¨m_to_cﬁd
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 );
 
-69 
+70 
 •lô_li°Node
 (
 Li°Node
@@ -39663,43 +39669,43 @@ Li°Node
 li°Node
 );
 
-71 
+72 
 DoubÀLog
 ** 
 	glog_li°
 ;
 
-72 
+73 
 	glog_˙t
 ;
 
-74 
+75 
 D©aNode
  
 	gãmp_node
 ;
 
-76 
+77 
 	gpublic
 :
 
-77 
+78 
 öô
 ();
 
-78 
+79 
 ˛ón
 ();
 
-79 
+80 
 evi˘_lo›
 ();
 
-86 
+87 
 mö_£g_‰ì_˙t
 ();
 
-87 
+88 
 size_t
  
 gë_mö_èû
@@ -72520,7 +72526,7 @@ gëR™domLevñ
 ;
 
 40 
-	gSkùli°_Node
+	gSkùli°Node
 ::
 £tLevñ
 (
@@ -72550,7 +72556,7 @@ dñëe
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *>[
 l
 +1];
@@ -72560,7 +72566,7 @@ l
  = 0;
 
 48 
-	gSkùli°_Node
+	gSkùli°Node
 ::
 £tLevñ
 ()
@@ -72586,7 +72592,7 @@ dñëe
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *>[
 Àvñ
 +1];
@@ -72606,7 +72612,7 @@ node_poﬁ_li°
  = 
 √w
  
-Skùli°_Node
+Skùli°Node
 *[
 NODE_POOL_LIST_SIZE
 ];
@@ -72616,7 +72622,7 @@ NODE_POOL_LIST_SIZE
 [0] = 
 √w
  
-Skùli°_Node
+Skùli°Node
 [
 NODE_POOL_SIZE
 ];
@@ -72850,7 +72856,7 @@ i
 ;
 
 115 
-Skùli°_Node
+Skùli°Node
 * 
 	gSkùli°
 ::
@@ -72872,7 +72878,7 @@ node_Æloc_lock
 )
 
 123 
-Skùli°_Node
+Skùli°Node
 * 
 	grv
  = 
@@ -72928,7 +72934,7 @@ node_poﬁ_li°_˙t
 ] = 
 √w
  
-Skùli°_Node
+Skùli°Node
 [
 NODE_POOL_SIZE
 ];
@@ -72938,7 +72944,7 @@ NODE_POOL_SIZE
  = 0;
 
 142 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
  = &
@@ -73004,7 +73010,7 @@ node_Æloc_lock
 ::
 ‰ì_¶_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 )
@@ -73036,7 +73042,7 @@ node_Æloc_lock
 );
 
 165 
-Skùli°_Node
+Skùli°Node
 * 
 	gSkùli°
 ::
@@ -73045,14 +73051,14 @@ föd_node
 size_t
  
 key
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
 167 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
  = 
@@ -73134,12 +73140,12 @@ node
 ::
 dñëe_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -73190,12 +73196,12 @@ boﬁ
 ::
 dñëe_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -73212,13 +73218,13 @@ lock
 ;
 
 212 
-Skùli°_Node
+Skùli°Node
 * 
 	g≤
 ;
 
 213 
-Skùli°_Node
+Skùli°Node
 * 
 	g¬
 ;
@@ -73314,12 +73320,12 @@ boﬁ
 ::
 ö£π_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -73328,7 +73334,7 @@ node
 ;
 
 240 
-Skùli°_Node
+Skùli°Node
  *
 	g≤
 ;
@@ -73424,12 +73430,12 @@ node
 ::
 ö£π_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 )
 
@@ -73466,7 +73472,7 @@ node_poﬁ_li°
  = 
 √w
  
-Li°_Node
+Li°Node
 *[
 NODE_POOL_LIST_SIZE
 ];
@@ -73476,7 +73482,7 @@ NODE_POOL_LIST_SIZE
 [0] = 
 √w
  
-Li°_Node
+Li°Node
 [
 NODE_POOL_SIZE
 ];
@@ -73668,7 +73674,7 @@ i
 ;
 
 321 
-Li°_Node
+Li°Node
 * 
 	gPH_Li°
 ::
@@ -73690,7 +73696,7 @@ node_Æloc_lock
 )
 
 329 
-Li°_Node
+Li°Node
 * 
 	grv
  = 
@@ -73764,7 +73770,7 @@ node_poﬁ_li°_˙t
 ] = 
 √w
  
-Li°_Node
+Li°Node
 [
 NODE_POOL_SIZE
 ];
@@ -73774,7 +73780,7 @@ NODE_POOL_SIZE
  = 0;
 
 350 
-Li°_Node
+Li°Node
 * 
 	gnode
  = &
@@ -73836,7 +73842,7 @@ node_Æloc_lock
 ::
 ‰ì_li°_node
 (
-Li°_Node
+Li°Node
 * 
 node
 )
@@ -73868,7 +73874,7 @@ node_Æloc_lock
 );
 
 372 
-Li°_Node
+Li°Node
 * 
 	gPH_Li°
 ::
@@ -73877,7 +73883,7 @@ föd_node
 size_t
  
 key
-,Li°_Node* 
+,Li°Node* 
 node
 )
 
@@ -73906,13 +73912,13 @@ node
 ::
 dñëe_node
 (
-Li°_Node
+Li°Node
 * 
 node
 )
 
 386 
-Li°_Node
+Li°Node
 * 
 ¥ev
  = 
@@ -73920,7 +73926,7 @@ node
 ->prev;
 
 387 
-Li°_Node
+Li°Node
 * 
 	g√xt
  = 
@@ -73998,15 +74004,15 @@ lock
 ::
 ö£π_node
 (
-Li°_Node
+Li°Node
 * 
 ¥ev
-, Li°_Node* 
+, Li°Node* 
 node
 )
 
 404 
-Li°_Node
+Li°Node
 * 
 	g√xt
  = 
@@ -74108,7 +74114,7 @@ size_t
 15 
 ˛ass
  
-	gSkùli°_Node
+	gSkùli°Node
 ;
 
 16 ˛as†
@@ -74140,7 +74146,7 @@ lﬂd
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *> 
 ¢p
 =
@@ -74226,25 +74232,25 @@ lock
 :
 
 55 
-Li°_Node
+Li°Node
 * 
 em±y_node
 ;
 
 56 
-Li°_Node
+Li°Node
 * 
 	g°¨t_node
 ;
 
 57 
-Li°_Node
+Li°Node
 * 
 	gíd_node
 ;
 
 59 
-Li°_Node
+Li°Node
 ** 
 	gnode_poﬁ_li°
 ;
@@ -74272,7 +74278,7 @@ node_Æloc_lock
 ;
 
 64 
-Li°_Node
+Li°Node
 * 
 	gnode_‰ì_hód
 ;
@@ -74286,7 +74292,7 @@ Li°_Node
 ();
 
 69 
-Li°_Node
+Li°Node
 * 
 Æloc_li°_node
 ();
@@ -74294,43 +74300,43 @@ Li°_Node
 70 
 ‰ì_li°_node
 (
-Li°_Node
+Li°Node
 * 
 node
 );
 
 72 
-Li°_Node
+Li°Node
 * 
 föd_node
 (
 size_t
  
 key
-,Li°_Node* 
+,Li°Node* 
 node
 );
 
 73 
 ö£π_node
 (
-Li°_Node
+Li°Node
 * 
 ¥ev
-,Li°_Node* 
+,Li°Node* 
 node
 );
 
 74 
 dñëe_node
 (
-Li°_Node
+Li°Node
 * 
 node
 );
 
 80 ˛as†
-	cSkùli°_Node
+	cSkùli°Node
 
 
 82 
@@ -74338,7 +74344,7 @@ node
 :
 
 83 ~
-Skùli°_Node
+Skùli°Node
 (Ë{ 
 dñëe
  
@@ -74356,7 +74362,7 @@ size_t
 ::
 ©omic
 <
-Skùli°_Node
+Skùli°Node
 *> *
 √xt
  = 
@@ -74410,7 +74416,7 @@ size_t
 ;
 
 98 
-Li°_Node
+Li°Node
 * 
 	gli°_node
 ;
@@ -74462,25 +74468,25 @@ l
 :
 
 113 
-Skùli°_Node
+Skùli°Node
 * 
 em±y_node
 ;
 
 114 
-Skùli°_Node
+Skùli°Node
 * 
 	g°¨t_node
 ;
 
 115 
-Skùli°_Node
+Skùli°Node
 * 
 	gíd_node
 ;
 
 117 
-Skùli°_Node
+Skùli°Node
 ** 
 	gnode_poﬁ_li°
 ;
@@ -74508,7 +74514,7 @@ node_Æloc_lock
 ;
 
 122 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode_‰ì_hód
 ;
@@ -74526,7 +74532,7 @@ Skùli°_Node
 ();
 
 128 
-Skùli°_Node
+Skùli°Node
 * 
 Æloc_¶_node
 ();
@@ -74534,22 +74540,22 @@ Skùli°_Node
 129 
 ‰ì_¶_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 );
 
 131 
-Skùli°_Node
+Skùli°Node
 * 
 föd_node
 (
 size_t
  
 key
-,Skùli°_Node** 
+,Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -74558,24 +74564,24 @@ boﬁ
  
 dñëe_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
 133 
 dñëe_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -74584,24 +74590,24 @@ boﬁ
  
 ö£π_node_wôh_Áû
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
 135 
 ö£π_node
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
-, Skùli°_Node** 
+, Skùli°Node** 
 ¥ev
-,Skùli°_Node** 
+,Skùli°Node** 
 √xt
 );
 
@@ -77204,7 +77210,7 @@ nodeAddr_to_node
 (
 li°Node
 ->
-nodeAddr
+d©a_node_addr
 );
 
 471 
@@ -77216,7 +77222,7 @@ nodeAddr_to_nodeMëa
 (
 li°Node
 ->
-nodeAddr
+d©a_node_addr
 );
 
 474 
@@ -77278,7 +77284,7 @@ li°_nodeMëa
 );
 
 486 
-Li°_Node
+Li°Node
 * 
 	g√w_li°Node
  = 
@@ -77450,7 +77456,7 @@ li°Node
 ::
 w¨m_to_cﬁd
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 )
@@ -77460,7 +77466,7 @@ node
 ("warm_to_cold\n");
 
 522 
-Li°_Node
+Li°Node
 * 
 	gli°Node
 ;
@@ -77884,7 +77890,7 @@ lock
 );
 
 616 
-Skùli°_Node
+Skùli°Node
 * 
 	g√w_skùNode
  = 
@@ -77950,7 +77956,7 @@ hÆf_key
 ;
 
 629 
-Li°_Node
+Li°Node
 * 
 	gli°_node
  = 
@@ -77986,7 +77992,7 @@ li°_node
 ;
 
 634 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -77994,7 +78000,7 @@ MAX_LEVEL
 +1];
 
 635 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -78058,7 +78064,7 @@ lock
 ::
 hŸ_to_w¨m
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 ,
@@ -79038,7 +79044,7 @@ HEADER_SIZE
 );
 
 846 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -79046,7 +79052,7 @@ MAX_LEVEL
 +1];
 
 847 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -79054,7 +79060,7 @@ MAX_LEVEL
 +1];
 
 848 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
 ;
@@ -79114,7 +79120,7 @@ uöt64_t
  = 0;
 
 868 
-Skùli°_Node
+Skùli°Node
 * 
 	g¥ev
 [
@@ -79122,7 +79128,7 @@ MAX_LEVEL
 +1];
 
 869 
-Skùli°_Node
+Skùli°Node
 * 
 	g√xt
 [
@@ -79130,7 +79136,7 @@ MAX_LEVEL
 +1];
 
 870 
-Skùli°_Node
+Skùli°Node
 * 
 	gnode
 ;
@@ -79523,15 +79529,21 @@ u¶ìp
 	gSkùli°_Node
 ;
 
-23 ˛as†
+19 
+˛ass
+ 
+	gLi°Node
+;
+
+24 ˛as†
 	cPH_Thªad
 
 
-25 
+26 
 	gpublic
 :
 
-26 
+27 
 PH_Thªad
 (Ë: 
 lock
@@ -79547,11 +79559,11 @@ loˇl_£g_‰ì_˙t
 ›_˙t
 (0) {}
 
-28 
+29 
 upd©e_‰ì_˙t
 ();
 
-30 
+31 
 	g°d
 ::
 ©omic
@@ -79561,47 +79573,47 @@ uöt8_t
 lock
 ;
 
-31 vﬁ©ûê
+32 vﬁ©ûê
 uöt8_t
  
 	gªad_lock
 ;
 
-32 vﬁ©ûê
+33 vﬁ©ûê
 uöt8_t
  
 	grun
 ;
 
-33 vﬁ©ûê
+34 vﬁ©ûê
 uöt8_t
  
 	gexô
 ;
 
-34 vﬁ©ûê
+35 vﬁ©ûê
 size_t
  
 	gloˇl_£g_‰ì_˙t
 ;
 
-35 
+36 
 size_t
  
 	g›_˙t
 ;
 
-37 
+38 
 size_t
  
 	gª˚¡_log_èûs
 [64];
 
-39 
+40 
 	g∑ddög
 [64];
 
-42 ˛as†
+43 ˛as†
 	cPH_Quîy_Thªad
  : 
 public
@@ -79609,29 +79621,29 @@ public
 PH_Thªad
 
 
-44 
+45 
 ¥iv©e
 :
 
-45 
+46 
 DoubÀLog
 * 
 my_log
 ;
 
-47 
+48 
 	gpublic
 :
 
-48 
+49 
 öô
 ();
 
-49 
+50 
 ˛ón
 ();
 
-51 
+52 
 ö£π_›
 (
 uöt64_t
@@ -79641,7 +79653,7 @@ key
 vÆue
 );
 
-52 
+53 
 ªad_›
 (
 uöt64_t
@@ -79651,7 +79663,7 @@ key
 buf
 );
 
-53 
+54 
 dñëe_›
 (
 uöt64_t
@@ -79659,7 +79671,7 @@ uöt64_t
 key
 );
 
-54 
+55 
 sˇn_›
 (
 uöt64_t
@@ -79669,13 +79681,13 @@ uöt64_t
 íd_key
 );
 
-55 
+56 
 √xt_›
 (* 
 buf
 );
 
-59 ˛as†
+60 ˛as†
 	cPH_Evi˘_Thªad
  : 
 public
@@ -79683,11 +79695,11 @@ public
 PH_Thªad
 
 
-61 
+62 
 ¥iv©e
 :
 
-63 
+64 
 evi˘_log
 (
 DoubÀLog
@@ -79695,7 +79707,7 @@ DoubÀLog
 dl
 );
 
-64 
+65 
 åy_so·_evi˘
 (
 DoubÀLog
@@ -79703,7 +79715,7 @@ DoubÀLog
 dl
 );
 
-65 
+66 
 åy_h¨d_evi˘
 (
 DoubÀLog
@@ -79711,7 +79723,7 @@ DoubÀLog
 dl
 );
 
-66 
+67 
 åy_push
 (
 DoubÀLog
@@ -79719,10 +79731,10 @@ DoubÀLog
 dl
 );
 
-67 
+68 
 hŸ_to_w¨m
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 ,
@@ -79731,15 +79743,15 @@ boﬁ
 f‹˚
 );
 
-68 
+69 
 w¨m_to_cﬁd
 (
-Skùli°_Node
+Skùli°Node
 * 
 node
 );
 
-69 
+70 
 •lô_li°Node
 (
 Li°Node
@@ -79747,43 +79759,43 @@ Li°Node
 li°Node
 );
 
-71 
+72 
 DoubÀLog
 ** 
 	glog_li°
 ;
 
-72 
+73 
 	glog_˙t
 ;
 
-74 
+75 
 D©aNode
  
 	gãmp_node
 ;
 
-76 
+77 
 	gpublic
 :
 
-77 
+78 
 öô
 ();
 
-78 
+79 
 ˛ón
 ();
 
-79 
+80 
 evi˘_lo›
 ();
 
-86 
+87 
 mö_£g_‰ì_˙t
 ();
 
-87 
+88 
 size_t
  
 gë_mö_èû

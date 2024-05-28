@@ -12,7 +12,7 @@ const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 //struct NodeAddr;
 
 #if 0
-class Skiplist_Node;
+class SkiplistNode;
 class AtomicPointer
 {
 	public:
@@ -23,7 +23,7 @@ class AtomicPointer
 //	template<typename T> AtomicPointer(T const&) {}
 //	AtomicPointer& AtomicPointer::operator=(const AtomicPointer &rhs) {snp = rhs.snp; return *this;} 
 
-	std::atomic<Skiplist_Node*> snp=NULL;
+	std::atomic<SkiplistNode*> snp=NULL;
 };
 #endif
 
@@ -76,16 +76,16 @@ class PH_List
 };
 
 
-//struct Skiplist_Node
-class Skiplist_Node
+//struct SkiplistNode
+class SkiplistNode
 {
 	public:
-	~Skiplist_Node() { delete next; }
+	~SkiplistNode() { delete next; }
 	size_t key;
-//	Skiplist_Node* node_p; // tree node or leaf
-//	std::vector<std::atomic<Skiplist_Node*>> next;
+//	SkiplistNode* node_p; // tree node or leaf
+//	std::vector<std::atomic<SkiplistNode*>> next;
 //	std::vector<AtomicPointer> next;
-	std::atomic<Skiplist_Node*> *next = NULL;
+	std::atomic<SkiplistNode*> *next = NULL;
 
 	std::vector<LogLoc> entry_list;
 	LogLoc torn_entry;
@@ -110,29 +110,29 @@ class Skiplist_Node
 class Skiplist
 {
 	private:
-	Skiplist_Node* empty_node;
-	Skiplist_Node* start_node;
-	Skiplist_Node* end_node;
+	SkiplistNode* empty_node;
+	SkiplistNode* start_node;
+	SkiplistNode* end_node;
 
-	Skiplist_Node** node_pool_list;
+	SkiplistNode** node_pool_list;
 	size_t node_pool_cnt;
 	size_t node_pool_list_cnt;
 
 	std::atomic<uint8_t> node_alloc_lock; // lock?
-	Skiplist_Node* node_free_head;
+	SkiplistNode* node_free_head;
 
 	public:
 	void init();
 	void clean();
 	
-	Skiplist_Node* alloc_sl_node();
-	void free_sl_node(Skiplist_Node* node);
+	SkiplistNode* alloc_sl_node();
+	void free_sl_node(SkiplistNode* node);
 
-	Skiplist_Node* find_node(size_t key,Skiplist_Node** prev,Skiplist_Node** next);
-	bool delete_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next);
-	void delete_node(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next);
-	bool insert_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next);
-	void insert_node(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next);
+	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next);
+	bool delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
+	void delete_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
+	bool insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
+	void insert_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
 
 
 //	void split(

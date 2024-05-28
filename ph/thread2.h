@@ -15,7 +15,7 @@ namespace PH
 //thread_local Thread my_thread;
 
 class DoubleLog;
-class Skiplist_Node;
+class SkiplistNode;
 class ListNode;
 
 //class Skiplist;
@@ -65,8 +65,8 @@ class PH_Evict_Thread : public PH_Thread
 	int try_soft_evict(DoubleLog* dl);
 	int try_hard_evict(DoubleLog* dl);
 	int try_push(DoubleLog* dl);
-	void hot_to_warm(Skiplist_Node* node,bool force);
-	void warm_to_cold(Skiplist_Node* node);
+	void hot_to_warm(SkiplistNode* node,bool force);
+	void warm_to_cold(SkiplistNode* node);
 	void split_listNode(ListNode* listNode);
 
 	DoubleLog** log_list;

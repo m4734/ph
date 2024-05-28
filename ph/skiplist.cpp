@@ -37,29 +37,29 @@ size_t getRandomLevel()
 	return rand() % MAX_LEVEL;
 }
 
-void Skiplist_Node::setLevel(size_t l)
+void SkiplistNode::setLevel(size_t l)
 {
 	level = l;
 	delete next;
-	next = new std::atomic<Skiplist_Node*>[l+1];
+	next = new std::atomic<SkiplistNode*>[l+1];
 	built = 0;
 }
 
-void Skiplist_Node::setLevel()
+void SkiplistNode::setLevel()
 {
 	level = getRandomLevel();
 	delete next;
-	next = new std::atomic<Skiplist_Node*>[level+1];
+	next = new std::atomic<SkiplistNode*>[level+1];
 	built = 0;
 }
 
 void Skiplist::init()
 {
-//	node_pool_list = (Tree_Node**)malloc(sizeof(Skiplist_Node*) * NODE_POOL_LIST_SIZE);
-	node_pool_list = new Skiplist_Node*[NODE_POOL_LIST_SIZE];
+//	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
+	node_pool_list = new SkiplistNode*[NODE_POOL_LIST_SIZE];
 
-//	node_pool_list[0] = (Tree_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
-	node_pool_list[0] = new Skiplist_Node[NODE_POOL_SIZE];
+//	node_pool_list[0] = (Tree_Node*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+	node_pool_list[0] = new SkiplistNode[NODE_POOL_SIZE];
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
 	node_free_head = NULL;
@@ -112,7 +112,7 @@ void Skiplist::clean()
 }
 
 
-Skiplist_Node* Skiplist::alloc_sl_node()
+SkiplistNode* Skiplist::alloc_sl_node()
 {
 	//just use lock
 	while(node_alloc_lock);
@@ -120,7 +120,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 
 	if (node_free_head) // no pmem alloc...
 	{
-		Skiplist_Node* rv = node_free_head;
+		SkiplistNode* rv = node_free_head;
 		node_free_head = node_free_head->next[0];
 		at_unlock2(node_alloc_lock);
 		return rv;
@@ -135,11 +135,11 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 			return NULL;
 		}
 		++node_pool_list_cnt;
-		node_pool_list[node_pool_list_cnt] = new Skiplist_Node[NODE_POOL_SIZE];//(Skiplist_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
+		node_pool_list[node_pool_list_cnt] = new SkiplistNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
 		node_pool_cnt = 0;
 	}
 
-	Skiplist_Node* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+	SkiplistNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
 	node->lock = 0;
 	node->delete_lock = 0;
 	node->next = NULL;
@@ -154,7 +154,7 @@ Skiplist_Node* Skiplist::alloc_sl_node()
 	}
 }
 
-void Skiplist::free_sl_node(Skiplist_Node* node)
+void Skiplist::free_sl_node(SkiplistNode* node)
 {
 	at_lock2(node_alloc_lock);
 	node->next[0] = node_free_head;
@@ -162,9 +162,9 @@ void Skiplist::free_sl_node(Skiplist_Node* node)
 	at_unlock2(node_alloc_lock);
 }
 
-Skiplist_Node* Skiplist::find_node(size_t key,Skiplist_Node** prev,Skiplist_Node** next) // what if max
+SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next) // what if max
 {
-	Skiplist_Node* node = start_node;
+	SkiplistNode* node = start_node;
 	int i;
 	for (i=MAX_LEVEL;i>=0;i--)
 	{
@@ -183,7 +183,7 @@ Skiplist_Node* Skiplist::find_node(size_t key,Skiplist_Node** prev,Skiplist_Node
 	return node;
 }
 
-void Skiplist::delete_node(Skiplist_Node* node,Skiplist_Node** prev,Skiplist_Node** next)
+void Skiplist::delete_node(SkiplistNode* node,SkiplistNode** prev,SkiplistNode** next)
 {
 	size_t key = node->key;
 	at_lock2(node->delete_lock);
@@ -204,13 +204,13 @@ void Skiplist::delete_node(Skiplist_Node* node,Skiplist_Node** prev,Skiplist_Nod
 	}
 }
 
-bool Skiplist::delete_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next)
+bool Skiplist::delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
 {
 	if (try_at_lock2(node->lock) == 0)
 		return false;
 	
-	Skiplist_Node* pn;
-	Skiplist_Node* nn;
+	SkiplistNode* pn;
+	SkiplistNode* nn;
 	int i;
 
 	for (i=node->level;i>=0;i--)
@@ -232,12 +232,12 @@ bool Skiplist::delete_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,S
 
 }
 
-bool Skiplist::insert_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next)
+bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
 {
 	// level already
 	int i;
 
-	Skiplist_Node *pn;
+	SkiplistNode *pn;
 
 	for (i=node->built;i<=node->level;i++)
 	{
@@ -254,7 +254,7 @@ bool Skiplist::insert_node_with_fail(Skiplist_Node* node, Skiplist_Node** prev,S
 	return true;
 }
 
-void Skiplist::insert_node(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_Node** next)
+void Skiplist::insert_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
 {
 	while(1)
 	{
@@ -268,10 +268,10 @@ void Skiplist::insert_node(Skiplist_Node* node, Skiplist_Node** prev,Skiplist_No
 
 void PH_List::init()
 {
-//	node_pool_list = (Tree_Node**)malloc(sizeof(Skiplist_Node*) * NODE_POOL_LIST_SIZE);
+//	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
 	node_pool_list = new ListNode*[NODE_POOL_LIST_SIZE];
 
-//	node_pool_list[0] = (Tree_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
+//	node_pool_list[0] = (Tree_Node*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
 	node_pool_list[0] = new ListNode[NODE_POOL_SIZE];
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
@@ -343,7 +343,7 @@ ListNode* PH_List::alloc_list_node()
 		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
 			printf("no space for node!\n");
 		++node_pool_list_cnt;
-		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(Skiplist_Node*)malloc(sizeof(Skiplist_Node) * NODE_POOL_SIZE);
+		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
 		node_pool_cnt = 0;
 	}
 

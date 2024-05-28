@@ -516,7 +516,7 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode)
 
 }
 
-void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
+void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 {
 	printf("warm_to_cold\n");
 	ListNode* listNode;
@@ -613,7 +613,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 	// split or init warm
 	at_lock2(nodeMeta->lock);
 
-	Skiplist_Node* new_skipNode = skiplist->alloc_sl_node();
+	SkiplistNode* new_skipNode = skiplist->alloc_sl_node();
 
 	if (new_skipNode) // warm split
 	{
@@ -631,8 +631,8 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 			list_node = list_node->next;
 		new_skipNode->list_node = list_node;
 
-		Skiplist_Node* prev[MAX_LEVEL+1];
-		Skiplist_Node* next[MAX_LEVEL+1];
+		SkiplistNode* prev[MAX_LEVEL+1];
+		SkiplistNode* next[MAX_LEVEL+1];
 		skiplist->insert_node(new_skipNode,prev,next);
 	}
 	else // warm init
@@ -650,7 +650,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 }
 
-void PH_Evict_Thread::hot_to_warm(Skiplist_Node* node,bool force)
+void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 {
 //	printf("hot to warn\n");
 	int i;
@@ -843,9 +843,9 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 	key = *(uint64_t*)(addr+HEADER_SIZE);
 	// evict now
 
-	Skiplist_Node* prev[MAX_LEVEL+1];
-	Skiplist_Node* next[MAX_LEVEL+1];
-	Skiplist_Node* node;
+	SkiplistNode* prev[MAX_LEVEL+1];
+	SkiplistNode* next[MAX_LEVEL+1];
+	SkiplistNode* node;
 
 	node = skiplist->find_node(key,prev,next);
 	hot_to_warm(node,true);
@@ -865,9 +865,9 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 	int rv = 0;
 //	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
 
-	Skiplist_Node* prev[MAX_LEVEL+1];
-	Skiplist_Node* next[MAX_LEVEL+1];
-	Skiplist_Node* node;
+	SkiplistNode* prev[MAX_LEVEL+1];
+	SkiplistNode* next[MAX_LEVEL+1];
+	SkiplistNode* node;
 	NodeMeta* nm;
 	LogLoc ll;
 
