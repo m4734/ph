@@ -464,10 +464,62 @@ void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
 
 const size_t PMEM_BUFFER_SIZE = 256;
 
+void PH_Evict_Thread::split_listNode(ListNode *listNode)
+{
+
+	DataNode *list_dataNode = nodeAddr_to_node(listNode->data_node_addr);
+	NodeMeta *list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
+
+
+				DataNode temp_node = *list_dataNode; // move to dram
+				DataNode temp_new_node;
+				uint64_t half_key;
+				uint64_t key;
+
+				size_t offset;
+				unsigned char* addr;
+				addr = (unsigned char*)&temp_node;
+				offset = sizeof(NodeAddr);
+				
+				half_key = find_half_in_node(list_nodeMeta,&temp_node);
+
+				ListNode* new_listNode = list->alloc_list_node();
+				NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
+	int i;
+				for (i=0;i<NODE_SLOT_MAX;i++)
+				{
+					if (list_nodeMeta->valid[i] == false)
+					{
+						new_nodeMeta->valid[i] = false;
+						offset+=ble_len;
+						continue;
+					}
+					key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+					if (key > half_key)
+					{
+						new_nodeMeta->valid[i] = true;
+						memcpy((unsigned char*)&temp_new_node+offset,(unsigned char*)&temp_node+offset,ble_len);
+
+					}
+					offset+=ble_len;
+				}
+
+				temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
+				pmem_node_nt_write(nodeAddr_to_node(new_listNode->data_node_addr),&temp_new_node,0,NODE_SIZE);
+				new_nodeMeta->next_p = list_nodeMeta->next_p;
+
+				//link
+				pmem_next_write(list_dataNode,new_nodeMeta->my_offset);
+				list_nodeMeta->next_p = new_nodeMeta;
+
+				list->insert_node(listNode,new_listNode);
+
+}
+
 void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 {
 	printf("warm_to_cold\n");
-	List_Node* listNode;
+	ListNode* listNode;
 	NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
 	DataNode dataNode = *nodeAddr_to_node(node->data_node_addr); // dram copy
 	size_t offset = sizeof(NodeAddr);
@@ -528,7 +580,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 					}
 
 
-					pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ble_len*i , addr, ble_len);
+					pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ble_len*i , addr + offset, ble_len);
 					list_nodeMeta->valid[i] = true; // validate
 
 					// modify hash index here
@@ -545,53 +597,13 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 					nodeMeta->valid[cnt] = false; //invalidate
 				}
 //			if (i >= NODE_SLOT_MAX) // need split
-			else
+			else // cold split
 			{
 				//split cold here
 				//find half
 
-				DataNode temp_node = *list_dataNode; // move to dram
-				DataNode temp_new_node;
-				uint64_t half_key;
-				uint64_t key;
-
-				size_t offset;
-				unsigned char* addr;
-				addr = (unsigned char*)&temp_node;
-				offset = sizeof(NodeAddr);
-				
-				half_key = find_half_in_node(list_nodeMeta,&temp_node);
-
-				List_Node* new_listNode = list->alloc_list_node();
-				NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
-
-				for (i=0;i<NODE_SLOT_MAX;i++)
-				{
-					if (list_nodeMeta->valid[i] == false)
-					{
-						new_nodeMeta->valid[i] = false;
-						offset+=ble_len;
-						continue;
-					}
-					key = *(uint64_t*)(addr+offset+HEADER_SIZE);
-					if (key > half_key)
-					{
-						new_nodeMeta->valid[i] = true;
-						memcpy((unsigned char*)&temp_new_node+offset,(unsigned char*)&temp_node+offset,ble_len);
-
-					}
-					offset+=ble_len;
-				}
-
-				temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
-				pmem_node_nt_write(nodeAddr_to_node(new_listNode->data_node_addr),&temp_new_node,0,NODE_SIZE);
-				new_nodeMeta->next_p = list_nodeMeta->next_p;
-
-				//link
-				pmem_next_write(list_dataNode,new_nodeMeta->my_offset);
-				list_nodeMeta->next_p = new_nodeMeta;
-
-				list->insert_node(listNode,new_listNode);
+				split_listNode(listNode); // we have the lock
+				--cnt; // retry...
 			}
 
 			at_unlock2(list_nodeMeta->lock);//-----------------------------------------unlock dst cold
@@ -603,7 +615,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 
 	Skiplist_Node* new_skipNode = skiplist->alloc_sl_node();
 
-	if (new_skipNode) // split
+	if (new_skipNode) // warm split
 	{
 		uint64_t half_key;
 		half_key = find_half_in_node(nodeMeta,&dataNode);
@@ -614,7 +626,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 		nodeMeta->slot_cnt = 0;
 		new_skipNode->key = half_key;
 
-		List_Node* list_node = node->list_node;
+		ListNode* list_node = node->list_node;
 		while(list_node->next->key < half_key)
 			list_node = list_node->next;
 		new_skipNode->list_node = list_node;
@@ -623,7 +635,7 @@ void PH_Evict_Thread::warm_to_cold(Skiplist_Node* node)
 		Skiplist_Node* next[MAX_LEVEL+1];
 		skiplist->insert_node(new_skipNode,prev,next);
 	}
-	else // init
+	else // warm init
 	{
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)

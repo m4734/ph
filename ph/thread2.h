@@ -16,6 +16,7 @@ namespace PH
 
 class DoubleLog;
 class Skiplist_Node;
+class ListNode;
 
 //class Skiplist;
 //class PH_List;
@@ -66,6 +67,7 @@ class PH_Evict_Thread : public PH_Thread
 	int try_push(DoubleLog* dl);
 	void hot_to_warm(Skiplist_Node* node,bool force);
 	void warm_to_cold(Skiplist_Node* node);
+	void split_listNode(ListNode* listNode);
 
 	DoubleLog** log_list;
 	int log_cnt;

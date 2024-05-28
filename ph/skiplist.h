@@ -34,13 +34,13 @@ struct LogLoc
 };
 
 
-class List_Node
+class ListNode
 {
 	public:
-	List_Node() : key(0), next(NULL), prev(NULL), lock(0) {};
+	ListNode() : key(0), next(NULL), prev(NULL), lock(0) {};
 	size_t key;
-	List_Node* next;
-	List_Node* prev;
+	ListNode* next;
+	ListNode* prev;
 
 //	NodeMeta* my_node;
 	NodeAddr data_node_addr;
@@ -52,26 +52,26 @@ class PH_List
 {
 	public:
 
-	List_Node* empty_node;
-	List_Node* start_node;
-	List_Node* end_node;
+	ListNode* empty_node;
+	ListNode* start_node;
+	ListNode* end_node;
 
-	List_Node** node_pool_list;
+	ListNode** node_pool_list;
 	size_t node_pool_cnt;
 	size_t node_pool_list_cnt;
 
 	std::atomic<uint8_t> node_alloc_lock;
-	List_Node* node_free_head;
+	ListNode* node_free_head;
 
 	void init();
 	void clean();
 
-	List_Node* alloc_list_node();
-	void free_list_node(List_Node* node);
+	ListNode* alloc_list_node();
+	void free_list_node(ListNode* node);
 
-	List_Node* find_node(size_t key,List_Node* node);
-	void insert_node(List_Node* prev,List_Node* node);
-	void delete_node(List_Node* node);
+	ListNode* find_node(size_t key,ListNode* node);
+	void insert_node(ListNode* prev,ListNode* node);
+	void delete_node(ListNode* node);
 
 };
 
@@ -95,7 +95,7 @@ class Skiplist_Node
 
 	size_t level;
 	size_t built;
-	List_Node* list_node;
+	ListNode* list_node;
 //	NodeMeta* my_node;
 	NodeAddr data_node_addr;
 
