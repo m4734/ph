@@ -213,11 +213,11 @@ extern NodeAllocator* nodeAllocator;
 
 inline DataNode* nodeAddr_to_node(NodeAddr nodeAddr)
 {
-	return (DataNode*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.offset);
+	return (DataNode*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
 }
 inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
 {
-	return (NodeMeta*)(nodeAllocator->nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.offset);
+	return (NodeMeta*)(nodeAllocator->nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
 }
 
 }

@@ -124,7 +124,7 @@ namespace PH
 //		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
 //		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
 		nm->my_offset.pool_num = pool_num;
-		nm->my_offset.offset = node_cnt[pool_num];
+		nm->my_offset.node_offset = node_cnt[pool_num];
 		nm->written_size = 0;
 		nm->slot_cnt = 0;
 		int i;

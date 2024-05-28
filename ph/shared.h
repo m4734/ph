@@ -9,7 +9,7 @@ struct NodeAddr
 //	size_t pool_num : 10;
 //	size_t offset : 52;
 	uint32_t pool_num;
-	uint32_t offset;
+	uint32_t node_offset; // need * NODE_SIZE
 };
 
 const size_t NODE_SIZE = 4096; // 4KB
