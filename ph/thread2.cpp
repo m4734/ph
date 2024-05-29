@@ -482,9 +482,13 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode)
 				offset = sizeof(NodeAddr);
 				
 				half_key = find_half_in_node(list_nodeMeta,&temp_node);
+				if (half_key == listNode->key)
+					return; // fail -- all same key?
 
 				ListNode* new_listNode = list->alloc_list_node();
 				NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
+
+				new_listNode->key = half_key;
 	int i;
 				for (i=0;i<NODE_SLOT_MAX;i++)
 				{
@@ -518,16 +522,17 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode)
 
 void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 {
-	printf("warm_to_cold\n");
+//	printf("warm_to_cold\n");
 	ListNode* listNode;
 	NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
 	DataNode dataNode = *nodeAddr_to_node(node->data_node_addr); // dram copy
-	size_t offset = sizeof(NodeAddr);
+	size_t src_offset = sizeof(NodeAddr);
 	int cnt = 0;
 	uint64_t key;
 	unsigned char* addr = (unsigned char*)&dataNode;
 	EntryAddr old_ea,new_ea;
 	int i;
+	int slot_idx;
 
 	KVP* kvp_p;
 	std::atomic<uint8_t> *seg_lock;
@@ -539,12 +544,18 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 	new_ea.loc = 3; // cold
 
 	//while (offset < NODE_SIZE)
-	for (cnt=0;cnt<nodeMeta->slot_cnt;cnt++)
+	cnt = 0;
+	while (cnt < nodeMeta->slot_cnt)
+//	for (cnt=0;cnt<nodeMeta->slot_cnt;cnt++)
 	{
 		if (nodeMeta->valid[cnt] == false)
+		{
+			++cnt;
+		src_offset+=ble_len;
 			continue;
+		}
 
-			key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+			key = *(uint64_t*)(addr+src_offset+HEADER_SIZE);
 			listNode = node->list_node;
 			while (key > listNode->next->key)
 				listNode = listNode->next;
@@ -556,32 +567,33 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 
 			at_lock2(list_nodeMeta->lock);//-------------------------------------lock dst cold
 
-			for (i=0;i<NODE_SLOT_MAX;i++)
+			for (slot_idx=0;slot_idx<NODE_SLOT_MAX;slot_idx++)
 			{
-				if (list_nodeMeta->valid[i] == false)
+				if (list_nodeMeta->valid[slot_idx] == false)
 					break;
 			}
-			if (i < NODE_SLOT_MAX)
+			if (slot_idx < NODE_SLOT_MAX)
 				{
-					old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + offset;
-					new_ea.offset = listNode->data_node_addr.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*i;
+					old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
+					new_ea.offset = listNode->data_node_addr.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*slot_idx;
 					// lock here
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 //					if (kvp_p->value != (uint64_t)addr) // moved
 					if (kvp_p->value != old_ea.value)
 					{
-						EntryAddr test_entryAddr;
-						test_entryAddr.value= kvp_p->value;
-
+//						EntryAddr test_entryAddr;
+//						test_entryAddr.value= kvp_p->value;
 
 						hash_index->unlock_entry2(seg_lock,read_lock); // unlock
 						at_unlock2(list_nodeMeta->lock);
+						++cnt;
+						src_offset+=ble_len;
 						continue; 
 					}
 
 
-					pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ble_len*i , addr + offset, ble_len);
-					list_nodeMeta->valid[i] = true; // validate
+					pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ble_len*slot_idx , addr + src_offset, ble_len);
+					list_nodeMeta->valid[slot_idx] = true; // validate
 
 					// modify hash index here
 //					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -593,8 +605,10 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 					_mm_sfence();
 					hash_index->unlock_entry2(seg_lock,read_lock);
 					
-
-					nodeMeta->valid[cnt] = false; //invalidate
+//					nodeMeta->valid[cnt] = false; //invalidate
+					// not here...
+					++cnt;
+		src_offset+=ble_len;
 				}
 //			if (i >= NODE_SLOT_MAX) // need split
 			else // cold split
@@ -603,27 +617,25 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 				//find half
 
 				split_listNode(listNode); // we have the lock
-				--cnt; // retry...
+				// retry
 			}
-
 			at_unlock2(list_nodeMeta->lock);//-----------------------------------------unlock dst cold
-		offset+=ble_len;
 	}
 
 	// split or init warm
 	at_lock2(nodeMeta->lock);
 
-	SkiplistNode* new_skipNode = skiplist->alloc_sl_node();
+	SkiplistNode* new_skipNode = NULL;
+
+	new_skipNode = skiplist->alloc_sl_node();
 
 	if (new_skipNode) // warm split
 	{
 		uint64_t half_key;
 		half_key = find_half_in_node(nodeMeta,&dataNode);
 
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			nodeMeta->valid[i] = false;
-		nodeMeta->written_size = 0;
-		nodeMeta->slot_cnt = 0;
+		if (half_key > node->key)
+		{
 		new_skipNode->key = half_key;
 
 		ListNode* list_node = node->list_node;
@@ -634,17 +646,24 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 		SkiplistNode* prev[MAX_LEVEL+1];
 		SkiplistNode* next[MAX_LEVEL+1];
 		skiplist->insert_node(new_skipNode,prev,next);
+		}
+		else
+			skiplist->free_sl_node(new_skipNode);
+
 	}
+	/*
 	else // warm init
 	{
-		int i;
+		// may need memset...
+		// hot->cold...
+	}
+	*/
+
+	//init nodeMeta
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nodeMeta->valid[i] = false;
 		nodeMeta->written_size = 0;
 		nodeMeta->slot_cnt = 0;
-		// may need memset...
-		// hot->cold...
-	}
 
 	at_unlock2(nodeMeta->lock);
 
@@ -868,7 +887,7 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 	SkiplistNode* prev[MAX_LEVEL+1];
 	SkiplistNode* next[MAX_LEVEL+1];
 	SkiplistNode* node;
-	NodeMeta* nm;
+	NodeMeta* nodeMeta;
 	LogLoc ll;
 
 //	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
@@ -892,14 +911,16 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 			rv = 1;
 			// regist the log num and size_t
 			node = skiplist->find_node(key,prev,next);
-			nm = nodeAddr_to_nodeMeta(node->data_node_addr);
+			nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
 
 
-			if (sizeof(NodeAddr) + nm->written_size + node->entry_size_sum + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
+			if (sizeof(NodeAddr) + nodeMeta->written_size + node->entry_size_sum + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
 			{
 				// warm is full
 				hot_to_warm(node,true);
-				warm_to_cold(node);
+
+				if (sizeof(NodeAddr) + nodeMeta->written_size + ble_len > NODE_SIZE)
+					warm_to_cold(node);
 				continue; // retry
 			}
 

@@ -87,16 +87,17 @@ namespace PH
 		for(i=0;i<num_pmem;i++)
 		{
 			sprintf(path,"/mnt/pmem%d/data%d",i,pool_cnt+i);
-			nodeMetaPoolList[i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0); 
-			if (!nodeMetaPoolList[i])
-				printf("alloc_pool error1\n");
-			nodePoolList[i] = (unsigned char*)pmem_map_file(path,POOL_SIZE,PMEM_FILE_CREATE,0777,&my_size,&is_pmem);
+			nodeMetaPoolList[pool_cnt + i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0); 
+			if (!nodeMetaPoolList[pool_cnt + i])
+				printf("alloc_pool error1----------------------------------------------\n");
+			nodePoolList[pool_cnt + i] = (unsigned char*)pmem_map_file(path,POOL_SIZE,PMEM_FILE_CREATE,0777,&my_size,&is_pmem);
+			if (!nodePoolList[pool_cnt +i])
+				printf("alloc_pool error2----------------------------------------------\n");
+
 			if (is_pmem == 0)
 				printf("is not pmem\n");
 			if (my_size != req_size)
 				printf("my size is not req size\n");
-
-
 		}
 		pool_cnt += num_pmem;
 	}
@@ -156,10 +157,10 @@ namespace PH
 		size_t offset = sizeof(NodeAddr);
 		unsigned char* addr = (unsigned char*)node;
 
-		for (i=0;i<NODE_SLOT_MAX;i++)
+		for (i=0;i<NODE_SLOT_MAX;i++) // always full?
 		{
-			if (nm->valid[i] == false)
-				continue;
+//			if (nm->valid[i] == false)
+//				continue;
 			new_key = *(uint64_t*)(addr+offset+HEADER_SIZE);
 			offset+=ble_len;
 			for (j=cnt;j>0;j--)
@@ -172,6 +173,8 @@ namespace PH
 			keys[j] = new_key;
 			cnt++;
 		}
+//		if (cnt == 0)
+//			printf("can not find half\n");
 		return keys[cnt/2];
 	}
 

@@ -258,9 +258,9 @@ void Skiplist::insert_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode*
 {
 	while(1)
 	{
+		find_node(node->key,prev,next);
 		if (insert_node_with_fail(node,prev,next))
 			return;
-		find_node(node->key,prev,next);
 	}
 }
 
