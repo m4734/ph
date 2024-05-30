@@ -27,9 +27,15 @@ extern int num_evict_thread;
 CCEH* hash_index;
 
 //std::queue <SEG*> seg_free_list;
+/*
 volatile unsigned int seg_free_cnt; // atomic?
 volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
+*/
+
+std::atomic<uint32_t> seg_free_cnt;
+std::atomic<uint32_t> seg_free_min;
+std::atomic<uint32_t> seg_free_index;
 
 //#define FREE_SEG_LEN 10000 moved to thread.h
 
@@ -49,7 +55,7 @@ thread_local int key_array_index=0;
 int max_index;
 
 //test
-uint64_t alloc_seg_cnt;
+std::atomic<uint32_t> alloc_seg_cnt;
 
 uint64_t MurmurHash64A_L8 ( const void * key )
 {
@@ -176,7 +182,7 @@ SEG* alloc_seg() // use free list
 {
 	SEG* seg;
 
-	at_lock2(free_seg_lock);
+//	at_lock2(free_seg_lock);
 	if (seg_free_index == seg_free_min)
 	{
 		int temp;
@@ -184,12 +190,19 @@ SEG* alloc_seg() // use free list
 		if (temp > seg_free_index)
 			seg_free_min = temp;
 	}
-	if (seg_free_index < seg_free_min)
+
+	uint8_t o;
+	while (seg_free_index < seg_free_min)
 	{
 		seg = free_seg_queue[seg_free_index%FREE_SEG_LEN];
-		seg_free_index++;
+		o = 1;
+		if (seg->lock.compare_exchange_strong(o,0))
+		{		
+			seg_free_index++;
+			return seg;
+		}
 	}
-	else
+//	else
 	{
 //		printf("aaa\n");
 		alloc_seg_cnt++;
@@ -197,7 +210,7 @@ SEG* alloc_seg() // use free list
 			printf("posix_memalign error2\n");
 
 	}
-	at_unlock2(free_seg_lock);
+//	at_unlock2(free_seg_lock);
 //	seg->seg_lock = new std::mutex;
 //	printf("alloc_seg %p\n",seg);
 	return seg;
@@ -219,7 +232,7 @@ void free_seg(SEG* seg)
 			seg_free_index = min_seg_free_cnt();
 	if (seg_free_index+FREE_SEG_LEN <= seg_free_cnt)	
 	{
-		printf("free seg full %d %d %d\n",seg_free_min,seg_free_index,seg_free_cnt);
+		printf("free seg full %u %u %u\n",seg_free_min.load(),seg_free_index.load(),seg_free_cnt.load());
 //		print_thread_info();
 		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt)
 			seg_free_index = min_seg_free_cnt();
@@ -827,6 +840,7 @@ void CCEH::split(int sn) // seg locked
 */
 	//why do we unlock
 //	at_unlock2(seg->lock);
+_mm_sfence(); // seg lock deadlock?
 	free_seg(seg);
 }
 
@@ -1204,9 +1218,9 @@ void clean_cceh()
 	seg_gc();
 
 	printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
-	printf("SEG count %ld\n",alloc_seg_cnt);
+	printf("SEG count %u\n",alloc_seg_cnt.load());
 
-	printf("seg index %d min %d cnt %d\n",seg_free_index,seg_free_min,seg_free_cnt);
+	printf("seg index %u min %u cnt %u\n",seg_free_index.load(),seg_free_min.load(),seg_free_cnt.load());
 
 	if (key_array)
 	{

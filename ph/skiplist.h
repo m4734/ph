@@ -95,7 +95,7 @@ class SkiplistNode
 
 	size_t level;
 	size_t built;
-	ListNode* list_node;
+	ListNode* my_listNode;
 //	NodeMeta* my_node;
 	NodeAddr data_node_addr;
 

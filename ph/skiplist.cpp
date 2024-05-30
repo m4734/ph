@@ -68,18 +68,18 @@ void Skiplist::init()
 
 	empty_node = alloc_sl_node();
 	empty_node->key = KEY_MIN;
-	empty_node->list_node = list->empty_node; // may not need
+	empty_node->my_listNode = list->empty_node; // may not need
 
 	start_node = alloc_sl_node();
 	start_node->setLevel(MAX_LEVEL);
 	start_node->key = KEY_MIN;
-	start_node->list_node = list->start_node;
+	start_node->my_listNode = list->start_node;
 
 	end_node = alloc_sl_node();
 //	end_node->built = MAX_LEVEL;
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
-	end_node->list_node = list->empty_node;
+	end_node->my_listNode = list->empty_node;
 
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
@@ -247,7 +247,7 @@ bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,Ski
 		if (pn != next[i])
 			return false;
 		node->next[i] = next[i];
-		if (prev[i]->next[i].compare_exchange_strong(pn,node->next[i]) == false)
+		if (prev[i]->next[i].compare_exchange_strong(pn,node) == false)
 			return false;
 		node->built++;
 	}

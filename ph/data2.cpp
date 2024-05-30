@@ -131,6 +131,7 @@ namespace PH
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
+		nm->valid_cnt = 0;
 
 		++node_cnt[pool_num];
 		++alloc_cnt;
@@ -159,8 +160,8 @@ namespace PH
 
 		for (i=0;i<NODE_SLOT_MAX;i++) // always full?
 		{
-//			if (nm->valid[i] == false)
-//				continue;
+			if (nm->valid[i] == false)
+				continue;
 			new_key = *(uint64_t*)(addr+offset+HEADER_SIZE);
 			offset+=ble_len;
 			for (j=cnt;j>0;j--)
