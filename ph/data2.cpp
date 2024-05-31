@@ -112,20 +112,23 @@ namespace PH
 			nm = (NodeMeta*)free_head_p;
 			free_head_p = free_head_p->next_p;
 			at_unlock2(lock);
-//			return nm;
-			return nm->my_offset;
 		}
-		
-		if (node_cnt[pool_cnt - num_pmem + alloc_cnt % num_pmem] >= POOL_NODE_MAX)
-			alloc_pool();
+		else
+		{
+			if (node_cnt[pool_cnt - num_pmem + alloc_cnt % num_pmem] >= POOL_NODE_MAX)
+				alloc_pool();
 
-		size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+			size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
 
-		nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
+			nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
+			nm->my_offset.pool_num = pool_num;
+			nm->my_offset.node_offset = node_cnt[pool_num];
+			++node_cnt[pool_num];
+			++alloc_cnt;
+			at_unlock2(lock);
+		}
 //		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
 //		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-		nm->my_offset.pool_num = pool_num;
-		nm->my_offset.node_offset = node_cnt[pool_num];
 		nm->written_size = 0;
 		nm->slot_cnt = 0;
 		int i;
@@ -133,11 +136,6 @@ namespace PH
 			nm->valid[i] = false;
 		nm->valid_cnt = 0;
 
-		++node_cnt[pool_num];
-		++alloc_cnt;
-
-		at_unlock2(lock);
-//		return nm;
 		return nm->my_offset;
 	}
 

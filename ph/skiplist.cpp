@@ -34,7 +34,14 @@ extern NodeAllocator* nodeAllocator;
 
 size_t getRandomLevel()
 {
-	return rand() % MAX_LEVEL;
+	size_t level = 0;
+	while(level < MAX_LEVEL)
+	{
+		if (rand()%2 == 0)
+			break;
+		++level;
+	}
+	return level;
 }
 
 void SkiplistNode::setLevel(size_t l)

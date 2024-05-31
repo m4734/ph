@@ -36,6 +36,9 @@ struct Dram_List
 	BaseLogEntry ble;
 };
 */
+
+class PH_Thread;
+
 class DoubleLog
 {
 
@@ -65,6 +68,7 @@ class DoubleLog
 //	size_t end_offset;
 
 	size_t min_tail_sum;
+	PH_Thread* my_thread;
 
 #if 0
 	Dram_List** dram_list_pool = NULL; //1024*1024

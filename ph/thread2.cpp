@@ -81,11 +81,28 @@ size_t get_min_tail(int log_num)
 	return min;
 }
 
+void PH_Thread::op_check()
+{
+	++op_cnt;
+	if (op_cnt % 128 == 0) // 128?
+		sync_thread();
+}
+
+void PH_Thread::sync_thread()
+{
+	update_free_cnt();
+	update_tail_sum();	
+}
+
+void PH_Thread::update_tail_sum()
+{
+	int i;
+	for (i=0;i<log_max;i++)
+		recent_log_tails[i] = doubleLogList[i].tail_sum;
+}
+
 void PH_Thread::update_free_cnt()
 {
-		op_cnt++;
-		if (op_cnt % 128 == 0)
-		{
 			local_seg_free_cnt = seg_free_cnt;
 #ifdef wait_for_slow
 			int min = min_seg_free_cnt();
@@ -100,8 +117,6 @@ void PH_Thread::update_free_cnt()
 					printf("out2\n");
 			}
 #endif
-			
-		}
 #if 0
 	int i;
 	pthread_t pt;
@@ -119,16 +134,6 @@ void PH_Thread::update_free_cnt()
 	new_thread();
 #endif
 
-
-	// log tail update
-	if (op_cnt % 128 == 0)
-	{
-		int i;
-		for (i=0;i<log_max;i++)
-		{
-			recent_log_tails[i] = doubleLogList[i].tail_sum;
-		}
-	}
 }
 
 //-------------------------------------------------
@@ -159,6 +164,8 @@ void PH_Query_Thread::init()
 	else
 		printf("log allocated\n");
 
+	my_log->my_thread = this;
+
 //	local_seg_free_cnt = min_seg_free_cnt();
 //	local_seg_free_cnt = INV9;
 	local_seg_free_cnt = seg_free_cnt;
@@ -185,7 +192,8 @@ void PH_Query_Thread::clean()
 
 int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
 {
-	update_free_cnt();
+//	update_free_cnt();
+	op_check();
 
 //	unsigned char* new_addr;
 //	unsigned char* old_addr;
@@ -334,7 +342,8 @@ bool new_key;
 }
 int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf)
 {
-	update_free_cnt();
+//	update_free_cnt();
+	op_check();
 
 //	uint64_t ret;
 //	hash_index->read(key,&ret);
@@ -379,19 +388,22 @@ int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf)
 }
 int PH_Query_Thread::delete_op(uint64_t key)
 {
-	update_free_cnt();
+//	update_free_cnt();
+	op_check();
 
 	return 0;
 }
 int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t end_key)
 {
-	update_free_cnt();
+//	update_free_cnt();
+	op_check();
 
 	return 0;
 }
 int PH_Query_Thread::next_op(unsigned char* buf)
 {
-	update_free_cnt();
+//	update_free_cnt();
+	op_check();
 
 	return 0;
 }
@@ -453,6 +465,7 @@ void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len)
 
 void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 {
+	// need version clean - kv write - version write ...
 	memcpy(dst,src,len);
 	pmem_persist(dst,len);
 	_mm_sfence();
@@ -507,21 +520,22 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode,SkiplistNode *skiplistNo
 						continue;
 					}
 					key = *(uint64_t*)(addr+offset+HEADER_SIZE);
-					if (key > half_key)
+					if (key >= half_key)
 					{
 						new_nodeMeta->valid[moved_cnt] = true;
-						memcpy((unsigned char*)&temp_new_node+offset,(unsigned char*)&temp_node+offset2,ble_len);
+						memcpy((unsigned char*)&temp_new_node+offset2,(unsigned char*)&temp_node+offset,ble_len);
 						//need invalicdation
 						moved_idx[moved_cnt] = i;
 						++moved_cnt;
 
-						++new_nodeMeta->valid_cnt;
-						--list_nodeMeta->valid_cnt;
+//						++new_nodeMeta->valid_cnt;
+//						--list_nodeMeta->valid_cnt;
 
 						offset2+=ble_len;
 					}
 					offset+=ble_len;
 				}
+	new_nodeMeta->valid_cnt = moved_cnt;
 
 				temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
 //				pmem_node_nt_write(nodeAddr_to_node(new_listNode->data_node_addr),&temp_new_node,0,NODE_SIZE);
@@ -548,6 +562,7 @@ if (listNode->key >= new_listNode->key)
 
 				for (i=0;i<moved_cnt;i++)
 					list_nodeMeta->valid[moved_idx[i]] = false;
+	list_nodeMeta->valid_cnt-=moved_cnt;
 
 
 }
@@ -696,7 +711,7 @@ void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
 	*/
 
 	//init nodeMeta
-		for (i=0;i<NODE_SLOT_MAX;i++)
+		for (i=0;i<nodeMeta->slot_cnt;i++) // vinalifd warm
 			nodeMeta->valid[i] = false;
 		nodeMeta->written_size = 0;
 		nodeMeta->slot_cnt = 0;
@@ -764,6 +779,14 @@ void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 			node->entry_list[i].log_num = -1; // invalid
 			continue;
 		}
+		//test
+		uint64_t key;
+		key = *(uint64_t*)(addr+HEADER_SIZE);
+		if (key < node->key)
+		{
+			printf("erererrr\n");
+		}
+
 		memcpy(buffer_write_start+write_size,addr,ble_len);
 		write_size+=ble_len;
 	}
@@ -787,6 +810,8 @@ void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 	}
 
 	// invalidate from here
+
+	_mm_sfence();
 
 	KVP* kvp_p;
 	size_t key;
@@ -917,7 +942,7 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 {
 	unsigned char* addr;
-	size_t adv_offset=0;
+//	size_t adv_offset=0;
 	uint64_t header,key;
 	int rv = 0;
 //	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
@@ -940,7 +965,7 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 
 	while(dl->soft_adv_offset + ble_len + dl->my_size <= dl->head_sum + SOFT_EVICT_SPACE)
 	{
-		addr = dl->dramLogAddr + ((dl->tail_sum + adv_offset) % dl->my_size);
+		addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
 		header = *(uint64_t*)addr;
 		key = *(uint64_t*)(addr+HEADER_SIZE);
 
@@ -967,7 +992,13 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 			ll.offset = dl->soft_adv_offset;
 			node->entry_list.push_back(ll);
 			node->entry_size_sum+=ble_len;
-
+/*
+			if (key < node->key)
+				printf("---------------xxfxfx-fx-fx-f-x-\n");
+			ll.test_key1 = node->key;
+			ll.test_key2 = key;
+			ll.test_ptr = node;
+*/
 			// need to try flush
 //			node->try_hot_to_warm();
 #ifdef SOFT_FLUSH
@@ -977,7 +1008,7 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 
 		dl->soft_adv_offset+=ble_len;
 		if ((dl->soft_adv_offset)%dl->my_size  + ble_len > dl->my_size)
-			adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
+			dl->soft_adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
 //		dl->check_turn(tail_sum,ble_len);
 
 
@@ -1007,7 +1038,8 @@ void PH_Evict_Thread::evict_loop()
 printf("evict start\n");
 	while(exit == 0)
 	{
-		update_free_cnt();
+//		update_free_cnt();
+		op_check();
 
 		done = 1;
 		for (i=0;i<log_cnt;i++)

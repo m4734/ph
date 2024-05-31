@@ -26,7 +26,11 @@ class PH_Thread
 	public:
 	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),local_seg_free_cnt(0),op_cnt(0) {}
 
+	void thread_sync();
 	void update_free_cnt();
+	void update_tail_sum();
+	void op_check();
+	void sync_thread();
 
 	std::atomic<uint8_t> lock;
 	volatile uint8_t read_lock;
