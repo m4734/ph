@@ -23,7 +23,7 @@ extern int num_evict_thread;
 extern int log_max;
 extern DoubleLog* doubleLogList;
 //extern volatile unsigned int seg_free_cnt;
-extern std::atomic<uint32_t> seg_free_head;
+//extern std::atomic<uint32_t> seg_free_head;
 extern CCEH* hash_index;
 extern const size_t ble_len;
 
@@ -48,7 +48,7 @@ union EntryAddr
 	};
 	uint64_t value;
 };
-
+#if 0
 //---------------------------------------------- seg
 
 unsigned int min_seg_free_cnt()
@@ -79,7 +79,7 @@ unsigned int min_seg_free_cnt()
 		evict_thread_list[mi-num_query_thread].update_request = 1;
 	return min;
 }
-
+#endif
 size_t get_min_tail(int log_num)
 {
 	int i,mi;
@@ -105,7 +105,7 @@ void PH_Thread::op_check()
 
 void PH_Thread::sync_thread()
 {
-	update_free_cnt();
+//	update_free_cnt();
 	update_tail_sum();	
 	update_request = 0;
 }
@@ -116,7 +116,7 @@ void PH_Thread::update_tail_sum()
 	for (i=0;i<log_max;i++)
 		recent_log_tails[i] = doubleLogList[i].tail_sum;
 }
-
+#if 0
 void PH_Thread::update_free_cnt()
 {
 			local_seg_free_head = seg_free_head;
@@ -151,7 +151,7 @@ void PH_Thread::update_free_cnt()
 #endif
 
 }
-
+#endif
 //-------------------------------------------------
 
 
@@ -184,7 +184,8 @@ void PH_Query_Thread::init()
 
 //	local_seg_free_cnt = min_seg_free_cnt();
 //	local_seg_free_cnt = INV9;
-	local_seg_free_head = seg_free_head;
+//	local_seg_free_head = seg_free_head;
+	hash_index->thread_local_init();
 
 //	recent_log_tails = new size_t[log_num];
 
@@ -198,6 +199,7 @@ void PH_Query_Thread::clean()
 	my_log->use = 0;
 	my_log = NULL;
 
+	hash_index->thread_local_clean();
 	run = 0;
 	read_lock = 0;
 
@@ -454,12 +456,14 @@ void PH_Evict_Thread::init()
 	for (i=log_cnt;i<ln;i++)
 		log_list[i] = NULL;
 
+	hash_index->thread_local_init();
 	read_lock = 0;
 	run = 1;
 }
 
 void PH_Evict_Thread::clean()
 {
+	hash_index->thread_local_clean();
 	run = 0;
 	read_lock = 0;
 
@@ -1070,10 +1074,11 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 
 			if (key < node->key)
 				printf("thread2 1026\n");
+				/*
 			ll.test_key1 = node->key;
 			ll.test_key2 = key;
 			ll.test_ptr = node;
-
+*/
 			// need to try flush
 //			node->try_hot_to_warm();
 #ifdef SOFT_FLUSH
@@ -1127,9 +1132,9 @@ printf("evict start\n");
 			run = 0;
 			printf("evict idle\n");
 			usleep(1000*1000);
-			_mm_fence();
+			_mm_mfence();
 			sync_thread();
-			_mm_fence();
+			_mm_mfence();
 			run = 1;
 		}
 	}

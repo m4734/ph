@@ -1,4 +1,4 @@
-cscope 15 $HOME/pmem/ph/ph               0000558639
+cscope 15 $HOME/pmem/ph/ph               0000560679
 	@/home/cgmin/pmem/ph/ph/cceh.cpp
 
 2 
@@ -25,29 +25,33 @@ cscope 15 $HOME/pmem/ph/ph               0000558639
 	~<time.h
 >
 
-11 
+10 
+	~<uni°d.h
+>
+
+12 
 	~"c˚h.h
 "
 
-12 
+13 
 	~"thªad2.h
 "
 
-13 
+14 
 	~"lock.h
 "
 
-14 
+15 
 	~"d©a2.h
 "
 
-16 
+17 
 «me•a˚
  
 	gPH
 
 
-19 
+20 
 thªad_loˇl
  
 PH_Thªad
@@ -55,7 +59,17 @@ PH_Thªad
 my_thªad
 ;
 
-24 
+22 
+thªad_loˇl
+ 
+SEG
+* 
+	gãmp_£g
+ = 
+NULL
+;
+
+26 
 PH_Quîy_Thªad
  
 quîy_thªad_li°
@@ -63,11 +77,11 @@ quîy_thªad_li°
 QUERY_THREAD_MAX
 ];
 
-25 
+27 
 num_quîy_thªad
 ;
 
-26 
+28 
 PH_Evi˘_Thªad
  
 evi˘_thªad_li°
@@ -75,34 +89,14 @@ evi˘_thªad_li°
 EVICT_THREAD_MAX
 ];
 
-27 
+29 
 num_evi˘_thªad
 ;
 
-29 
+31 
 CCEH
 * 
 	ghash_ödex
-;
-
-38 
-	g°d
-::
-©omic
-<
-uöt32_t
-> 
-£g_‰ì_˙t
-;
-
-39 
-	g°d
-::
-©omic
-<
-uöt32_t
-> 
-£g_‰ì_mö
 ;
 
 40 
@@ -112,22 +106,42 @@ uöt32_t
 <
 uöt32_t
 > 
-£g_‰ì_ödex
+£g_‰ì_hód
 ;
 
-44 
+42 
+thªad_loˇl
+ 
+uöt32_t
+ 
+	gloˇl_£g_‰ì_mö_hód
+=0;
+
+43 
+	g°d
+::
+©omic
+<
+uöt32_t
+> 
+£g_‰ì_èû
+;
+
+47 
 	#FREE_SEG_LEN
- 10000
+ (1024*8)
 
 	)
 
-45 
+48 
 	#FREE_QUEUE_LEN
- 100000
+ (1024*8)
+
+49 
 
 	)
 
-47 
+50 
 SEG
 * 
 	g‰ì_£g_queue
@@ -135,7 +149,7 @@ SEG
 FREE_SEG_LEN
 ];
 
-49 
+52 
 	g°d
 ::
 ©omic
@@ -145,21 +159,21 @@ uöt8_t
 ‰ì_£g_lock
 ;
 
-51 
+54 
 uöt64_t
  
 	gr_mask
 [65];
 
-53 ** 
+56 ** 
 	gkey_¨øy
  = 0;
 
-54 * 
+57 * 
 	gkey_˙t
  = 0;
 
-55 
+58 
 	g°d
 ::
 ©omic
@@ -167,17 +181,17 @@ uöt64_t
 key_¨øy_˙t
 ;
 
-56 
+59 
 thªad_loˇl
  
 	gkey_¨øy_ödex
 =0;
 
-57 
+60 
 	gmax_ödex
 ;
 
-60 
+63 
 	g°d
 ::
 ©omic
@@ -187,7 +201,7 @@ uöt32_t
 Æloc_£g_˙t
 ;
 
-62 
+65 
 uöt64_t
  
 MurmurHash64A_L8
@@ -195,27 +209,27 @@ MurmurHash64A_L8
 key
  )
 
-64 c⁄° 
+67 c⁄° 
 	gÀn
  = 8;
 
-65 c⁄° 
+68 c⁄° 
 uöt64_t
  
 	g£ed
  = 5516;
 
-68 c⁄° 
+71 c⁄° 
 uöt64_t
  
 	gm
  = 0xc6a4a7935bd1e995;
 
-70 c⁄° 
+73 c⁄° 
 	gr
  = 47;
 
-72 
+75 
 uöt64_t
  
 	gh
@@ -227,7 +241,7 @@ uöt64_t
 m
 );
 
-74 c⁄° 
+77 c⁄° 
 uöt64_t
  * 
 	gd©a
@@ -235,7 +249,7 @@ uöt64_t
 key
 ;
 
-75 c⁄° 
+78 c⁄° 
 uöt64_t
  * 
 	gíd
@@ -245,13 +259,13 @@ d©a
 Àn
 /8);
 
-77 
+80 
 	gd©a
  !
 íd
 )
 
-79 
+82 
 uöt64_t
  
 k
@@ -259,13 +273,13 @@ k
 d©a
 ++;
 
-81 
+84 
 	gk
  *
 m
 ;
 
-82 
+85 
 	gk
  ^
 k
@@ -273,35 +287,35 @@ k
 r
 ;
 
-83 
+86 
 	gk
  *
 m
 ;
 
-85 
+88 
 	gh
  ^
 k
 ;
 
-86 
+89 
 	gh
  *
 m
 ;
 
-89 c⁄° * 
+92 c⁄° * 
 	gd©a2
  = (c⁄° *)
 d©a
 ;
 
-91 
+94 
 	gÀn
  & 7)
 
-93 7: 
+96 7: 
 h
  ^((
 uöt64_t
@@ -309,7 +323,7 @@ uöt64_t
 d©a2
 [6]) << 48;
 
-94 6: 
+97 6: 
 h
  ^((
 uöt64_t
@@ -317,7 +331,7 @@ uöt64_t
 d©a2
 [5]) << 40;
 
-95 5: 
+98 5: 
 h
  ^((
 uöt64_t
@@ -325,7 +339,7 @@ uöt64_t
 d©a2
 [4]) << 32;
 
-96 4: 
+99 4: 
 h
  ^((
 uöt64_t
@@ -333,7 +347,7 @@ uöt64_t
 d©a2
 [3]) << 24;
 
-97 3: 
+100 3: 
 h
  ^((
 uöt64_t
@@ -341,7 +355,7 @@ uöt64_t
 d©a2
 [2]) << 16;
 
-98 2: 
+101 2: 
 h
  ^((
 uöt64_t
@@ -349,7 +363,7 @@ uöt64_t
 d©a2
 [1]) << 8;
 
-99 1: 
+102 1: 
 h
  ^((
 uöt64_t
@@ -357,27 +371,27 @@ uöt64_t
 d©a2
 [0]);
 
-100 
-	gh
- *
-m
-;
-
 103 
 	gh
+ *
+m
+;
+
+106 
+	gh
  ^
 h
  >> 
 r
 ;
 
-104 
+107 
 	gh
  *
 m
 ;
 
-105 
+108 
 	gh
  ^
 h
@@ -385,11 +399,11 @@ h
 r
 ;
 
-107  
+110  
 	gh
 ;
 
-110 
+113 
 ölöe
  * 
 	gCCEH
@@ -401,11 +415,11 @@ uöt64_t
 key
 )
 
-112  (*)&
+115  (*)&
 key
 ;
 
-115 
+118 
 ölöe
  
 boﬁ
@@ -425,7 +439,7 @@ uöt32_t
 hash
 )
 
-117  
+120  
 	gkey1
  =(*(
 uöt64_t
@@ -433,7 +447,7 @@ uöt64_t
 key2
 );
 
-119 
+122 
 ölöe
  
 	gCCEH
@@ -451,7 +465,7 @@ uöt32_t
 hash
 )
 
-121 
+124 
 	gkey1
  = (*((
 uöt64_t
@@ -459,7 +473,7 @@ uöt64_t
 key2
 ));
 
-124 
+127 
 ölöe
  
 uöt64_t
@@ -471,7 +485,7 @@ hf
 key
 )
 
-137  
+140  
 °d
 ::
 _Hash_byãs
@@ -479,7 +493,7 @@ _Hash_byãs
 key
 ,8,5516);
 
-140 
+143 
 ölöe
  
 uöt64_t
@@ -491,7 +505,7 @@ hf
 key
 )
 
-142  
+145  
 °d
 ::
 _Hash_byãs
@@ -499,7 +513,7 @@ _Hash_byãs
 key
 ,8,5516);
 
-151 
+154 
 ölöe
  
 boﬁ
@@ -511,13 +525,13 @@ uöt64_t
 key
 )
 
-153  
+156  
 	gkey
  =
 INV0
 ;
 
-156 
+159 
 öv_£g
 (
 SEG
@@ -525,17 +539,17 @@ SEG
 £g
 )
 
-158 
+161 
 	gi
 ;
 
-161 
+164 
 KVP
 * 
 	gkvp_p
 ;
 
-163 
+166 
 	gkvp_p
  = (
 KVP
@@ -545,7 +559,7 @@ KVP
 ˛
 ;
 
-175 
+178 
 mem£t
 (
 £g
@@ -557,97 +571,107 @@ CL_PER_SEG
 CL_SIZE
 );
 
-183 
+186 
 SEG
 * 
 Æloc_£g
 ()
 
-185 
+188 
 SEG
 * 
 	g£g
 ;
 
-188 i‡(
-	g£g_‰ì_ödex
- =
-£g_‰ì_mö
+201 i‡(
+	gloˇl_£g_‰ì_mö_hód
+ <
+£g_‰ì_èû
 )
 
-190 
-ãmp
-;
-
-191 
-	gãmp
+202 
+loˇl_£g_‰ì_mö_hód
  = 
 PH
 ::
 mö_£g_‰ì_˙t
 ();
 
-192 i‡(
-	gãmp
- > 
-	g£g_‰ì_ödex
-)
-
-193 
-	g£g_‰ì_mö
- = 
-ãmp
-;
-
-196 
-uöt8_t
+204 
+uöt32_t
  
-	go
+	gíd
 ;
 
-197 
-	g£g_‰ì_ödex
- < 
-	g£g_‰ì_mö
+205 
+uöt32_t
+ 
+	gs·
+;
+
+206 
+	gåue
 )
 
-199 
+208 
+	gíd
+ = 
+loˇl_£g_‰ì_mö_hód
+;
+
+209 
+	gs·
+ = 
+£g_‰ì_èû
+;
+
+210 
+	gs·
+ < 
+	gíd
+)
+
+212 i‡(
+	g£g_‰ì_èû
+.
+com∑ª_exch™ge_°r⁄g
+(
+s·
+,sft+1))
+
+214 
 	g£g
  = 
 ‰ì_£g_queue
 [
-£g_‰ì_ödex
+s·
 %
 FREE_SEG_LEN
 ];
 
-200 
-	go
- = 1;
-
-201 i‡(
-	g£g
-->
-	glock
-.
-com∑ª_exch™ge_°r⁄g
-(
-o
-,0))
-
-203 
-	g£g_‰ì_ödex
-++;
-
-204  
+215  
 	g£g
 ;
 
-210 
+217 
+	gs·
+ = 
+£g_‰ì_èû
+;
+
+220 i‡(
+	g£g_‰ì_èû
+ + 
+	gFREE_SEG_LEN
+ > 
+	g£g_‰ì_hód
+)
+
+223 
 	gÆloc_£g_˙t
 ++;
 
-211 i‡(
+224 i‡(
 posix_memÆign
 ((**)&
 £g
@@ -655,15 +679,81 @@ posix_memÆign
 SEG
 )) != 0)
 
-212 
+225 
 ¥ötf
 ("posix_memalignÉrror2\n");
 
-218  
+228 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
+)
+
+229 
+	gmy_thªad
+->
+sync_thªad
+();
+
+230 
+	gloˇl_£g_‰ì_mö_hód
+ = 
+PH
+::
+mö_£g_‰ì_˙t
+();
+
+232 
+¥ötf
+("u£ fªêqueuê%u %u\n",
+£g_‰ì_èû
+.
+lﬂd
+(),
+£g_‰ì_hód
+.load());
+
+233 
+u¶ìp
+(100*1000);
+
+238  
 	g£g
 ;
 
-221 
+242 
+SEG
+* 
+Æloc_£g
+()
+
+244 
+SEG
+* 
+	g£g
+;
+
+245 
+	gÆloc_£g_˙t
+++;
+
+246 i‡(
+posix_memÆign
+((**)&
+£g
+,64,(
+SEG
+)) != 0)
+
+247 
+¥ötf
+("posix_memalignÉrror2\n");
+
+248  
+	g£g
+;
+
+251 
 ‰ì_£g
 (
 SEG
@@ -671,115 +761,89 @@ SEG
 £g
 )
 
-231 
-åy_©_lock2
-(
-‰ì_£g_lock
-Ë=
-Ál£
+269 
+uöt32_t
+ 
+	gsfh
+;
+
+270 
+	gåue
 )
 
-233 i‡(
-my_thªad
-->
-upd©e_ªque°
-)
-
-234 
-my_thªad
-->
-sync_thªad
-();
-
-237 i‡(
-	g£g_‰ì_ödex
-+
-	gFREE_SEG_LEN
-/2 <
-£g_‰ì_˙t
-)
-
-240 
-£g_‰ì_ödex
+272 
+	gsfh
  = 
-mö_£g_‰ì_˙t
-();
+£g_‰ì_hód
+;
 
-241 i‡(
-	g£g_‰ì_ödex
-+
+273 
+	g£g_‰ì_èû
+ + 
 	gFREE_SEG_LEN
  <
-£g_‰ì_˙t
+sfh
 )
 
-243 
+275 
 ¥ötf
-("‰ì seg fuŒ %u %u %u\n",
-£g_‰ì_mö
+("‰ì seg fuŒ %u %u\n",
+£g_‰ì_èû
 .
 lﬂd
 (),
-£g_‰ì_ödex
-.lﬂd(),
-£g_‰ì_˙t
+£g_‰ì_hód
 .load());
 
-245 
-	g£g_‰ì_ödex
-+
-	gFREE_SEG_LEN
- <
-£g_‰ì_˙t
+276 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
 )
 
-247 
-my_thªad
+277 
+	gmy_thªad
 ->
 sync_thªad
 ();
 
-248 
-	g£g_‰ì_ödex
- = 
-mö_£g_‰ì_˙t
-();
+278 
+u¶ìp
+(1000*100);
 
-252 
+280 i‡(
+	g£g_‰ì_hód
+.
+com∑ª_exch™ge_°r⁄g
+(
+sfh
+,sfh+1))
+
+282 
 	g‰ì_£g_queue
 [
-£g_‰ì_˙t
+sfh
 %
 FREE_SEG_LEN
 ] = 
 £g
 ;
 
-253 
-	g£g_‰ì_˙t
-++;
-
-254 
-©_u∆ock2
-(
-‰ì_£g_lock
-);
-
-256 
+308 
 	gCCEH
 ::
 CCEH
 ()
 
-258 
+310 
 poöt
  = 0;
 
-259 
+311 
 öô
 (1);
 
-261 
+313 
 	gCCEH
 ::
 CCEH
@@ -787,27 +851,51 @@ CCEH
 ö_dïth
 )
 
-263 
+315 
 poöt
  = 1;
 
-264 
+316 
 öô
 (
 ö_dïth
 );
 
-266 
+318 
 	gCCEH
 ::~
 CCEH
 ()
 
-268 
+320 
 ˛ón
 ();
 
-271 
+323 
+	gCCEH
+::
+thªad_loˇl_öô
+()
+
+325 
+ãmp_£g
+ = 
+Æloc_£g
+();
+
+328 
+	gCCEH
+::
+thªad_loˇl_˛ón
+()
+
+330 
+‰ì
+(
+ãmp_£g
+);
+
+333 
 	gCCEH
 ::
 öô
@@ -815,17 +903,17 @@ CCEH
 ö_dïth
 )
 
-274 
+336 
 i
 ;
 
-275 
+337 
 	gdïth
  = 
 ö_dïth
 ;
 
-276 
+338 
 	gdm
  = 
 r_mask
@@ -833,13 +921,13 @@ r_mask
 dïth
 ];
 
-277 
+339 
 	g£g_˙t
  = 1 << 
 dïth
 ;
 
-282 
+344 
 	g£g_li°
  = (
 SEG
@@ -849,13 +937,13 @@ mÆloc
 £g_˙t
 );
 
-291 
+353 
 	gi
 =0;i<
 	g£g_˙t
 ;i++)
 
-296 
+358 
 	g£g_li°
 [
 i
@@ -863,7 +951,7 @@ i
 Æloc_£g
 ();
 
-299 
+361 
 öv_£g
 (
 £g_li°
@@ -871,7 +959,7 @@ i
 i
 ]);
 
-300 
+362 
 	g£g_li°
 [
 i
@@ -879,7 +967,7 @@ i
 	glock
  = 0;
 
-302 
+364 
 	g£g_li°
 [
 i
@@ -889,19 +977,15 @@ i
 dïth
 ;
 
-308 
+370 
 	gwrôe_lock
  = 0;
 
-309 
-	g‰ì_£g_lock
- = 0;
-
-312 #i‡
+374 #i‡
 ˘t
 
 
-313 
+375 
 	gbc
  = 
 sc
@@ -913,29 +997,29 @@ sc
 ˘t2
  = 0;
 
-314 
+376 
 	gföd_˙t
  = 
 pic
  = 1;
 
-318 
+380 
 	gCCEH
 ::
 ˛ón
 ()
 
-320 
+382 
 i
 ;
 
-321 
+383 
 	gi
 =
 £g_˙t
 -1;i>=0;i--)
 
-323 i‡(
+385 i‡(
 	gi
  + 1 <((
 uöt64_t
@@ -947,7 +1031,7 @@ i
 dïth
 ))
 
-336 
+398 
 ‰ì
 (
 £g_li°
@@ -955,17 +1039,17 @@ dïth
 i
 ]);
 
-339 
+401 
 ‰ì
 ((*)
 £g_li°
 );
 
-341 #ifde‡
+403 #ifde‡
 ˘t
 
 
-342 
+404 
 ¥ötf
 ("dïth %d s∂ô_˙à%d in£π %ld in£π_avg %ld s∂ô %ld câ3 %ld in£π_˙à%d b¯%d föd %ld föd_˙à%d föd_avg %ld \n",
 dïth
@@ -987,7 +1071,7 @@ bc
 föd_˙t
 ,ctt4/find_cnt);
 
-347 
+410 
 boﬁ
  
 	gCCEH
@@ -1001,15 +1085,69 @@ key
 ªt
 )
 
-357 #ifde‡
+412 
+boﬁ
+ 
+	gsf
+ = 
+Ál£
+;
+
+413 
+boﬁ
+ 
+	gexi°
+;
+
+414 
+	gåue
+)
+
+416 
+	gexi°
+ = 
+ªad_wôh_Áû
+(
+key
+,
+ªt
+,
+sf
+);
+
+417 i‡(
+	gsf
+)
+
+418  
+	gexi°
+;
+
+422 
+boﬁ
+ 
+	gCCEH
+::
+ªad_wôh_Áû
+(
+uöt64_t
+ &
+key
+,uöt64_à*
+ªt
+,boﬁ &
+sf
+)
+
+432 #ifde‡
 ˘t
 
 
-358 
+433 
 	gföd_˙t
 ++;
 
-359 
+434 
 time•ec
  
 	gts1
@@ -1017,7 +1155,7 @@ time•ec
 	gts2
 ;
 
-360 
+435 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -1025,11 +1163,11 @@ CLOCK_MONOTONIC
 ts1
 );
 
-361 
+436 
 _mm_m„n˚
 ();
 
-363 
+438 
 	g¢
 ,
 	g˙
@@ -1037,35 +1175,39 @@ _mm_m„n˚
 	gi
 ;
 
-364 
+439 
 KVP
 * 
 	gkvp_p
 ;
 
-365 
+440 
 uöt64_t
  
 	ghk
 ;
 
-367 c⁄° 
+442 c⁄° 
 	g˛_shi·
  = 64-
 CL_BIT
 ;
 
-368 
+443 
 	gl
 ;
 
-371 i‡(
+444 
+	g°¨t_dïth
+;
+
+447 i‡(
 zîo_check
 (
 key
 ))
 
-373 *
+449 *
 	gªt
  = 
 zîo_íåy
@@ -1073,7 +1215,7 @@ zîo_íåy
 vÆue
 ;
 
-374 i‡(
+450 i‡(
 	gzîo_íåy
 .
 	gvîsi⁄
@@ -1081,15 +1223,15 @@ vÆue
 	gVER_DELETE
 ))
 
-375  
+451  
 	gÁl£
 ;
 
-377  
+453  
 	gåue
 ;
 
-385 
+461 
 	ghk
  = 
 hf
@@ -1097,7 +1239,7 @@ hf
 key
 );
 
-391 
+467 
 	g¢
  = 
 hk
@@ -1105,7 +1247,7 @@ hk
 dm
 ;
 
-394 
+470 
 	g˙
  = 
 hk
@@ -1113,7 +1255,29 @@ hk
 ˛_shi·
 ;
 
-397 
+473 
+	gl
+ = 
+˙
+*
+KVP_PER_CL
+;
+
+475 
+	g°¨t_dïth
+ = 
+£g_li°
+[
+¢
+]->
+dïth
+;
+
+476 
+_mm_s„n˚
+();
+
+477 
 	gkvp_p
  = (
 KVP
@@ -1125,15 +1289,7 @@ KVP
 ˛
 ;
 
-398 
-	gl
- = 
-˙
-*
-KVP_PER_CL
-;
-
-413 
+492 
 	gi
 =0;i<
 KVP_PER_CL
@@ -1141,7 +1297,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-416 
+495 
 	gl
 %=
 CL_PER_SEG
@@ -1149,7 +1305,7 @@ CL_PER_SEG
 KVP_PER_CL
 ;
 
-420 i‡(
+499 i‡(
 	gkvp_p
 [
 l
@@ -1159,15 +1315,15 @@ l
 key
 )
 
-422 #ifde‡
+501 #ifde‡
 ˘t
 
 
-423 
+502 
 _mm_m„n˚
 ();
 
-424 
+503 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -1175,7 +1331,7 @@ CLOCK_MONOTONIC
 ts2
 );
 
-425 
+504 
 	g˘t4
 +=(
 ts2
@@ -1187,7 +1343,7 @@ ts1
 tv_n£c
 -ts1.tv_nsec;
 
-428 *
+507 *
 	gªt
  = 
 kvp_p
@@ -1197,19 +1353,51 @@ l
 vÆue
 ;
 
-429  
+508 
+_mm_s„n˚
+();
+
+509 
+	gsf
+ = (
+°¨t_dïth
+ =
+£g_li°
+[
+¢
+]->
+dïth
+);
+
+510  
 	gåue
 ;
 
-433 
+514 
 	gl
 ++;
 
-436  
+517 
+_mm_s„n˚
+();
+
+518 
+	gsf
+ = (
+°¨t_dïth
+ =
+£g_li°
+[
+¢
+]->
+dïth
+);
+
+519  
 	gÁl£
 ;
 
-440 
+523 
 	gCCEH
 ::
 ªmove
@@ -1219,7 +1407,7 @@ uöt64_t
 key
 )
 
-445 
+528 
 ¢
 ,
 	g˙
@@ -1227,41 +1415,41 @@ key
 	gi
 ;
 
-447 
+530 
 KVP
 * 
 	gkvp_p
 ;
 
-448 
+531 
 SEG
 * 
 	g£g
 ;
 
-449 * 
+532 * 
 	grv
 ;
 
-450 
+533 
 	gz
  = 0;
 
-452 
+535 
 	gl
 ;
 
-456 i‡(
+539 i‡(
 zîo_check
 (
 key
 ))
 
-458 
+541 
 	göv0_vÆue
  = 0;
 
-462 c⁄° 
+545 c⁄° 
 uöt64_t
  
 	ghk
@@ -1271,7 +1459,7 @@ hf
 key
 );
 
-463 c⁄° 
+546 c⁄° 
 uöt32_t
  
 	ghk2
@@ -1279,11 +1467,11 @@ uöt32_t
 hk
 );
 
-465 
+548 
 	gªåy
 :
 
-470 
+553 
 ¢
  = 
 hk
@@ -1293,7 +1481,7 @@ uöt64_t
 dïth
 );
 
-472 
+555 
 	g˙
  = 
 hk
@@ -1301,7 +1489,7 @@ hk
 CL_BIT
 );
 
-474 
+557 
 	g£g
  = (
 SEG
@@ -1311,7 +1499,7 @@ SEG
 ¢
 ];
 
-478 
+561 
 ©_lock2
 (
 £g
@@ -1319,7 +1507,7 @@ SEG
 lock
 );
 
-481 i‡(
+564 i‡(
 	g¢
  !
 hk
@@ -1329,7 +1517,7 @@ uöt64_t
 dïth
 ))
 
-484 
+567 
 ©_u∆ock2
 (
 £g
@@ -1337,11 +1525,11 @@ dïth
 lock
 );
 
-486 
+569 
 	gªåy
 ;
 
-490 
+573 
 	gkvp_p
  = (
 KVP
@@ -1353,7 +1541,7 @@ KVP
 ˛
 ;
 
-491 
+574 
 	gl
  = 
 ˙
@@ -1361,7 +1549,7 @@ KVP
 KVP_PER_CL
 ;
 
-493 
+576 
 	gi
 =0;i<
 KVP_PER_CL
@@ -1369,7 +1557,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-495 
+578 
 	gl
 %=
 KVP_PER_CL
@@ -1377,7 +1565,7 @@ KVP_PER_CL
 CL_PER_SEG
 ;
 
-498 i‡(
+581 i‡(
 com∑ª_key
 (
 kvp_p
@@ -1389,7 +1577,7 @@ key
 hk2
 ))
 
-500 
+583 
 	gkvp_p
 [
 l
@@ -1397,7 +1585,7 @@ l
 	gvÆue
  = 0;
 
-504 
+587 
 ©_u∆ock2
 (
 £g
@@ -1405,11 +1593,11 @@ l
 lock
 );
 
-507 
+590 
 	gl
 ++;
 
-511 
+594 
 ©_u∆ock2
 (
 £g
@@ -1417,83 +1605,87 @@ lock
 lock
 );
 
-520 
+603 
 £g_gc
 ()
 
-522 
-©_lock2
-(
-‰ì_£g_lock
-);
-
-523 
+606 
 SEG
 * 
 	g£g
 ;
 
-524 
-	g£g_‰ì_mö
+608 
+uöt32_t
+ 
+	gi
+,
+	gèû
+,
+	ghód
+;
+
+609 
+	gèû
  = 
-PH
-::
-mö_£g_‰ì_˙t
-();
+£g_‰ì_èû
+;
 
-525 ;
-	g£g_‰ì_ödex
- < 
-	g£g_‰ì_mö
-;seg_free_index++)
+610 
+	ghód
+ = 
+£g_‰ì_hód
+;
 
-534 
+611 
+	gi
+ = 
+èû
+;ò< 
+	ghód
+;i++)
+
+620 
 	g£g
  = 
 ‰ì_£g_queue
 [
-£g_‰ì_ödex
+i
 %
 FREE_SEG_LEN
 ];
 
-535 
+621 
 ‰ì
 (
 £g
 );
 
-537 
-©_u∆ock2
-(
-‰ì_£g_lock
-);
-
-541 
+627 
 	gCCEH
 ::
 dú_doubÀ
 ()
 
-543 
+629 
 ¥ötf
 ("c˚h dú doubÀ dïth %d\n",
 dïth
 );
 
-544 
+630 
 SEG
 ** vﬁ©ûê
 	g√w_li°
 ;
 
-545 
+631 
 SEG
 ** vﬁ©ûê
 	gﬁd_li°
 ;
 
-546 
+632 
 	gﬁd_li°
  = (
 SEG
@@ -1501,7 +1693,7 @@ SEG
 £g_li°
 ;
 
-547 
+633 
 	g√w_li°
  = (
 SEG
@@ -1511,17 +1703,17 @@ mÆloc
 £g_˙t
 *2);
 
-550 
+636 
 	gi
 ;
 
-551 
+637 
 	gi
 =0;i<
 	g£g_˙t
 ;i++)
 
-552 
+638 
 	g√w_li°
 [
 i
@@ -1533,21 +1725,21 @@ i
 ﬁd_li°
 [i];
 
-556 
+642 
 	g£g_li°
  = 
 √w_li°
 ;
 
-557 
+643 
 	g£g_˙t
 *=2;
 
-558 ++
+644 ++
 	gdïth
 ;
 
-559 
+645 
 	gdm
  = 
 r_mask
@@ -1555,17 +1747,17 @@ r_mask
 dïth
 ];
 
-560 
+646 
 _mm_s„n˚
 ();
 
-561 
+647 
 ‰ì
 (
 ﬁd_li°
 );
 
-565 
+651 
 ¥öt_£g
 (
 SEG
@@ -1575,7 +1767,7 @@ SEG
 ¢
 )
 
-593 
+679 
 	gCCEH
 ::
 •lô
@@ -1583,45 +1775,45 @@ SEG
 ¢
 )
 
-596 
+682 
 SEG
 * 
 £g
 ;
 
-597 
+683 
 	gi
 ;
 
-598 
+684 
 	g˙t
 ;
 
-600 
+686 
 uöt64_t
  
 	gmask
 ;
 
-601 
+687 
 KVP
 * 
 	gkvp_p
 ;
 
-602 
+688 
 KVP
 * 
 	g√w_kvp_p1
 ;
 
-603 
+689 
 KVP
 * 
 	g√w_kvp_p2
 ;
 
-605 
+691 
 	g£g
  = 
 £g_li°
@@ -1629,7 +1821,7 @@ KVP
 ¢
 ];
 
-608 i‡(
+694 i‡(
 	g£g
 ->
 	gdïth
@@ -1637,23 +1829,23 @@ KVP
 dïth
 )
 
-610 
+696 
 uöt8_t
  
 lock
 ;
 
-630 
+716 
 	glock
  = 
 wrôe_lock
 ;
 
-632 i‡(
+718 i‡(
 	glock
 )
 
-634 
+720 
 ©_u∆ock2
 (
 £g
@@ -1661,7 +1853,7 @@ wrôe_lock
 lock
 );
 
-638 i‡(
+724 i‡(
 	gwrôe_lock
 .
 com∑ª_exch™ge_°r⁄g
@@ -1669,7 +1861,7 @@ com∑ª_exch™ge_°r⁄g
 lock
 ,lock+1))
 
-644 i‡(
+730 i‡(
 	g£g
 ->
 	gdïth
@@ -1677,7 +1869,7 @@ lock
 dïth
 )
 
-646 
+732 
 ©_u∆ock2
 (
 £g
@@ -1685,25 +1877,25 @@ dïth
 lock
 );
 
-648 
+734 
 	gwrôe_lock
 --;
 
-654 
+740 
 	gåue
 )
 
-656 
+742 
 	g˙t
  = 0;
 
-657 
+743 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-660 i‡(
+746 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -1711,17 +1903,17 @@ i
 	gªad_lock
 )
 
-661 ++
+747 ++
 	g˙t
 ;
 
-663 
+749 
 	gi
 =0;i<
 	gnum_evi˘_thªad
 ;i++)
 
-666 i‡(
+752 i‡(
 	gevi˘_thªad_li°
 [
 i
@@ -1729,23 +1921,23 @@ i
 	gªad_lock
 )
 
-667 ++
+753 ++
 	g˙t
 ;
 
-669 i‡(
+755 i‡(
 	g˙t
  < 1)
 
-681 
+767 
 dú_doubÀ
 ();
 
-686 
+772 
 	gwrôe_lock
 --;
 
-698 
+784 
 	gkvp_p
  = (
 KVP
@@ -1755,49 +1947,49 @@ KVP
 ˛
 ;
 
-700 
+786 
 SEG
 * 
 	g√w_£g1
 ;
 
-701 
+787 
 SEG
 * 
 	g√w_£g2
 ;
 
-703 
+790 
 	g√w_£g1
  = 
-Æloc_£g
-();
+ãmp_£g
+;
 
-704 
+791 
 	g√w_£g2
  = 
 Æloc_£g
 ();
 
-708 
+795 
 öv_£g
 (
 √w_£g1
 );
 
-709 
+796 
 öv_£g
 (
 √w_£g2
 );
 
-711 
+798 
 	g√w_£g1
 ->
 	glock
  = 0;
 
-713 
+800 
 	g√w_£g1
 ->
 	gdïth
@@ -1807,13 +1999,13 @@ SEG
 dïth
 +1;
 
-715 
+802 
 	g√w_£g2
 ->
 	glock
  = 0;
 
-717 
+804 
 	g√w_£g2
 ->
 	gdïth
@@ -1823,7 +2015,7 @@ dïth
 dïth
 +1;
 
-719 
+806 
 	g√w_kvp_p1
  = (
 KVP
@@ -1833,7 +2025,7 @@ KVP
 ˛
 ;
 
-720 
+807 
 	g√w_kvp_p2
  = (
 KVP
@@ -1843,7 +2035,7 @@ KVP
 ˛
 ;
 
-723 
+810 
 	gmask
  = (
 uöt64_t
@@ -1853,25 +2045,25 @@ uöt64_t
 dïth
 ;
 
-725 
+812 
 	gj
 ,
 	gl
 ;
 
-727 
+814 
 uöt64_t
  
 	ghk
 ;
 
-731 
+818 
 	gi
 =0;i<
 	gCL_PER_SEG
 ;i++)
 
-735 
+822 
 	gl
  = 
 i
@@ -1879,13 +2071,13 @@ i
 KVP_PER_CL
 ;
 
-737 
+824 
 	gj
 =0;j<
 	gKVP_PER_CL
 ;j++)
 
-739 i‡(
+826 i‡(
 	gkvp_p
 [
 l
@@ -1899,11 +2091,11 @@ kvp_p
 vÆue
  == 0)
 
-744 
+831 
 l
 ++;
 
-757 
+844 
 	ghk
  = 
 hf
@@ -1915,13 +2107,13 @@ l
 key
 );
 
-787 i‡(
+874 i‡(
 	ghk
  & 
 	gmask
 )
 
-788 
+875 
 	g√w_kvp_p2
 [
 l
@@ -1929,7 +2121,7 @@ l
 kvp_p
 [l];
 
-790 
+877 
 	g√w_kvp_p1
 [
 l
@@ -1937,15 +2129,15 @@ l
 kvp_p
 [l];
 
-799 
+886 
 	gl
 ++;
 
-803 
+890 
 _mm_s„n˚
 ();
 
-810 
+897 
 	gl
  = 1 << (
 £g
@@ -1953,7 +2145,7 @@ _mm_s„n˚
 dïth
 +1);
 
-813 
+900 
 	gi
 =
 ¢
@@ -1963,7 +2155,7 @@ dïth
 l
 )
 
-814 
+901 
 £g_li°
 [
 i
@@ -1971,7 +2163,7 @@ i
 √w_£g1
 ;
 
-819 
+906 
 	gi
 =
 ¢
@@ -1985,7 +2177,7 @@ dïth
 l
 )
 
-820 
+907 
 £g_li°
 [
 i
@@ -1993,17 +2185,17 @@ i
 √w_£g2
 ;
 
-854 
+941 
 _mm_s„n˚
 ();
 
-855 
-‰ì_£g
-(
+943 
+	gãmp_£g
+ = 
 £g
-);
+;
 
-860 
+948 
 KVP
 * 
 	gCCEH
@@ -2025,17 +2217,17 @@ u∆ock_p
 ªad_lock
 )
 
-862 
+950 
 KVP
 * 
 	gªt
 ;
 
-863 
+951 
 	gåue
 )
 
-865 
+953 
 	gªt
  = 
 ö£π_wôh_Áû
@@ -2047,17 +2239,29 @@ u∆ock_p
 ªad_lock
 );
 
-866 i‡(
+954 i‡(
 	gªt
  !
 NULL
 )
 
-867  
+955  
 ªt
 ;
 
-871 
+956 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
+)
+
+957 
+	gmy_thªad
+->
+sync_thªad
+();
+
+961 
 KVP
 * 
 	gCCEH
@@ -2079,15 +2283,15 @@ u∆ock_p
 ªad_lock
 )
 
-881 #ifde‡
+971 #ifde‡
 ˘t
 
 
-882 
+972 
 	gpic
 ++;
 
-883 
+973 
 time•ec
  
 	gts1
@@ -2099,7 +2303,7 @@ time•ec
 	gts4
 ;
 
-884 
+974 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2107,11 +2311,11 @@ CLOCK_MONOTONIC
 ts3
 );
 
-885 
+975 
 _mm_m„n˚
 ();
 
-887 
+977 
 	g¢
 ,
 	g˙
@@ -2119,71 +2323,71 @@ _mm_m„n˚
 	gi
 ;
 
-888 
+978 
 uöt64_t
  
 	ghk
 ;
 
-889 
+979 
 uöt32_t
  
 	ghk2
 ;
 
-890 c⁄° 
+980 c⁄° 
 	g˛_shi·
  = 64-
 CL_BIT
 ;
 
-891 
+981 
 	gl
 ;
 
-892 
+982 
 SEG
 * 
 	g£g
 ;
 
-893 
+983 
 KVP
 * 
 	gkvp_p
 ;
 
-897 i‡(
+987 i‡(
 zîo_check
 (
 key
 ))
 
-899 
+989 
 ¥ötf
 ("zero\n");
 
-900 
+990 
 ©_lock2
 (
 zîo_lock
 );
 
-901 *
+991 *
 	gu∆ock_p
  = &
 zîo_lock
 ;
 
-902 
+992 
 	gdú_lock
 ++;
 
-903  &
+993  &
 	gzîo_íåy
 ;
 
-905 
+995 
 	göv0_vÆue
  = 
 ve_u
@@ -2191,75 +2395,75 @@ ve_u
 ve_64
 ;
 
-906 i‡(
+996 i‡(
 	gu∆ock
 )
 
-907 *(**)
+997 *(**)
 	gu∆ock
  = 
 NULL
 ;
 
-908  &
+998  &
 	göv0_vÆue
 ;
 
-917 i‡(
+1007 i‡(
 	gwrôe_lock
 )
 
-920  
+1010  
 	gNULL
 ;
 
-928 ++
+1018 ++
 	gªad_lock
 ;
 
-932 i‡(
+1022 i‡(
 	gwrôe_lock
 )
 
-934 
+1024 
 ¥ötf
 ("split?\n");
 
-936 --
+1026 --
 	gªad_lock
 ;
 
-937  
+1027  
 	gNULL
 ;
 
-947 i‡(
+1037 i‡(
 zîo_check
 (
 key
 ))
 
-949 
+1039 
 ¥ötf
 ("zero\n");
 
-950 
+1040 
 ©_lock2
 (
 zîo_lock
 );
 
-951 *
+1041 *
 	gu∆ock_p
  = &
 zîo_lock
 ;
 
-952  &
+1042  &
 	gzîo_íåy
 ;
 
-955 
+1045 
 	ghk
  = 
 hf
@@ -2267,7 +2471,7 @@ hf
 key
 );
 
-969 
+1059 
 	g¢
  = 
 hk
@@ -2275,7 +2479,7 @@ hk
 dm
 ;
 
-974 
+1064 
 	g˙
  = 
 hk
@@ -2283,7 +2487,7 @@ hk
 ˛_shi·
 ;
 
-982 
+1072 
 	g£g
  = 
 £g_li°
@@ -2291,7 +2495,7 @@ hk
 ¢
 ];
 
-992 i‡(
+1082 i‡(
 åy_©_lock2
 (
 £g
@@ -2299,15 +2503,15 @@ hk
 lock
 ) == 0)
 
-1002 --
+1092 --
 ªad_lock
 ;
 
-1003  
+1093  
 	gNULL
 ;
 
-1011 i‡(
+1101 i‡(
 	g£g
  !
 £g_li°
@@ -2315,7 +2519,7 @@ lock
 ¢
 ])
 
-1016 
+1106 
 ©_u∆ock2
 (
 £g
@@ -2323,11 +2527,11 @@ lock
 lock
 );
 
-1020 
+1110 
 	gdú_lock
 --;
 
-1025 i‡(
+1115 i‡(
 ö£π2
 (
 key
@@ -2339,7 +2543,7 @@ vÆue
 ˙
 ))
 
-1028 
+1118 
 ©_u∆ock2
 (
 £g
@@ -2347,11 +2551,11 @@ vÆue
 lock
 );
 
-1030 #ifde‡
+1120 #ifde‡
 ˘t
 
 
-1031 
+1121 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2359,7 +2563,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1032 
+1122 
 	g˘t1
 +=(
 ts4
@@ -2371,7 +2575,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1039  
+1129  
 	gkvp_p
  = (
 KVP
@@ -2381,7 +2585,7 @@ KVP
 ˛
 ;
 
-1040 
+1130 
 	gl
  = 
 ˙
@@ -2389,25 +2593,25 @@ KVP
 KVP_PER_CL
 ;
 
-1054 #ifde‡
+1144 #ifde‡
 ˘t
 
 
-1059 i‡(
+1149 i‡(
 	gpoöt
 )
 
-1061 
+1151 
 	göv0_vÆue
 .
 	gnode_off£t
  = 0;
 
-1062  &
+1152  &
 	göv0_vÆue
 ;
 
-1065 
+1155 
 	gi
 =0;i<
 KVP_PER_CL
@@ -2415,11 +2619,11 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-1067 #ifde‡
+1157 #ifde‡
 ˘t
 
 
-1070 
+1160 
 	gl
 %=
 KVP_PER_CL
@@ -2427,7 +2631,7 @@ KVP_PER_CL
 CL_PER_SEG
 ;
 
-1074 i‡(
+1164 i‡(
 	gkvp_p
 [
 l
@@ -2441,7 +2645,7 @@ kvp_p
 key
  == key)
 
-1083 *
+1173 *
 u∆ock_p
  = &
 £g
@@ -2449,15 +2653,15 @@ u∆ock_p
 lock
 ;
 
-1084 #ifde‡
+1174 #ifde‡
 ˘t
 
 
-1085 
+1175 
 _mm_m„n˚
 ();
 
-1086 
+1176 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2465,7 +2669,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1087 
+1177 
 	g˘t1
 +=(
 ts4
@@ -2477,17 +2681,17 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1090  &
+1180  &
 	gkvp_p
 [
 l
 ];
 
-1092 
+1182 
 	gl
 ++;
 
-1096 i‡(
+1186 i‡(
 	gi
  < 
 KVP_PER_CL
@@ -2495,7 +2699,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 )
 
-1098 i‡(
+1188 i‡(
 	gkvp_p
 [
 l
@@ -2505,7 +2709,7 @@ l
 INV0
 )
 
-1100 
+1190 
 kvp_p
 [
 l
@@ -2513,11 +2717,11 @@ l
 vÆue
  = value;
 
-1101 
+1191 
 _mm_s„n˚
 ();
 
-1102 
+1192 
 	gkvp_p
 [
 l
@@ -2527,17 +2731,17 @@ l
 key
 ;
 
-1106 i‡(
+1196 i‡(
 	gu∆ock
 )
 
-1107 *(**)
+1197 *(**)
 	gu∆ock
  = 
 £g
 ;
 
-1109 
+1199 
 ©_u∆ock2
 (
 £g
@@ -2545,15 +2749,15 @@ key
 lock
 );
 
-1110 #ifde‡
+1200 #ifde‡
 ˘t
 
 
-1111 
+1201 
 _mm_m„n˚
 ();
 
-1112 
+1202 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2561,7 +2765,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1113 
+1203 
 	g˘t1
 +=(
 ts4
@@ -2573,7 +2777,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1116  &
+1206  &
 	gkvp_p
 [
 l
@@ -2581,7 +2785,7 @@ l
 	gvÆue
 ;
 
-1118 i‡(
+1208 i‡(
 	gkvp_p
 [
 l
@@ -2591,17 +2795,17 @@ l
 key
 )
 
-1120 i‡(
+1210 i‡(
 u∆ock
 )
 
-1121 *(**)
+1211 *(**)
 u∆ock
  = 
 £g
 ;
 
-1124 
+1214 
 	gkvp_p
 [
 l
@@ -2611,11 +2815,11 @@ l
 vÆue
 ;
 
-1125 
+1215 
 _mm_s„n˚
 ();
 
-1126 
+1216 
 ©_u∆ock2
 (
 £g
@@ -2623,15 +2827,15 @@ _mm_s„n˚
 lock
 );
 
-1131 #ifde‡
+1221 #ifde‡
 ˘t
 
 
-1132 
+1222 
 _mm_m„n˚
 ();
 
-1133 
+1223 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2639,7 +2843,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1134 
+1224 
 	g˘t1
 +=(
 ts4
@@ -2651,7 +2855,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1137  &
+1227  &
 	gkvp_p
 [
 l
@@ -2659,19 +2863,19 @@ l
 	gvÆue
 ;
 
-1143 #ifde‡
+1233 #ifde‡
 ˘t
 
 
-1144 
+1234 
 _mm_m„n˚
 ();
 
-1145 
+1235 
 	gsc
 ++;
 
-1146 
+1236 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2679,7 +2883,7 @@ CLOCK_MONOTONIC
 ts1
 );
 
-1148 
+1238 
 •lô
 (
 ¢
@@ -2691,15 +2895,15 @@ uöt64_t
 dïth
 ));
 
-1149 #ifde‡
+1239 #ifde‡
 ˘t
 
 
-1150 
+1240 
 _mm_m„n˚
 ();
 
-1151 
+1241 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -2707,7 +2911,7 @@ CLOCK_MONOTONIC
 ts2
 );
 
-1152 
+1242 
 	g˘t2
 +=(
 ts2
@@ -2719,15 +2923,15 @@ ts1
 tv_n£c
 -ts1.tv_nsec;
 
-1166 --
+1256 --
 	gªad_lock
 ;
 
-1168  
+1258  
 	gNULL
 ;
 
-1174 
+1264 
 	gCCEH
 ::
 u∆ock_íåy2
@@ -2743,69 +2947,61 @@ lock_p
 ªad_lock
 )
 
-1187 i‡(!
+1277 i‡(!
 	gpoöt
 )
 
-1188 
+1278 
 ¥ötf
 ("ueÉrrror?\n");
 
-1189 i‡(
+1279 i‡(
 	glock_p
 )
 
-1192 
+1282 
 ©_u∆ock2
 (*
 lock_p
 );
 
-1194 --
+1284 --
 	gªad_lock
 ;
 
-1198 
+1288 
 öô_c˚h
 ()
 
-1200 
+1290 
 ¥ötf
 ("init cceh\n");
 
-1201 
-	g£g_‰ì_˙t
- = 
-£g_‰ì_mö
- = 
-£g_‰ì_ödex
- = 0;
-
-1202 
+1293 
 ¥ötf
 ("sizeo‡KVP %ld\n",(
 KVP
 ));
 
-1203 
+1294 
 ¥ötf
 ("sizeo‡CL %ld\n",(
 CL
 ));
 
-1204 
+1295 
 	gi
 ;
 
-1205 
+1296 
 	gr_mask
 [0] = 0;
 
-1206 
+1297 
 	gi
 =1;i<=64;i++)
 
-1207 
+1298 
 	gr_mask
 [
 i
@@ -2813,11 +3009,11 @@ i
 r_mask
 [i-1]*2+1;
 
-1210 i‡(
+1301 i‡(
 	gKEY_SIZE
  != 8)
 
-1212 
+1303 
 key_¨øy
  = (**)
 mÆloc
@@ -2825,7 +3021,7 @@ mÆloc
 KEY_ARRAY_MAX
 );
 
-1213 
+1304 
 	gkey_˙t
  = (*)
 mÆloc
@@ -2833,11 +3029,11 @@ mÆloc
 KEY_ARRAY_MAX
 );
 
-1214 
+1305 
 	gkey_¨øy_˙t
  = 0;
 
-1216 
+1307 
 	gmax_ödex
  = 
 KEY_SIZE
@@ -2845,19 +3041,19 @@ KEY_SIZE
 KEY_ARRAY_MAX
 ;
 
-1217 
+1308 
 	gkey_˙t
 [0] = 
 max_ödex
 ;
 
-1218 
+1309 
 	gkey_¨øy
 [0] = 
 NULL
 ;
 
-1223 
+1314 
 	ghash_ödex
  = 
 √w
@@ -2865,19 +3061,15 @@ NULL
 CCEH
 (20);
 
-1226 
+1317 
 ˛ón_c˚h
 ()
 
-1228 
+1319 
 ¥ötf
 ("clean cceh\n");
 
-1229 
-£g_gc
-();
-
-1231 
+1322 
 ¥ötf
 ("SEG sizê%ld hash %lfGB\n",(
 SEG
@@ -2885,7 +3077,7 @@ SEG
 Æloc_£g_˙t
 *(SEG))/1024/1024/1024);
 
-1232 
+1323 
 ¥ötf
 ("SEG cou¡ %u\n",
 Æloc_£g_˙t
@@ -2893,33 +3085,21 @@ SEG
 lﬂd
 ());
 
-1234 
-¥ötf
-("£g index %u mö %u c¡ %u\n",
-£g_‰ì_ödex
-.
-lﬂd
-(),
-£g_‰ì_mö
-.lﬂd(),
-£g_‰ì_˙t
-.load());
-
-1236 i‡(
+1327 i‡(
 	gkey_¨øy
 )
 
-1238 
+1329 
 	gi
 ;
 
-1239 
+1330 
 	gi
 =0+1;i<
 	gkey_¨øy_˙t
 ;i++)
 
-1240 
+1331 
 ‰ì
 (
 key_¨øy
@@ -2927,25 +3107,25 @@ key_¨øy
 i
 ]);
 
-1241 
+1332 
 ‰ì
 (
 key_¨øy
 );
 
-1242 
+1333 
 ‰ì
 (
 key_˙t
 );
 
-1245 
+1336 
 dñëe
  
 	ghash_ödex
 ;
 
-1262 
+1353 
 ölöe
  * 
 	gCCEH_vk
@@ -2957,13 +3137,13 @@ uöt64_t
 key
 )
 
-1266 
+1357 
 KeyE¡ry_u
  
 ku
 ;
 
-1267 
+1358 
 	gku
 .
 	gke_64
@@ -2971,7 +3151,7 @@ ku
 key
 ;
 
-1268  &
+1359  &
 	gkey_¨øy
 [
 ku
@@ -2985,7 +3165,7 @@ key_¨øy
 key_off£t
 ];
 
-1273 
+1364 
 ölöe
  * 
 	gCCEH_vk
@@ -2997,7 +3177,7 @@ KeyE¡ry
 key
 )
 
-1277  &
+1368  &
 key_¨øy
 [
 key
@@ -3007,7 +3187,7 @@ hp
 key_off£t
 ];
 
-1282 
+1373 
 ölöe
  
 boﬁ
@@ -3027,13 +3207,13 @@ uöt32_t
 hash
 )
 
-1284 
+1375 
 KeyE¡ry_u
  
 	gkey
 ;
 
-1285 
+1376 
 	gkey
 .
 	gke_64
@@ -3041,7 +3221,7 @@ KeyE¡ry_u
 key1
 ;
 
-1286 i‡(
+1377 i‡(
 	ghash
  !
 key
@@ -3053,11 +3233,11 @@ hp
 hash
 )
 
-1287  
+1378  
 Ál£
 ;
 
-1288 * 
+1379 * 
 	gkl
  = 
 lﬂd_key2
@@ -3067,7 +3247,7 @@ key
 ke
 );
 
-1289  *((
+1380  *((
 	guöt64_t
 *)
 	gkl
@@ -3079,7 +3259,7 @@ key2
 kl
 +1) == *((uint64_t*)key2+1);
 
-1291 
+1382 
 ölöe
  
 	gCCEH_vk
@@ -3097,7 +3277,7 @@ uöt32_t
 hash
 )
 
-1294 i‡(
+1385 i‡(
 	gkey_˙t
 [
 key_¨øy_ödex
@@ -3107,7 +3287,7 @@ key_¨øy_ödex
 max_ödex
 )
 
-1296 
+1387 
 key_¨øy_ödex
  = 
 key_¨øy_˙t
@@ -3115,13 +3295,13 @@ key_¨øy_˙t
 „tch_add
 (1);
 
-1297 
+1388 
 	gkey_˙t
 [
 key_¨øy_ödex
 ] = 0;
 
-1298 
+1389 
 	gkey_¨øy
 [
 key_¨øy_ödex
@@ -3131,7 +3311,7 @@ mÆloc
 max_ödex
 );
 
-1301 
+1392 
 mem˝y
 (&
 key_¨øy
@@ -3145,13 +3325,13 @@ key2
 PH_KEY_SIZE
 );
 
-1303 
+1394 
 KeyE¡ry_u
  
 	gkey
 ;
 
-1304 
+1395 
 	gkey
 .
 	gke
@@ -3163,7 +3343,7 @@ KeyE¡ry_u
 key_¨øy_ödex
 ;
 
-1305 
+1396 
 	gkey
 .
 	gke
@@ -3177,7 +3357,7 @@ key_˙t
 key_¨øy_ödex
 ];
 
-1306 
+1397 
 	gkey
 .
 	gke
@@ -3189,7 +3369,7 @@ key_¨øy_ödex
 hash
 ;
 
-1308 
+1399 
 	gkey_˙t
 [
 key_¨øy_ödex
@@ -3197,7 +3377,7 @@ key_¨øy_ödex
 PH_KEY_SIZE
 ;
 
-1310 
+1401 
 	gkey1
  = 
 key
@@ -3205,7 +3385,7 @@ key
 ke_64
 ;
 
-1315 
+1406 
 ölöe
  
 uöt64_t
@@ -3217,7 +3397,7 @@ hf
 key
 )
 
-1328  
+1419  
 °d
 ::
 _Hash_byãs
@@ -3225,7 +3405,7 @@ _Hash_byãs
 key
 ,16,5516);
 
-1332 
+1423 
 ölöe
  
 boﬁ
@@ -3237,7 +3417,7 @@ zîo_check
 key
 )
 
-1334  
+1425  
 Ál£
 ;
 
@@ -3435,7 +3615,7 @@ uöt8_t
 lock
 ;
 
-107 
+107 vﬁ©ûê
 	gdïth
 ;
 
@@ -3461,11 +3641,19 @@ CCEH
 CCEH
 ();
 
-118 
+118 
+thªad_loˇl_öô
+();
+
+119 
+thªad_loˇl_˛ón
+();
+
+121 
 	g¥iv©e
 :
 
-122 
+125 
 ölöe
  
 uöt64_t
@@ -3475,7 +3663,7 @@ hf
 key
 );
 
-123 
+126 
 ölöe
  
 uöt64_t
@@ -3485,45 +3673,45 @@ hf
 key
 );
 
-128 vﬁ©ûê
+131 vﬁ©ûê
 	gdïth
 ;
 
-129 vﬁ©ûê
+132 vﬁ©ûê
 	g£g_˙t
 ;
 
-131 
+134 
 SEG
 * vﬁ©ûê* vﬁ©ûê
 	g£g_li°
 ;
 
-145 
+148 
 dú_doubÀ
 ();
 
-146 
+149 
 •lô
 (
 ¢
 );
 
-148 
+151 
 öô
 (
 ö_dïth
 );
 
-149 
+152 
 ˛ón
 ();
 
-152 
+155 
 	gpublic
 :
 
-157 
+160 
 KVP
 * 
 ö£π
@@ -3543,7 +3731,7 @@ u∆ock_p
 ªad_lock
 );
 
-158 
+161 
 KVP
 * 
 ö£π_wôh_Áû
@@ -3563,7 +3751,7 @@ u∆ock_p
 ªad_lock
 );
 
-160 
+163 
 lock
 (
 KVP
@@ -3571,7 +3759,7 @@ KVP
 kvp
 );
 
-161 
+164 
 u∆ock
 (
 KVP
@@ -3579,7 +3767,7 @@ KVP
 kvp
 );
 
-163 
+166 
 boﬁ
  
 ªad
@@ -3591,7 +3779,21 @@ key
 ªt
 );
 
-164 
+167 
+boﬁ
+ 
+ªad_wôh_Áû
+(
+uöt64_t
+ &
+key
+,uöt64_à*
+ªt
+,boﬁ &
+sf
+);
+
+168 
 ªmove
 (
 uöt64_t
@@ -3599,7 +3801,7 @@ uöt64_t
 key
 );
 
-167 
+171 
 u∆ock_íåy2
 (
 °d
@@ -3613,21 +3815,21 @@ lock_p
 ªad_lock
 );
 
-169 
+173 
 	g¥iv©e
 :
 
-171 
+175 
 uöt64_t
  
 dm
 ;
 
-172 
+176 
 	gpoöt
 ;
 
-174 
+178 
 	gsc
 ,
 	gpic
@@ -3637,7 +3839,7 @@ dm
 	gföd_˙t
 ;
 
-175 
+179 
 uöt64_t
  
 	g˘t1
@@ -3649,7 +3851,7 @@ uöt64_t
 	g˘t4
 ;
 
-178 
+182 
 	g°d
 ::
 ©omic
@@ -3659,13 +3861,13 @@ uöt8_t
 wrôe_lock
 ;
 
-180 
+184 
 KVP
  
 	gzîo_íåy
 ;
 
-181 
+185 
 	g°d
 ::
 ©omic
@@ -3675,7 +3877,7 @@ uöt8_t
 zîo_lock
 ;
 
-184 ˛as†
+188 ˛as†
 	cCCEH_vk
  : 
 public
@@ -3683,7 +3885,7 @@ public
 CCEH
 
 
-186 
+190 
 ölöe
  
 boﬁ
@@ -3701,7 +3903,7 @@ uöt32_t
 hash
 );
 
-187 
+191 
 ölöe
  
 ö£π_key
@@ -3717,7 +3919,7 @@ uöt32_t
 hash
 );
 
-188 
+192 
 ölöe
  
 uöt64_t
@@ -3727,7 +3929,7 @@ hf
 key
 );
 
-189 
+193 
 ölöe
  * 
 lﬂd_key
@@ -3737,7 +3939,7 @@ uöt64_t
 key
 );
 
-190 
+194 
 ölöe
  * 
 lﬂd_key2
@@ -3747,7 +3949,7 @@ KeyE¡ry
 key
 );
 
-191 
+195 
 ölöe
  
 boﬁ
@@ -3757,11 +3959,11 @@ zîo_check
 key
 );
 
-195 
+199 
 öô_c˚h
 ();
 
-196 
+200 
 ˛ón_c˚h
 ();
 
@@ -35871,23 +36073,19 @@ DoubÀLog
 doubÀLogLi°
 ;
 
-25 vﬁ©ûê
-£g_‰ì_˙t
-;
-
-26 
+27 
 CCEH
 * 
 hash_ödex
 ;
 
-27 c⁄° 
+28 c⁄° 
 size_t
  
 bÀ_Àn
 ;
 
-33 
+34 
 PH_Quîy_Thªad
  
 	gquîy_thªad_li°
@@ -35895,7 +36093,7 @@ PH_Quîy_Thªad
 QUERY_THREAD_MAX
 ];
 
-34 
+35 
 PH_Evi˘_Thªad
  
 	gevi˘_thªad_li°
@@ -35903,67 +36101,67 @@ PH_Evi˘_Thªad
 EVICT_THREAD_MAX
 ];
 
-36 
+37 
 Skùli°
 * 
 skùli°
 ;
 
-37 
+38 
 PH_Li°
 * 
 li°
 ;
 
-40 
+41 
 	uE¡ryAddr
 
 
-44 
+45 
 size_t
  
 	gloc
  : 2;
 
-45 
+46 
 size_t
  
 	gfûe_num
  : 14;
 
-46 
+47 
 size_t
  
 	goff£t
  : 48;
 
-48 
+49 
 uöt64_t
  
 	gvÆue
 ;
 
-53 
+54 
 mö_£g_‰ì_˙t
 ()
 
-55 
+56 
 	gi
 ,
 	gmi
 ;
 
-56 
+57 
 	gmö
 =999999999;
 
-57 
+58 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-59 i‡(
+60 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -35972,32 +36170,32 @@ i
  && 
 	gmö
  > quîy_thªad_li°[i].
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 )
 
-61 
+62 
 	gmö
  = 
 quîy_thªad_li°
 [
 i
 ].
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 ;
 
-62 
+63 
 	gmi
  = 
 i
 ;
 
-65 
+66 
 	gi
 =0;i<
 	gnum_evi˘_thªad
 ;i++)
 
-67 i‡(
+68 i‡(
 	gevi˘_thªad_li°
 [
 i
@@ -36006,20 +36204,20 @@ i
  && 
 	gmö
  >Évi˘_thªad_li°[i].
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 )
 
-69 
+70 
 	gmö
  = 
 evi˘_thªad_li°
 [
 i
 ].
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 ;
 
-70 
+71 
 	gmi
  = 
 i
@@ -36027,21 +36225,21 @@ i
 num_quîy_thªad
 ;
 
-73 i‡(
+74 i‡(
 	gmö
  == 999999999)
 
-74  
-£g_‰ì_˙t
+75  
+£g_‰ì_hód
 ;
 
-75 i‡(
+76 i‡(
 	gmi
  < 
 	gnum_quîy_thªad
 )
 
-76 
+77 
 	gquîy_thªad_li°
 [
 mi
@@ -36049,7 +36247,7 @@ mi
 	gupd©e_ªque°
  = 1;
 
-78 
+79 
 	gevi˘_thªad_li°
 [
 mi
@@ -36059,11 +36257,11 @@ num_quîy_thªad
 	gupd©e_ªque°
  = 1;
 
-79  
+80  
 	gmö
 ;
 
-82 
+83 
 size_t
  
 gë_mö_èû
@@ -36071,25 +36269,25 @@ gë_mö_èû
 log_num
 )
 
-84 
+85 
 	gi
 ,
 	gmi
 ;
 
-85 
+86 
 size_t
  
 	gmö
  = 0xffffffffffffffff;
 
-86 
+87 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-88 i‡(
+89 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -36103,7 +36301,7 @@ i
 log_num
 ])
 
-90 
+91 
 	gmö
  = 
 quîy_thªad_li°
@@ -36115,13 +36313,13 @@ i
 log_num
 ];
 
-91 
+92 
 	gmi
  = 
 i
 ;
 
-94 
+95 
 	gquîy_thªad_li°
 [
 mi
@@ -36129,65 +36327,61 @@ mi
 	gupd©e_ªque°
  = 1;
 
-95  
+96  
 	gmö
 ;
 
-98 
+99 
 	gPH_Thªad
 ::
 ›_check
 ()
 
-100 ++
+101 ++
 ›_˙t
 ;
 
-101 i‡(
+102 i‡(
 	g›_˙t
  % 128 =0 || 
 upd©e_ªque°
 )
 
-102 
+103 
 sync_thªad
 ();
 
-105 
+106 
 	gPH_Thªad
 ::
 sync_thªad
 ()
 
-107 
-upd©e_‰ì_˙t
-();
-
-108 
+109 
 upd©e_èû_sum
 ();
 
-109 
+110 
 	gupd©e_ªque°
  = 0;
 
-112 
+113 
 	gPH_Thªad
 ::
 upd©e_èû_sum
 ()
 
-114 
+115 
 i
 ;
 
-115 
+116 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-116 
+117 
 	gª˚¡_log_èûs
 [
 i
@@ -36197,29 +36391,29 @@ doubÀLogLi°
 èû_sum
 ;
 
-119 
+120 
 	gPH_Thªad
 ::
 upd©e_‰ì_˙t
 ()
 
-121 
-loˇl_£g_‰ì_˙t
+122 
+loˇl_£g_‰ì_hód
  = 
-£g_‰ì_˙t
+£g_‰ì_hód
 ;
 
-122 #ifde‡
+123 #ifde‡
 waô_f‹_¶ow
 
 
-123 
+124 
 	gmö
  = 
 mö_£g_‰ì_˙t
 ();
 
-124 i‡(
+125 i‡(
 	gmö
  + 
 	gFREE_SEG_LEN
@@ -36229,11 +36423,11 @@ mö_£g_‰ì_˙t
 	gloˇl_£g_‰ì_˙t
 )
 
-126 
+127 
 ¥ötf
 ("in2\n");
 
-127 
+128 
 	gmö
  + 
 	gFREE_SEG_LEN
@@ -36243,43 +36437,43 @@ mö_£g_‰ì_˙t
 	gloˇl_£g_‰ì_˙t
 )
 
-129 
+130 
 upd©e_idÀ
 ();
 
-130 
+131 
 	gmö
  = 
 mö_£g_‰ì_˙t
 ();
 
-132 
+133 
 ¥ötf
 ("out2\n");
 
-136 
+137 
 	gi
 ;
 
-137 
+138 
 ±hªad_t
  
 	g±
 ;
 
-139 
+140 
 	g±
  = 
 ±hªad_£lf
 ();
 
-140 
+141 
 	gi
 =0;i<
 	gnum_of_thªad
 ;i++)
 
-142 i‡(
+143 i‡(
 ±hªad_equÆ
 (
 thªad_li°
@@ -36291,7 +36485,7 @@ tid
 ±
 ))
 
-144 
+145 
 	gthªad_li°
 [
 i
@@ -36301,7 +36495,7 @@ i
 ‰ì_˙t
 ;
 
-145 
+146 
 	gthªad_li°
 [
 i
@@ -36311,35 +36505,35 @@ i
 £g_‰ì_˙t
 ;
 
-149 
+150 
 √w_thªad
 ();
 
-157 
+158 
 	gPH_Quîy_Thªad
 ::
 öô
 ()
 
-160 
+161 
 i
 ;
 
-162 
+163 
 	gmy_log
  = 0;
 
-163 
+164 
 	gexô
  = 0;
 
-165 
+166 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-167 
+168 
 	gdoubÀLogLi°
 [
 i
@@ -36347,7 +36541,7 @@ i
 	gu£
  == 0)
 
-170 i‡(
+171 i‡(
 åy_©_lock2
 (
 doubÀLogLi°
@@ -36357,7 +36551,7 @@ i
 u£
 ))
 
-171 
+172 
 my_log
  = &
 doubÀLogLi°
@@ -36365,69 +36559,75 @@ doubÀLogLi°
 i
 ];
 
-173 i‡(
+174 i‡(
 	gmy_log
 )
 
-177 i‡(
+178 i‡(
 	gmy_log
  == 0)
 
-178 
+179 
 ¥ötf
 ("new queryÅhreadÇoÜog!!!\n");
 
-180 
+181 
 ¥ötf
 ("logállocated\n");
 
-186 
-	gloˇl_£g_‰ì_˙t
- = 
-£g_‰ì_˙t
-;
+188 
+	ghash_ödex
+->
+thªad_loˇl_öô
+();
 
-190 
+192 
 	gªad_lock
  = 0;
 
-192 
+194 
 	grun
  = 1;
 
-195 
+197 
 	gPH_Quîy_Thªad
 ::
 ˛ón
 ()
 
-197 
+199 
 my_log
 ->
 u£
  = 0;
 
-198 
+200 
 	gmy_log
  = 
 NULL
 ;
 
-200 
+202 
+	ghash_ödex
+->
+thªad_loˇl_˛ón
+();
+
+203 
 	grun
  = 0;
 
-201 
+204 
 	gªad_lock
  = 0;
 
-206 
+209 
 	#INDEX
 
 
 	)
 
-208 
+211 
 	gPH_Quîy_Thªad
 ::
 ö£π_›
@@ -36439,11 +36639,11 @@ key
 vÆue
 )
 
-211 
+214 
 ›_check
 ();
 
-215 
+218 
 uöt64_t
  
 	g√w_addr
@@ -36451,61 +36651,61 @@ uöt64_t
 	gﬁd_addr
 ;
 
-216 
+219 
 E¡ryAddr
  
 	gó
 ;
 
-217 * 
+220 * 
 	gpmem_hód_p
 ;
 
-218 * 
+221 * 
 	gdøm_hód_p
 ;
 
-221 * 
+224 * 
 	gchecksum_i
  = (*)&
 bÀ
 ;
 
-222 
+225 
 	gi
 ,
 	g˙t
 =0;
 
-223 
+226 
 	gi
 =0;i<8+8+
 	gVALUE_SIZE
 ;i++)
 
-225 i‡(*
+228 i‡(*
 	gchecksum_i
  == 0)
 
-226 
+229 
 ˙t
 ++;
 
-228 i‡(
+231 i‡(
 	g˙t
  == -1)
 
-229 
+232 
 ¥ötf
 ("xxx\n");
 
-239 
+242 
 	gmy_log
 ->
 ªady_log
 ();
 
-241 
+244 
 	gpmem_hód_p
  = 
 my_log
@@ -36517,13 +36717,13 @@ hód_sum
 my_size
 ;
 
-244 
+247 
 	gó
 .
 	gloc
  = 1;
 
-245 
+248 
 	gó
 .
 	gfûe_num
@@ -36533,7 +36733,7 @@ my_log
 log_num
 ;
 
-246 
+249 
 	gó
 .
 	goff£t
@@ -36545,7 +36745,7 @@ hód_sum
 my_size
 ;
 
-248 
+251 
 	gmy_log
 ->
 ö£π_pmem_log
@@ -36555,17 +36755,17 @@ key
 vÆue
 );
 
-261 #ifde‡
+264 #ifde‡
 INDEX
 
 
-262 
+265 
 KVP
 * 
 	gkvp_p
 ;
 
-263 
+266 
 	g°d
 ::
 ©omic
@@ -36575,7 +36775,7 @@ uöt8_t
 £g_lock
 ;
 
-264 
+267 
 	gkvp_p
  = 
 hash_ödex
@@ -36589,7 +36789,7 @@ key
 ªad_lock
 );
 
-266 
+269 
 	gﬁd_addr
  = 
 kvp_p
@@ -36597,7 +36797,7 @@ kvp_p
 vÆue
 ;
 
-271 
+274 
 uöt64_t
  
 	gﬁd_vîsi⁄
@@ -36605,11 +36805,11 @@ uöt64_t
 	g√w_vîsi⁄
 ;
 
-272 #ifde‡
+275 #ifde‡
 INDEX
 
 
-273 
+276 
 	gﬁd_vîsi⁄
  = 
 kvp_p
@@ -36617,13 +36817,13 @@ kvp_p
 vîsi⁄
 ;
 
-274 
+277 
 	g√w_vîsi⁄
  = 
 ﬁd_vîsi⁄
 +1;
 
-275 
+278 
 	g√w_vîsi⁄
  = 
 £t_loc_hŸ
@@ -36631,17 +36831,17 @@ vîsi⁄
 √w_vîsi⁄
 );
 
-276 
+279 
 £t_vÆid
 (
 √w_vîsi⁄
 );
 
-279 #ifde‡
+282 #ifde‡
 USE_DRAM_CACHE
 
 
-281 
+284 
 	g√w_addr
  = 
 ó
@@ -36649,7 +36849,7 @@ USE_DRAM_CACHE
 vÆue
 ;
 
-283 
+286 
 	gmy_log
 ->
 ö£π_døm_log
@@ -36661,13 +36861,13 @@ key
 vÆue
 );
 
-285 
+288 
 	g√w_addr
  = 
 pmem_hód_p
 ;
 
-290 
+293 
 	gmy_log
 ->
 wrôe_vîsi⁄
@@ -36675,7 +36875,7 @@ wrôe_vîsi⁄
 √w_vîsi⁄
 );
 
-291 
+294 
 	gmy_log
 ->
 	ghód_sum
@@ -36683,17 +36883,17 @@ wrôe_vîsi⁄
 bÀ_Àn
 ;
 
-294 #ifde‡
+297 #ifde‡
 INDEX
 
 
-295 
+298 
 boﬁ
  
 	g√w_key
 ;
 
-297 
+300 
 	gkvp_p
 ->
 	gvÆue
@@ -36701,7 +36901,7 @@ boﬁ
 √w_addr
 ;
 
-298 
+301 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -36709,11 +36909,11 @@ boﬁ
 √w_vîsi⁄
 ;
 
-299 
+302 
 _mm_s„n˚
 ();
 
-300 i‡(
+303 i‡(
 	gkvp_p
 ->
 	gkey
@@ -36721,13 +36921,13 @@ _mm_s„n˚
 key
 )
 
-302 
+305 
 √w_key
  = 
 åue
 ;
 
-303 
+306 
 	gkvp_p
 ->
 	gkey
@@ -36735,21 +36935,21 @@ key
 key
 ;
 
-304 
+307 
 _mm_s„n˚
 ();
 
-307 
+310 
 	g√w_key
  = 
 Ál£
 ;
 
-311 #ifde‡
+314 #ifde‡
 INDEX
 
 
-313 
+316 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -36759,25 +36959,25 @@ u∆ock_íåy2
 ªad_lock
 );
 
-318 #ifde‡
+321 #ifde‡
 USE_DRAM_CACHE
 
 
-319 i‡(
+322 i‡(
 	g√w_key
 )
 
-321 
+324 
 E¡ryAddr
  
 	gﬁd_ó
 ;
 
-322 * 
+325 * 
 	gaddr
 ;
 
-323 
+326 
 	gﬁd_ó
 .
 	gvÆue
@@ -36785,13 +36985,13 @@ E¡ryAddr
 ﬁd_addr
 ;
 
-324 i‡(
+327 i‡(
 	gﬁd_ó
 .
 	gloc
  == 1)
 
-326 
+329 
 addr
  = 
 doubÀLogLi°
@@ -36805,7 +37005,7 @@ dømLogAddr
 off£t
 ;
 
-327 
+330 
 £t_övÆid
 ((
 uöt64_t
@@ -36813,27 +37013,27 @@ uöt64_t
 addr
 );
 
-331 
+334 
 size_t
  
 	goff£t_ö_node
 ;
 
-332 
+335 
 NodeMëa
 * 
 	gnm
 ;
 
-333 
+336 
 	g˙t
 ;
 
-334 
+337 
 	gnode_˙t
 ;
 
-336 
+339 
 	goff£t_ö_node
  = 
 ﬁd_ó
@@ -36843,7 +37043,7 @@ off£t
 NODE_SIZE
 ;
 
-337 
+340 
 	gnode_˙t
  = 
 ﬁd_ó
@@ -36853,7 +37053,7 @@ off£t
 NODE_SIZE
 ;
 
-338 
+341 
 	gnm
  = (
 NodeMëa
@@ -36869,7 +37069,7 @@ fûe_num
 node_˙t
 *(NodeMeta));
 
-339 
+342 
 	g˙t
  = (
 off£t_ö_node
@@ -36879,7 +37079,7 @@ NodeAddr
 bÀ_Àn
 ;
 
-340 
+343 
 	gnm
 ->
 	gvÆid
@@ -36889,13 +37089,13 @@ bÀ_Àn
 Ál£
 ;
 
-341 --
+344 --
 	gnm
 ->
 	gvÆid_˙t
 ;
 
-358 
+361 
 	gPH_Quîy_Thªad
 ::
 ªad_›
@@ -36907,17 +37107,17 @@ key
 buf
 )
 
-361 
+364 
 ›_check
 ();
 
-366 
+369 
 E¡ryAddr
  
 	gó
 ;
 
-367 
+370 
 	ghash_ödex
 ->
 ªad
@@ -36929,23 +37129,23 @@ key
 vÆue
 );
 
-369 i‡(
+372 i‡(
 	gó
 .
 	gvÆue
  == 0)
 
-372 * 
+375 * 
 	gaddr
 ;
 
-373 i‡(
+376 i‡(
 	gó
 .
 	gloc
  == 1)
 
-375 
+378 
 addr
  = 
 doubÀLogLi°
@@ -36959,7 +37159,7 @@ dømLogAddr
 off£t
 ;
 
-376 
+379 
 mem˝y
 (
 buf
@@ -36973,21 +37173,21 @@ KEY_SIZE
 VALUE_SIZE
 );
 
-380 
+383 
 NodeMëa
 * 
 	gnm
 ;
 
-381 
+384 
 	gnode_˙t
 ;
 
-383 
+386 
 	gåue
 )
 
-386 
+389 
 	gnode_˙t
  = 
 ó
@@ -36997,7 +37197,7 @@ off£t
 NODE_SIZE
 ;
 
-387 
+390 
 	gnm
  = (
 NodeMëa
@@ -37013,7 +37213,7 @@ fûe_num
 node_˙t
 *(NodeMeta));
 
-388 
+391 
 ©_lock2
 (
 nm
@@ -37021,7 +37221,7 @@ nm
 lock
 );
 
-389 
+392 
 	gaddr
  = (*)
 nodeAŒoˇt‹
@@ -37035,7 +37235,7 @@ fûe_num
 off£t
 ;
 
-390 i‡(
+393 i‡(
 	gkey
  =*(
 uöt64_t
@@ -37045,7 +37245,7 @@ addr
 HEADER_SIZE
 ))
 
-392 
+395 
 ©_u∆ock2
 (
 nm
@@ -37053,7 +37253,7 @@ nm
 lock
 );
 
-394 
+397 
 	ghash_ödex
 ->
 ªad
@@ -37065,7 +37265,7 @@ key
 vÆue
 );
 
-397 
+400 
 mem˝y
 (
 buf
@@ -37079,7 +37279,7 @@ KEY_SIZE
 VALUE_SIZE
 );
 
-398 
+401 
 ©_u∆ock2
 (
 nm
@@ -37087,7 +37287,7 @@ nm
 lock
 );
 
-404 
+407 
 	gPH_Quîy_Thªad
 ::
 dñëe_›
@@ -37097,11 +37297,11 @@ uöt64_t
 key
 )
 
-407 
+410 
 ›_check
 ();
 
-411 
+414 
 	gPH_Quîy_Thªad
 ::
 sˇn_›
@@ -37113,11 +37313,11 @@ uöt64_t
 íd_key
 )
 
-414 
+417 
 ›_check
 ();
 
-418 
+421 
 	gPH_Quîy_Thªad
 ::
 √xt_›
@@ -37125,21 +37325,21 @@ uöt64_t
 buf
 )
 
-421 
+424 
 ›_check
 ();
 
-428 
+431 
 	gPH_Evi˘_Thªad
 ::
 öô
 ()
 
-430 
+433 
 exô
  = 0;
 
-432 
+435 
 	g 
  = (
 log_max
@@ -37147,11 +37347,11 @@ log_max
 num_evi˘_thªad
 +1;
 
-434 
+437 
 	glog_˙t
  = 0;
 
-435 
+438 
 	glog_li°
  = 
 √w
@@ -37161,17 +37361,17 @@ DoubÀLog
  
 ];
 
-437 
+440 
 	gi
 ;
 
-438 
+441 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-440 
+443 
 	gdoubÀLogLi°
 [
 i
@@ -37179,7 +37379,7 @@ i
 	gevi˘_Æloc
  == 0)
 
-443 i‡(
+446 i‡(
 åy_©_lock2
 (
 doubÀLogLi°
@@ -37189,7 +37389,7 @@ i
 evi˘_Æloc
 ))
 
-445 
+448 
 log_li°
 [
 log_˙t
@@ -37199,13 +37399,13 @@ doubÀLogLi°
 i
 ];
 
-449 i‡(
+452 i‡(
 	glog_˙t
  >
  
 )
 
-453 
+456 
 	gi
 =
 log_˙t
@@ -37213,7 +37413,7 @@ log_˙t
 	g 
 ;i++)
 
-454 
+457 
 	glog_li°
 [
 i
@@ -37221,35 +37421,35 @@ i
 NULL
 ;
 
-456 
+459 
 	gªad_lock
  = 0;
 
-457 
+460 
 	grun
  = 1;
 
-460 
+463 
 	gPH_Evi˘_Thªad
 ::
 ˛ón
 ()
 
-462 
+465 
 run
  = 0;
 
-463 
+466 
 	gªad_lock
  = 0;
 
-465 
+468 
 	gdñëe
 [] 
 	glog_li°
 ;
 
-474 
+477 
 pmem_¡_wrôe
 (* 
 d°_addr
@@ -37261,7 +37461,7 @@ size_t
 Àn
 )
 
-476 
+479 
 pmem_mem˝y
 (
 d°_addr
@@ -37273,11 +37473,11 @@ d°_addr
 PMEM_F_MEM_NONTEMPORAL
 );
 
-477 
+480 
 _mm_s„n˚
 ();
 
-481 
+484 
 pmem_íåy_wrôe
 (* 
 d°
@@ -37289,7 +37489,7 @@ size_t
 Àn
 )
 
-484 
+487 
 mem˝y
 (
 d°
@@ -37299,7 +37499,7 @@ d°
 Àn
 );
 
-485 
+488 
 pmem_≥rsi°
 (
 d°
@@ -37307,11 +37507,11 @@ d°
 Àn
 );
 
-486 
+489 
 _mm_s„n˚
 ();
 
-488 
+491 
 pmem_√xt_wrôe
 (
 D©aNode
@@ -37323,7 +37523,7 @@ NodeAddr
 nodeAddr
 )
 
-490 
+493 
 	gd°_node
 ->
 	g√xt_off£t
@@ -37331,7 +37531,7 @@ nodeAddr
 nodeAddr
 ;
 
-491 
+494 
 pmem_≥rsi°
 (
 d°_node
@@ -37339,17 +37539,17 @@ d°_node
 NodeAddr
 ));
 
-492 
+495 
 _mm_s„n˚
 ();
 
-495 c⁄° 
+498 c⁄° 
 size_t
  
 	gPMEM_BUFFER_SIZE
  = 256;
 
-497 
+500 
 	gPH_Evi˘_Thªad
 ::
 •lô_li°Node
@@ -37363,7 +37563,7 @@ Skùli°Node
 skùli°Node
 )
 
-500 
+503 
 D©aNode
  *
 	gli°_d©aNode
@@ -37375,7 +37575,7 @@ li°Node
 d©a_node_addr
 );
 
-501 
+504 
 NodeMëa
  *
 	gli°_nodeMëa
@@ -37387,13 +37587,13 @@ li°Node
 d©a_node_addr
 );
 
-503 i‡(
+506 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
  == 0)
 
-506 
+509 
 D©aNode
  
 	gãmp_node
@@ -37401,59 +37601,59 @@ D©aNode
 li°_d©aNode
 ;
 
-507 
+510 
 D©aNode
  
 	gãmp_√w_node
 ;
 
-508 
+511 
 uöt64_t
  
 	ghÆf_key
 ;
 
-509 
+512 
 uöt64_t
  
 	gkey
 ;
 
-511 
+514 
 size_t
  
 	goff£t
 ;
 
-512 
+515 
 size_t
  
 	goff£t2
 ;
 
-513 * 
+516 * 
 	gaddr
 ;
 
-514 
+517 
 	gaddr
  = (*)&
 ãmp_node
 ;
 
-515 
+518 
 	goff£t
  = (
 NodeAddr
 );
 
-516 
+519 
 	goff£t2
  = (
 NodeAddr
 );
 
-518 
+521 
 	ghÆf_key
  = 
 föd_hÆf_ö_node
@@ -37463,7 +37663,7 @@ li°_nodeMëa
 ãmp_node
 );
 
-519 i‡(
+522 i‡(
 	ghÆf_key
  =
 li°Node
@@ -37471,7 +37671,7 @@ li°Node
 key
 )
 
-522 
+525 
 Li°Node
 * 
 	g√w_li°Node
@@ -37481,7 +37681,7 @@ li°
 Æloc_li°_node
 ();
 
-523 
+526 
 NodeMëa
 * 
 	g√w_nodeMëa
@@ -37493,7 +37693,7 @@ nodeAddr_to_nodeMëa
 d©a_node_addr
 );
 
-524 
+527 
 D©aNode
 * 
 	g√w_d©aNode
@@ -37505,7 +37705,7 @@ nodeAddr_to_node
 d©a_node_addr
 );
 
-526 
+529 
 	g√w_li°Node
 ->
 	gkey
@@ -37513,27 +37713,27 @@ d©a_node_addr
 hÆf_key
 ;
 
-527 
+530 
 	gmoved_idx
 [
 NODE_SLOT_MAX
 ];
 
-528 
+531 
 	gmoved_˙t
 =0;
 
-529 
+532 
 	gi
 ;
 
-530 
+533 
 	gi
 =0;i<
 	gNODE_SLOT_MAX
 ;i++)
 
-532 i‡(
+535 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -37543,13 +37743,13 @@ i
 Ál£
 )
 
-535 
+538 
 off£t
 +=
 bÀ_Àn
 ;
 
-538 
+541 
 	gkey
  = *(
 uöt64_t
@@ -37561,13 +37761,13 @@ off£t
 HEADER_SIZE
 );
 
-539 i‡(
+542 i‡(
 	gkey
  >
 hÆf_key
 )
 
-541 
+544 
 √w_nodeMëa
 ->
 vÆid
@@ -37577,7 +37777,7 @@ moved_˙t
 åue
 ;
 
-542 
+545 
 mem˝y
 ((*)&
 ãmp_√w_node
@@ -37591,7 +37791,7 @@ off£t
 bÀ_Àn
 );
 
-544 
+547 
 	gmoved_idx
 [
 moved_˙t
@@ -37599,23 +37799,23 @@ moved_˙t
 i
 ;
 
-545 ++
+548 ++
 	gmoved_˙t
 ;
 
-550 
+553 
 	goff£t2
 +=
 bÀ_Àn
 ;
 
-552 
+555 
 	goff£t
 +=
 bÀ_Àn
 ;
 
-554 
+557 
 	g√w_nodeMëa
 ->
 	gvÆid_˙t
@@ -37623,7 +37823,7 @@ bÀ_Àn
 moved_˙t
 ;
 
-556 
+559 
 	gãmp_√w_node
 .
 	g√xt_off£t
@@ -37635,7 +37835,7 @@ li°_nodeMëa
 my_off£t
 ;
 
-558 
+561 
 pmem_¡_wrôe
 ((*)
 √w_d©aNode
@@ -37645,7 +37845,7 @@ pmem_¡_wrôe
 off£t2
 );
 
-559 
+562 
 	g√w_nodeMëa
 ->
 	g√xt_p
@@ -37655,7 +37855,7 @@ li°_nodeMëa
 √xt_p
 ;
 
-562 
+565 
 pmem_√xt_wrôe
 (
 li°_d©aNode
@@ -37665,7 +37865,7 @@ li°_d©aNode
 my_off£t
 );
 
-563 
+566 
 	gli°_nodeMëa
 ->
 	g√xt_p
@@ -37673,7 +37873,7 @@ my_off£t
 √w_nodeMëa
 ;
 
-565 
+568 
 	gskùli°Node
 ->
 	gmy_li°Node
@@ -37683,7 +37883,7 @@ my_off£t
 	ghÆf_key
 )
 
-567 i‡(
+570 i‡(
 	gskùli°Node
 ->
 	gkey
@@ -37691,7 +37891,7 @@ my_off£t
 hÆf_key
 )
 
-568 
+571 
 skùli°Node
 ->
 my_li°Node
@@ -37699,7 +37899,7 @@ my_li°Node
 √w_li°Node
 ;
 
-569 
+572 
 	gskùli°Node
  = 
 skùli°Node
@@ -37707,7 +37907,7 @@ skùli°Node
 √xt
 [0];
 
-572 i‡(
+575 i‡(
 	gli°Node
 ->
 	gkey
@@ -37717,11 +37917,11 @@ skùli°Node
 key
 )
 
-574 
+577 
 ¥ötf
 ("?------------------------\n");
 
-577 
+580 
 	gli°
 ->
 ö£π_node
@@ -37731,13 +37931,13 @@ li°Node
 √w_li°Node
 );
 
-578 
+581 
 KVP
 * 
 	gkvp_p
 ;
 
-579 
+582 
 	g°d
 ::
 ©omic
@@ -37747,19 +37947,19 @@ uöt8_t
 £g_lock
 ;
 
-580 
+583 
 E¡ryAddr
  
 	gó
 ;
 
-581 
+584 
 	gi
 =0;i<
 	gmoved_˙t
 ;i++)
 
-583 
+586 
 	gkey
  = *(
 uöt64_t
@@ -37773,7 +37973,7 @@ bÀ_Àn
 i
 );
 
-584 
+587 
 	gkvp_p
  = 
 hash_ödex
@@ -37787,13 +37987,13 @@ key
 ªad_lock
 );
 
-585 
+588 
 	gó
 .
 	gloc
  = 3;
 
-586 
+589 
 	gó
 .
 	gfûe_num
@@ -37805,7 +38005,7 @@ my_off£t
 poﬁ_num
 ;
 
-587 
+590 
 	gó
 .
 	goff£t
@@ -37827,7 +38027,7 @@ moved_idx
 i
 ];
 
-588 i‡(
+591 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -37837,7 +38037,7 @@ i
 vÆue
 )
 
-591 
+594 
 ó
 .
 fûe_num
@@ -37849,7 +38049,7 @@ my_off£t
 poﬁ_num
 ;
 
-592 
+595 
 	gó
 .
 	goff£t
@@ -37869,7 +38069,7 @@ bÀ_Àn
 i
 ;
 
-593 
+596 
 	gkvp_p
 ->
 	gvÆue
@@ -37879,7 +38079,7 @@ i
 vÆue
 ;
 
-594 
+597 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -37891,7 +38091,7 @@ kvp_p
 vîsi⁄
 );
 
-597 
+600 
 	g√w_nodeMëa
 ->
 	gvÆid
@@ -37901,11 +38101,11 @@ i
 Ál£
 ;
 
-598 
+601 
 _mm_s„n˚
 ();
 
-599 
+602 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -37915,7 +38115,7 @@ u∆ock_íåy2
 ªad_lock
 );
 
-602 
+605 
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -37927,7 +38127,7 @@ i
 Ál£
 ;
 
-604 
+607 
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
@@ -37935,7 +38135,7 @@ i
 moved_˙t
 ;
 
-609 
+612 
 	gPH_Evi˘_Thªad
 ::
 w¨m_to_cﬁd
@@ -37945,13 +38145,13 @@ Skùli°Node
 node
 )
 
-612 
+615 
 Li°Node
 * 
 li°Node
 ;
 
-613 
+616 
 NodeMëa
  *
 	gnodeMëa
@@ -37963,7 +38163,7 @@ node
 d©a_node_addr
 );
 
-614 
+617 
 D©aNode
  
 	gd©aNode
@@ -37975,7 +38175,7 @@ node
 d©a_node_addr
 );
 
-615 
+618 
 size_t
  
 	g§c_off£t
@@ -37983,23 +38183,23 @@ size_t
 NodeAddr
 );
 
-616 
+619 
 	g˙t
  = 0;
 
-617 
+620 
 uöt64_t
  
 	gkey
 ;
 
-618 * 
+621 * 
 	gaddr
  = (*)&
 d©aNode
 ;
 
-619 
+622 
 E¡ryAddr
  
 	gﬁd_ó
@@ -38007,21 +38207,21 @@ E¡ryAddr
 	g√w_ó
 ;
 
-620 
+623 
 	gi
 ;
 
-621 
+624 
 	g¶Ÿ_idx
 ;
 
-623 
+626 
 KVP
 * 
 	gkvp_p
 ;
 
-624 
+627 
 	g°d
 ::
 ©omic
@@ -38031,13 +38231,13 @@ uöt8_t
 £g_lock
 ;
 
-626 
+629 
 	gﬁd_ó
 .
 	gloc
  = 2;
 
-627 
+630 
 	gﬁd_ó
 .
 	gfûe_num
@@ -38049,17 +38249,17 @@ d©a_node_addr
 poﬁ_num
 ;
 
-630 
+633 
 	g√w_ó
 .
 	gloc
  = 3;
 
-633 
+636 
 	g˙t
  = 0;
 
-634 
+637 
 	g˙t
  < 
 	gnodeMëa
@@ -38067,7 +38267,7 @@ poﬁ_num
 	g¶Ÿ_˙t
 )
 
-637 i‡(
+640 i‡(
 	gnodeMëa
 ->
 	gvÆid
@@ -38077,17 +38277,17 @@ poﬁ_num
 Ál£
 )
 
-639 ++
+642 ++
 ˙t
 ;
 
-640 
+643 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-644 
+647 
 	gkey
  = *(
 uöt64_t
@@ -38099,7 +38299,7 @@ addr
 HEADER_SIZE
 );
 
-645 
+648 
 	gli°Node
  = 
 node
@@ -38107,7 +38307,7 @@ node
 my_li°Node
 ;
 
-646 
+649 
 	gkey
  > 
 	gli°Node
@@ -38115,7 +38315,7 @@ my_li°Node
 	g√xt
 ->key)
 
-647 
+650 
 	gli°Node
  = 
 li°Node
@@ -38123,7 +38323,7 @@ li°Node
 √xt
 ;
 
-649 
+652 
 NodeMëa
 * 
 	gli°_nodeMëa
@@ -38135,7 +38335,7 @@ li°Node
 d©a_node_addr
 );
 
-650 
+653 
 D©aNode
 * 
 	gli°_d©aNode
@@ -38147,7 +38347,7 @@ li°Node
 d©a_node_addr
 );
 
-651 
+654 
 	g√w_ó
 .
 	gfûe_num
@@ -38159,7 +38359,7 @@ d©a_node_addr
 poﬁ_num
 ;
 
-654 
+657 
 ©_lock2
 (
 li°_nodeMëa
@@ -38167,13 +38367,13 @@ li°_nodeMëa
 lock
 );
 
-656 
+659 
 	g¶Ÿ_idx
 =0;¶Ÿ_idx<
 	gNODE_SLOT_MAX
 ;slot_idx++)
 
-658 i‡(
+661 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -38183,13 +38383,13 @@ lock
 Ál£
 )
 
-661 i‡(
+664 i‡(
 	g¶Ÿ_idx
  < 
 	gNODE_SLOT_MAX
 )
 
-663 
+666 
 	gﬁd_ó
 .
 	goff£t
@@ -38205,7 +38405,7 @@ NODE_SIZE
 §c_off£t
 ;
 
-664 
+667 
 	g√w_ó
 .
 	goff£t
@@ -38225,7 +38425,7 @@ bÀ_Àn
 ¶Ÿ_idx
 ;
 
-666 
+669 
 	gkvp_p
  = 
 hash_ödex
@@ -38239,7 +38439,7 @@ key
 ªad_lock
 );
 
-668 i‡(
+671 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -38249,7 +38449,7 @@ key
 vÆue
 )
 
-673 
+676 
 hash_ödex
 ->
 u∆ock_íåy2
@@ -38259,7 +38459,7 @@ u∆ock_íåy2
 ªad_lock
 );
 
-674 
+677 
 ©_u∆ock2
 (
 li°_nodeMëa
@@ -38267,17 +38467,17 @@ li°_nodeMëa
 lock
 );
 
-675 ++
+678 ++
 	g˙t
 ;
 
-676 
+679 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-681 
+684 
 pmem_íåy_wrôe
 ((*)
 li°_d©aNode
@@ -38293,7 +38493,7 @@ addr
 §c_off£t
 , ble_len);
 
-682 
+685 
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -38303,13 +38503,13 @@ addr
 åue
 ;
 
-683 ++
+686 ++
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
 ;
 
-689 
+692 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -38321,7 +38521,7 @@ kvp_p
 vîsi⁄
 );
 
-691 
+694 
 	gkvp_p
 ->
 	gvÆue
@@ -38331,11 +38531,11 @@ vîsi⁄
 vÆue
 ;
 
-692 
+695 
 _mm_s„n˚
 ();
 
-693 
+696 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -38345,17 +38545,17 @@ u∆ock_íåy2
 ªad_lock
 );
 
-697 ++
+700 ++
 	g˙t
 ;
 
-698 
+701 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-706 
+709 
 •lô_li°Node
 (
 li°Node
@@ -38363,7 +38563,7 @@ li°Node
 node
 );
 
-709 
+712 
 ©_u∆ock2
 (
 li°_nodeMëa
@@ -38371,7 +38571,7 @@ li°_nodeMëa
 lock
 );
 
-713 
+716 
 ©_lock2
 (
 nodeMëa
@@ -38379,13 +38579,13 @@ nodeMëa
 lock
 );
 
-715 i‡(
+718 i‡(
 	gnodeMëa
 ->
 	gvÆid_˙t
 )
 
-717 
+720 
 Skùli°Node
 * 
 	g√w_skùNode
@@ -38393,7 +38593,7 @@ Skùli°Node
 NULL
 ;
 
-719 
+722 
 	g√w_skùNode
  = 
 skùli°
@@ -38401,17 +38601,17 @@ skùli°
 Æloc_¶_node
 ();
 
-721 i‡(
+724 i‡(
 	g√w_skùNode
 )
 
-723 
+726 
 uöt64_t
  
 	ghÆf_key
 ;
 
-724 
+727 
 	ghÆf_key
  = 
 föd_hÆf_ö_node
@@ -38421,7 +38621,7 @@ nodeMëa
 d©aNode
 );
 
-726 i‡(
+729 i‡(
 	ghÆf_key
  > 
 	gnode
@@ -38429,7 +38629,7 @@ d©aNode
 	gkey
 )
 
-728 
+731 
 	g√w_skùNode
 ->
 	gkey
@@ -38437,7 +38637,7 @@ d©aNode
 hÆf_key
 ;
 
-730 
+733 
 Li°Node
 * 
 	gli°_node
@@ -38447,7 +38647,7 @@ node
 my_li°Node
 ;
 
-731 
+734 
 	gli°_node
 ->
 	g√xt
@@ -38457,7 +38657,7 @@ my_li°Node
 	ghÆf_key
 )
 
-732 
+735 
 	gli°_node
  = 
 li°_node
@@ -38465,7 +38665,7 @@ li°_node
 √xt
 ;
 
-733 
+736 
 	g√w_skùNode
 ->
 	gmy_li°Node
@@ -38473,7 +38673,7 @@ li°_node
 li°_node
 ;
 
-735 
+738 
 Skùli°Node
 * 
 	g¥ev
@@ -38481,7 +38681,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-736 
+739 
 Skùli°Node
 * 
 	g√xt
@@ -38489,7 +38689,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-737 
+740 
 	gskùli°
 ->
 ö£π_node
@@ -38501,7 +38701,7 @@ MAX_LEVEL
 √xt
 );
 
-740 
+743 
 	gskùli°
 ->
 ‰ì_¶_node
@@ -38509,7 +38709,7 @@ MAX_LEVEL
 √w_skùNode
 );
 
-753 
+756 
 	gi
 =0;i<
 	gnodeMëa
@@ -38517,7 +38717,7 @@ MAX_LEVEL
 	g¶Ÿ_˙t
 ;i++)
 
-754 
+757 
 	gnodeMëa
 ->
 	gvÆid
@@ -38527,25 +38727,25 @@ i
 Ál£
 ;
 
-755 
+758 
 	gnodeMëa
 ->
 	gwrôãn_size
  = 0;
 
-756 
+759 
 	gnodeMëa
 ->
 	g¶Ÿ_˙t
  = 0;
 
-757 
+760 
 	gnodeMëa
 ->
 	gvÆid_˙t
  = 0;
 
-759 
+762 
 ©_u∆ock2
 (
 nodeMëa
@@ -38553,7 +38753,7 @@ nodeMëa
 lock
 );
 
-763 
+766 
 	gPH_Evi˘_Thªad
 ::
 hŸ_to_w¨m
@@ -38567,39 +38767,39 @@ boﬁ
 f‹˚
 )
 
-766 
+769 
 	gi
 ;
 
-767 
+770 
 LogLoc
  
 	gŒ
 ;
 
-768 * 
+771 * 
 	gaddr
 ;
 
-769 
+772 
 uöt64_t
 * 
 	ghódî
 ;
 
-770 
+773 
 DoubÀLog
 * 
 	gdl
 ;
 
-772 
+775 
 size_t
  
 	gíåy_li°_˙t
 ;
 
-775 
+778 
 NodeMëa
 * 
 	gnodeMëa
@@ -38611,7 +38811,7 @@ node
 d©a_node_addr
 );
 
-776 
+779 
 ©_lock2
 (
 nodeMëa
@@ -38619,7 +38819,7 @@ nodeMëa
 lock
 );
 
-779 
+782 
 D©aNode
 * 
 	gd°_node
@@ -38631,7 +38831,7 @@ node
 d©a_node_addr
 );
 
-781 
+784 
 uöt64_t
 * 
 	gﬁd_t‹n_hódî
@@ -38639,13 +38839,13 @@ uöt64_t
 NULL
 ;
 
-782 
+785 
 E¡ryAddr
  
 	gﬁd_t‹n_addr
 ;
 
-783 
+786 
 size_t
  
 	gﬁd_t‹n_right
@@ -38655,7 +38855,7 @@ node
 t‹n_right
 ;
 
-784 
+787 
 boﬁ
  
 	gmoved
@@ -38665,13 +38865,13 @@ NODE_SLOT_MAX
 Ál£
 ,};
 
-786 
+789 
 size_t
  
 	gwrôe_size
 =0;
 
-787 * 
+790 * 
 	gbuf„r_wrôe_°¨t
  = 
 ãmp_node
@@ -38683,7 +38883,7 @@ nodeMëa
 wrôãn_size
 ;
 
-789 
+792 
 	g°d
 ::
 ©omic
@@ -38693,13 +38893,13 @@ uöt8_t
 £g_lock
 ;
 
-797 i‡(
+800 i‡(
 	gnode
 ->
 	gt‹n_À·
 )
 
-799 
+802 
 	gdl
  = &
 doubÀLogLi°
@@ -38711,7 +38911,7 @@ t‹n_íåy
 log_num
 ];
 
-800 
+803 
 	gaddr
  = 
 dl
@@ -38725,7 +38925,7 @@ off£t
 my_size
 );
 
-801 
+804 
 	gﬁd_t‹n_hódî
  = (
 uöt64_t
@@ -38733,13 +38933,13 @@ uöt64_t
 addr
 ;
 
-802 
+805 
 	gﬁd_t‹n_addr
 .
 	gloc
  = 0;
 
-803 
+806 
 	gﬁd_t‹n_addr
 .
 	gfûe_num
@@ -38751,7 +38951,7 @@ t‹n_íåy
 log_num
 ;
 
-804 
+807 
 	gﬁd_t‹n_addr
 .
 	goff£t
@@ -38765,7 +38965,7 @@ dl
 my_size
 ;
 
-805 
+808 
 mem˝y
 (
 buf„r_wrôe_°¨t
@@ -38779,7 +38979,7 @@ t‹n_À·
 t‹n_right
 );
 
-806 
+809 
 	gwrôe_size
 +=
 node
@@ -38787,11 +38987,11 @@ node
 t‹n_right
 ;
 
-809 * 
+812 * 
 	gﬁd_addr
 [100];
 
-811 
+814 
 	gíåy_li°_˙t
  = 
 node
@@ -38801,13 +39001,13 @@ node
 size
 ();
 
-812 
+815 
 	gi
 =0;i<
 	gíåy_li°_˙t
 ;i++)
 
-814 
+817 
 	gŒ
  = 
 node
@@ -38817,7 +39017,7 @@ node
 i
 ];
 
-815 
+818 
 	gdl
  = &
 doubÀLogLi°
@@ -38827,7 +39027,7 @@ doubÀLogLi°
 log_num
 ];
 
-816 
+819 
 	gaddr
  = 
 dl
@@ -38841,7 +39041,7 @@ off£t
 my_size
 );
 
-818 
+821 
 	gﬁd_addr
 [
 i
@@ -38849,7 +39049,7 @@ i
 addr
 ;
 
-820 
+823 
 	ghódî
  = (
 uöt64_t
@@ -38857,7 +39057,7 @@ uöt64_t
 addr
 ;
 
-821 i‡(
+824 i‡(
 	gdl
 ->
 	gèû_sum
@@ -38873,7 +39073,7 @@ hódî
 Ál£
 )
 
-823 
+826 
 node
 ->
 íåy_li°
@@ -38883,13 +39083,13 @@ i
 log_num
  = -1;
 
-827 
+830 
 uöt64_t
  
 	gkey
 ;
 
-828 
+831 
 	gkey
  = *(
 uöt64_t
@@ -38899,17 +39099,17 @@ addr
 HEADER_SIZE
 );
 
-829 i‡(
+832 i‡(
 	gkey
  < 
 	gnode
 ->key)
 
-831 
+834 
 ¥ötf
 ("key is smallerÅhanÇode key\n");
 
-834 
+837 
 mem˝y
 (
 buf„r_wrôe_°¨t
@@ -38921,17 +39121,17 @@ addr
 bÀ_Àn
 );
 
-835 
+838 
 	gwrôe_size
 +=
 bÀ_Àn
 ;
 
-839 i‡(
+842 i‡(
 	gf‹˚
 )
 
-841 
+844 
 pmem_¡_wrôe
 (
 d°_node
@@ -38947,23 +39147,23 @@ buf„r_wrôe_°¨t
 wrôe_size
 );
 
-842 
+845 
 	gnode
 ->
 	gt‹n_À·
  = 0;
 
-843 
+846 
 	gnode
 ->
 	gt‹n_right
  = 0;
 
-845 i‡(
+848 i‡(
 	gwrôe_size
  > 0)
 
-847 
+850 
 	gnode
 ->
 	gt‹n_íåy
@@ -38971,7 +39171,7 @@ wrôe_size
 Œ
 ;
 
-848 
+851 
 	gnode
 ->
 	gt‹n_right
@@ -38987,7 +39187,7 @@ wrôe_size
 PMEM_BUFFER_SIZE
 ;
 
-849 
+852 
 	gnode
 ->
 	gt‹n_À·
@@ -38999,7 +39199,7 @@ node
 t‹n_right
 ;
 
-850 
+853 
 	gwrôe_size
 -=
 node
@@ -39007,7 +39207,7 @@ node
 t‹n_right
 ;
 
-852 
+855 
 pmem_¡_wrôe
 (
 d°_node
@@ -39023,27 +39223,27 @@ buf„r_wrôe_°¨t
 wrôe_size
 );
 
-853 --
+856 --
 	gíåy_li°_˙t
 ;
 
-858 
+861 
 _mm_s„n˚
 ();
 
-860 
+863 
 KVP
 * 
 	gkvp_p
 ;
 
-861 
+864 
 size_t
  
 	gkey
 ;
 
-863 
+866 
 E¡ryAddr
  
 	gd°_addr
@@ -39051,13 +39251,13 @@ E¡ryAddr
 	g§c_addr
 ;
 
-864 
+867 
 	gd°_addr
 .
 	gloc
  = 2;
 
-865 
+868 
 	gd°_addr
 .
 	gfûe_num
@@ -39069,7 +39269,7 @@ my_off£t
 poﬁ_num
 ;
 
-866 
+869 
 	gd°_addr
 .
 	goff£t
@@ -39087,11 +39287,11 @@ NodeAddr
 wrôãn_size
 ;
 
-868 i‡(
+871 i‡(
 	gﬁd_t‹n_hódî
 )
 
-870 
+873 
 	gkey
  = *(
 uöt64_t
@@ -39101,7 +39301,7 @@ uöt64_t
 HEADER_SIZE
 );
 
-871 
+874 
 	gkvp_p
  = 
 hash_ödex
@@ -39115,7 +39315,7 @@ key
 ªad_lock
 );
 
-872 i‡(
+875 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -39125,7 +39325,7 @@ key
 vÆue
 )
 
-874 
+877 
 kvp_p
 ->
 vÆue
@@ -39133,7 +39333,7 @@ vÆue
 d°_addr
 .value;
 
-875 
+878 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -39145,7 +39345,7 @@ kvp_p
 vîsi⁄
 );
 
-876 
+879 
 	gnodeMëa
 ->
 	gvÆid
@@ -39157,7 +39357,7 @@ nodeMëa
 åue
 ;
 
-879 
+882 
 	gnodeMëa
 ->
 	gvÆid
@@ -39169,7 +39369,7 @@ nodeMëa
 Ál£
 ;
 
-881 
+884 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -39179,13 +39379,13 @@ u∆ock_íåy2
 ªad_lock
 );
 
-882 
+885 
 £t_övÆid
 (
 ﬁd_t‹n_hódî
 );
 
-884 
+887 
 	gd°_addr
 .
 	goff£t
@@ -39193,19 +39393,19 @@ u∆ock_íåy2
 ﬁd_t‹n_right
 ;
 
-887 
+890 
 	g§c_addr
 .
 	gloc
  = 1;
 
-889 
+892 
 	gi
 =0;i<
 	gíåy_li°_˙t
 ;i++)
 
-891 
+894 
 	gŒ
  = 
 node
@@ -39215,13 +39415,13 @@ node
 i
 ];
 
-892 i‡(
+895 i‡(
 	gŒ
 .
 	glog_num
  == -1)
 
-894 
+897 
 	gdl
  = &
 doubÀLogLi°
@@ -39231,7 +39431,7 @@ doubÀLogLi°
 log_num
 ];
 
-895 
+898 
 	gaddr
  = 
 dl
@@ -39245,7 +39445,7 @@ off£t
 my_size
 );
 
-896 
+899 
 	ghódî
  = (
 uöt64_t
@@ -39253,7 +39453,7 @@ uöt64_t
 addr
 ;
 
-897 
+900 
 	gkey
  = *(
 uöt64_t
@@ -39263,7 +39463,7 @@ addr
 HEADER_SIZE
 );
 
-901 
+904 
 	g§c_addr
 .
 	gfûe_num
@@ -39273,7 +39473,7 @@ HEADER_SIZE
 log_num
 ;
 
-902 
+905 
 	g§c_addr
 .
 	goff£t
@@ -39287,7 +39487,7 @@ dl
 my_size
 ;
 
-904 
+907 
 	gkvp_p
  = 
 hash_ödex
@@ -39301,7 +39501,7 @@ key
 ªad_lock
 );
 
-905 i‡(
+908 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -39311,7 +39511,7 @@ key
 vÆue
 )
 
-907 
+910 
 kvp_p
 ->
 vÆue
@@ -39319,7 +39519,7 @@ vÆue
 d°_addr
 .value;
 
-908 
+911 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -39331,7 +39531,7 @@ kvp_p
 vîsi⁄
 );
 
-909 
+912 
 	gnodeMëa
 ->
 	gvÆid
@@ -39343,13 +39543,13 @@ nodeMëa
 åue
 ;
 
-910 ++
+913 ++
 	gnodeMëa
 ->
 	gvÆid_˙t
 ;
 
-913 
+916 
 	gnodeMëa
 ->
 	gvÆid
@@ -39361,7 +39561,7 @@ nodeMëa
 Ál£
 ;
 
-915 
+918 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -39371,13 +39571,13 @@ u∆ock_íåy2
 ªad_lock
 );
 
-916 
+919 
 £t_övÆid
 (
 hódî
 );
 
-918 i‡(
+921 i‡(
 is_vÆid
 ((
 uöt64_t
@@ -39385,11 +39585,11 @@ uöt64_t
 addr
 ))
 
-919 
+922 
 ¥ötf
 ("validÉrorr\n");
 
-921 
+924 
 	gd°_addr
 .
 	goff£t
@@ -39397,7 +39597,7 @@ addr
 bÀ_Àn
 ;
 
-924 
+927 
 	gnodeMëa
 ->
 	gwrôãn_size
@@ -39405,7 +39605,7 @@ bÀ_Àn
 wrôe_size
 ;
 
-929 
+932 
 	gi
 =0;i<
 	gnode
@@ -39415,7 +39615,7 @@ wrôe_size
 size
 ();i++)
 
-931 
+934 
 	gaddr
  = 
 ﬁd_addr
@@ -39423,7 +39623,7 @@ size
 i
 ];
 
-932 
+935 
 	ghódî
  = (
 uöt64_t
@@ -39431,7 +39631,7 @@ uöt64_t
 addr
 ;
 
-933 
+936 
 	gkey
  = *(
 uöt64_t
@@ -39441,17 +39641,17 @@ addr
 HEADER_SIZE
 );
 
-934 i‡(
+937 i‡(
 is_vÆid
 (
 hódî
 ))
 
-935 
+938 
 ¥ötf
 ("hotÅo warm validerror\n");
 
-940 i‡(
+943 i‡(
 	gnode
 ->
 	gíåy_li°
@@ -39465,7 +39665,7 @@ node
 íåy_size_sum
 )
 
-942 
+945 
 ¥ötf
 ("missm©ch %lu %lu\n",
 node
@@ -39479,7 +39679,7 @@ bÀ_Àn
 íåy_size_sum
 );
 
-945 
+948 
 	gnode
 ->
 	gíåy_li°
@@ -39487,13 +39687,13 @@ bÀ_Àn
 ˛ór
 ();
 
-946 
+949 
 	gnode
 ->
 	gíåy_size_sum
  = 0;
 
-948 
+951 
 ©_u∆ock2
 (
 nodeMëa
@@ -39501,7 +39701,7 @@ nodeMëa
 lock
 );
 
-952 
+955 
 	gPH_Evi˘_Thªad
 ::
 åy_push
@@ -39511,21 +39711,21 @@ DoubÀLog
 dl
 )
 
-955 * 
+958 * 
 addr
 ;
 
-956 
+959 
 uöt64_t
  
 	ghódî
 ;
 
-957 
+960 
 	grv
 =0;
 
-960 
+963 
 	gdl
 ->
 	gèû_sum
@@ -39537,7 +39737,7 @@ dl
 hód_sum
 )
 
-962 
+965 
 addr
  = 
 dl
@@ -39549,7 +39749,7 @@ dømLogAddr
 my_size
 );
 
-963 
+966 
 	ghódî
  = *(
 uöt64_t
@@ -39557,13 +39757,13 @@ uöt64_t
 addr
 ;
 
-965 i‡(
+968 i‡(
 is_vÆid
 (
 hódî
 ))
 
-967 
+970 
 	gdl
 ->
 	gèû_sum
@@ -39571,7 +39771,7 @@ hódî
 bÀ_Àn
 ;
 
-969 i‡(
+972 i‡(
 	gdl
 ->
 	gèû_sum
@@ -39581,7 +39781,7 @@ bÀ_Àn
 	gbÀ_Àn
  > dl->my_size)
 
-970 
+973 
 	gdl
 ->
 	gèû_sum
@@ -39593,15 +39793,15 @@ my_size
 èû_sum
 %dl->my_size));
 
-971 
+974 
 	grv
  = 1;
 
-973  
+976  
 	grv
 ;
 
-976 
+979 
 	gPH_Evi˘_Thªad
 ::
 åy_h¨d_evi˘
@@ -39611,27 +39811,27 @@ DoubÀLog
 dl
 )
 
-981 * 
+984 * 
 addr
 ;
 
-982 
+985 
 uöt64_t
  
 	ghódî
 ;
 
-983 
+986 
 uöt64_t
  
 	gkey
 ;
 
-984 
+987 
 	grv
 =0;
 
-991 
+994 
 	gdl
 ->
 	gèû_sum
@@ -39645,7 +39845,7 @@ hód_sum
 HARD_EVICT_SPACE
 )
 
-994 
+997 
 addr
  = 
 dl
@@ -39657,7 +39857,7 @@ dømLogAddr
 my_size
 );
 
-995 
+998 
 	gkey
  = *(
 uöt64_t
@@ -39667,7 +39867,7 @@ addr
 HEADER_SIZE
 );
 
-998 
+1001 
 Skùli°Node
 * 
 	g¥ev
@@ -39675,7 +39875,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-999 
+1002 
 Skùli°Node
 * 
 	g√xt
@@ -39683,13 +39883,13 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1000 
+1003 
 Skùli°Node
 * 
 	gnode
 ;
 
-1002 
+1005 
 	gnode
  = 
 skùli°
@@ -39703,7 +39903,7 @@ key
 √xt
 );
 
-1003 
+1006 
 hŸ_to_w¨m
 (
 node
@@ -39711,21 +39911,21 @@ node
 åue
 );
 
-1009 
+1012 
 	grv
  = 1;
 
-1010 
+1013 
 åy_push
 (
 dl
 );
 
-1013  
+1016  
 	grv
 ;
 
-1016 
+1019 
 	gPH_Evi˘_Thªad
 ::
 åy_so·_evi˘
@@ -39735,11 +39935,11 @@ DoubÀLog
 dl
 )
 
-1018 * 
+1021 * 
 addr
 ;
 
-1020 
+1023 
 uöt64_t
  
 	ghódî
@@ -39747,11 +39947,11 @@ uöt64_t
 	gkey
 ;
 
-1021 
+1024 
 	grv
  = 0;
 
-1024 
+1027 
 Skùli°Node
 * 
 	g¥ev
@@ -39759,7 +39959,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1025 
+1028 
 Skùli°Node
 * 
 	g√xt
@@ -39767,25 +39967,25 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1026 
+1029 
 Skùli°Node
 * 
 	gnode
 ;
 
-1027 
+1030 
 NodeMëa
 * 
 	gnodeMëa
 ;
 
-1028 
+1031 
 LogLoc
  
 	gŒ
 ;
 
-1037 i‡(
+1040 i‡(
 	gdl
 ->
 	gso·_adv_off£t
@@ -39793,7 +39993,7 @@ LogLoc
 	gèû_sum
 )
 
-1038 
+1041 
 	gdl
 ->
 	gso·_adv_off£t
@@ -39803,7 +40003,7 @@ dl
 èû_sum
 ;
 
-1040 
+1043 
 	gdl
 ->
 	gso·_adv_off£t
@@ -39819,7 +40019,7 @@ hód_sum
 SOFT_EVICT_SPACE
 )
 
-1042 
+1045 
 addr
  = 
 dl
@@ -39831,7 +40031,7 @@ so·_adv_off£t
 my_size
 );
 
-1043 
+1046 
 	ghódî
  = *(
 uöt64_t
@@ -39839,7 +40039,7 @@ uöt64_t
 addr
 ;
 
-1044 
+1047 
 	gkey
  = *(
 uöt64_t
@@ -39849,17 +40049,17 @@ addr
 HEADER_SIZE
 );
 
-1046 i‡(
+1049 i‡(
 is_vÆid
 (
 hódî
 ))
 
-1048 
+1051 
 	grv
  = 1;
 
-1050 
+1053 
 	gnode
  = 
 skùli°
@@ -39873,7 +40073,7 @@ key
 √xt
 );
 
-1051 
+1054 
 	gnodeMëa
  = 
 nodeAddr_to_nodeMëa
@@ -39883,7 +40083,7 @@ node
 d©a_node_addr
 );
 
-1054 i‡((
+1057 i‡((
 	gNodeAddr
 Ë+ 
 	gnodeMëa
@@ -39899,7 +40099,7 @@ d©a_node_addr
 	gNODE_SIZE
 )
 
-1057 
+1060 
 hŸ_to_w¨m
 (
 node
@@ -39907,7 +40107,7 @@ node
 åue
 );
 
-1059 i‡((
+1062 i‡((
 	gNodeAddr
 Ë+ 
 	gnodeMëa
@@ -39919,13 +40119,13 @@ node
 	gNODE_SIZE
 )
 
-1060 
+1063 
 w¨m_to_cﬁd
 (
 node
 );
 
-1065 
+1068 
 	gŒ
 .
 	glog_num
@@ -39935,7 +40135,7 @@ dl
 log_num
 ;
 
-1066 
+1069 
 	gŒ
 .
 	goff£t
@@ -39945,7 +40145,7 @@ dl
 so·_adv_off£t
 ;
 
-1067 
+1070 
 	gnode
 ->
 	gíåy_li°
@@ -39955,7 +40155,7 @@ push_back
 Œ
 );
 
-1068 
+1071 
 	gnode
 ->
 	gíåy_size_sum
@@ -39963,17 +40163,17 @@ push_back
 bÀ_Àn
 ;
 
-1070 i‡(
+1073 i‡(
 	gkey
  < 
 	gnode
 ->key)
 
-1071 
+1074 
 ¥ötf
 ("thread2 1026\n");
 
-1072 
+1075 
 	gŒ
 .
 	gã°_key1
@@ -39983,7 +40183,7 @@ node
 key
 ;
 
-1073 
+1076 
 	gŒ
 .
 	gã°_key2
@@ -39991,7 +40191,7 @@ key
 key
 ;
 
-1074 
+1077 
 	gŒ
 .
 	gã°_±r
@@ -39999,11 +40199,11 @@ key
 node
 ;
 
-1078 #ifde‡
+1081 #ifde‡
 SOFT_FLUSH
 
 
-1079 
+1082 
 hŸ_to_w¨m
 (
 node
@@ -40011,7 +40211,7 @@ node
 Ál£
 );
 
-1083 
+1086 
 	gdl
 ->
 	gso·_adv_off£t
@@ -40019,7 +40219,7 @@ node
 bÀ_Àn
 ;
 
-1084 i‡((
+1087 i‡((
 	gdl
 ->
 	gso·_adv_off£t
@@ -40029,7 +40229,7 @@ bÀ_Àn
 	gbÀ_Àn
  > dl->my_size)
 
-1085 
+1088 
 	gdl
 ->
 	gso·_adv_off£t
@@ -40041,11 +40241,11 @@ my_size
 so·_adv_off£t
 )%dl->my_size));
 
-1091  
+1094  
 	grv
 ;
 
-1094 
+1097 
 	gPH_Evi˘_Thªad
 ::
 evi˘_log
@@ -40055,89 +40255,89 @@ DoubÀLog
 dl
 )
 
-1096 
+1099 
 diff
 =0;
 
-1097 i‡(
+1100 i‡(
 åy_so·_evi˘
 (
 dl
 ))
 
-1098 
+1101 
 	gdiff
  = 1;
 
-1099 i‡(
+1102 i‡(
 åy_push
 (
 dl
 ))
 
-1100 
+1103 
 	gdiff
  = 1;
 
-1101 i‡(
+1104 i‡(
 åy_h¨d_evi˘
 (
 dl
 ))
 
-1102 
+1105 
 	gdiff
  = 1;
 
-1103 i‡(
+1106 i‡(
 åy_push
 (
 dl
 ))
 
-1104 
+1107 
 	gdiff
  = 1;
 
-1105  
+1108  
 	gdiff
 ;
 
-1108 
+1111 
 	gPH_Evi˘_Thªad
 ::
 evi˘_lo›
 ()
 
-1110 
+1113 
 i
 ,
 	gd⁄e
 ;
 
-1112 
+1115 
 ¥ötf
 ("evict start\n");
 
-1113 
+1116 
 	gexô
  == 0)
 
-1116 
+1119 
 ›_check
 ();
 
-1118 
+1121 
 	gd⁄e
  = 1;
 
-1119 
+1122 
 	gi
 =0;i<
 	glog_˙t
 ;i++)
 
-1121 i‡(
+1124 i‡(
 evi˘_log
 (
 log_li°
@@ -40145,23 +40345,47 @@ log_li°
 i
 ]))
 
-1122 
+1125 
 	gd⁄e
  = 0;
 
-1124 i‡(
+1127 i‡(
 	gd⁄e
 )
 
-1125 
-u¶ìp
-(1000);
-
-1127 
+1129 
 	grun
  = 0;
 
-1128 
+1130 
+¥ötf
+("evict idle\n");
+
+1131 
+u¶ìp
+(1000*1000);
+
+1132 
+_mm_m„n˚
+();
+
+1133 
+sync_thªad
+();
+
+1134 
+_mm_m„n˚
+();
+
+1135 
+	grun
+ = 1;
+
+1138 
+	grun
+ = 0;
+
+1139 
 ¥ötf
 ("evictÉnd\n");
 
@@ -40234,7 +40458,7 @@ run
 (0),
 exô
 (0),
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 (0),
 ›_˙t
 (0),
@@ -40288,7 +40512,7 @@ uöt8_t
 38 vﬁ©ûê
 size_t
  
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 ;
 
 39 
@@ -40491,10 +40715,6 @@ D©aNode
 
 84 
 evi˘_lo›
-();
-
-91 
-mö_£g_‰ì_˙t
 ();
 
 92 
@@ -40907,29 +41127,33 @@ node
 	~<time.h
 >
 
-11 
+10 
+	~<uni°d.h
+>
+
+12 
 	~"c˚h.h
 "
 
-12 
+13 
 	~"thªad2.h
 "
 
-13 
+14 
 	~"lock.h
 "
 
-14 
+15 
 	~"d©a2.h
 "
 
-16 
+17 
 «me•a˚
  
 	gPH
 
 
-19 
+20 
 thªad_loˇl
  
 PH_Thªad
@@ -40937,7 +41161,17 @@ PH_Thªad
 my_thªad
 ;
 
-24 
+22 
+thªad_loˇl
+ 
+SEG
+* 
+	gãmp_£g
+ = 
+NULL
+;
+
+26 
 PH_Quîy_Thªad
  
 quîy_thªad_li°
@@ -40945,11 +41179,11 @@ quîy_thªad_li°
 QUERY_THREAD_MAX
 ];
 
-25 
+27 
 num_quîy_thªad
 ;
 
-26 
+28 
 PH_Evi˘_Thªad
  
 evi˘_thªad_li°
@@ -40957,34 +41191,14 @@ evi˘_thªad_li°
 EVICT_THREAD_MAX
 ];
 
-27 
+29 
 num_evi˘_thªad
 ;
 
-29 
+31 
 CCEH
 * 
 	ghash_ödex
-;
-
-38 
-	g°d
-::
-©omic
-<
-uöt32_t
-> 
-£g_‰ì_˙t
-;
-
-39 
-	g°d
-::
-©omic
-<
-uöt32_t
-> 
-£g_‰ì_mö
 ;
 
 40 
@@ -40994,22 +41208,42 @@ uöt32_t
 <
 uöt32_t
 > 
-£g_‰ì_ödex
+£g_‰ì_hód
 ;
 
-44 
+42 
+thªad_loˇl
+ 
+uöt32_t
+ 
+	gloˇl_£g_‰ì_mö_hód
+=0;
+
+43 
+	g°d
+::
+©omic
+<
+uöt32_t
+> 
+£g_‰ì_èû
+;
+
+47 
 	#FREE_SEG_LEN
- 10000
+ (1024*8)
 
 	)
 
-45 
+48 
 	#FREE_QUEUE_LEN
- 100000
+ (1024*8)
+
+49 
 
 	)
 
-47 
+50 
 SEG
 * 
 	g‰ì_£g_queue
@@ -41017,7 +41251,7 @@ SEG
 FREE_SEG_LEN
 ];
 
-49 
+52 
 	g°d
 ::
 ©omic
@@ -41027,21 +41261,21 @@ uöt8_t
 ‰ì_£g_lock
 ;
 
-51 
+54 
 uöt64_t
  
 	gr_mask
 [65];
 
-53 ** 
+56 ** 
 	gkey_¨øy
  = 0;
 
-54 * 
+57 * 
 	gkey_˙t
  = 0;
 
-55 
+58 
 	g°d
 ::
 ©omic
@@ -41049,17 +41283,17 @@ uöt64_t
 key_¨øy_˙t
 ;
 
-56 
+59 
 thªad_loˇl
  
 	gkey_¨øy_ödex
 =0;
 
-57 
+60 
 	gmax_ödex
 ;
 
-60 
+63 
 	g°d
 ::
 ©omic
@@ -41069,7 +41303,7 @@ uöt32_t
 Æloc_£g_˙t
 ;
 
-62 
+65 
 uöt64_t
  
 MurmurHash64A_L8
@@ -41077,27 +41311,27 @@ MurmurHash64A_L8
 key
  )
 
-64 c⁄° 
+67 c⁄° 
 	gÀn
  = 8;
 
-65 c⁄° 
+68 c⁄° 
 uöt64_t
  
 	g£ed
  = 5516;
 
-68 c⁄° 
+71 c⁄° 
 uöt64_t
  
 	gm
  = 0xc6a4a7935bd1e995;
 
-70 c⁄° 
+73 c⁄° 
 	gr
  = 47;
 
-72 
+75 
 uöt64_t
  
 	gh
@@ -41109,7 +41343,7 @@ uöt64_t
 m
 );
 
-74 c⁄° 
+77 c⁄° 
 uöt64_t
  * 
 	gd©a
@@ -41117,7 +41351,7 @@ uöt64_t
 key
 ;
 
-75 c⁄° 
+78 c⁄° 
 uöt64_t
  * 
 	gíd
@@ -41127,13 +41361,13 @@ d©a
 Àn
 /8);
 
-77 
+80 
 	gd©a
  !
 íd
 )
 
-79 
+82 
 uöt64_t
  
 k
@@ -41141,13 +41375,13 @@ k
 d©a
 ++;
 
-81 
+84 
 	gk
  *
 m
 ;
 
-82 
+85 
 	gk
  ^
 k
@@ -41155,35 +41389,35 @@ k
 r
 ;
 
-83 
+86 
 	gk
  *
 m
 ;
 
-85 
+88 
 	gh
  ^
 k
 ;
 
-86 
+89 
 	gh
  *
 m
 ;
 
-89 c⁄° * 
+92 c⁄° * 
 	gd©a2
  = (c⁄° *)
 d©a
 ;
 
-91 
+94 
 	gÀn
  & 7)
 
-93 7: 
+96 7: 
 h
  ^((
 uöt64_t
@@ -41191,7 +41425,7 @@ uöt64_t
 d©a2
 [6]) << 48;
 
-94 6: 
+97 6: 
 h
  ^((
 uöt64_t
@@ -41199,7 +41433,7 @@ uöt64_t
 d©a2
 [5]) << 40;
 
-95 5: 
+98 5: 
 h
  ^((
 uöt64_t
@@ -41207,7 +41441,7 @@ uöt64_t
 d©a2
 [4]) << 32;
 
-96 4: 
+99 4: 
 h
  ^((
 uöt64_t
@@ -41215,7 +41449,7 @@ uöt64_t
 d©a2
 [3]) << 24;
 
-97 3: 
+100 3: 
 h
  ^((
 uöt64_t
@@ -41223,7 +41457,7 @@ uöt64_t
 d©a2
 [2]) << 16;
 
-98 2: 
+101 2: 
 h
  ^((
 uöt64_t
@@ -41231,7 +41465,7 @@ uöt64_t
 d©a2
 [1]) << 8;
 
-99 1: 
+102 1: 
 h
  ^((
 uöt64_t
@@ -41239,27 +41473,27 @@ uöt64_t
 d©a2
 [0]);
 
-100 
-	gh
- *
-m
-;
-
 103 
 	gh
+ *
+m
+;
+
+106 
+	gh
  ^
 h
  >> 
 r
 ;
 
-104 
+107 
 	gh
  *
 m
 ;
 
-105 
+108 
 	gh
  ^
 h
@@ -41267,11 +41501,11 @@ h
 r
 ;
 
-107  
+110  
 	gh
 ;
 
-110 
+113 
 ölöe
  * 
 	gCCEH
@@ -41283,11 +41517,11 @@ uöt64_t
 key
 )
 
-112  (*)&
+115  (*)&
 key
 ;
 
-115 
+118 
 ölöe
  
 boﬁ
@@ -41307,7 +41541,7 @@ uöt32_t
 hash
 )
 
-117  
+120  
 	gkey1
  =(*(
 uöt64_t
@@ -41315,7 +41549,7 @@ uöt64_t
 key2
 );
 
-119 
+122 
 ölöe
  
 	gCCEH
@@ -41333,7 +41567,7 @@ uöt32_t
 hash
 )
 
-121 
+124 
 	gkey1
  = (*((
 uöt64_t
@@ -41341,7 +41575,7 @@ uöt64_t
 key2
 ));
 
-124 
+127 
 ölöe
  
 uöt64_t
@@ -41353,7 +41587,7 @@ hf
 key
 )
 
-137  
+140  
 °d
 ::
 _Hash_byãs
@@ -41361,7 +41595,7 @@ _Hash_byãs
 key
 ,8,5516);
 
-140 
+143 
 ölöe
  
 uöt64_t
@@ -41373,7 +41607,7 @@ hf
 key
 )
 
-142  
+145  
 °d
 ::
 _Hash_byãs
@@ -41381,7 +41615,7 @@ _Hash_byãs
 key
 ,8,5516);
 
-151 
+154 
 ölöe
  
 boﬁ
@@ -41393,13 +41627,13 @@ uöt64_t
 key
 )
 
-153  
+156  
 	gkey
  =
 INV0
 ;
 
-156 
+159 
 öv_£g
 (
 SEG
@@ -41407,17 +41641,17 @@ SEG
 £g
 )
 
-158 
+161 
 	gi
 ;
 
-161 
+164 
 KVP
 * 
 	gkvp_p
 ;
 
-163 
+166 
 	gkvp_p
  = (
 KVP
@@ -41427,7 +41661,7 @@ KVP
 ˛
 ;
 
-175 
+178 
 mem£t
 (
 £g
@@ -41439,97 +41673,107 @@ CL_PER_SEG
 CL_SIZE
 );
 
-183 
+186 
 SEG
 * 
 Æloc_£g
 ()
 
-185 
+188 
 SEG
 * 
 	g£g
 ;
 
-188 i‡(
-	g£g_‰ì_ödex
- =
-£g_‰ì_mö
+201 i‡(
+	gloˇl_£g_‰ì_mö_hód
+ <
+£g_‰ì_èû
 )
 
-190 
-ãmp
-;
-
-191 
-	gãmp
+202 
+loˇl_£g_‰ì_mö_hód
  = 
 PH
 ::
 mö_£g_‰ì_˙t
 ();
 
-192 i‡(
-	gãmp
- > 
-	g£g_‰ì_ödex
-)
-
-193 
-	g£g_‰ì_mö
- = 
-ãmp
-;
-
-196 
-uöt8_t
+204 
+uöt32_t
  
-	go
+	gíd
 ;
 
-197 
-	g£g_‰ì_ödex
- < 
-	g£g_‰ì_mö
+205 
+uöt32_t
+ 
+	gs·
+;
+
+206 
+	gåue
 )
 
-199 
+208 
+	gíd
+ = 
+loˇl_£g_‰ì_mö_hód
+;
+
+209 
+	gs·
+ = 
+£g_‰ì_èû
+;
+
+210 
+	gs·
+ < 
+	gíd
+)
+
+212 i‡(
+	g£g_‰ì_èû
+.
+com∑ª_exch™ge_°r⁄g
+(
+s·
+,sft+1))
+
+214 
 	g£g
  = 
 ‰ì_£g_queue
 [
-£g_‰ì_ödex
+s·
 %
 FREE_SEG_LEN
 ];
 
-200 
-	go
- = 1;
-
-201 i‡(
-	g£g
-->
-	glock
-.
-com∑ª_exch™ge_°r⁄g
-(
-o
-,0))
-
-203 
-	g£g_‰ì_ödex
-++;
-
-204  
+215  
 	g£g
 ;
 
-210 
+217 
+	gs·
+ = 
+£g_‰ì_èû
+;
+
+220 i‡(
+	g£g_‰ì_èû
+ + 
+	gFREE_SEG_LEN
+ > 
+	g£g_‰ì_hód
+)
+
+223 
 	gÆloc_£g_˙t
 ++;
 
-211 i‡(
+224 i‡(
 posix_memÆign
 ((**)&
 £g
@@ -41537,15 +41781,81 @@ posix_memÆign
 SEG
 )) != 0)
 
-212 
+225 
 ¥ötf
 ("posix_memalignÉrror2\n");
 
-218  
+228 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
+)
+
+229 
+	gmy_thªad
+->
+sync_thªad
+();
+
+230 
+	gloˇl_£g_‰ì_mö_hód
+ = 
+PH
+::
+mö_£g_‰ì_˙t
+();
+
+232 
+¥ötf
+("u£ fªêqueuê%u %u\n",
+£g_‰ì_èû
+.
+lﬂd
+(),
+£g_‰ì_hód
+.load());
+
+233 
+u¶ìp
+(100*1000);
+
+238  
 	g£g
 ;
 
-221 
+242 
+SEG
+* 
+Æloc_£g
+()
+
+244 
+SEG
+* 
+	g£g
+;
+
+245 
+	gÆloc_£g_˙t
+++;
+
+246 i‡(
+posix_memÆign
+((**)&
+£g
+,64,(
+SEG
+)) != 0)
+
+247 
+¥ötf
+("posix_memalignÉrror2\n");
+
+248  
+	g£g
+;
+
+251 
 ‰ì_£g
 (
 SEG
@@ -41553,115 +41863,89 @@ SEG
 £g
 )
 
-231 
-åy_©_lock2
-(
-‰ì_£g_lock
-Ë=
-Ál£
+269 
+uöt32_t
+ 
+	gsfh
+;
+
+270 
+	gåue
 )
 
-233 i‡(
-my_thªad
-->
-upd©e_ªque°
-)
-
-234 
-my_thªad
-->
-sync_thªad
-();
-
-237 i‡(
-	g£g_‰ì_ödex
-+
-	gFREE_SEG_LEN
-/2 <
-£g_‰ì_˙t
-)
-
-240 
-£g_‰ì_ödex
+272 
+	gsfh
  = 
-mö_£g_‰ì_˙t
-();
+£g_‰ì_hód
+;
 
-241 i‡(
-	g£g_‰ì_ödex
-+
+273 
+	g£g_‰ì_èû
+ + 
 	gFREE_SEG_LEN
  <
-£g_‰ì_˙t
+sfh
 )
 
-243 
+275 
 ¥ötf
-("‰ì seg fuŒ %u %u %u\n",
-£g_‰ì_mö
+("‰ì seg fuŒ %u %u\n",
+£g_‰ì_èû
 .
 lﬂd
 (),
-£g_‰ì_ödex
-.lﬂd(),
-£g_‰ì_˙t
+£g_‰ì_hód
 .load());
 
-245 
-	g£g_‰ì_ödex
-+
-	gFREE_SEG_LEN
- <
-£g_‰ì_˙t
+276 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
 )
 
-247 
-my_thªad
+277 
+	gmy_thªad
 ->
 sync_thªad
 ();
 
-248 
-	g£g_‰ì_ödex
- = 
-mö_£g_‰ì_˙t
-();
+278 
+u¶ìp
+(1000*100);
 
-252 
+280 i‡(
+	g£g_‰ì_hód
+.
+com∑ª_exch™ge_°r⁄g
+(
+sfh
+,sfh+1))
+
+282 
 	g‰ì_£g_queue
 [
-£g_‰ì_˙t
+sfh
 %
 FREE_SEG_LEN
 ] = 
 £g
 ;
 
-253 
-	g£g_‰ì_˙t
-++;
-
-254 
-©_u∆ock2
-(
-‰ì_£g_lock
-);
-
-256 
+308 
 	gCCEH
 ::
 CCEH
 ()
 
-258 
+310 
 poöt
  = 0;
 
-259 
+311 
 öô
 (1);
 
-261 
+313 
 	gCCEH
 ::
 CCEH
@@ -41669,27 +41953,51 @@ CCEH
 ö_dïth
 )
 
-263 
+315 
 poöt
  = 1;
 
-264 
+316 
 öô
 (
 ö_dïth
 );
 
-266 
+318 
 	gCCEH
 ::~
 CCEH
 ()
 
-268 
+320 
 ˛ón
 ();
 
-271 
+323 
+	gCCEH
+::
+thªad_loˇl_öô
+()
+
+325 
+ãmp_£g
+ = 
+Æloc_£g
+();
+
+328 
+	gCCEH
+::
+thªad_loˇl_˛ón
+()
+
+330 
+‰ì
+(
+ãmp_£g
+);
+
+333 
 	gCCEH
 ::
 öô
@@ -41697,17 +42005,17 @@ CCEH
 ö_dïth
 )
 
-274 
+336 
 i
 ;
 
-275 
+337 
 	gdïth
  = 
 ö_dïth
 ;
 
-276 
+338 
 	gdm
  = 
 r_mask
@@ -41715,13 +42023,13 @@ r_mask
 dïth
 ];
 
-277 
+339 
 	g£g_˙t
  = 1 << 
 dïth
 ;
 
-282 
+344 
 	g£g_li°
  = (
 SEG
@@ -41731,13 +42039,13 @@ mÆloc
 £g_˙t
 );
 
-291 
+353 
 	gi
 =0;i<
 	g£g_˙t
 ;i++)
 
-296 
+358 
 	g£g_li°
 [
 i
@@ -41745,7 +42053,7 @@ i
 Æloc_£g
 ();
 
-299 
+361 
 öv_£g
 (
 £g_li°
@@ -41753,7 +42061,7 @@ i
 i
 ]);
 
-300 
+362 
 	g£g_li°
 [
 i
@@ -41761,7 +42069,7 @@ i
 	glock
  = 0;
 
-302 
+364 
 	g£g_li°
 [
 i
@@ -41771,19 +42079,15 @@ i
 dïth
 ;
 
-308 
+370 
 	gwrôe_lock
  = 0;
 
-309 
-	g‰ì_£g_lock
- = 0;
-
-312 #i‡
+374 #i‡
 ˘t
 
 
-313 
+375 
 	gbc
  = 
 sc
@@ -41795,29 +42099,29 @@ sc
 ˘t2
  = 0;
 
-314 
+376 
 	gföd_˙t
  = 
 pic
  = 1;
 
-318 
+380 
 	gCCEH
 ::
 ˛ón
 ()
 
-320 
+382 
 i
 ;
 
-321 
+383 
 	gi
 =
 £g_˙t
 -1;i>=0;i--)
 
-323 i‡(
+385 i‡(
 	gi
  + 1 <((
 uöt64_t
@@ -41829,7 +42133,7 @@ i
 dïth
 ))
 
-336 
+398 
 ‰ì
 (
 £g_li°
@@ -41837,17 +42141,17 @@ dïth
 i
 ]);
 
-339 
+401 
 ‰ì
 ((*)
 £g_li°
 );
 
-341 #ifde‡
+403 #ifde‡
 ˘t
 
 
-342 
+404 
 ¥ötf
 ("dïth %d s∂ô_˙à%d in£π %ld in£π_avg %ld s∂ô %ld câ3 %ld in£π_˙à%d b¯%d föd %ld föd_˙à%d föd_avg %ld \n",
 dïth
@@ -41869,7 +42173,7 @@ bc
 föd_˙t
 ,ctt4/find_cnt);
 
-347 
+410 
 boﬁ
  
 	gCCEH
@@ -41883,15 +42187,69 @@ key
 ªt
 )
 
-357 #ifde‡
+412 
+boﬁ
+ 
+	gsf
+ = 
+Ál£
+;
+
+413 
+boﬁ
+ 
+	gexi°
+;
+
+414 
+	gåue
+)
+
+416 
+	gexi°
+ = 
+ªad_wôh_Áû
+(
+key
+,
+ªt
+,
+sf
+);
+
+417 i‡(
+	gsf
+)
+
+418  
+	gexi°
+;
+
+422 
+boﬁ
+ 
+	gCCEH
+::
+ªad_wôh_Áû
+(
+uöt64_t
+ &
+key
+,uöt64_à*
+ªt
+,boﬁ &
+sf
+)
+
+432 #ifde‡
 ˘t
 
 
-358 
+433 
 	gföd_˙t
 ++;
 
-359 
+434 
 time•ec
  
 	gts1
@@ -41899,7 +42257,7 @@ time•ec
 	gts2
 ;
 
-360 
+435 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -41907,11 +42265,11 @@ CLOCK_MONOTONIC
 ts1
 );
 
-361 
+436 
 _mm_m„n˚
 ();
 
-363 
+438 
 	g¢
 ,
 	g˙
@@ -41919,35 +42277,39 @@ _mm_m„n˚
 	gi
 ;
 
-364 
+439 
 KVP
 * 
 	gkvp_p
 ;
 
-365 
+440 
 uöt64_t
  
 	ghk
 ;
 
-367 c⁄° 
+442 c⁄° 
 	g˛_shi·
  = 64-
 CL_BIT
 ;
 
-368 
+443 
 	gl
 ;
 
-371 i‡(
+444 
+	g°¨t_dïth
+;
+
+447 i‡(
 zîo_check
 (
 key
 ))
 
-373 *
+449 *
 	gªt
  = 
 zîo_íåy
@@ -41955,7 +42317,7 @@ zîo_íåy
 vÆue
 ;
 
-374 i‡(
+450 i‡(
 	gzîo_íåy
 .
 	gvîsi⁄
@@ -41963,15 +42325,15 @@ vÆue
 	gVER_DELETE
 ))
 
-375  
+451  
 	gÁl£
 ;
 
-377  
+453  
 	gåue
 ;
 
-385 
+461 
 	ghk
  = 
 hf
@@ -41979,7 +42341,7 @@ hf
 key
 );
 
-391 
+467 
 	g¢
  = 
 hk
@@ -41987,7 +42349,7 @@ hk
 dm
 ;
 
-394 
+470 
 	g˙
  = 
 hk
@@ -41995,7 +42357,29 @@ hk
 ˛_shi·
 ;
 
-397 
+473 
+	gl
+ = 
+˙
+*
+KVP_PER_CL
+;
+
+475 
+	g°¨t_dïth
+ = 
+£g_li°
+[
+¢
+]->
+dïth
+;
+
+476 
+_mm_s„n˚
+();
+
+477 
 	gkvp_p
  = (
 KVP
@@ -42007,15 +42391,7 @@ KVP
 ˛
 ;
 
-398 
-	gl
- = 
-˙
-*
-KVP_PER_CL
-;
-
-413 
+492 
 	gi
 =0;i<
 KVP_PER_CL
@@ -42023,7 +42399,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-416 
+495 
 	gl
 %=
 CL_PER_SEG
@@ -42031,7 +42407,7 @@ CL_PER_SEG
 KVP_PER_CL
 ;
 
-420 i‡(
+499 i‡(
 	gkvp_p
 [
 l
@@ -42041,15 +42417,15 @@ l
 key
 )
 
-422 #ifde‡
+501 #ifde‡
 ˘t
 
 
-423 
+502 
 _mm_m„n˚
 ();
 
-424 
+503 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -42057,7 +42433,7 @@ CLOCK_MONOTONIC
 ts2
 );
 
-425 
+504 
 	g˘t4
 +=(
 ts2
@@ -42069,7 +42445,7 @@ ts1
 tv_n£c
 -ts1.tv_nsec;
 
-428 *
+507 *
 	gªt
  = 
 kvp_p
@@ -42079,19 +42455,51 @@ l
 vÆue
 ;
 
-429  
+508 
+_mm_s„n˚
+();
+
+509 
+	gsf
+ = (
+°¨t_dïth
+ =
+£g_li°
+[
+¢
+]->
+dïth
+);
+
+510  
 	gåue
 ;
 
-433 
+514 
 	gl
 ++;
 
-436  
+517 
+_mm_s„n˚
+();
+
+518 
+	gsf
+ = (
+°¨t_dïth
+ =
+£g_li°
+[
+¢
+]->
+dïth
+);
+
+519  
 	gÁl£
 ;
 
-440 
+523 
 	gCCEH
 ::
 ªmove
@@ -42101,7 +42509,7 @@ uöt64_t
 key
 )
 
-445 
+528 
 ¢
 ,
 	g˙
@@ -42109,41 +42517,41 @@ key
 	gi
 ;
 
-447 
+530 
 KVP
 * 
 	gkvp_p
 ;
 
-448 
+531 
 SEG
 * 
 	g£g
 ;
 
-449 * 
+532 * 
 	grv
 ;
 
-450 
+533 
 	gz
  = 0;
 
-452 
+535 
 	gl
 ;
 
-456 i‡(
+539 i‡(
 zîo_check
 (
 key
 ))
 
-458 
+541 
 	göv0_vÆue
  = 0;
 
-462 c⁄° 
+545 c⁄° 
 uöt64_t
  
 	ghk
@@ -42153,7 +42561,7 @@ hf
 key
 );
 
-463 c⁄° 
+546 c⁄° 
 uöt32_t
  
 	ghk2
@@ -42161,11 +42569,11 @@ uöt32_t
 hk
 );
 
-465 
+548 
 	gªåy
 :
 
-470 
+553 
 ¢
  = 
 hk
@@ -42175,7 +42583,7 @@ uöt64_t
 dïth
 );
 
-472 
+555 
 	g˙
  = 
 hk
@@ -42183,7 +42591,7 @@ hk
 CL_BIT
 );
 
-474 
+557 
 	g£g
  = (
 SEG
@@ -42193,7 +42601,7 @@ SEG
 ¢
 ];
 
-478 
+561 
 ©_lock2
 (
 £g
@@ -42201,7 +42609,7 @@ SEG
 lock
 );
 
-481 i‡(
+564 i‡(
 	g¢
  !
 hk
@@ -42211,7 +42619,7 @@ uöt64_t
 dïth
 ))
 
-484 
+567 
 ©_u∆ock2
 (
 £g
@@ -42219,11 +42627,11 @@ dïth
 lock
 );
 
-486 
+569 
 	gªåy
 ;
 
-490 
+573 
 	gkvp_p
  = (
 KVP
@@ -42235,7 +42643,7 @@ KVP
 ˛
 ;
 
-491 
+574 
 	gl
  = 
 ˙
@@ -42243,7 +42651,7 @@ KVP
 KVP_PER_CL
 ;
 
-493 
+576 
 	gi
 =0;i<
 KVP_PER_CL
@@ -42251,7 +42659,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-495 
+578 
 	gl
 %=
 KVP_PER_CL
@@ -42259,7 +42667,7 @@ KVP_PER_CL
 CL_PER_SEG
 ;
 
-498 i‡(
+581 i‡(
 com∑ª_key
 (
 kvp_p
@@ -42271,7 +42679,7 @@ key
 hk2
 ))
 
-500 
+583 
 	gkvp_p
 [
 l
@@ -42279,7 +42687,7 @@ l
 	gvÆue
  = 0;
 
-504 
+587 
 ©_u∆ock2
 (
 £g
@@ -42287,11 +42695,11 @@ l
 lock
 );
 
-507 
+590 
 	gl
 ++;
 
-511 
+594 
 ©_u∆ock2
 (
 £g
@@ -42299,83 +42707,87 @@ lock
 lock
 );
 
-520 
+603 
 £g_gc
 ()
 
-522 
-©_lock2
-(
-‰ì_£g_lock
-);
-
-523 
+606 
 SEG
 * 
 	g£g
 ;
 
-524 
-	g£g_‰ì_mö
+608 
+uöt32_t
+ 
+	gi
+,
+	gèû
+,
+	ghód
+;
+
+609 
+	gèû
  = 
-PH
-::
-mö_£g_‰ì_˙t
-();
+£g_‰ì_èû
+;
 
-525 ;
-	g£g_‰ì_ödex
- < 
-	g£g_‰ì_mö
-;seg_free_index++)
+610 
+	ghód
+ = 
+£g_‰ì_hód
+;
 
-534 
+611 
+	gi
+ = 
+èû
+;ò< 
+	ghód
+;i++)
+
+620 
 	g£g
  = 
 ‰ì_£g_queue
 [
-£g_‰ì_ödex
+i
 %
 FREE_SEG_LEN
 ];
 
-535 
+621 
 ‰ì
 (
 £g
 );
 
-537 
-©_u∆ock2
-(
-‰ì_£g_lock
-);
-
-541 
+627 
 	gCCEH
 ::
 dú_doubÀ
 ()
 
-543 
+629 
 ¥ötf
 ("c˚h dú doubÀ dïth %d\n",
 dïth
 );
 
-544 
+630 
 SEG
 ** vﬁ©ûê
 	g√w_li°
 ;
 
-545 
+631 
 SEG
 ** vﬁ©ûê
 	gﬁd_li°
 ;
 
-546 
+632 
 	gﬁd_li°
  = (
 SEG
@@ -42383,7 +42795,7 @@ SEG
 £g_li°
 ;
 
-547 
+633 
 	g√w_li°
  = (
 SEG
@@ -42393,17 +42805,17 @@ mÆloc
 £g_˙t
 *2);
 
-550 
+636 
 	gi
 ;
 
-551 
+637 
 	gi
 =0;i<
 	g£g_˙t
 ;i++)
 
-552 
+638 
 	g√w_li°
 [
 i
@@ -42415,21 +42827,21 @@ i
 ﬁd_li°
 [i];
 
-556 
+642 
 	g£g_li°
  = 
 √w_li°
 ;
 
-557 
+643 
 	g£g_˙t
 *=2;
 
-558 ++
+644 ++
 	gdïth
 ;
 
-559 
+645 
 	gdm
  = 
 r_mask
@@ -42437,17 +42849,17 @@ r_mask
 dïth
 ];
 
-560 
+646 
 _mm_s„n˚
 ();
 
-561 
+647 
 ‰ì
 (
 ﬁd_li°
 );
 
-565 
+651 
 ¥öt_£g
 (
 SEG
@@ -42457,7 +42869,7 @@ SEG
 ¢
 )
 
-593 
+679 
 	gCCEH
 ::
 •lô
@@ -42465,45 +42877,45 @@ SEG
 ¢
 )
 
-596 
+682 
 SEG
 * 
 £g
 ;
 
-597 
+683 
 	gi
 ;
 
-598 
+684 
 	g˙t
 ;
 
-600 
+686 
 uöt64_t
  
 	gmask
 ;
 
-601 
+687 
 KVP
 * 
 	gkvp_p
 ;
 
-602 
+688 
 KVP
 * 
 	g√w_kvp_p1
 ;
 
-603 
+689 
 KVP
 * 
 	g√w_kvp_p2
 ;
 
-605 
+691 
 	g£g
  = 
 £g_li°
@@ -42511,7 +42923,7 @@ KVP
 ¢
 ];
 
-608 i‡(
+694 i‡(
 	g£g
 ->
 	gdïth
@@ -42519,23 +42931,23 @@ KVP
 dïth
 )
 
-610 
+696 
 uöt8_t
  
 lock
 ;
 
-630 
+716 
 	glock
  = 
 wrôe_lock
 ;
 
-632 i‡(
+718 i‡(
 	glock
 )
 
-634 
+720 
 ©_u∆ock2
 (
 £g
@@ -42543,7 +42955,7 @@ wrôe_lock
 lock
 );
 
-638 i‡(
+724 i‡(
 	gwrôe_lock
 .
 com∑ª_exch™ge_°r⁄g
@@ -42551,7 +42963,7 @@ com∑ª_exch™ge_°r⁄g
 lock
 ,lock+1))
 
-644 i‡(
+730 i‡(
 	g£g
 ->
 	gdïth
@@ -42559,7 +42971,7 @@ lock
 dïth
 )
 
-646 
+732 
 ©_u∆ock2
 (
 £g
@@ -42567,25 +42979,25 @@ dïth
 lock
 );
 
-648 
+734 
 	gwrôe_lock
 --;
 
-654 
+740 
 	gåue
 )
 
-656 
+742 
 	g˙t
  = 0;
 
-657 
+743 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-660 i‡(
+746 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -42593,17 +43005,17 @@ i
 	gªad_lock
 )
 
-661 ++
+747 ++
 	g˙t
 ;
 
-663 
+749 
 	gi
 =0;i<
 	gnum_evi˘_thªad
 ;i++)
 
-666 i‡(
+752 i‡(
 	gevi˘_thªad_li°
 [
 i
@@ -42611,23 +43023,23 @@ i
 	gªad_lock
 )
 
-667 ++
+753 ++
 	g˙t
 ;
 
-669 i‡(
+755 i‡(
 	g˙t
  < 1)
 
-681 
+767 
 dú_doubÀ
 ();
 
-686 
+772 
 	gwrôe_lock
 --;
 
-698 
+784 
 	gkvp_p
  = (
 KVP
@@ -42637,49 +43049,49 @@ KVP
 ˛
 ;
 
-700 
+786 
 SEG
 * 
 	g√w_£g1
 ;
 
-701 
+787 
 SEG
 * 
 	g√w_£g2
 ;
 
-703 
+790 
 	g√w_£g1
  = 
-Æloc_£g
-();
+ãmp_£g
+;
 
-704 
+791 
 	g√w_£g2
  = 
 Æloc_£g
 ();
 
-708 
+795 
 öv_£g
 (
 √w_£g1
 );
 
-709 
+796 
 öv_£g
 (
 √w_£g2
 );
 
-711 
+798 
 	g√w_£g1
 ->
 	glock
  = 0;
 
-713 
+800 
 	g√w_£g1
 ->
 	gdïth
@@ -42689,13 +43101,13 @@ SEG
 dïth
 +1;
 
-715 
+802 
 	g√w_£g2
 ->
 	glock
  = 0;
 
-717 
+804 
 	g√w_£g2
 ->
 	gdïth
@@ -42705,7 +43117,7 @@ dïth
 dïth
 +1;
 
-719 
+806 
 	g√w_kvp_p1
  = (
 KVP
@@ -42715,7 +43127,7 @@ KVP
 ˛
 ;
 
-720 
+807 
 	g√w_kvp_p2
  = (
 KVP
@@ -42725,7 +43137,7 @@ KVP
 ˛
 ;
 
-723 
+810 
 	gmask
  = (
 uöt64_t
@@ -42735,25 +43147,25 @@ uöt64_t
 dïth
 ;
 
-725 
+812 
 	gj
 ,
 	gl
 ;
 
-727 
+814 
 uöt64_t
  
 	ghk
 ;
 
-731 
+818 
 	gi
 =0;i<
 	gCL_PER_SEG
 ;i++)
 
-735 
+822 
 	gl
  = 
 i
@@ -42761,13 +43173,13 @@ i
 KVP_PER_CL
 ;
 
-737 
+824 
 	gj
 =0;j<
 	gKVP_PER_CL
 ;j++)
 
-739 i‡(
+826 i‡(
 	gkvp_p
 [
 l
@@ -42781,11 +43193,11 @@ kvp_p
 vÆue
  == 0)
 
-744 
+831 
 l
 ++;
 
-757 
+844 
 	ghk
  = 
 hf
@@ -42797,13 +43209,13 @@ l
 key
 );
 
-787 i‡(
+874 i‡(
 	ghk
  & 
 	gmask
 )
 
-788 
+875 
 	g√w_kvp_p2
 [
 l
@@ -42811,7 +43223,7 @@ l
 kvp_p
 [l];
 
-790 
+877 
 	g√w_kvp_p1
 [
 l
@@ -42819,15 +43231,15 @@ l
 kvp_p
 [l];
 
-799 
+886 
 	gl
 ++;
 
-803 
+890 
 _mm_s„n˚
 ();
 
-810 
+897 
 	gl
  = 1 << (
 £g
@@ -42835,7 +43247,7 @@ _mm_s„n˚
 dïth
 +1);
 
-813 
+900 
 	gi
 =
 ¢
@@ -42845,7 +43257,7 @@ dïth
 l
 )
 
-814 
+901 
 £g_li°
 [
 i
@@ -42853,7 +43265,7 @@ i
 √w_£g1
 ;
 
-819 
+906 
 	gi
 =
 ¢
@@ -42867,7 +43279,7 @@ dïth
 l
 )
 
-820 
+907 
 £g_li°
 [
 i
@@ -42875,17 +43287,17 @@ i
 √w_£g2
 ;
 
-854 
+941 
 _mm_s„n˚
 ();
 
-855 
-‰ì_£g
-(
+943 
+	gãmp_£g
+ = 
 £g
-);
+;
 
-860 
+948 
 KVP
 * 
 	gCCEH
@@ -42907,17 +43319,17 @@ u∆ock_p
 ªad_lock
 )
 
-862 
+950 
 KVP
 * 
 	gªt
 ;
 
-863 
+951 
 	gåue
 )
 
-865 
+953 
 	gªt
  = 
 ö£π_wôh_Áû
@@ -42929,17 +43341,29 @@ u∆ock_p
 ªad_lock
 );
 
-866 i‡(
+954 i‡(
 	gªt
  !
 NULL
 )
 
-867  
+955  
 ªt
 ;
 
-871 
+956 i‡(
+	gmy_thªad
+->
+	gupd©e_ªque°
+)
+
+957 
+	gmy_thªad
+->
+sync_thªad
+();
+
+961 
 KVP
 * 
 	gCCEH
@@ -42961,15 +43385,15 @@ u∆ock_p
 ªad_lock
 )
 
-881 #ifde‡
+971 #ifde‡
 ˘t
 
 
-882 
+972 
 	gpic
 ++;
 
-883 
+973 
 time•ec
  
 	gts1
@@ -42981,7 +43405,7 @@ time•ec
 	gts4
 ;
 
-884 
+974 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -42989,11 +43413,11 @@ CLOCK_MONOTONIC
 ts3
 );
 
-885 
+975 
 _mm_m„n˚
 ();
 
-887 
+977 
 	g¢
 ,
 	g˙
@@ -43001,71 +43425,71 @@ _mm_m„n˚
 	gi
 ;
 
-888 
+978 
 uöt64_t
  
 	ghk
 ;
 
-889 
+979 
 uöt32_t
  
 	ghk2
 ;
 
-890 c⁄° 
+980 c⁄° 
 	g˛_shi·
  = 64-
 CL_BIT
 ;
 
-891 
+981 
 	gl
 ;
 
-892 
+982 
 SEG
 * 
 	g£g
 ;
 
-893 
+983 
 KVP
 * 
 	gkvp_p
 ;
 
-897 i‡(
+987 i‡(
 zîo_check
 (
 key
 ))
 
-899 
+989 
 ¥ötf
 ("zero\n");
 
-900 
+990 
 ©_lock2
 (
 zîo_lock
 );
 
-901 *
+991 *
 	gu∆ock_p
  = &
 zîo_lock
 ;
 
-902 
+992 
 	gdú_lock
 ++;
 
-903  &
+993  &
 	gzîo_íåy
 ;
 
-905 
+995 
 	göv0_vÆue
  = 
 ve_u
@@ -43073,75 +43497,75 @@ ve_u
 ve_64
 ;
 
-906 i‡(
+996 i‡(
 	gu∆ock
 )
 
-907 *(**)
+997 *(**)
 	gu∆ock
  = 
 NULL
 ;
 
-908  &
+998  &
 	göv0_vÆue
 ;
 
-917 i‡(
+1007 i‡(
 	gwrôe_lock
 )
 
-920  
+1010  
 	gNULL
 ;
 
-928 ++
+1018 ++
 	gªad_lock
 ;
 
-932 i‡(
+1022 i‡(
 	gwrôe_lock
 )
 
-934 
+1024 
 ¥ötf
 ("split?\n");
 
-936 --
+1026 --
 	gªad_lock
 ;
 
-937  
+1027  
 	gNULL
 ;
 
-947 i‡(
+1037 i‡(
 zîo_check
 (
 key
 ))
 
-949 
+1039 
 ¥ötf
 ("zero\n");
 
-950 
+1040 
 ©_lock2
 (
 zîo_lock
 );
 
-951 *
+1041 *
 	gu∆ock_p
  = &
 zîo_lock
 ;
 
-952  &
+1042  &
 	gzîo_íåy
 ;
 
-955 
+1045 
 	ghk
  = 
 hf
@@ -43149,7 +43573,7 @@ hf
 key
 );
 
-969 
+1059 
 	g¢
  = 
 hk
@@ -43157,7 +43581,7 @@ hk
 dm
 ;
 
-974 
+1064 
 	g˙
  = 
 hk
@@ -43165,7 +43589,7 @@ hk
 ˛_shi·
 ;
 
-982 
+1072 
 	g£g
  = 
 £g_li°
@@ -43173,7 +43597,7 @@ hk
 ¢
 ];
 
-992 i‡(
+1082 i‡(
 åy_©_lock2
 (
 £g
@@ -43181,15 +43605,15 @@ hk
 lock
 ) == 0)
 
-1002 --
+1092 --
 ªad_lock
 ;
 
-1003  
+1093  
 	gNULL
 ;
 
-1011 i‡(
+1101 i‡(
 	g£g
  !
 £g_li°
@@ -43197,7 +43621,7 @@ lock
 ¢
 ])
 
-1016 
+1106 
 ©_u∆ock2
 (
 £g
@@ -43205,11 +43629,11 @@ lock
 lock
 );
 
-1020 
+1110 
 	gdú_lock
 --;
 
-1025 i‡(
+1115 i‡(
 ö£π2
 (
 key
@@ -43221,7 +43645,7 @@ vÆue
 ˙
 ))
 
-1028 
+1118 
 ©_u∆ock2
 (
 £g
@@ -43229,11 +43653,11 @@ vÆue
 lock
 );
 
-1030 #ifde‡
+1120 #ifde‡
 ˘t
 
 
-1031 
+1121 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43241,7 +43665,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1032 
+1122 
 	g˘t1
 +=(
 ts4
@@ -43253,7 +43677,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1039  
+1129  
 	gkvp_p
  = (
 KVP
@@ -43263,7 +43687,7 @@ KVP
 ˛
 ;
 
-1040 
+1130 
 	gl
  = 
 ˙
@@ -43271,25 +43695,25 @@ KVP
 KVP_PER_CL
 ;
 
-1054 #ifde‡
+1144 #ifde‡
 ˘t
 
 
-1059 i‡(
+1149 i‡(
 	gpoöt
 )
 
-1061 
+1151 
 	göv0_vÆue
 .
 	gnode_off£t
  = 0;
 
-1062  &
+1152  &
 	göv0_vÆue
 ;
 
-1065 
+1155 
 	gi
 =0;i<
 KVP_PER_CL
@@ -43297,11 +43721,11 @@ KVP_PER_CL
 	gLINEAR_MULTI
 ;i++)
 
-1067 #ifde‡
+1157 #ifde‡
 ˘t
 
 
-1070 
+1160 
 	gl
 %=
 KVP_PER_CL
@@ -43309,7 +43733,7 @@ KVP_PER_CL
 CL_PER_SEG
 ;
 
-1074 i‡(
+1164 i‡(
 	gkvp_p
 [
 l
@@ -43323,7 +43747,7 @@ kvp_p
 key
  == key)
 
-1083 *
+1173 *
 u∆ock_p
  = &
 £g
@@ -43331,15 +43755,15 @@ u∆ock_p
 lock
 ;
 
-1084 #ifde‡
+1174 #ifde‡
 ˘t
 
 
-1085 
+1175 
 _mm_m„n˚
 ();
 
-1086 
+1176 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43347,7 +43771,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1087 
+1177 
 	g˘t1
 +=(
 ts4
@@ -43359,17 +43783,17 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1090  &
+1180  &
 	gkvp_p
 [
 l
 ];
 
-1092 
+1182 
 	gl
 ++;
 
-1096 i‡(
+1186 i‡(
 	gi
  < 
 KVP_PER_CL
@@ -43377,7 +43801,7 @@ KVP_PER_CL
 	gLINEAR_MULTI
 )
 
-1098 i‡(
+1188 i‡(
 	gkvp_p
 [
 l
@@ -43387,7 +43811,7 @@ l
 INV0
 )
 
-1100 
+1190 
 kvp_p
 [
 l
@@ -43395,11 +43819,11 @@ l
 vÆue
  = value;
 
-1101 
+1191 
 _mm_s„n˚
 ();
 
-1102 
+1192 
 	gkvp_p
 [
 l
@@ -43409,17 +43833,17 @@ l
 key
 ;
 
-1106 i‡(
+1196 i‡(
 	gu∆ock
 )
 
-1107 *(**)
+1197 *(**)
 	gu∆ock
  = 
 £g
 ;
 
-1109 
+1199 
 ©_u∆ock2
 (
 £g
@@ -43427,15 +43851,15 @@ key
 lock
 );
 
-1110 #ifde‡
+1200 #ifde‡
 ˘t
 
 
-1111 
+1201 
 _mm_m„n˚
 ();
 
-1112 
+1202 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43443,7 +43867,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1113 
+1203 
 	g˘t1
 +=(
 ts4
@@ -43455,7 +43879,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1116  &
+1206  &
 	gkvp_p
 [
 l
@@ -43463,7 +43887,7 @@ l
 	gvÆue
 ;
 
-1118 i‡(
+1208 i‡(
 	gkvp_p
 [
 l
@@ -43473,17 +43897,17 @@ l
 key
 )
 
-1120 i‡(
+1210 i‡(
 u∆ock
 )
 
-1121 *(**)
+1211 *(**)
 u∆ock
  = 
 £g
 ;
 
-1124 
+1214 
 	gkvp_p
 [
 l
@@ -43493,11 +43917,11 @@ l
 vÆue
 ;
 
-1125 
+1215 
 _mm_s„n˚
 ();
 
-1126 
+1216 
 ©_u∆ock2
 (
 £g
@@ -43505,15 +43929,15 @@ _mm_s„n˚
 lock
 );
 
-1131 #ifde‡
+1221 #ifde‡
 ˘t
 
 
-1132 
+1222 
 _mm_m„n˚
 ();
 
-1133 
+1223 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43521,7 +43945,7 @@ CLOCK_MONOTONIC
 ts4
 );
 
-1134 
+1224 
 	g˘t1
 +=(
 ts4
@@ -43533,7 +43957,7 @@ ts3
 tv_n£c
 -ts3.tv_nsec;
 
-1137  &
+1227  &
 	gkvp_p
 [
 l
@@ -43541,19 +43965,19 @@ l
 	gvÆue
 ;
 
-1143 #ifde‡
+1233 #ifde‡
 ˘t
 
 
-1144 
+1234 
 _mm_m„n˚
 ();
 
-1145 
+1235 
 	gsc
 ++;
 
-1146 
+1236 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43561,7 +43985,7 @@ CLOCK_MONOTONIC
 ts1
 );
 
-1148 
+1238 
 •lô
 (
 ¢
@@ -43573,15 +43997,15 @@ uöt64_t
 dïth
 ));
 
-1149 #ifde‡
+1239 #ifde‡
 ˘t
 
 
-1150 
+1240 
 _mm_m„n˚
 ();
 
-1151 
+1241 
 ˛ock_gëtime
 (
 CLOCK_MONOTONIC
@@ -43589,7 +44013,7 @@ CLOCK_MONOTONIC
 ts2
 );
 
-1152 
+1242 
 	g˘t2
 +=(
 ts2
@@ -43601,15 +44025,15 @@ ts1
 tv_n£c
 -ts1.tv_nsec;
 
-1166 --
+1256 --
 	gªad_lock
 ;
 
-1168  
+1258  
 	gNULL
 ;
 
-1174 
+1264 
 	gCCEH
 ::
 u∆ock_íåy2
@@ -43625,69 +44049,61 @@ lock_p
 ªad_lock
 )
 
-1187 i‡(!
+1277 i‡(!
 	gpoöt
 )
 
-1188 
+1278 
 ¥ötf
 ("ueÉrrror?\n");
 
-1189 i‡(
+1279 i‡(
 	glock_p
 )
 
-1192 
+1282 
 ©_u∆ock2
 (*
 lock_p
 );
 
-1194 --
+1284 --
 	gªad_lock
 ;
 
-1198 
+1288 
 öô_c˚h
 ()
 
-1200 
+1290 
 ¥ötf
 ("init cceh\n");
 
-1201 
-	g£g_‰ì_˙t
- = 
-£g_‰ì_mö
- = 
-£g_‰ì_ödex
- = 0;
-
-1202 
+1293 
 ¥ötf
 ("sizeo‡KVP %ld\n",(
 KVP
 ));
 
-1203 
+1294 
 ¥ötf
 ("sizeo‡CL %ld\n",(
 CL
 ));
 
-1204 
+1295 
 	gi
 ;
 
-1205 
+1296 
 	gr_mask
 [0] = 0;
 
-1206 
+1297 
 	gi
 =1;i<=64;i++)
 
-1207 
+1298 
 	gr_mask
 [
 i
@@ -43695,11 +44111,11 @@ i
 r_mask
 [i-1]*2+1;
 
-1210 i‡(
+1301 i‡(
 	gKEY_SIZE
  != 8)
 
-1212 
+1303 
 key_¨øy
  = (**)
 mÆloc
@@ -43707,7 +44123,7 @@ mÆloc
 KEY_ARRAY_MAX
 );
 
-1213 
+1304 
 	gkey_˙t
  = (*)
 mÆloc
@@ -43715,11 +44131,11 @@ mÆloc
 KEY_ARRAY_MAX
 );
 
-1214 
+1305 
 	gkey_¨øy_˙t
  = 0;
 
-1216 
+1307 
 	gmax_ödex
  = 
 KEY_SIZE
@@ -43727,19 +44143,19 @@ KEY_SIZE
 KEY_ARRAY_MAX
 ;
 
-1217 
+1308 
 	gkey_˙t
 [0] = 
 max_ödex
 ;
 
-1218 
+1309 
 	gkey_¨øy
 [0] = 
 NULL
 ;
 
-1223 
+1314 
 	ghash_ödex
  = 
 √w
@@ -43747,19 +44163,15 @@ NULL
 CCEH
 (20);
 
-1226 
+1317 
 ˛ón_c˚h
 ()
 
-1228 
+1319 
 ¥ötf
 ("clean cceh\n");
 
-1229 
-£g_gc
-();
-
-1231 
+1322 
 ¥ötf
 ("SEG sizê%ld hash %lfGB\n",(
 SEG
@@ -43767,7 +44179,7 @@ SEG
 Æloc_£g_˙t
 *(SEG))/1024/1024/1024);
 
-1232 
+1323 
 ¥ötf
 ("SEG cou¡ %u\n",
 Æloc_£g_˙t
@@ -43775,33 +44187,21 @@ SEG
 lﬂd
 ());
 
-1234 
-¥ötf
-("£g index %u mö %u c¡ %u\n",
-£g_‰ì_ödex
-.
-lﬂd
-(),
-£g_‰ì_mö
-.lﬂd(),
-£g_‰ì_˙t
-.load());
-
-1236 i‡(
+1327 i‡(
 	gkey_¨øy
 )
 
-1238 
+1329 
 	gi
 ;
 
-1239 
+1330 
 	gi
 =0+1;i<
 	gkey_¨øy_˙t
 ;i++)
 
-1240 
+1331 
 ‰ì
 (
 key_¨øy
@@ -43809,25 +44209,25 @@ key_¨øy
 i
 ]);
 
-1241 
+1332 
 ‰ì
 (
 key_¨øy
 );
 
-1242 
+1333 
 ‰ì
 (
 key_˙t
 );
 
-1245 
+1336 
 dñëe
  
 	ghash_ödex
 ;
 
-1262 
+1353 
 ölöe
  * 
 	gCCEH_vk
@@ -43839,13 +44239,13 @@ uöt64_t
 key
 )
 
-1266 
+1357 
 KeyE¡ry_u
  
 ku
 ;
 
-1267 
+1358 
 	gku
 .
 	gke_64
@@ -43853,7 +44253,7 @@ ku
 key
 ;
 
-1268  &
+1359  &
 	gkey_¨øy
 [
 ku
@@ -43867,7 +44267,7 @@ key_¨øy
 key_off£t
 ];
 
-1273 
+1364 
 ölöe
  * 
 	gCCEH_vk
@@ -43879,7 +44279,7 @@ KeyE¡ry
 key
 )
 
-1277  &
+1368  &
 key_¨øy
 [
 key
@@ -43889,7 +44289,7 @@ hp
 key_off£t
 ];
 
-1282 
+1373 
 ölöe
  
 boﬁ
@@ -43909,13 +44309,13 @@ uöt32_t
 hash
 )
 
-1284 
+1375 
 KeyE¡ry_u
  
 	gkey
 ;
 
-1285 
+1376 
 	gkey
 .
 	gke_64
@@ -43923,7 +44323,7 @@ KeyE¡ry_u
 key1
 ;
 
-1286 i‡(
+1377 i‡(
 	ghash
  !
 key
@@ -43935,11 +44335,11 @@ hp
 hash
 )
 
-1287  
+1378  
 Ál£
 ;
 
-1288 * 
+1379 * 
 	gkl
  = 
 lﬂd_key2
@@ -43949,7 +44349,7 @@ key
 ke
 );
 
-1289  *((
+1380  *((
 	guöt64_t
 *)
 	gkl
@@ -43961,7 +44361,7 @@ key2
 kl
 +1) == *((uint64_t*)key2+1);
 
-1291 
+1382 
 ölöe
  
 	gCCEH_vk
@@ -43979,7 +44379,7 @@ uöt32_t
 hash
 )
 
-1294 i‡(
+1385 i‡(
 	gkey_˙t
 [
 key_¨øy_ödex
@@ -43989,7 +44389,7 @@ key_¨øy_ödex
 max_ödex
 )
 
-1296 
+1387 
 key_¨øy_ödex
  = 
 key_¨øy_˙t
@@ -43997,13 +44397,13 @@ key_¨øy_˙t
 „tch_add
 (1);
 
-1297 
+1388 
 	gkey_˙t
 [
 key_¨øy_ödex
 ] = 0;
 
-1298 
+1389 
 	gkey_¨øy
 [
 key_¨øy_ödex
@@ -44013,7 +44413,7 @@ mÆloc
 max_ödex
 );
 
-1301 
+1392 
 mem˝y
 (&
 key_¨øy
@@ -44027,13 +44427,13 @@ key2
 PH_KEY_SIZE
 );
 
-1303 
+1394 
 KeyE¡ry_u
  
 	gkey
 ;
 
-1304 
+1395 
 	gkey
 .
 	gke
@@ -44045,7 +44445,7 @@ KeyE¡ry_u
 key_¨øy_ödex
 ;
 
-1305 
+1396 
 	gkey
 .
 	gke
@@ -44059,7 +44459,7 @@ key_˙t
 key_¨øy_ödex
 ];
 
-1306 
+1397 
 	gkey
 .
 	gke
@@ -44071,7 +44471,7 @@ key_¨øy_ödex
 hash
 ;
 
-1308 
+1399 
 	gkey_˙t
 [
 key_¨øy_ödex
@@ -44079,7 +44479,7 @@ key_¨øy_ödex
 PH_KEY_SIZE
 ;
 
-1310 
+1401 
 	gkey1
  = 
 key
@@ -44087,7 +44487,7 @@ key
 ke_64
 ;
 
-1315 
+1406 
 ölöe
  
 uöt64_t
@@ -44099,7 +44499,7 @@ hf
 key
 )
 
-1328  
+1419  
 °d
 ::
 _Hash_byãs
@@ -44107,7 +44507,7 @@ _Hash_byãs
 key
 ,16,5516);
 
-1332 
+1423 
 ölöe
  
 boﬁ
@@ -44119,7 +44519,7 @@ zîo_check
 key
 )
 
-1334  
+1425  
 Ál£
 ;
 
@@ -44317,7 +44717,7 @@ uöt8_t
 lock
 ;
 
-107 
+107 vﬁ©ûê
 	gdïth
 ;
 
@@ -44343,11 +44743,19 @@ CCEH
 CCEH
 ();
 
-118 
+118 
+thªad_loˇl_öô
+();
+
+119 
+thªad_loˇl_˛ón
+();
+
+121 
 	g¥iv©e
 :
 
-122 
+125 
 ölöe
  
 uöt64_t
@@ -44357,7 +44765,7 @@ hf
 key
 );
 
-123 
+126 
 ölöe
  
 uöt64_t
@@ -44367,45 +44775,45 @@ hf
 key
 );
 
-128 vﬁ©ûê
+131 vﬁ©ûê
 	gdïth
 ;
 
-129 vﬁ©ûê
+132 vﬁ©ûê
 	g£g_˙t
 ;
 
-131 
+134 
 SEG
 * vﬁ©ûê* vﬁ©ûê
 	g£g_li°
 ;
 
-145 
+148 
 dú_doubÀ
 ();
 
-146 
+149 
 •lô
 (
 ¢
 );
 
-148 
+151 
 öô
 (
 ö_dïth
 );
 
-149 
+152 
 ˛ón
 ();
 
-152 
+155 
 	gpublic
 :
 
-157 
+160 
 KVP
 * 
 ö£π
@@ -44425,7 +44833,7 @@ u∆ock_p
 ªad_lock
 );
 
-158 
+161 
 KVP
 * 
 ö£π_wôh_Áû
@@ -44445,7 +44853,7 @@ u∆ock_p
 ªad_lock
 );
 
-160 
+163 
 lock
 (
 KVP
@@ -44453,7 +44861,7 @@ KVP
 kvp
 );
 
-161 
+164 
 u∆ock
 (
 KVP
@@ -44461,7 +44869,7 @@ KVP
 kvp
 );
 
-163 
+166 
 boﬁ
  
 ªad
@@ -44473,7 +44881,21 @@ key
 ªt
 );
 
-164 
+167 
+boﬁ
+ 
+ªad_wôh_Áû
+(
+uöt64_t
+ &
+key
+,uöt64_à*
+ªt
+,boﬁ &
+sf
+);
+
+168 
 ªmove
 (
 uöt64_t
@@ -44481,7 +44903,7 @@ uöt64_t
 key
 );
 
-167 
+171 
 u∆ock_íåy2
 (
 °d
@@ -44495,21 +44917,21 @@ lock_p
 ªad_lock
 );
 
-169 
+173 
 	g¥iv©e
 :
 
-171 
+175 
 uöt64_t
  
 dm
 ;
 
-172 
+176 
 	gpoöt
 ;
 
-174 
+178 
 	gsc
 ,
 	gpic
@@ -44519,7 +44941,7 @@ dm
 	gföd_˙t
 ;
 
-175 
+179 
 uöt64_t
  
 	g˘t1
@@ -44531,7 +44953,7 @@ uöt64_t
 	g˘t4
 ;
 
-178 
+182 
 	g°d
 ::
 ©omic
@@ -44541,13 +44963,13 @@ uöt8_t
 wrôe_lock
 ;
 
-180 
+184 
 KVP
  
 	gzîo_íåy
 ;
 
-181 
+185 
 	g°d
 ::
 ©omic
@@ -44557,7 +44979,7 @@ uöt8_t
 zîo_lock
 ;
 
-184 ˛as†
+188 ˛as†
 	cCCEH_vk
  : 
 public
@@ -44565,7 +44987,7 @@ public
 CCEH
 
 
-186 
+190 
 ölöe
  
 boﬁ
@@ -44583,7 +45005,7 @@ uöt32_t
 hash
 );
 
-187 
+191 
 ölöe
  
 ö£π_key
@@ -44599,7 +45021,7 @@ uöt32_t
 hash
 );
 
-188 
+192 
 ölöe
  
 uöt64_t
@@ -44609,7 +45031,7 @@ hf
 key
 );
 
-189 
+193 
 ölöe
  * 
 lﬂd_key
@@ -44619,7 +45041,7 @@ uöt64_t
 key
 );
 
-190 
+194 
 ölöe
  * 
 lﬂd_key2
@@ -44629,7 +45051,7 @@ KeyE¡ry
 key
 );
 
-191 
+195 
 ölöe
  
 boﬁ
@@ -44639,11 +45061,11 @@ zîo_check
 key
 );
 
-195 
+199 
 öô_c˚h
 ();
 
-196 
+200 
 ˛ón_c˚h
 ();
 
@@ -76753,23 +77175,19 @@ DoubÀLog
 doubÀLogLi°
 ;
 
-25 vﬁ©ûê
-£g_‰ì_˙t
-;
-
-26 
+27 
 CCEH
 * 
 hash_ödex
 ;
 
-27 c⁄° 
+28 c⁄° 
 size_t
  
 bÀ_Àn
 ;
 
-33 
+34 
 PH_Quîy_Thªad
  
 	gquîy_thªad_li°
@@ -76777,7 +77195,7 @@ PH_Quîy_Thªad
 QUERY_THREAD_MAX
 ];
 
-34 
+35 
 PH_Evi˘_Thªad
  
 	gevi˘_thªad_li°
@@ -76785,67 +77203,67 @@ PH_Evi˘_Thªad
 EVICT_THREAD_MAX
 ];
 
-36 
+37 
 Skùli°
 * 
 skùli°
 ;
 
-37 
+38 
 PH_Li°
 * 
 li°
 ;
 
-40 
+41 
 	uE¡ryAddr
 
 
-44 
+45 
 size_t
  
 	gloc
  : 2;
 
-45 
+46 
 size_t
  
 	gfûe_num
  : 14;
 
-46 
+47 
 size_t
  
 	goff£t
  : 48;
 
-48 
+49 
 uöt64_t
  
 	gvÆue
 ;
 
-53 
+54 
 mö_£g_‰ì_˙t
 ()
 
-55 
+56 
 	gi
 ,
 	gmi
 ;
 
-56 
+57 
 	gmö
 =999999999;
 
-57 
+58 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-59 i‡(
+60 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -76854,32 +77272,32 @@ i
  && 
 	gmö
  > quîy_thªad_li°[i].
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 )
 
-61 
+62 
 	gmö
  = 
 quîy_thªad_li°
 [
 i
 ].
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 ;
 
-62 
+63 
 	gmi
  = 
 i
 ;
 
-65 
+66 
 	gi
 =0;i<
 	gnum_evi˘_thªad
 ;i++)
 
-67 i‡(
+68 i‡(
 	gevi˘_thªad_li°
 [
 i
@@ -76888,20 +77306,20 @@ i
  && 
 	gmö
  >Évi˘_thªad_li°[i].
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 )
 
-69 
+70 
 	gmö
  = 
 evi˘_thªad_li°
 [
 i
 ].
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 ;
 
-70 
+71 
 	gmi
  = 
 i
@@ -76909,21 +77327,21 @@ i
 num_quîy_thªad
 ;
 
-73 i‡(
+74 i‡(
 	gmö
  == 999999999)
 
-74  
-£g_‰ì_˙t
+75  
+£g_‰ì_hód
 ;
 
-75 i‡(
+76 i‡(
 	gmi
  < 
 	gnum_quîy_thªad
 )
 
-76 
+77 
 	gquîy_thªad_li°
 [
 mi
@@ -76931,7 +77349,7 @@ mi
 	gupd©e_ªque°
  = 1;
 
-78 
+79 
 	gevi˘_thªad_li°
 [
 mi
@@ -76941,11 +77359,11 @@ num_quîy_thªad
 	gupd©e_ªque°
  = 1;
 
-79  
+80  
 	gmö
 ;
 
-82 
+83 
 size_t
  
 gë_mö_èû
@@ -76953,25 +77371,25 @@ gë_mö_èû
 log_num
 )
 
-84 
+85 
 	gi
 ,
 	gmi
 ;
 
-85 
+86 
 size_t
  
 	gmö
  = 0xffffffffffffffff;
 
-86 
+87 
 	gi
 =0;i<
 	gnum_quîy_thªad
 ;i++)
 
-88 i‡(
+89 i‡(
 	gquîy_thªad_li°
 [
 i
@@ -76985,7 +77403,7 @@ i
 log_num
 ])
 
-90 
+91 
 	gmö
  = 
 quîy_thªad_li°
@@ -76997,13 +77415,13 @@ i
 log_num
 ];
 
-91 
+92 
 	gmi
  = 
 i
 ;
 
-94 
+95 
 	gquîy_thªad_li°
 [
 mi
@@ -77011,65 +77429,61 @@ mi
 	gupd©e_ªque°
  = 1;
 
-95  
+96  
 	gmö
 ;
 
-98 
+99 
 	gPH_Thªad
 ::
 ›_check
 ()
 
-100 ++
+101 ++
 ›_˙t
 ;
 
-101 i‡(
+102 i‡(
 	g›_˙t
  % 128 =0 || 
 upd©e_ªque°
 )
 
-102 
+103 
 sync_thªad
 ();
 
-105 
+106 
 	gPH_Thªad
 ::
 sync_thªad
 ()
 
-107 
-upd©e_‰ì_˙t
-();
-
-108 
+109 
 upd©e_èû_sum
 ();
 
-109 
+110 
 	gupd©e_ªque°
  = 0;
 
-112 
+113 
 	gPH_Thªad
 ::
 upd©e_èû_sum
 ()
 
-114 
+115 
 i
 ;
 
-115 
+116 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-116 
+117 
 	gª˚¡_log_èûs
 [
 i
@@ -77079,29 +77493,29 @@ doubÀLogLi°
 èû_sum
 ;
 
-119 
+120 
 	gPH_Thªad
 ::
 upd©e_‰ì_˙t
 ()
 
-121 
-loˇl_£g_‰ì_˙t
+122 
+loˇl_£g_‰ì_hód
  = 
-£g_‰ì_˙t
+£g_‰ì_hód
 ;
 
-122 #ifde‡
+123 #ifde‡
 waô_f‹_¶ow
 
 
-123 
+124 
 	gmö
  = 
 mö_£g_‰ì_˙t
 ();
 
-124 i‡(
+125 i‡(
 	gmö
  + 
 	gFREE_SEG_LEN
@@ -77111,11 +77525,11 @@ mö_£g_‰ì_˙t
 	gloˇl_£g_‰ì_˙t
 )
 
-126 
+127 
 ¥ötf
 ("in2\n");
 
-127 
+128 
 	gmö
  + 
 	gFREE_SEG_LEN
@@ -77125,43 +77539,43 @@ mö_£g_‰ì_˙t
 	gloˇl_£g_‰ì_˙t
 )
 
-129 
+130 
 upd©e_idÀ
 ();
 
-130 
+131 
 	gmö
  = 
 mö_£g_‰ì_˙t
 ();
 
-132 
+133 
 ¥ötf
 ("out2\n");
 
-136 
+137 
 	gi
 ;
 
-137 
+138 
 ±hªad_t
  
 	g±
 ;
 
-139 
+140 
 	g±
  = 
 ±hªad_£lf
 ();
 
-140 
+141 
 	gi
 =0;i<
 	gnum_of_thªad
 ;i++)
 
-142 i‡(
+143 i‡(
 ±hªad_equÆ
 (
 thªad_li°
@@ -77173,7 +77587,7 @@ tid
 ±
 ))
 
-144 
+145 
 	gthªad_li°
 [
 i
@@ -77183,7 +77597,7 @@ i
 ‰ì_˙t
 ;
 
-145 
+146 
 	gthªad_li°
 [
 i
@@ -77193,35 +77607,35 @@ i
 £g_‰ì_˙t
 ;
 
-149 
+150 
 √w_thªad
 ();
 
-157 
+158 
 	gPH_Quîy_Thªad
 ::
 öô
 ()
 
-160 
+161 
 i
 ;
 
-162 
+163 
 	gmy_log
  = 0;
 
-163 
+164 
 	gexô
  = 0;
 
-165 
+166 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-167 
+168 
 	gdoubÀLogLi°
 [
 i
@@ -77229,7 +77643,7 @@ i
 	gu£
  == 0)
 
-170 i‡(
+171 i‡(
 åy_©_lock2
 (
 doubÀLogLi°
@@ -77239,7 +77653,7 @@ i
 u£
 ))
 
-171 
+172 
 my_log
  = &
 doubÀLogLi°
@@ -77247,69 +77661,75 @@ doubÀLogLi°
 i
 ];
 
-173 i‡(
+174 i‡(
 	gmy_log
 )
 
-177 i‡(
+178 i‡(
 	gmy_log
  == 0)
 
-178 
+179 
 ¥ötf
 ("new queryÅhreadÇoÜog!!!\n");
 
-180 
+181 
 ¥ötf
 ("logállocated\n");
 
-186 
-	gloˇl_£g_‰ì_˙t
- = 
-£g_‰ì_˙t
-;
+188 
+	ghash_ödex
+->
+thªad_loˇl_öô
+();
 
-190 
+192 
 	gªad_lock
  = 0;
 
-192 
+194 
 	grun
  = 1;
 
-195 
+197 
 	gPH_Quîy_Thªad
 ::
 ˛ón
 ()
 
-197 
+199 
 my_log
 ->
 u£
  = 0;
 
-198 
+200 
 	gmy_log
  = 
 NULL
 ;
 
-200 
+202 
+	ghash_ödex
+->
+thªad_loˇl_˛ón
+();
+
+203 
 	grun
  = 0;
 
-201 
+204 
 	gªad_lock
  = 0;
 
-206 
+209 
 	#INDEX
 
 
 	)
 
-208 
+211 
 	gPH_Quîy_Thªad
 ::
 ö£π_›
@@ -77321,11 +77741,11 @@ key
 vÆue
 )
 
-211 
+214 
 ›_check
 ();
 
-215 
+218 
 uöt64_t
  
 	g√w_addr
@@ -77333,61 +77753,61 @@ uöt64_t
 	gﬁd_addr
 ;
 
-216 
+219 
 E¡ryAddr
  
 	gó
 ;
 
-217 * 
+220 * 
 	gpmem_hód_p
 ;
 
-218 * 
+221 * 
 	gdøm_hód_p
 ;
 
-221 * 
+224 * 
 	gchecksum_i
  = (*)&
 bÀ
 ;
 
-222 
+225 
 	gi
 ,
 	g˙t
 =0;
 
-223 
+226 
 	gi
 =0;i<8+8+
 	gVALUE_SIZE
 ;i++)
 
-225 i‡(*
+228 i‡(*
 	gchecksum_i
  == 0)
 
-226 
+229 
 ˙t
 ++;
 
-228 i‡(
+231 i‡(
 	g˙t
  == -1)
 
-229 
+232 
 ¥ötf
 ("xxx\n");
 
-239 
+242 
 	gmy_log
 ->
 ªady_log
 ();
 
-241 
+244 
 	gpmem_hód_p
  = 
 my_log
@@ -77399,13 +77819,13 @@ hód_sum
 my_size
 ;
 
-244 
+247 
 	gó
 .
 	gloc
  = 1;
 
-245 
+248 
 	gó
 .
 	gfûe_num
@@ -77415,7 +77835,7 @@ my_log
 log_num
 ;
 
-246 
+249 
 	gó
 .
 	goff£t
@@ -77427,7 +77847,7 @@ hód_sum
 my_size
 ;
 
-248 
+251 
 	gmy_log
 ->
 ö£π_pmem_log
@@ -77437,17 +77857,17 @@ key
 vÆue
 );
 
-261 #ifde‡
+264 #ifde‡
 INDEX
 
 
-262 
+265 
 KVP
 * 
 	gkvp_p
 ;
 
-263 
+266 
 	g°d
 ::
 ©omic
@@ -77457,7 +77877,7 @@ uöt8_t
 £g_lock
 ;
 
-264 
+267 
 	gkvp_p
  = 
 hash_ödex
@@ -77471,7 +77891,7 @@ key
 ªad_lock
 );
 
-266 
+269 
 	gﬁd_addr
  = 
 kvp_p
@@ -77479,7 +77899,7 @@ kvp_p
 vÆue
 ;
 
-271 
+274 
 uöt64_t
  
 	gﬁd_vîsi⁄
@@ -77487,11 +77907,11 @@ uöt64_t
 	g√w_vîsi⁄
 ;
 
-272 #ifde‡
+275 #ifde‡
 INDEX
 
 
-273 
+276 
 	gﬁd_vîsi⁄
  = 
 kvp_p
@@ -77499,13 +77919,13 @@ kvp_p
 vîsi⁄
 ;
 
-274 
+277 
 	g√w_vîsi⁄
  = 
 ﬁd_vîsi⁄
 +1;
 
-275 
+278 
 	g√w_vîsi⁄
  = 
 £t_loc_hŸ
@@ -77513,17 +77933,17 @@ vîsi⁄
 √w_vîsi⁄
 );
 
-276 
+279 
 £t_vÆid
 (
 √w_vîsi⁄
 );
 
-279 #ifde‡
+282 #ifde‡
 USE_DRAM_CACHE
 
 
-281 
+284 
 	g√w_addr
  = 
 ó
@@ -77531,7 +77951,7 @@ USE_DRAM_CACHE
 vÆue
 ;
 
-283 
+286 
 	gmy_log
 ->
 ö£π_døm_log
@@ -77543,13 +77963,13 @@ key
 vÆue
 );
 
-285 
+288 
 	g√w_addr
  = 
 pmem_hód_p
 ;
 
-290 
+293 
 	gmy_log
 ->
 wrôe_vîsi⁄
@@ -77557,7 +77977,7 @@ wrôe_vîsi⁄
 √w_vîsi⁄
 );
 
-291 
+294 
 	gmy_log
 ->
 	ghód_sum
@@ -77565,17 +77985,17 @@ wrôe_vîsi⁄
 bÀ_Àn
 ;
 
-294 #ifde‡
+297 #ifde‡
 INDEX
 
 
-295 
+298 
 boﬁ
  
 	g√w_key
 ;
 
-297 
+300 
 	gkvp_p
 ->
 	gvÆue
@@ -77583,7 +78003,7 @@ boﬁ
 √w_addr
 ;
 
-298 
+301 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -77591,11 +78011,11 @@ boﬁ
 √w_vîsi⁄
 ;
 
-299 
+302 
 _mm_s„n˚
 ();
 
-300 i‡(
+303 i‡(
 	gkvp_p
 ->
 	gkey
@@ -77603,13 +78023,13 @@ _mm_s„n˚
 key
 )
 
-302 
+305 
 √w_key
  = 
 åue
 ;
 
-303 
+306 
 	gkvp_p
 ->
 	gkey
@@ -77617,21 +78037,21 @@ key
 key
 ;
 
-304 
+307 
 _mm_s„n˚
 ();
 
-307 
+310 
 	g√w_key
  = 
 Ál£
 ;
 
-311 #ifde‡
+314 #ifde‡
 INDEX
 
 
-313 
+316 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -77641,25 +78061,25 @@ u∆ock_íåy2
 ªad_lock
 );
 
-318 #ifde‡
+321 #ifde‡
 USE_DRAM_CACHE
 
 
-319 i‡(
+322 i‡(
 	g√w_key
 )
 
-321 
+324 
 E¡ryAddr
  
 	gﬁd_ó
 ;
 
-322 * 
+325 * 
 	gaddr
 ;
 
-323 
+326 
 	gﬁd_ó
 .
 	gvÆue
@@ -77667,13 +78087,13 @@ E¡ryAddr
 ﬁd_addr
 ;
 
-324 i‡(
+327 i‡(
 	gﬁd_ó
 .
 	gloc
  == 1)
 
-326 
+329 
 addr
  = 
 doubÀLogLi°
@@ -77687,7 +78107,7 @@ dømLogAddr
 off£t
 ;
 
-327 
+330 
 £t_övÆid
 ((
 uöt64_t
@@ -77695,27 +78115,27 @@ uöt64_t
 addr
 );
 
-331 
+334 
 size_t
  
 	goff£t_ö_node
 ;
 
-332 
+335 
 NodeMëa
 * 
 	gnm
 ;
 
-333 
+336 
 	g˙t
 ;
 
-334 
+337 
 	gnode_˙t
 ;
 
-336 
+339 
 	goff£t_ö_node
  = 
 ﬁd_ó
@@ -77725,7 +78145,7 @@ off£t
 NODE_SIZE
 ;
 
-337 
+340 
 	gnode_˙t
  = 
 ﬁd_ó
@@ -77735,7 +78155,7 @@ off£t
 NODE_SIZE
 ;
 
-338 
+341 
 	gnm
  = (
 NodeMëa
@@ -77751,7 +78171,7 @@ fûe_num
 node_˙t
 *(NodeMeta));
 
-339 
+342 
 	g˙t
  = (
 off£t_ö_node
@@ -77761,7 +78181,7 @@ NodeAddr
 bÀ_Àn
 ;
 
-340 
+343 
 	gnm
 ->
 	gvÆid
@@ -77771,13 +78191,13 @@ bÀ_Àn
 Ál£
 ;
 
-341 --
+344 --
 	gnm
 ->
 	gvÆid_˙t
 ;
 
-358 
+361 
 	gPH_Quîy_Thªad
 ::
 ªad_›
@@ -77789,17 +78209,17 @@ key
 buf
 )
 
-361 
+364 
 ›_check
 ();
 
-366 
+369 
 E¡ryAddr
  
 	gó
 ;
 
-367 
+370 
 	ghash_ödex
 ->
 ªad
@@ -77811,23 +78231,23 @@ key
 vÆue
 );
 
-369 i‡(
+372 i‡(
 	gó
 .
 	gvÆue
  == 0)
 
-372 * 
+375 * 
 	gaddr
 ;
 
-373 i‡(
+376 i‡(
 	gó
 .
 	gloc
  == 1)
 
-375 
+378 
 addr
  = 
 doubÀLogLi°
@@ -77841,7 +78261,7 @@ dømLogAddr
 off£t
 ;
 
-376 
+379 
 mem˝y
 (
 buf
@@ -77855,21 +78275,21 @@ KEY_SIZE
 VALUE_SIZE
 );
 
-380 
+383 
 NodeMëa
 * 
 	gnm
 ;
 
-381 
+384 
 	gnode_˙t
 ;
 
-383 
+386 
 	gåue
 )
 
-386 
+389 
 	gnode_˙t
  = 
 ó
@@ -77879,7 +78299,7 @@ off£t
 NODE_SIZE
 ;
 
-387 
+390 
 	gnm
  = (
 NodeMëa
@@ -77895,7 +78315,7 @@ fûe_num
 node_˙t
 *(NodeMeta));
 
-388 
+391 
 ©_lock2
 (
 nm
@@ -77903,7 +78323,7 @@ nm
 lock
 );
 
-389 
+392 
 	gaddr
  = (*)
 nodeAŒoˇt‹
@@ -77917,7 +78337,7 @@ fûe_num
 off£t
 ;
 
-390 i‡(
+393 i‡(
 	gkey
  =*(
 uöt64_t
@@ -77927,7 +78347,7 @@ addr
 HEADER_SIZE
 ))
 
-392 
+395 
 ©_u∆ock2
 (
 nm
@@ -77935,7 +78355,7 @@ nm
 lock
 );
 
-394 
+397 
 	ghash_ödex
 ->
 ªad
@@ -77947,7 +78367,7 @@ key
 vÆue
 );
 
-397 
+400 
 mem˝y
 (
 buf
@@ -77961,7 +78381,7 @@ KEY_SIZE
 VALUE_SIZE
 );
 
-398 
+401 
 ©_u∆ock2
 (
 nm
@@ -77969,7 +78389,7 @@ nm
 lock
 );
 
-404 
+407 
 	gPH_Quîy_Thªad
 ::
 dñëe_›
@@ -77979,11 +78399,11 @@ uöt64_t
 key
 )
 
-407 
+410 
 ›_check
 ();
 
-411 
+414 
 	gPH_Quîy_Thªad
 ::
 sˇn_›
@@ -77995,11 +78415,11 @@ uöt64_t
 íd_key
 )
 
-414 
+417 
 ›_check
 ();
 
-418 
+421 
 	gPH_Quîy_Thªad
 ::
 √xt_›
@@ -78007,21 +78427,21 @@ uöt64_t
 buf
 )
 
-421 
+424 
 ›_check
 ();
 
-428 
+431 
 	gPH_Evi˘_Thªad
 ::
 öô
 ()
 
-430 
+433 
 exô
  = 0;
 
-432 
+435 
 	g 
  = (
 log_max
@@ -78029,11 +78449,11 @@ log_max
 num_evi˘_thªad
 +1;
 
-434 
+437 
 	glog_˙t
  = 0;
 
-435 
+438 
 	glog_li°
  = 
 √w
@@ -78043,17 +78463,17 @@ DoubÀLog
  
 ];
 
-437 
+440 
 	gi
 ;
 
-438 
+441 
 	gi
 =0;i<
 	glog_max
 ;i++)
 
-440 
+443 
 	gdoubÀLogLi°
 [
 i
@@ -78061,7 +78481,7 @@ i
 	gevi˘_Æloc
  == 0)
 
-443 i‡(
+446 i‡(
 åy_©_lock2
 (
 doubÀLogLi°
@@ -78071,7 +78491,7 @@ i
 evi˘_Æloc
 ))
 
-445 
+448 
 log_li°
 [
 log_˙t
@@ -78081,13 +78501,13 @@ doubÀLogLi°
 i
 ];
 
-449 i‡(
+452 i‡(
 	glog_˙t
  >
  
 )
 
-453 
+456 
 	gi
 =
 log_˙t
@@ -78095,7 +78515,7 @@ log_˙t
 	g 
 ;i++)
 
-454 
+457 
 	glog_li°
 [
 i
@@ -78103,35 +78523,35 @@ i
 NULL
 ;
 
-456 
+459 
 	gªad_lock
  = 0;
 
-457 
+460 
 	grun
  = 1;
 
-460 
+463 
 	gPH_Evi˘_Thªad
 ::
 ˛ón
 ()
 
-462 
+465 
 run
  = 0;
 
-463 
+466 
 	gªad_lock
  = 0;
 
-465 
+468 
 	gdñëe
 [] 
 	glog_li°
 ;
 
-474 
+477 
 pmem_¡_wrôe
 (* 
 d°_addr
@@ -78143,7 +78563,7 @@ size_t
 Àn
 )
 
-476 
+479 
 pmem_mem˝y
 (
 d°_addr
@@ -78155,11 +78575,11 @@ d°_addr
 PMEM_F_MEM_NONTEMPORAL
 );
 
-477 
+480 
 _mm_s„n˚
 ();
 
-481 
+484 
 pmem_íåy_wrôe
 (* 
 d°
@@ -78171,7 +78591,7 @@ size_t
 Àn
 )
 
-484 
+487 
 mem˝y
 (
 d°
@@ -78181,7 +78601,7 @@ d°
 Àn
 );
 
-485 
+488 
 pmem_≥rsi°
 (
 d°
@@ -78189,11 +78609,11 @@ d°
 Àn
 );
 
-486 
+489 
 _mm_s„n˚
 ();
 
-488 
+491 
 pmem_√xt_wrôe
 (
 D©aNode
@@ -78205,7 +78625,7 @@ NodeAddr
 nodeAddr
 )
 
-490 
+493 
 	gd°_node
 ->
 	g√xt_off£t
@@ -78213,7 +78633,7 @@ nodeAddr
 nodeAddr
 ;
 
-491 
+494 
 pmem_≥rsi°
 (
 d°_node
@@ -78221,17 +78641,17 @@ d°_node
 NodeAddr
 ));
 
-492 
+495 
 _mm_s„n˚
 ();
 
-495 c⁄° 
+498 c⁄° 
 size_t
  
 	gPMEM_BUFFER_SIZE
  = 256;
 
-497 
+500 
 	gPH_Evi˘_Thªad
 ::
 •lô_li°Node
@@ -78245,7 +78665,7 @@ Skùli°Node
 skùli°Node
 )
 
-500 
+503 
 D©aNode
  *
 	gli°_d©aNode
@@ -78257,7 +78677,7 @@ li°Node
 d©a_node_addr
 );
 
-501 
+504 
 NodeMëa
  *
 	gli°_nodeMëa
@@ -78269,13 +78689,13 @@ li°Node
 d©a_node_addr
 );
 
-503 i‡(
+506 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
  == 0)
 
-506 
+509 
 D©aNode
  
 	gãmp_node
@@ -78283,59 +78703,59 @@ D©aNode
 li°_d©aNode
 ;
 
-507 
+510 
 D©aNode
  
 	gãmp_√w_node
 ;
 
-508 
+511 
 uöt64_t
  
 	ghÆf_key
 ;
 
-509 
+512 
 uöt64_t
  
 	gkey
 ;
 
-511 
+514 
 size_t
  
 	goff£t
 ;
 
-512 
+515 
 size_t
  
 	goff£t2
 ;
 
-513 * 
+516 * 
 	gaddr
 ;
 
-514 
+517 
 	gaddr
  = (*)&
 ãmp_node
 ;
 
-515 
+518 
 	goff£t
  = (
 NodeAddr
 );
 
-516 
+519 
 	goff£t2
  = (
 NodeAddr
 );
 
-518 
+521 
 	ghÆf_key
  = 
 föd_hÆf_ö_node
@@ -78345,7 +78765,7 @@ li°_nodeMëa
 ãmp_node
 );
 
-519 i‡(
+522 i‡(
 	ghÆf_key
  =
 li°Node
@@ -78353,7 +78773,7 @@ li°Node
 key
 )
 
-522 
+525 
 Li°Node
 * 
 	g√w_li°Node
@@ -78363,7 +78783,7 @@ li°
 Æloc_li°_node
 ();
 
-523 
+526 
 NodeMëa
 * 
 	g√w_nodeMëa
@@ -78375,7 +78795,7 @@ nodeAddr_to_nodeMëa
 d©a_node_addr
 );
 
-524 
+527 
 D©aNode
 * 
 	g√w_d©aNode
@@ -78387,7 +78807,7 @@ nodeAddr_to_node
 d©a_node_addr
 );
 
-526 
+529 
 	g√w_li°Node
 ->
 	gkey
@@ -78395,27 +78815,27 @@ d©a_node_addr
 hÆf_key
 ;
 
-527 
+530 
 	gmoved_idx
 [
 NODE_SLOT_MAX
 ];
 
-528 
+531 
 	gmoved_˙t
 =0;
 
-529 
+532 
 	gi
 ;
 
-530 
+533 
 	gi
 =0;i<
 	gNODE_SLOT_MAX
 ;i++)
 
-532 i‡(
+535 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -78425,13 +78845,13 @@ i
 Ál£
 )
 
-535 
+538 
 off£t
 +=
 bÀ_Àn
 ;
 
-538 
+541 
 	gkey
  = *(
 uöt64_t
@@ -78443,13 +78863,13 @@ off£t
 HEADER_SIZE
 );
 
-539 i‡(
+542 i‡(
 	gkey
  >
 hÆf_key
 )
 
-541 
+544 
 √w_nodeMëa
 ->
 vÆid
@@ -78459,7 +78879,7 @@ moved_˙t
 åue
 ;
 
-542 
+545 
 mem˝y
 ((*)&
 ãmp_√w_node
@@ -78473,7 +78893,7 @@ off£t
 bÀ_Àn
 );
 
-544 
+547 
 	gmoved_idx
 [
 moved_˙t
@@ -78481,23 +78901,23 @@ moved_˙t
 i
 ;
 
-545 ++
+548 ++
 	gmoved_˙t
 ;
 
-550 
+553 
 	goff£t2
 +=
 bÀ_Àn
 ;
 
-552 
+555 
 	goff£t
 +=
 bÀ_Àn
 ;
 
-554 
+557 
 	g√w_nodeMëa
 ->
 	gvÆid_˙t
@@ -78505,7 +78925,7 @@ bÀ_Àn
 moved_˙t
 ;
 
-556 
+559 
 	gãmp_√w_node
 .
 	g√xt_off£t
@@ -78517,7 +78937,7 @@ li°_nodeMëa
 my_off£t
 ;
 
-558 
+561 
 pmem_¡_wrôe
 ((*)
 √w_d©aNode
@@ -78527,7 +78947,7 @@ pmem_¡_wrôe
 off£t2
 );
 
-559 
+562 
 	g√w_nodeMëa
 ->
 	g√xt_p
@@ -78537,7 +78957,7 @@ li°_nodeMëa
 √xt_p
 ;
 
-562 
+565 
 pmem_√xt_wrôe
 (
 li°_d©aNode
@@ -78547,7 +78967,7 @@ li°_d©aNode
 my_off£t
 );
 
-563 
+566 
 	gli°_nodeMëa
 ->
 	g√xt_p
@@ -78555,7 +78975,7 @@ my_off£t
 √w_nodeMëa
 ;
 
-565 
+568 
 	gskùli°Node
 ->
 	gmy_li°Node
@@ -78565,7 +78985,7 @@ my_off£t
 	ghÆf_key
 )
 
-567 i‡(
+570 i‡(
 	gskùli°Node
 ->
 	gkey
@@ -78573,7 +78993,7 @@ my_off£t
 hÆf_key
 )
 
-568 
+571 
 skùli°Node
 ->
 my_li°Node
@@ -78581,7 +79001,7 @@ my_li°Node
 √w_li°Node
 ;
 
-569 
+572 
 	gskùli°Node
  = 
 skùli°Node
@@ -78589,7 +79009,7 @@ skùli°Node
 √xt
 [0];
 
-572 i‡(
+575 i‡(
 	gli°Node
 ->
 	gkey
@@ -78599,11 +79019,11 @@ skùli°Node
 key
 )
 
-574 
+577 
 ¥ötf
 ("?------------------------\n");
 
-577 
+580 
 	gli°
 ->
 ö£π_node
@@ -78613,13 +79033,13 @@ li°Node
 √w_li°Node
 );
 
-578 
+581 
 KVP
 * 
 	gkvp_p
 ;
 
-579 
+582 
 	g°d
 ::
 ©omic
@@ -78629,19 +79049,19 @@ uöt8_t
 £g_lock
 ;
 
-580 
+583 
 E¡ryAddr
  
 	gó
 ;
 
-581 
+584 
 	gi
 =0;i<
 	gmoved_˙t
 ;i++)
 
-583 
+586 
 	gkey
  = *(
 uöt64_t
@@ -78655,7 +79075,7 @@ bÀ_Àn
 i
 );
 
-584 
+587 
 	gkvp_p
  = 
 hash_ödex
@@ -78669,13 +79089,13 @@ key
 ªad_lock
 );
 
-585 
+588 
 	gó
 .
 	gloc
  = 3;
 
-586 
+589 
 	gó
 .
 	gfûe_num
@@ -78687,7 +79107,7 @@ my_off£t
 poﬁ_num
 ;
 
-587 
+590 
 	gó
 .
 	goff£t
@@ -78709,7 +79129,7 @@ moved_idx
 i
 ];
 
-588 i‡(
+591 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -78719,7 +79139,7 @@ i
 vÆue
 )
 
-591 
+594 
 ó
 .
 fûe_num
@@ -78731,7 +79151,7 @@ my_off£t
 poﬁ_num
 ;
 
-592 
+595 
 	gó
 .
 	goff£t
@@ -78751,7 +79171,7 @@ bÀ_Àn
 i
 ;
 
-593 
+596 
 	gkvp_p
 ->
 	gvÆue
@@ -78761,7 +79181,7 @@ i
 vÆue
 ;
 
-594 
+597 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -78773,7 +79193,7 @@ kvp_p
 vîsi⁄
 );
 
-597 
+600 
 	g√w_nodeMëa
 ->
 	gvÆid
@@ -78783,11 +79203,11 @@ i
 Ál£
 ;
 
-598 
+601 
 _mm_s„n˚
 ();
 
-599 
+602 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -78797,7 +79217,7 @@ u∆ock_íåy2
 ªad_lock
 );
 
-602 
+605 
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -78809,7 +79229,7 @@ i
 Ál£
 ;
 
-604 
+607 
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
@@ -78817,7 +79237,7 @@ i
 moved_˙t
 ;
 
-609 
+612 
 	gPH_Evi˘_Thªad
 ::
 w¨m_to_cﬁd
@@ -78827,13 +79247,13 @@ Skùli°Node
 node
 )
 
-612 
+615 
 Li°Node
 * 
 li°Node
 ;
 
-613 
+616 
 NodeMëa
  *
 	gnodeMëa
@@ -78845,7 +79265,7 @@ node
 d©a_node_addr
 );
 
-614 
+617 
 D©aNode
  
 	gd©aNode
@@ -78857,7 +79277,7 @@ node
 d©a_node_addr
 );
 
-615 
+618 
 size_t
  
 	g§c_off£t
@@ -78865,23 +79285,23 @@ size_t
 NodeAddr
 );
 
-616 
+619 
 	g˙t
  = 0;
 
-617 
+620 
 uöt64_t
  
 	gkey
 ;
 
-618 * 
+621 * 
 	gaddr
  = (*)&
 d©aNode
 ;
 
-619 
+622 
 E¡ryAddr
  
 	gﬁd_ó
@@ -78889,21 +79309,21 @@ E¡ryAddr
 	g√w_ó
 ;
 
-620 
+623 
 	gi
 ;
 
-621 
+624 
 	g¶Ÿ_idx
 ;
 
-623 
+626 
 KVP
 * 
 	gkvp_p
 ;
 
-624 
+627 
 	g°d
 ::
 ©omic
@@ -78913,13 +79333,13 @@ uöt8_t
 £g_lock
 ;
 
-626 
+629 
 	gﬁd_ó
 .
 	gloc
  = 2;
 
-627 
+630 
 	gﬁd_ó
 .
 	gfûe_num
@@ -78931,17 +79351,17 @@ d©a_node_addr
 poﬁ_num
 ;
 
-630 
+633 
 	g√w_ó
 .
 	gloc
  = 3;
 
-633 
+636 
 	g˙t
  = 0;
 
-634 
+637 
 	g˙t
  < 
 	gnodeMëa
@@ -78949,7 +79369,7 @@ poﬁ_num
 	g¶Ÿ_˙t
 )
 
-637 i‡(
+640 i‡(
 	gnodeMëa
 ->
 	gvÆid
@@ -78959,17 +79379,17 @@ poﬁ_num
 Ál£
 )
 
-639 ++
+642 ++
 ˙t
 ;
 
-640 
+643 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-644 
+647 
 	gkey
  = *(
 uöt64_t
@@ -78981,7 +79401,7 @@ addr
 HEADER_SIZE
 );
 
-645 
+648 
 	gli°Node
  = 
 node
@@ -78989,7 +79409,7 @@ node
 my_li°Node
 ;
 
-646 
+649 
 	gkey
  > 
 	gli°Node
@@ -78997,7 +79417,7 @@ my_li°Node
 	g√xt
 ->key)
 
-647 
+650 
 	gli°Node
  = 
 li°Node
@@ -79005,7 +79425,7 @@ li°Node
 √xt
 ;
 
-649 
+652 
 NodeMëa
 * 
 	gli°_nodeMëa
@@ -79017,7 +79437,7 @@ li°Node
 d©a_node_addr
 );
 
-650 
+653 
 D©aNode
 * 
 	gli°_d©aNode
@@ -79029,7 +79449,7 @@ li°Node
 d©a_node_addr
 );
 
-651 
+654 
 	g√w_ó
 .
 	gfûe_num
@@ -79041,7 +79461,7 @@ d©a_node_addr
 poﬁ_num
 ;
 
-654 
+657 
 ©_lock2
 (
 li°_nodeMëa
@@ -79049,13 +79469,13 @@ li°_nodeMëa
 lock
 );
 
-656 
+659 
 	g¶Ÿ_idx
 =0;¶Ÿ_idx<
 	gNODE_SLOT_MAX
 ;slot_idx++)
 
-658 i‡(
+661 i‡(
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -79065,13 +79485,13 @@ lock
 Ál£
 )
 
-661 i‡(
+664 i‡(
 	g¶Ÿ_idx
  < 
 	gNODE_SLOT_MAX
 )
 
-663 
+666 
 	gﬁd_ó
 .
 	goff£t
@@ -79087,7 +79507,7 @@ NODE_SIZE
 §c_off£t
 ;
 
-664 
+667 
 	g√w_ó
 .
 	goff£t
@@ -79107,7 +79527,7 @@ bÀ_Àn
 ¶Ÿ_idx
 ;
 
-666 
+669 
 	gkvp_p
  = 
 hash_ödex
@@ -79121,7 +79541,7 @@ key
 ªad_lock
 );
 
-668 i‡(
+671 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -79131,7 +79551,7 @@ key
 vÆue
 )
 
-673 
+676 
 hash_ödex
 ->
 u∆ock_íåy2
@@ -79141,7 +79561,7 @@ u∆ock_íåy2
 ªad_lock
 );
 
-674 
+677 
 ©_u∆ock2
 (
 li°_nodeMëa
@@ -79149,17 +79569,17 @@ li°_nodeMëa
 lock
 );
 
-675 ++
+678 ++
 	g˙t
 ;
 
-676 
+679 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-681 
+684 
 pmem_íåy_wrôe
 ((*)
 li°_d©aNode
@@ -79175,7 +79595,7 @@ addr
 §c_off£t
 , ble_len);
 
-682 
+685 
 	gli°_nodeMëa
 ->
 	gvÆid
@@ -79185,13 +79605,13 @@ addr
 åue
 ;
 
-683 ++
+686 ++
 	gli°_nodeMëa
 ->
 	gvÆid_˙t
 ;
 
-689 
+692 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -79203,7 +79623,7 @@ kvp_p
 vîsi⁄
 );
 
-691 
+694 
 	gkvp_p
 ->
 	gvÆue
@@ -79213,11 +79633,11 @@ vîsi⁄
 vÆue
 ;
 
-692 
+695 
 _mm_s„n˚
 ();
 
-693 
+696 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -79227,17 +79647,17 @@ u∆ock_íåy2
 ªad_lock
 );
 
-697 ++
+700 ++
 	g˙t
 ;
 
-698 
+701 
 	g§c_off£t
 +=
 bÀ_Àn
 ;
 
-706 
+709 
 •lô_li°Node
 (
 li°Node
@@ -79245,7 +79665,7 @@ li°Node
 node
 );
 
-709 
+712 
 ©_u∆ock2
 (
 li°_nodeMëa
@@ -79253,7 +79673,7 @@ li°_nodeMëa
 lock
 );
 
-713 
+716 
 ©_lock2
 (
 nodeMëa
@@ -79261,13 +79681,13 @@ nodeMëa
 lock
 );
 
-715 i‡(
+718 i‡(
 	gnodeMëa
 ->
 	gvÆid_˙t
 )
 
-717 
+720 
 Skùli°Node
 * 
 	g√w_skùNode
@@ -79275,7 +79695,7 @@ Skùli°Node
 NULL
 ;
 
-719 
+722 
 	g√w_skùNode
  = 
 skùli°
@@ -79283,17 +79703,17 @@ skùli°
 Æloc_¶_node
 ();
 
-721 i‡(
+724 i‡(
 	g√w_skùNode
 )
 
-723 
+726 
 uöt64_t
  
 	ghÆf_key
 ;
 
-724 
+727 
 	ghÆf_key
  = 
 föd_hÆf_ö_node
@@ -79303,7 +79723,7 @@ nodeMëa
 d©aNode
 );
 
-726 i‡(
+729 i‡(
 	ghÆf_key
  > 
 	gnode
@@ -79311,7 +79731,7 @@ d©aNode
 	gkey
 )
 
-728 
+731 
 	g√w_skùNode
 ->
 	gkey
@@ -79319,7 +79739,7 @@ d©aNode
 hÆf_key
 ;
 
-730 
+733 
 Li°Node
 * 
 	gli°_node
@@ -79329,7 +79749,7 @@ node
 my_li°Node
 ;
 
-731 
+734 
 	gli°_node
 ->
 	g√xt
@@ -79339,7 +79759,7 @@ my_li°Node
 	ghÆf_key
 )
 
-732 
+735 
 	gli°_node
  = 
 li°_node
@@ -79347,7 +79767,7 @@ li°_node
 √xt
 ;
 
-733 
+736 
 	g√w_skùNode
 ->
 	gmy_li°Node
@@ -79355,7 +79775,7 @@ li°_node
 li°_node
 ;
 
-735 
+738 
 Skùli°Node
 * 
 	g¥ev
@@ -79363,7 +79783,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-736 
+739 
 Skùli°Node
 * 
 	g√xt
@@ -79371,7 +79791,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-737 
+740 
 	gskùli°
 ->
 ö£π_node
@@ -79383,7 +79803,7 @@ MAX_LEVEL
 √xt
 );
 
-740 
+743 
 	gskùli°
 ->
 ‰ì_¶_node
@@ -79391,7 +79811,7 @@ MAX_LEVEL
 √w_skùNode
 );
 
-753 
+756 
 	gi
 =0;i<
 	gnodeMëa
@@ -79399,7 +79819,7 @@ MAX_LEVEL
 	g¶Ÿ_˙t
 ;i++)
 
-754 
+757 
 	gnodeMëa
 ->
 	gvÆid
@@ -79409,25 +79829,25 @@ i
 Ál£
 ;
 
-755 
+758 
 	gnodeMëa
 ->
 	gwrôãn_size
  = 0;
 
-756 
+759 
 	gnodeMëa
 ->
 	g¶Ÿ_˙t
  = 0;
 
-757 
+760 
 	gnodeMëa
 ->
 	gvÆid_˙t
  = 0;
 
-759 
+762 
 ©_u∆ock2
 (
 nodeMëa
@@ -79435,7 +79855,7 @@ nodeMëa
 lock
 );
 
-763 
+766 
 	gPH_Evi˘_Thªad
 ::
 hŸ_to_w¨m
@@ -79449,39 +79869,39 @@ boﬁ
 f‹˚
 )
 
-766 
+769 
 	gi
 ;
 
-767 
+770 
 LogLoc
  
 	gŒ
 ;
 
-768 * 
+771 * 
 	gaddr
 ;
 
-769 
+772 
 uöt64_t
 * 
 	ghódî
 ;
 
-770 
+773 
 DoubÀLog
 * 
 	gdl
 ;
 
-772 
+775 
 size_t
  
 	gíåy_li°_˙t
 ;
 
-775 
+778 
 NodeMëa
 * 
 	gnodeMëa
@@ -79493,7 +79913,7 @@ node
 d©a_node_addr
 );
 
-776 
+779 
 ©_lock2
 (
 nodeMëa
@@ -79501,7 +79921,7 @@ nodeMëa
 lock
 );
 
-779 
+782 
 D©aNode
 * 
 	gd°_node
@@ -79513,7 +79933,7 @@ node
 d©a_node_addr
 );
 
-781 
+784 
 uöt64_t
 * 
 	gﬁd_t‹n_hódî
@@ -79521,13 +79941,13 @@ uöt64_t
 NULL
 ;
 
-782 
+785 
 E¡ryAddr
  
 	gﬁd_t‹n_addr
 ;
 
-783 
+786 
 size_t
  
 	gﬁd_t‹n_right
@@ -79537,7 +79957,7 @@ node
 t‹n_right
 ;
 
-784 
+787 
 boﬁ
  
 	gmoved
@@ -79547,13 +79967,13 @@ NODE_SLOT_MAX
 Ál£
 ,};
 
-786 
+789 
 size_t
  
 	gwrôe_size
 =0;
 
-787 * 
+790 * 
 	gbuf„r_wrôe_°¨t
  = 
 ãmp_node
@@ -79565,7 +79985,7 @@ nodeMëa
 wrôãn_size
 ;
 
-789 
+792 
 	g°d
 ::
 ©omic
@@ -79575,13 +79995,13 @@ uöt8_t
 £g_lock
 ;
 
-797 i‡(
+800 i‡(
 	gnode
 ->
 	gt‹n_À·
 )
 
-799 
+802 
 	gdl
  = &
 doubÀLogLi°
@@ -79593,7 +80013,7 @@ t‹n_íåy
 log_num
 ];
 
-800 
+803 
 	gaddr
  = 
 dl
@@ -79607,7 +80027,7 @@ off£t
 my_size
 );
 
-801 
+804 
 	gﬁd_t‹n_hódî
  = (
 uöt64_t
@@ -79615,13 +80035,13 @@ uöt64_t
 addr
 ;
 
-802 
+805 
 	gﬁd_t‹n_addr
 .
 	gloc
  = 0;
 
-803 
+806 
 	gﬁd_t‹n_addr
 .
 	gfûe_num
@@ -79633,7 +80053,7 @@ t‹n_íåy
 log_num
 ;
 
-804 
+807 
 	gﬁd_t‹n_addr
 .
 	goff£t
@@ -79647,7 +80067,7 @@ dl
 my_size
 ;
 
-805 
+808 
 mem˝y
 (
 buf„r_wrôe_°¨t
@@ -79661,7 +80081,7 @@ t‹n_À·
 t‹n_right
 );
 
-806 
+809 
 	gwrôe_size
 +=
 node
@@ -79669,11 +80089,11 @@ node
 t‹n_right
 ;
 
-809 * 
+812 * 
 	gﬁd_addr
 [100];
 
-811 
+814 
 	gíåy_li°_˙t
  = 
 node
@@ -79683,13 +80103,13 @@ node
 size
 ();
 
-812 
+815 
 	gi
 =0;i<
 	gíåy_li°_˙t
 ;i++)
 
-814 
+817 
 	gŒ
  = 
 node
@@ -79699,7 +80119,7 @@ node
 i
 ];
 
-815 
+818 
 	gdl
  = &
 doubÀLogLi°
@@ -79709,7 +80129,7 @@ doubÀLogLi°
 log_num
 ];
 
-816 
+819 
 	gaddr
  = 
 dl
@@ -79723,7 +80143,7 @@ off£t
 my_size
 );
 
-818 
+821 
 	gﬁd_addr
 [
 i
@@ -79731,7 +80151,7 @@ i
 addr
 ;
 
-820 
+823 
 	ghódî
  = (
 uöt64_t
@@ -79739,7 +80159,7 @@ uöt64_t
 addr
 ;
 
-821 i‡(
+824 i‡(
 	gdl
 ->
 	gèû_sum
@@ -79755,7 +80175,7 @@ hódî
 Ál£
 )
 
-823 
+826 
 node
 ->
 íåy_li°
@@ -79765,13 +80185,13 @@ i
 log_num
  = -1;
 
-827 
+830 
 uöt64_t
  
 	gkey
 ;
 
-828 
+831 
 	gkey
  = *(
 uöt64_t
@@ -79781,17 +80201,17 @@ addr
 HEADER_SIZE
 );
 
-829 i‡(
+832 i‡(
 	gkey
  < 
 	gnode
 ->key)
 
-831 
+834 
 ¥ötf
 ("key is smallerÅhanÇode key\n");
 
-834 
+837 
 mem˝y
 (
 buf„r_wrôe_°¨t
@@ -79803,17 +80223,17 @@ addr
 bÀ_Àn
 );
 
-835 
+838 
 	gwrôe_size
 +=
 bÀ_Àn
 ;
 
-839 i‡(
+842 i‡(
 	gf‹˚
 )
 
-841 
+844 
 pmem_¡_wrôe
 (
 d°_node
@@ -79829,23 +80249,23 @@ buf„r_wrôe_°¨t
 wrôe_size
 );
 
-842 
+845 
 	gnode
 ->
 	gt‹n_À·
  = 0;
 
-843 
+846 
 	gnode
 ->
 	gt‹n_right
  = 0;
 
-845 i‡(
+848 i‡(
 	gwrôe_size
  > 0)
 
-847 
+850 
 	gnode
 ->
 	gt‹n_íåy
@@ -79853,7 +80273,7 @@ wrôe_size
 Œ
 ;
 
-848 
+851 
 	gnode
 ->
 	gt‹n_right
@@ -79869,7 +80289,7 @@ wrôe_size
 PMEM_BUFFER_SIZE
 ;
 
-849 
+852 
 	gnode
 ->
 	gt‹n_À·
@@ -79881,7 +80301,7 @@ node
 t‹n_right
 ;
 
-850 
+853 
 	gwrôe_size
 -=
 node
@@ -79889,7 +80309,7 @@ node
 t‹n_right
 ;
 
-852 
+855 
 pmem_¡_wrôe
 (
 d°_node
@@ -79905,27 +80325,27 @@ buf„r_wrôe_°¨t
 wrôe_size
 );
 
-853 --
+856 --
 	gíåy_li°_˙t
 ;
 
-858 
+861 
 _mm_s„n˚
 ();
 
-860 
+863 
 KVP
 * 
 	gkvp_p
 ;
 
-861 
+864 
 size_t
  
 	gkey
 ;
 
-863 
+866 
 E¡ryAddr
  
 	gd°_addr
@@ -79933,13 +80353,13 @@ E¡ryAddr
 	g§c_addr
 ;
 
-864 
+867 
 	gd°_addr
 .
 	gloc
  = 2;
 
-865 
+868 
 	gd°_addr
 .
 	gfûe_num
@@ -79951,7 +80371,7 @@ my_off£t
 poﬁ_num
 ;
 
-866 
+869 
 	gd°_addr
 .
 	goff£t
@@ -79969,11 +80389,11 @@ NodeAddr
 wrôãn_size
 ;
 
-868 i‡(
+871 i‡(
 	gﬁd_t‹n_hódî
 )
 
-870 
+873 
 	gkey
  = *(
 uöt64_t
@@ -79983,7 +80403,7 @@ uöt64_t
 HEADER_SIZE
 );
 
-871 
+874 
 	gkvp_p
  = 
 hash_ödex
@@ -79997,7 +80417,7 @@ key
 ªad_lock
 );
 
-872 i‡(
+875 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -80007,7 +80427,7 @@ key
 vÆue
 )
 
-874 
+877 
 kvp_p
 ->
 vÆue
@@ -80015,7 +80435,7 @@ vÆue
 d°_addr
 .value;
 
-875 
+878 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -80027,7 +80447,7 @@ kvp_p
 vîsi⁄
 );
 
-876 
+879 
 	gnodeMëa
 ->
 	gvÆid
@@ -80039,7 +80459,7 @@ nodeMëa
 åue
 ;
 
-879 
+882 
 	gnodeMëa
 ->
 	gvÆid
@@ -80051,7 +80471,7 @@ nodeMëa
 Ál£
 ;
 
-881 
+884 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -80061,13 +80481,13 @@ u∆ock_íåy2
 ªad_lock
 );
 
-882 
+885 
 £t_övÆid
 (
 ﬁd_t‹n_hódî
 );
 
-884 
+887 
 	gd°_addr
 .
 	goff£t
@@ -80075,19 +80495,19 @@ u∆ock_íåy2
 ﬁd_t‹n_right
 ;
 
-887 
+890 
 	g§c_addr
 .
 	gloc
  = 1;
 
-889 
+892 
 	gi
 =0;i<
 	gíåy_li°_˙t
 ;i++)
 
-891 
+894 
 	gŒ
  = 
 node
@@ -80097,13 +80517,13 @@ node
 i
 ];
 
-892 i‡(
+895 i‡(
 	gŒ
 .
 	glog_num
  == -1)
 
-894 
+897 
 	gdl
  = &
 doubÀLogLi°
@@ -80113,7 +80533,7 @@ doubÀLogLi°
 log_num
 ];
 
-895 
+898 
 	gaddr
  = 
 dl
@@ -80127,7 +80547,7 @@ off£t
 my_size
 );
 
-896 
+899 
 	ghódî
  = (
 uöt64_t
@@ -80135,7 +80555,7 @@ uöt64_t
 addr
 ;
 
-897 
+900 
 	gkey
  = *(
 uöt64_t
@@ -80145,7 +80565,7 @@ addr
 HEADER_SIZE
 );
 
-901 
+904 
 	g§c_addr
 .
 	gfûe_num
@@ -80155,7 +80575,7 @@ HEADER_SIZE
 log_num
 ;
 
-902 
+905 
 	g§c_addr
 .
 	goff£t
@@ -80169,7 +80589,7 @@ dl
 my_size
 ;
 
-904 
+907 
 	gkvp_p
  = 
 hash_ödex
@@ -80183,7 +80603,7 @@ key
 ªad_lock
 );
 
-905 i‡(
+908 i‡(
 	gkvp_p
 ->
 	gvÆue
@@ -80193,7 +80613,7 @@ key
 vÆue
 )
 
-907 
+910 
 kvp_p
 ->
 vÆue
@@ -80201,7 +80621,7 @@ vÆue
 d°_addr
 .value;
 
-908 
+911 
 	gkvp_p
 ->
 	gvîsi⁄
@@ -80213,7 +80633,7 @@ kvp_p
 vîsi⁄
 );
 
-909 
+912 
 	gnodeMëa
 ->
 	gvÆid
@@ -80225,13 +80645,13 @@ nodeMëa
 åue
 ;
 
-910 ++
+913 ++
 	gnodeMëa
 ->
 	gvÆid_˙t
 ;
 
-913 
+916 
 	gnodeMëa
 ->
 	gvÆid
@@ -80243,7 +80663,7 @@ nodeMëa
 Ál£
 ;
 
-915 
+918 
 	ghash_ödex
 ->
 u∆ock_íåy2
@@ -80253,13 +80673,13 @@ u∆ock_íåy2
 ªad_lock
 );
 
-916 
+919 
 £t_övÆid
 (
 hódî
 );
 
-918 i‡(
+921 i‡(
 is_vÆid
 ((
 uöt64_t
@@ -80267,11 +80687,11 @@ uöt64_t
 addr
 ))
 
-919 
+922 
 ¥ötf
 ("validÉrorr\n");
 
-921 
+924 
 	gd°_addr
 .
 	goff£t
@@ -80279,7 +80699,7 @@ addr
 bÀ_Àn
 ;
 
-924 
+927 
 	gnodeMëa
 ->
 	gwrôãn_size
@@ -80287,7 +80707,7 @@ bÀ_Àn
 wrôe_size
 ;
 
-929 
+932 
 	gi
 =0;i<
 	gnode
@@ -80297,7 +80717,7 @@ wrôe_size
 size
 ();i++)
 
-931 
+934 
 	gaddr
  = 
 ﬁd_addr
@@ -80305,7 +80725,7 @@ size
 i
 ];
 
-932 
+935 
 	ghódî
  = (
 uöt64_t
@@ -80313,7 +80733,7 @@ uöt64_t
 addr
 ;
 
-933 
+936 
 	gkey
  = *(
 uöt64_t
@@ -80323,17 +80743,17 @@ addr
 HEADER_SIZE
 );
 
-934 i‡(
+937 i‡(
 is_vÆid
 (
 hódî
 ))
 
-935 
+938 
 ¥ötf
 ("hotÅo warm validerror\n");
 
-940 i‡(
+943 i‡(
 	gnode
 ->
 	gíåy_li°
@@ -80347,7 +80767,7 @@ node
 íåy_size_sum
 )
 
-942 
+945 
 ¥ötf
 ("missm©ch %lu %lu\n",
 node
@@ -80361,7 +80781,7 @@ bÀ_Àn
 íåy_size_sum
 );
 
-945 
+948 
 	gnode
 ->
 	gíåy_li°
@@ -80369,13 +80789,13 @@ bÀ_Àn
 ˛ór
 ();
 
-946 
+949 
 	gnode
 ->
 	gíåy_size_sum
  = 0;
 
-948 
+951 
 ©_u∆ock2
 (
 nodeMëa
@@ -80383,7 +80803,7 @@ nodeMëa
 lock
 );
 
-952 
+955 
 	gPH_Evi˘_Thªad
 ::
 åy_push
@@ -80393,21 +80813,21 @@ DoubÀLog
 dl
 )
 
-955 * 
+958 * 
 addr
 ;
 
-956 
+959 
 uöt64_t
  
 	ghódî
 ;
 
-957 
+960 
 	grv
 =0;
 
-960 
+963 
 	gdl
 ->
 	gèû_sum
@@ -80419,7 +80839,7 @@ dl
 hód_sum
 )
 
-962 
+965 
 addr
  = 
 dl
@@ -80431,7 +80851,7 @@ dømLogAddr
 my_size
 );
 
-963 
+966 
 	ghódî
  = *(
 uöt64_t
@@ -80439,13 +80859,13 @@ uöt64_t
 addr
 ;
 
-965 i‡(
+968 i‡(
 is_vÆid
 (
 hódî
 ))
 
-967 
+970 
 	gdl
 ->
 	gèû_sum
@@ -80453,7 +80873,7 @@ hódî
 bÀ_Àn
 ;
 
-969 i‡(
+972 i‡(
 	gdl
 ->
 	gèû_sum
@@ -80463,7 +80883,7 @@ bÀ_Àn
 	gbÀ_Àn
  > dl->my_size)
 
-970 
+973 
 	gdl
 ->
 	gèû_sum
@@ -80475,15 +80895,15 @@ my_size
 èû_sum
 %dl->my_size));
 
-971 
+974 
 	grv
  = 1;
 
-973  
+976  
 	grv
 ;
 
-976 
+979 
 	gPH_Evi˘_Thªad
 ::
 åy_h¨d_evi˘
@@ -80493,27 +80913,27 @@ DoubÀLog
 dl
 )
 
-981 * 
+984 * 
 addr
 ;
 
-982 
+985 
 uöt64_t
  
 	ghódî
 ;
 
-983 
+986 
 uöt64_t
  
 	gkey
 ;
 
-984 
+987 
 	grv
 =0;
 
-991 
+994 
 	gdl
 ->
 	gèû_sum
@@ -80527,7 +80947,7 @@ hód_sum
 HARD_EVICT_SPACE
 )
 
-994 
+997 
 addr
  = 
 dl
@@ -80539,7 +80959,7 @@ dømLogAddr
 my_size
 );
 
-995 
+998 
 	gkey
  = *(
 uöt64_t
@@ -80549,7 +80969,7 @@ addr
 HEADER_SIZE
 );
 
-998 
+1001 
 Skùli°Node
 * 
 	g¥ev
@@ -80557,7 +80977,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-999 
+1002 
 Skùli°Node
 * 
 	g√xt
@@ -80565,13 +80985,13 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1000 
+1003 
 Skùli°Node
 * 
 	gnode
 ;
 
-1002 
+1005 
 	gnode
  = 
 skùli°
@@ -80585,7 +81005,7 @@ key
 √xt
 );
 
-1003 
+1006 
 hŸ_to_w¨m
 (
 node
@@ -80593,21 +81013,21 @@ node
 åue
 );
 
-1009 
+1012 
 	grv
  = 1;
 
-1010 
+1013 
 åy_push
 (
 dl
 );
 
-1013  
+1016  
 	grv
 ;
 
-1016 
+1019 
 	gPH_Evi˘_Thªad
 ::
 åy_so·_evi˘
@@ -80617,11 +81037,11 @@ DoubÀLog
 dl
 )
 
-1018 * 
+1021 * 
 addr
 ;
 
-1020 
+1023 
 uöt64_t
  
 	ghódî
@@ -80629,11 +81049,11 @@ uöt64_t
 	gkey
 ;
 
-1021 
+1024 
 	grv
  = 0;
 
-1024 
+1027 
 Skùli°Node
 * 
 	g¥ev
@@ -80641,7 +81061,7 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1025 
+1028 
 Skùli°Node
 * 
 	g√xt
@@ -80649,25 +81069,25 @@ Skùli°Node
 MAX_LEVEL
 +1];
 
-1026 
+1029 
 Skùli°Node
 * 
 	gnode
 ;
 
-1027 
+1030 
 NodeMëa
 * 
 	gnodeMëa
 ;
 
-1028 
+1031 
 LogLoc
  
 	gŒ
 ;
 
-1037 i‡(
+1040 i‡(
 	gdl
 ->
 	gso·_adv_off£t
@@ -80675,7 +81095,7 @@ LogLoc
 	gèû_sum
 )
 
-1038 
+1041 
 	gdl
 ->
 	gso·_adv_off£t
@@ -80685,7 +81105,7 @@ dl
 èû_sum
 ;
 
-1040 
+1043 
 	gdl
 ->
 	gso·_adv_off£t
@@ -80701,7 +81121,7 @@ hód_sum
 SOFT_EVICT_SPACE
 )
 
-1042 
+1045 
 addr
  = 
 dl
@@ -80713,7 +81133,7 @@ so·_adv_off£t
 my_size
 );
 
-1043 
+1046 
 	ghódî
  = *(
 uöt64_t
@@ -80721,7 +81141,7 @@ uöt64_t
 addr
 ;
 
-1044 
+1047 
 	gkey
  = *(
 uöt64_t
@@ -80731,17 +81151,17 @@ addr
 HEADER_SIZE
 );
 
-1046 i‡(
+1049 i‡(
 is_vÆid
 (
 hódî
 ))
 
-1048 
+1051 
 	grv
  = 1;
 
-1050 
+1053 
 	gnode
  = 
 skùli°
@@ -80755,7 +81175,7 @@ key
 √xt
 );
 
-1051 
+1054 
 	gnodeMëa
  = 
 nodeAddr_to_nodeMëa
@@ -80765,7 +81185,7 @@ node
 d©a_node_addr
 );
 
-1054 i‡((
+1057 i‡((
 	gNodeAddr
 Ë+ 
 	gnodeMëa
@@ -80781,7 +81201,7 @@ d©a_node_addr
 	gNODE_SIZE
 )
 
-1057 
+1060 
 hŸ_to_w¨m
 (
 node
@@ -80789,7 +81209,7 @@ node
 åue
 );
 
-1059 i‡((
+1062 i‡((
 	gNodeAddr
 Ë+ 
 	gnodeMëa
@@ -80801,13 +81221,13 @@ node
 	gNODE_SIZE
 )
 
-1060 
+1063 
 w¨m_to_cﬁd
 (
 node
 );
 
-1065 
+1068 
 	gŒ
 .
 	glog_num
@@ -80817,7 +81237,7 @@ dl
 log_num
 ;
 
-1066 
+1069 
 	gŒ
 .
 	goff£t
@@ -80827,7 +81247,7 @@ dl
 so·_adv_off£t
 ;
 
-1067 
+1070 
 	gnode
 ->
 	gíåy_li°
@@ -80837,7 +81257,7 @@ push_back
 Œ
 );
 
-1068 
+1071 
 	gnode
 ->
 	gíåy_size_sum
@@ -80845,17 +81265,17 @@ push_back
 bÀ_Àn
 ;
 
-1070 i‡(
+1073 i‡(
 	gkey
  < 
 	gnode
 ->key)
 
-1071 
+1074 
 ¥ötf
 ("thread2 1026\n");
 
-1072 
+1075 
 	gŒ
 .
 	gã°_key1
@@ -80865,7 +81285,7 @@ node
 key
 ;
 
-1073 
+1076 
 	gŒ
 .
 	gã°_key2
@@ -80873,7 +81293,7 @@ key
 key
 ;
 
-1074 
+1077 
 	gŒ
 .
 	gã°_±r
@@ -80881,11 +81301,11 @@ key
 node
 ;
 
-1078 #ifde‡
+1081 #ifde‡
 SOFT_FLUSH
 
 
-1079 
+1082 
 hŸ_to_w¨m
 (
 node
@@ -80893,7 +81313,7 @@ node
 Ál£
 );
 
-1083 
+1086 
 	gdl
 ->
 	gso·_adv_off£t
@@ -80901,7 +81321,7 @@ node
 bÀ_Àn
 ;
 
-1084 i‡((
+1087 i‡((
 	gdl
 ->
 	gso·_adv_off£t
@@ -80911,7 +81331,7 @@ bÀ_Àn
 	gbÀ_Àn
  > dl->my_size)
 
-1085 
+1088 
 	gdl
 ->
 	gso·_adv_off£t
@@ -80923,11 +81343,11 @@ my_size
 so·_adv_off£t
 )%dl->my_size));
 
-1091  
+1094  
 	grv
 ;
 
-1094 
+1097 
 	gPH_Evi˘_Thªad
 ::
 evi˘_log
@@ -80937,89 +81357,89 @@ DoubÀLog
 dl
 )
 
-1096 
+1099 
 diff
 =0;
 
-1097 i‡(
+1100 i‡(
 åy_so·_evi˘
 (
 dl
 ))
 
-1098 
+1101 
 	gdiff
  = 1;
 
-1099 i‡(
+1102 i‡(
 åy_push
 (
 dl
 ))
 
-1100 
+1103 
 	gdiff
  = 1;
 
-1101 i‡(
+1104 i‡(
 åy_h¨d_evi˘
 (
 dl
 ))
 
-1102 
+1105 
 	gdiff
  = 1;
 
-1103 i‡(
+1106 i‡(
 åy_push
 (
 dl
 ))
 
-1104 
+1107 
 	gdiff
  = 1;
 
-1105  
+1108  
 	gdiff
 ;
 
-1108 
+1111 
 	gPH_Evi˘_Thªad
 ::
 evi˘_lo›
 ()
 
-1110 
+1113 
 i
 ,
 	gd⁄e
 ;
 
-1112 
+1115 
 ¥ötf
 ("evict start\n");
 
-1113 
+1116 
 	gexô
  == 0)
 
-1116 
+1119 
 ›_check
 ();
 
-1118 
+1121 
 	gd⁄e
  = 1;
 
-1119 
+1122 
 	gi
 =0;i<
 	glog_˙t
 ;i++)
 
-1121 i‡(
+1124 i‡(
 evi˘_log
 (
 log_li°
@@ -81027,23 +81447,47 @@ log_li°
 i
 ]))
 
-1122 
+1125 
 	gd⁄e
  = 0;
 
-1124 i‡(
+1127 i‡(
 	gd⁄e
 )
 
-1125 
-u¶ìp
-(1000);
-
-1127 
+1129 
 	grun
  = 0;
 
-1128 
+1130 
+¥ötf
+("evict idle\n");
+
+1131 
+u¶ìp
+(1000*1000);
+
+1132 
+_mm_m„n˚
+();
+
+1133 
+sync_thªad
+();
+
+1134 
+_mm_m„n˚
+();
+
+1135 
+	grun
+ = 1;
+
+1138 
+	grun
+ = 0;
+
+1139 
 ¥ötf
 ("evictÉnd\n");
 
@@ -81116,7 +81560,7 @@ run
 (0),
 exô
 (0),
-loˇl_£g_‰ì_˙t
+loˇl_£g_‰ì_hód
 (0),
 ›_˙t
 (0),
@@ -81170,7 +81614,7 @@ uöt8_t
 38 vﬁ©ûê
 size_t
  
-	gloˇl_£g_‰ì_˙t
+	gloˇl_£g_‰ì_hód
 ;
 
 39 
@@ -81373,10 +81817,6 @@ D©aNode
 
 84 
 evi˘_lo›
-();
-
-91 
-mö_£g_‰ì_˙t
 ();
 
 92 

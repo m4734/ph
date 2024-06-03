@@ -19,9 +19,10 @@ namespace PH
 
 extern thread_local PH_Thread* my_thread;
 
+thread_local SEG* temp_seg = NULL;
+
 //extern PH_Thread thread_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 //extern int num_thread;
-
 extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 extern int num_query_thread;
 extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
@@ -35,7 +36,7 @@ volatile unsigned int seg_free_cnt; // atomic?
 volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
 */
-
+#if 0
 std::atomic<uint32_t> seg_free_head;
 //std::atomic<uint32_t> seg_free_min_head;
 thread_local uint32_t local_seg_free_min_head=0;
@@ -49,7 +50,7 @@ std::atomic<uint32_t> seg_free_tail;
 SEG* free_seg_queue[FREE_SEG_LEN];
 
 std::atomic<uint8_t> free_seg_lock;
-
+#endif
 uint64_t r_mask[65];
 
 unsigned char** key_array = 0;
@@ -181,7 +182,7 @@ void inv_seg(SEG* volatile seg)//,int sn)
 //	seg->lock = 0;
 //	seg->depth = depth;
 }
-
+#if 0
 SEG* alloc_seg() // use free list
 {
 	SEG* seg;
@@ -236,7 +237,17 @@ SEG* alloc_seg() // use free list
 //	printf("alloc_seg %p\n",seg);
 	return seg;
 }
+#endif
 
+SEG* alloc_seg() // use free list
+{
+	SEG* seg;
+			alloc_seg_cnt++;
+			if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
+				printf("posix_memalign error2\n");
+	return seg;
+}
+#if 0
 void free_seg(SEG* seg)
 {
 //	printf("free_seg %p\n",seg);
@@ -293,6 +304,7 @@ void free_seg(SEG* seg)
 //	at_unlock2(free_seg_lock);
 */
 }
+#endif
 CCEH::CCEH()
 {
 	point = 0;
@@ -306,6 +318,16 @@ CCEH::CCEH(int in_depth)
 CCEH::~CCEH()
 {
 	clean();
+}
+
+void CCEH::thread_local_init()
+{
+	temp_seg = alloc_seg();
+}
+
+void CCEH::thread_local_clean()
+{
+	free(temp_seg);
 }
 
 void CCEH::init(int in_depth)
@@ -346,7 +368,7 @@ void CCEH::init(int in_depth)
 
 //	dir_lock = 0;
 	write_lock = 0;
-	free_seg_lock = 0;
+//	free_seg_lock = 0;
 
 	//test
 #if ctt
@@ -384,7 +406,20 @@ void CCEH::clean()
 }
 
 //ValueEntry CCEH::find(unsigned char* const &key)
+
 bool CCEH::read(uint64_t &key,uint64_t *ret)
+{
+	bool sf = false;
+	bool exist;
+	while(true)
+	{
+		exist = read_with_fail(key,ret,sf);
+		if (sf)
+			return exist;
+	}
+}
+
+bool CCEH::read_with_fail(uint64_t &key,uint64_t *ret,bool &sf)
 {
 	/*
 	if (point)
@@ -406,6 +441,7 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 //	uint32_t hk2;
 	const int cl_shift = 64-CL_BIT;
 	int l;
+	int start_depth;
 
 //	if (key == (void*)INV0 && key_size == 8) // wrong!
 	if (zero_check(key))	
@@ -434,8 +470,11 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 	cn = hk >> cl_shift;	
 
 //	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
-	kvp_p = (KVP*)seg_list[sn]->cl;
 	l = cn*KVP_PER_CL;
+
+	start_depth = seg_list[sn]->depth;
+	_mm_sfence();
+	kvp_p = (KVP*)seg_list[sn]->cl;
 //	if (point)
 //return NULL;
 //	const int ll = (hk >> (64-CL_BIT)) * KVP_PER_CL;
@@ -466,6 +505,8 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 #endif
 //			ve_u.ve_64 = kvp_p[l].value;
 			*ret = kvp_p[l].value;
+			_mm_sfence();
+			sf = (start_depth == seg_list[sn]->depth);
 			return true;
 //			break;
 //			return ValueEntry(kvp_p[l].value);
@@ -473,6 +514,8 @@ bool CCEH::read(uint64_t &key,uint64_t *ret)
 		l++;
 	}
 //	return ve_u.ve;
+	_mm_sfence();
+	sf = (start_depth == seg_list[sn]->depth);
 	return false;
 }
 
@@ -556,7 +599,7 @@ retry:
 	return;
 #endif
 }
-
+#if 0
 void seg_gc() // should be end
 {
 //	at_lock2(free_seg_lock);
@@ -580,7 +623,7 @@ void seg_gc() // should be end
 //	at_unlock2(free_seg_lock);
 
 }
-
+#endif
 void CCEH::dir_double()
 {
 	printf("cceh dir double depth %d\n",depth);
@@ -743,7 +786,8 @@ void CCEH::split(int sn) // seg locked
 	SEG* new_seg1;
 	SEG* new_seg2;
 
-	new_seg1 = alloc_seg();
+//	new_seg1 = alloc_seg();
+	new_seg1 = temp_seg;
 	new_seg2 = alloc_seg();
 //printf("alloc_seg1 %p\n",new_seg1);
 //printf("alloc_seg2 %p\n",new_seg2);
@@ -895,7 +939,8 @@ void CCEH::split(int sn) // seg locked
 	//why do we unlock
 //	at_unlock2(seg->lock);
 _mm_sfence(); // seg lock deadlock?
-	free_seg(seg);
+//	free_seg(seg);
+	temp_seg = seg;
 }
 
 //volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)
@@ -908,8 +953,8 @@ KVP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t
 		ret = insert_with_fail(key,unlock_p,read_lock);
 		if (ret != NULL)
 			return ret;
-		if (my_thread->update_request)
-			my_thread->sync_thread();
+//		if (my_thread->update_request)
+//			my_thread->sync_thread();
 	}
 }
 
@@ -1244,7 +1289,7 @@ void init_cceh()
 {
 	printf("init cceh\n");
 //	seg_free_cnt = seg_free_min = seg_free_index = 0;
-	seg_free_head = seg_free_tail = 0;
+//	seg_free_head = seg_free_tail = 0;
 	printf("sizeof KVP %ld\n",sizeof(KVP));
 	printf("sizeof CL %ld\n",sizeof(CL));
 	int i;
@@ -1272,7 +1317,7 @@ void init_cceh()
 void clean_cceh()
 {
 	printf("clean cceh\n");
-	seg_gc();
+//	seg_gc();
 
 	printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
 	printf("SEG count %u\n",alloc_seg_cnt.load());

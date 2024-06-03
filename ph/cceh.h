@@ -104,7 +104,7 @@ struct SEG
 	std::atomic<uint8_t> lock; // 1 ?
 //	std::mutex* seg_lock;	//struct c++
 //	volatile int depth; // 4
-	int depth;	
+	volatile int depth; // retry if split
 
 }; // 64 * ???
 
@@ -114,6 +114,9 @@ class CCEH
 	CCEH();
 	CCEH(int in_depth);
 	~CCEH();
+
+	void thread_local_init();
+	void thread_local_clean();
 
 	private:
 
@@ -161,6 +164,7 @@ class CCEH
 	void unlock(KVP* kvp);
 
 	bool read(uint64_t &key,uint64_t *ret);
+	bool read_with_fail(uint64_t &key,uint64_t *ret,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);

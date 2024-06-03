@@ -308,7 +308,7 @@ void update_free_cnt()
 	new_thread();
 #endif
 }
-
+#if 0
 unsigned int min_free_cnt(int part)
 {
 	int i;
@@ -352,6 +352,7 @@ unsigned int min_seg_free_cnt()
 		return seg_free_cnt;
 	return min;
 }
+#endif
 /*
 int check_slow()
 {

@@ -88,7 +88,7 @@ class PH_Evict_Thread : public PH_Thread
 
 };
 
-unsigned int min_seg_free_cnt();
+//unsigned int min_seg_free_cnt();
 size_t get_min_tail(int log_num);
 
 }

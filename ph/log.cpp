@@ -234,8 +234,8 @@ void DoubleLog::ready_log()//(size_t len)
 		min_tail_sum = get_min_tail(log_num);
 	while(min_tail_sum + my_size < head_sum + ble_len)
 	{
-		printf("log %d full\n",log_num);
-		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
+//		printf("log %d full\n",log_num);
+//		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
 		usleep(1000*100);// sleep
 //		my_thread->update_tail_sum();
 		my_thread->sync_thread();
