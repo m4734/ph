@@ -22,7 +22,8 @@ extern int num_query_thread;
 extern int num_evict_thread;
 extern int log_max;
 extern DoubleLog* doubleLogList;
-extern volatile unsigned int seg_free_cnt;
+//extern volatile unsigned int seg_free_cnt;
+extern std::atomic<uint32_t> seg_free_head;
 extern CCEH* hash_index;
 extern const size_t ble_len;
 
@@ -52,39 +53,53 @@ union EntryAddr
 
 unsigned int min_seg_free_cnt()
 {
-	int i;
+	int i,mi;
 	unsigned int min=999999999;
 	for (i=0;i<num_query_thread;i++)
 	{
-		if (query_thread_list[i].run && min > query_thread_list[i].local_seg_free_cnt)
-			min = query_thread_list[i].local_seg_free_cnt;
+		if (query_thread_list[i].run && min > query_thread_list[i].local_seg_free_head)
+		{
+			min = query_thread_list[i].local_seg_free_head;
+			mi = i;
+		}
 	}
 	for (i=0;i<num_evict_thread;i++)
 	{
-		if (evict_thread_list[i].run && min > evict_thread_list[i].local_seg_free_cnt)
-			min = evict_thread_list[i].local_seg_free_cnt;
+		if (evict_thread_list[i].run && min > evict_thread_list[i].local_seg_free_head)
+		{
+			min = evict_thread_list[i].local_seg_free_head;
+			mi = i + num_query_thread;
+		}
 	}
 	if (min == 999999999)
-		return seg_free_cnt;
+		return seg_free_head; // what happend?
+	if (mi < num_query_thread)
+		query_thread_list[mi].update_request = 1;
+	else
+		evict_thread_list[mi-num_query_thread].update_request = 1;
 	return min;
 }
 
 size_t get_min_tail(int log_num)
 {
-	int i;
+	int i,mi;
 	size_t min = 0xffffffffffffffff;
 	for (i=0;i<num_query_thread;i++)
 	{
 		if (query_thread_list[i].run && min > query_thread_list[i].recent_log_tails[log_num])
+		{
 			min = query_thread_list[i].recent_log_tails[log_num];
+			mi = i;
+		}
 	}
+		query_thread_list[mi].update_request = 1;
 	return min;
 }
 
 void PH_Thread::op_check()
 {
 	++op_cnt;
-	if (op_cnt % 128 == 0) // 128?
+	if (op_cnt % 128 == 0 || update_request) // 128?
 		sync_thread();
 }
 
@@ -92,6 +107,7 @@ void PH_Thread::sync_thread()
 {
 	update_free_cnt();
 	update_tail_sum();	
+	update_request = 0;
 }
 
 void PH_Thread::update_tail_sum()
@@ -103,7 +119,7 @@ void PH_Thread::update_tail_sum()
 
 void PH_Thread::update_free_cnt()
 {
-			local_seg_free_cnt = seg_free_cnt;
+			local_seg_free_head = seg_free_head;
 #ifdef wait_for_slow
 			int min = min_seg_free_cnt();
 			if (min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
@@ -164,11 +180,11 @@ void PH_Query_Thread::init()
 	else
 		printf("log allocated\n");
 
-	my_log->my_thread = this;
+//	my_log->my_thread = this;
 
 //	local_seg_free_cnt = min_seg_free_cnt();
 //	local_seg_free_cnt = INV9;
-	local_seg_free_cnt = seg_free_cnt;
+	local_seg_free_head = seg_free_head;
 
 //	recent_log_tails = new size_t[log_num];
 
@@ -506,6 +522,7 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode,SkiplistNode *skiplistNo
 
 				ListNode* new_listNode = list->alloc_list_node();
 				NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
+	DataNode* new_dataNode = nodeAddr_to_node(new_listNode->data_node_addr);
 
 				new_listNode->key = half_key;
 	int moved_idx[NODE_SLOT_MAX];
@@ -539,7 +556,7 @@ void PH_Evict_Thread::split_listNode(ListNode *listNode,SkiplistNode *skiplistNo
 
 				temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
 //				pmem_node_nt_write(nodeAddr_to_node(new_listNode->data_node_addr),&temp_new_node,0,NODE_SIZE);
-				pmem_nt_write((unsigned char*)nodeAddr_to_node(new_listNode->data_node_addr),(unsigned char*)&temp_new_node,offset2);
+				pmem_nt_write((unsigned char*)new_dataNode,(unsigned char*)&temp_new_node,offset2);
 				new_nodeMeta->next_p = list_nodeMeta->next_p;
 
 				//link
@@ -559,9 +576,32 @@ if (listNode->key >= new_listNode->key)
 	}
 
 				list->insert_node(listNode,new_listNode);
-
+	KVP* kvp_p;
+	std::atomic<uint8_t> *seg_lock;
+	EntryAddr ea;
 				for (i=0;i<moved_cnt;i++)
+				{
+					key = *(uint64_t*)(temp_new_node.buffer + ble_len*i);
+					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					ea.loc = 3; // cold
+					ea.file_num = list_nodeMeta->my_offset.pool_num;
+					ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*moved_idx[i];
+					if (kvp_p->value == ea.value) // doesn't moved
+					{
+						// ea cold
+							ea.file_num = new_nodeMeta->my_offset.pool_num;
+						ea.offset = new_nodeMeta->my_offset.node_offset*NODE_SIZE * sizeof(NodeAddr) + ble_len*i;
+						kvp_p->value = ea.value;
+						kvp_p->version = set_loc_cold(kvp_p->version);
+					}
+					else
+						new_nodeMeta->valid[i] = false; // moved to hot
+					_mm_sfence(); // need this?
+					hash_index->unlock_entry2(seg_lock,read_lock);
+
+
 					list_nodeMeta->valid[moved_idx[i]] = false;
+				}
 	list_nodeMeta->valid_cnt-=moved_cnt;
 
 
@@ -767,12 +807,17 @@ void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 		write_size+=node->torn_right;
 	}
 
+	unsigned char* old_addr[100]; //test ------------------------
+
 	entry_list_cnt = node->entry_list.size();
 	for (i=0;i<entry_list_cnt;i++)
 	{
 		ll = node->entry_list[i];
 		dl = &doubleLogList[ll.log_num];
 		addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+
+		old_addr[i] = addr; // test--------------------
+
 		header = (uint64_t*)addr;
 		if (dl->tail_sum > ll.offset || is_valid(header) == false)
 		{
@@ -784,7 +829,7 @@ void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 		key = *(uint64_t*)(addr+HEADER_SIZE);
 		if (key < node->key)
 		{
-			printf("erererrr\n");
+			printf("key is smaller than node key\n");
 		}
 
 		memcpy(buffer_write_start+write_size,addr,ble_len);
@@ -870,10 +915,34 @@ void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 
 		hash_index->unlock_entry2(seg_lock,read_lock);
 		set_invalid(header); // invalidate
+
+		if (is_valid((uint64_t*)addr)) // test code
+			printf("valid erorr\n");
+
 		dst_addr.offset+=ble_len;
 	}
 
 	nodeMeta->written_size+=write_size;
+
+
+	//test--------------------------------------
+#if 0
+	for (i=0;i<node->entry_list.size();i++)
+	{
+		addr = old_addr[i];
+		header = (uint64_t*)addr;
+		key = *(uint64_t*)(addr+HEADER_SIZE);
+		if (is_valid(header))
+			printf("hot to warm validerror\n");
+
+	}
+#endif
+
+	if (node->entry_list.size() * ble_len != node->entry_size_sum) // test
+	{
+		printf("missmatch %lu %lu\n",node->entry_list.size() * ble_len, node->entry_size_sum);
+	}
+
 	node->entry_list.clear();
 	node->entry_size_sum = 0;
 
@@ -917,9 +986,11 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 
 	//check
 //	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
-	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
-		return rv;
+//	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
+//		return rv;
 
+	while(dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
+	{
 	//need hard evict
 	addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
 	key = *(uint64_t*)(addr+HEADER_SIZE);
@@ -936,7 +1007,11 @@ int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 
 	// do we need flush?
 
-	return 1;
+		rv = 1;
+		try_push(dl);
+	}
+
+	return rv;
 }
 
 int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
@@ -992,13 +1067,13 @@ int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 			ll.offset = dl->soft_adv_offset;
 			node->entry_list.push_back(ll);
 			node->entry_size_sum+=ble_len;
-/*
+
 			if (key < node->key)
-				printf("---------------xxfxfx-fx-fx-f-x-\n");
+				printf("thread2 1026\n");
 			ll.test_key1 = node->key;
 			ll.test_key2 = key;
 			ll.test_ptr = node;
-*/
+
 			// need to try flush
 //			node->try_hot_to_warm();
 #ifdef SOFT_FLUSH
@@ -1048,7 +1123,15 @@ printf("evict start\n");
 				done = 0;
 		}
 		if (done)
-			usleep(1000);
+		{
+			run = 0;
+			printf("evict idle\n");
+			usleep(1000*1000);
+			_mm_fence();
+			sync_thread();
+			_mm_fence();
+			run = 1;
+		}
 	}
 	run = 0;
 	printf("evict end\n");

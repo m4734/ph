@@ -24,9 +24,8 @@ class ListNode;
 class PH_Thread
 {
 	public:
-	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),local_seg_free_cnt(0),op_cnt(0) {}
+	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),local_seg_free_head(0),op_cnt(0),update_request(0) {}
 
-	void thread_sync();
 	void update_free_cnt();
 	void update_tail_sum();
 	void op_check();
@@ -36,8 +35,9 @@ class PH_Thread
 	volatile uint8_t read_lock;
 	volatile uint8_t run;
 	volatile uint8_t exit;
-	volatile size_t local_seg_free_cnt;
+	volatile size_t local_seg_free_head;
 	size_t op_cnt;
+	int update_request;
 
 	size_t recent_log_tails[64];
 

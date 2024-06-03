@@ -7,6 +7,7 @@
 //#include <mutex> //dir lock
 
 #include <time.h> //test
+#include <unistd.h> //usleep
 
 #include "cceh.h"
 #include "thread2.h"
@@ -15,6 +16,8 @@
 
 namespace PH
 {
+
+extern thread_local PH_Thread* my_thread;
 
 //extern PH_Thread thread_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 //extern int num_thread;
@@ -33,14 +36,15 @@ volatile unsigned int seg_free_min;
 volatile unsigned int seg_free_index;
 */
 
-std::atomic<uint32_t> seg_free_cnt;
-std::atomic<uint32_t> seg_free_min;
-std::atomic<uint32_t> seg_free_index;
+std::atomic<uint32_t> seg_free_head;
+//std::atomic<uint32_t> seg_free_min_head;
+thread_local uint32_t local_seg_free_min_head=0;
+std::atomic<uint32_t> seg_free_tail;
 
 //#define FREE_SEG_LEN 10000 moved to thread.h
 
-#define FREE_SEG_LEN 10000
-#define FREE_QUEUE_LEN 100000
+#define FREE_SEG_LEN (1024*8)
+#define FREE_QUEUE_LEN (1024*8) // OLD NODE
 
 SEG* free_seg_queue[FREE_SEG_LEN];
 
@@ -183,6 +187,7 @@ SEG* alloc_seg() // use free list
 	SEG* seg;
 
 //	at_lock2(free_seg_lock);
+/*
 	if (seg_free_index == seg_free_min)
 	{
 		int temp;
@@ -190,25 +195,41 @@ SEG* alloc_seg() // use free list
 		if (temp > seg_free_index)
 			seg_free_min = temp;
 	}
+*/
 
-	uint8_t o;
-	while (seg_free_index < seg_free_min)
+	if (local_seg_free_min_head <= seg_free_tail)
+		local_seg_free_min_head = PH::min_seg_free_cnt();
+
+	uint32_t end;
+	uint32_t sft;
+	while(true)
 	{
-		seg = free_seg_queue[seg_free_index%FREE_SEG_LEN];
-		o = 1;
-		if (seg->lock.compare_exchange_strong(o,0))
-		{		
-			seg_free_index++;
-			return seg;
+		end = local_seg_free_min_head;
+		sft = seg_free_tail;
+		while (sft < end)
+		{
+			if (seg_free_tail.compare_exchange_strong(sft,sft+1))
+			{
+				seg = free_seg_queue[sft%FREE_SEG_LEN];
+				return seg;
+			}
+			sft = seg_free_tail;
 		}
-	}
 //	else
-	{
+		if (seg_free_tail + FREE_SEG_LEN > seg_free_head)
+		{
 //		printf("aaa\n");
-		alloc_seg_cnt++;
-		if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
-			printf("posix_memalign error2\n");
+			alloc_seg_cnt++;
+			if (posix_memalign((void**)&seg,64,sizeof(SEG)) != 0)
+				printf("posix_memalign error2\n");
+			break;
+		}
+		if (my_thread->update_request)
+			my_thread->sync_thread();
+		local_seg_free_min_head = PH::min_seg_free_cnt();
 
+		printf("use free queue %u %u\n",seg_free_tail.load(),seg_free_head.load());
+		usleep(100*1000);
 	}
 //	at_unlock2(free_seg_lock);
 //	seg->seg_lock = new std::mutex;
@@ -225,7 +246,33 @@ void free_seg(SEG* seg)
 
 // need fetch and add
 
-	at_lock2(free_seg_lock);
+//	at_lock2(free_seg_lock);
+/*
+	while(try_at_lock2(free_seg_lock) == false)
+	{
+		if (my_thread->update_request)
+			my_thread->sync_thread();
+	}
+*/
+
+	uint32_t sfh;
+	while(true)
+	{
+		sfh = seg_free_head;
+		while(seg_free_tail + FREE_SEG_LEN <= sfh)
+		{
+			printf("free seg full %u %u\n",seg_free_tail.load(),seg_free_head.load());
+			if (my_thread->update_request)
+				my_thread->sync_thread();
+			usleep(1000*100);
+		}
+		if (seg_free_head.compare_exchange_strong(sfh,sfh+1))
+		{
+			free_seg_queue[sfh%FREE_SEG_LEN] = seg;
+			break;
+		}
+	}
+/*
 	if (seg_free_index+FREE_SEG_LEN/2 <= seg_free_cnt)
 	{
 //		update_idle(); // not now
@@ -235,12 +282,16 @@ void free_seg(SEG* seg)
 		printf("free seg full %u %u %u\n",seg_free_min.load(),seg_free_index.load(),seg_free_cnt.load());
 //		print_thread_info();
 		while(seg_free_index+FREE_SEG_LEN <= seg_free_cnt)
+		{
+			my_thread->sync_thread();
 			seg_free_index = min_seg_free_cnt();
+		}
 	}
 	}
 	free_seg_queue[seg_free_cnt%FREE_SEG_LEN] = seg;	
 	seg_free_cnt++;
-	at_unlock2(free_seg_lock);
+//	at_unlock2(free_seg_lock);
+*/
 }
 CCEH::CCEH()
 {
@@ -506,12 +557,15 @@ retry:
 #endif
 }
 
-void seg_gc()
+void seg_gc() // should be end
 {
-	at_lock2(free_seg_lock);
+//	at_lock2(free_seg_lock);
 	SEG* seg;
-	seg_free_min = PH::min_seg_free_cnt();
-	for (;seg_free_index < seg_free_min;seg_free_index++)
+//	uint32_t seg_free_min = PH::min_seg_free_cnt();
+	uint32_t i,tail,head;
+	tail = seg_free_tail;
+	head = seg_free_head;
+	for (i = tail;i < head;i++)
 	{
 		/*
 		seg = seg_free_list.front();
@@ -520,10 +574,10 @@ void seg_gc()
 		free(seg);
 		seg_free_list.pop();
 		*/
-		seg = free_seg_queue[seg_free_index%FREE_SEG_LEN];
+		seg = free_seg_queue[i%FREE_SEG_LEN];
 		free(seg);
 	}
-	at_unlock2(free_seg_lock);
+//	at_unlock2(free_seg_lock);
 
 }
 
@@ -854,6 +908,8 @@ KVP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t
 		ret = insert_with_fail(key,unlock_p,read_lock);
 		if (ret != NULL)
 			return ret;
+		if (my_thread->update_request)
+			my_thread->sync_thread();
 	}
 }
 
@@ -1187,7 +1243,8 @@ void CCEH::unlock_entry2(std::atomic<uint8_t> *lock_p,volatile uint8_t &read_loc
 void init_cceh()
 {
 	printf("init cceh\n");
-	seg_free_cnt = seg_free_min = seg_free_index = 0;
+//	seg_free_cnt = seg_free_min = seg_free_index = 0;
+	seg_free_head = seg_free_tail = 0;
 	printf("sizeof KVP %ld\n",sizeof(KVP));
 	printf("sizeof CL %ld\n",sizeof(CL));
 	int i;
@@ -1220,7 +1277,7 @@ void clean_cceh()
 	printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
 	printf("SEG count %u\n",alloc_seg_cnt.load());
 
-	printf("seg index %u min %u cnt %u\n",seg_free_index.load(),seg_free_min.load(),seg_free_cnt.load());
+//	printf("seg index %u min %u cnt %u\n",seg_free_index.load(),seg_free_min.load(),seg_free_cnt.load());
 
 	if (key_array)
 	{

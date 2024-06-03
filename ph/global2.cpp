@@ -24,6 +24,7 @@ extern NodeAllocator* nodeAllocator;
 
 thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
+thread_local PH_Thread* my_thread;
 
 // should be private....
 int num_thread;
@@ -51,6 +52,7 @@ void PH_Interface::new_query_thread()
 	// find new DoubleLog
 
 	my_query_thread->init();
+	my_thread = my_query_thread;
 }
 void PH_Interface::clean_query_thread()
 {
@@ -58,6 +60,7 @@ void PH_Interface::clean_query_thread()
 
 	at_unlock2(my_query_thread->lock);
 	my_query_thread = NULL;
+	my_thread = NULL;
 }
 
 void PH_Interface::new_evict_thread()
@@ -77,6 +80,7 @@ void PH_Interface::new_evict_thread()
 	}
 
 	my_evict_thread->init();
+	my_thread = my_evict_thread;
 }
 
 void PH_Interface::clean_evict_thread()
@@ -85,6 +89,7 @@ void PH_Interface::clean_evict_thread()
 
 	at_unlock2(my_evict_thread->lock);
 	my_evict_thread=NULL;
+	my_thread = NULL;
 }
 
 void PH_Interface::global_init(int n_t,int n_p,int n_e)

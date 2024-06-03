@@ -31,12 +31,12 @@ struct LogLoc
 {
 	int log_num;
 	size_t offset;
-/*
+
 	//test
 	uint64_t test_key1;
 	uint64_t test_key2;
 	void* test_ptr;
-	*/
+	
 };
 
 
