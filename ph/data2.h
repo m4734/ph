@@ -152,9 +152,10 @@ struct NodeMeta
 //	Node* node;
 	bool valid[NODE_SLOT_MAX];
 	int slot_cnt; // filled slot for warm
-	std::atomic<uint8_t> valid_cnt;
+//	std::atomic<uint8_t> valid_cnt;
+	int valid_cnt;
 
-	std::atomic<uint8_t> lock;
+//	std::atomic<uint8_t> lock;
 };
 
 

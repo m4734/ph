@@ -407,19 +407,19 @@ void CCEH::clean()
 
 //ValueEntry CCEH::find(unsigned char* const &key)
 
-bool CCEH::read(uint64_t &key,uint64_t *ret)
+bool CCEH::read(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth)
 {
 	bool sf = false;
 	bool exist;
 	while(true)
 	{
-		exist = read_with_fail(key,ret,sf);
+		exist = read_with_fail(key,ret,seg_depth,sf);
 		if (sf)
 			return exist;
 	}
 }
 
-bool CCEH::read_with_fail(uint64_t &key,uint64_t *ret,bool &sf)
+bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth, bool &sf)
 {
 	/*
 	if (point)
@@ -446,7 +446,8 @@ bool CCEH::read_with_fail(uint64_t &key,uint64_t *ret,bool &sf)
 //	if (key == (void*)INV0 && key_size == 8) // wrong!
 	if (zero_check(key))	
 	{
-		*ret = zero_entry.value;
+		*ret = &zero_entry.value;
+		*seg_depth = NULL;
 		if (zero_entry.version & (VER_DELETE))
 			return false;
 		else
@@ -472,6 +473,7 @@ bool CCEH::read_with_fail(uint64_t &key,uint64_t *ret,bool &sf)
 //	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
 	l = cn*KVP_PER_CL;
 
+	*seg_depth = &seg_list[sn]->depth;
 	start_depth = seg_list[sn]->depth;
 	_mm_sfence();
 	kvp_p = (KVP*)seg_list[sn]->cl;
@@ -504,7 +506,7 @@ bool CCEH::read_with_fail(uint64_t &key,uint64_t *ret,bool &sf)
 			ctt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 //			ve_u.ve_64 = kvp_p[l].value;
-			*ret = kvp_p[l].value;
+			*ret = &kvp_p[l].value;
 			_mm_sfence();
 			sf = (start_depth == seg_list[sn]->depth);
 			return true;

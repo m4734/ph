@@ -18,7 +18,7 @@ const size_t TOTAL_OPS = 1000*1000*1000; // 1G ops
 
 #define THREAD_NUM 4
 #define PMEM_NUM 1
-#define EVICT_NUM 1
+#define EVICT_NUM 4
 
 #define PRINT_OPS
 

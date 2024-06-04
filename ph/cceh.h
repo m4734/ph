@@ -163,8 +163,8 @@ class CCEH
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
 
-	bool read(uint64_t &key,uint64_t *ret);
-	bool read_with_fail(uint64_t &key,uint64_t *ret,bool &sf);
+	bool read(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth);
+	bool read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);

@@ -410,7 +410,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 {
 	ListNode* next = prev->next;
 
-	at_lock2(prev->lock);
+//	at_lock2(prev->lock);
 	at_lock2(next->lock); // always not null
 
 	prev->next = node;
@@ -419,7 +419,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 	next->prev = node;
 
 	at_unlock2(next->lock);
-	at_unlock2(prev->lock);
+//	at_unlock2(prev->lock);
 }
 
 }
