@@ -22,4 +22,4 @@ static constexpr double ZIPF_THETA = 0.99;
 #cmakedefine USE_ALL_CORES
 #cmakedefine TEST_LOAD
 
-static constexpr int NUM_ALL_CORES = 36;
+static constexpr int NUM_ALL_CORES = 24//36; //cgmin changed per socket?

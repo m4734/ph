@@ -1,0 +1,45 @@
+
+YCSB_A
+2024-06-05T17:53:01+09:00
+Running ./benchmarks/pacman_bench
+Run on (96 X 1994.68 MHz CPU s)
+CPU Caches:
+  L1 Data 48 KiB (x48)
+  L1 Instruction 32 KiB (x48)
+  L2 Unified 1280 KiB (x48)
+  L3 Unified 36864 KiB (x2)
+Load Average: 0.08, 0.17, 0.83
+---------------------------------------------------------------------------------------------------------------
+Benchmark                                                     Time             CPU   Iterations UserCounters...
+---------------------------------------------------------------------------------------------------------------
+DBFixture/bench/80/iterations:1/real_time/threads:24     786588 us     14110251 us           24 CompactionCPUUsage=3.63785 CompactionThroughput=1.67735Gi items_per_second=25.4263M/s
+
+YCSB_B
+2024-06-05T17:53:52+09:00
+Running ./benchmarks/pacman_bench
+Run on (96 X 3310.6 MHz CPU s)
+CPU Caches:
+  L1 Data 48 KiB (x48)
+  L1 Instruction 32 KiB (x48)
+  L2 Unified 1280 KiB (x48)
+  L3 Unified 36864 KiB (x2)
+Load Average: 5.96, 1.89, 1.38
+---------------------------------------------------------------------------------------------------------------
+Benchmark                                                     Time             CPU   Iterations UserCounters...
+---------------------------------------------------------------------------------------------------------------
+DBFixture/bench/80/iterations:1/real_time/threads:24     398999 us      9575930 us           24 CompactionCPUUsage=0 CompactionThroughput=-nan items_per_second=50.1254M/s
+
+YCSB_C
+2024-06-05T17:54:31+09:00
+Running ./benchmarks/pacman_bench
+Run on (96 X 3500 MHz CPU s)
+CPU Caches:
+  L1 Data 48 KiB (x48)
+  L1 Instruction 32 KiB (x48)
+  L2 Unified 1280 KiB (x48)
+  L3 Unified 36864 KiB (x2)
+Load Average: 8.65, 3.21, 1.85
+---------------------------------------------------------------------------------------------------------------
+Benchmark                                                     Time             CPU   Iterations UserCounters...
+---------------------------------------------------------------------------------------------------------------
+DBFixture/bench/80/iterations:1/real_time/threads:24     370426 us      8890219 us           24 CompactionCPUUsage=0 CompactionThroughput=-nan items_per_second=53.9919M/s
