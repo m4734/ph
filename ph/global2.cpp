@@ -106,7 +106,8 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 
 	VALUE_SIZE = VS;
 	KEY_RANGE = KR;
-	ENTRY_SIZE = 8 + 8 + VS;
+//	ENTRY_SIZE = 8 + 8 + VS;
+	ENTRY_SIZE = 8 + 8 + VS + (8 - VS%8);
 	TOTAL_DATA_SIZE = ENTRY_SIZE*KEY_RANGE;
 
 	num_query_thread = n_t;

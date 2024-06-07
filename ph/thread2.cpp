@@ -1179,6 +1179,7 @@ namespace PH
 				if (evict_log(log_list[i]))
 					done = 0;
 			}
+#if 0
 			if (done)
 			{
 				run = 0;
@@ -1198,6 +1199,7 @@ namespace PH
 				if (sleep_time > 100*2)
 					sleep_time*=0.5;
 			}
+#endif
 		}
 		run = 0;
 		printf("evict end\n");
