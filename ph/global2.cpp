@@ -26,6 +26,14 @@ thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
 thread_local PH_Thread* my_thread;
 
+size_t VALUE_SIZE;
+size_t KEY_RANGE;
+//size_t TOTAL_OPS;
+size_t ENTRY_SIZE;
+size_t TOTAL_DATA_SIZE;
+
+
+
 // should be private....
 int num_thread;
 int num_pmem;
@@ -92,17 +100,21 @@ void PH_Interface::clean_evict_thread()
 	my_thread = NULL;
 }
 
-void PH_Interface::global_init(int n_t,int n_p,int n_e)
+void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 {
 	printf("global init\n");
+
+	VALUE_SIZE = VS;
+	KEY_RANGE = KR;
+	ENTRY_SIZE = 8 + 8 + VS;
+	TOTAL_DATA_SIZE = ENTRY_SIZE*KEY_RANGE;
+
 	num_query_thread = n_t;
 	num_pmem = n_p;
 	num_log = (n_t-1)/n_p+1; // num_log per pmem
 	num_evict_thread = n_e;
 	num_thread = num_query_thread + num_evict_thread;
 
-	HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20/ num_log;
-	SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10/ num_log;
 
 	init_log(num_pmem,num_log);
 

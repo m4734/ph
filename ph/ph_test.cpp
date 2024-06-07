@@ -7,9 +7,10 @@
 #include "global2.h"
 
 
-#define VALUE_SIZE 100
-const size_t KEY_RANGE = 100*1000*1000; // 100M *100B = 10GB
-const size_t TOTAL_OPS = 1000*1000*1000; // 1G ops
+//#define VALUE_SIZE 100
+const size_t value_size = 100;
+const size_t key_range = 100*1000*1000; // 100M *100B = 10GB
+const size_t total_ops = 1000*1000*1000; // 1G ops
 //#define KEY_RANGE 1000000000 //100M = 10G
 
 //#define THREAD_NUM 16
@@ -38,7 +39,7 @@ struct Parameter
 	OP_TYPE op_type;
 };
 
-//#define VALIDATION
+#define VALIDATION
 
 size_t key_gen()
 {
@@ -46,7 +47,7 @@ size_t key_gen()
 	v1 = rand()%1000;
 	v2 = rand()%1000;
 	v3 = rand()%1000;
-	return (v1 + v2 * 1000 + v3 * 1000000) % KEY_RANGE;
+	return (v1 + v2 * 1000 + v3 * 1000000) % key_range;
 }
 
 void *run(void *parameter)
@@ -55,7 +56,7 @@ void *run(void *parameter)
 	Parameter *para = (Parameter*)parameter;
 
 	uint64_t key;
-	unsigned char value[VALUE_SIZE];
+	unsigned char value[value_size];
 
 	struct timespec ts1,ts2,ts3,ts4;
 	para->time = 0;
@@ -92,7 +93,7 @@ void *run(void *parameter)
 	{
 	for (i=0;i<para->ops;i++)
 	{
-		key = (para->op_id+i)%KEY_RANGE;
+		key = (para->op_id+i)%key_range;
 		if (para->phi->read_op(key,value) < 0)
 			printf("not found!\n");
 #ifdef VALIDATION
@@ -126,7 +127,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 		para[i].op_type = op_type;
 	}
 
-	printf("key range %lu\n",KEY_RANGE);
+	printf("key range %lu\n",key_range);
 	printf("ops %lu\n",ops);
 
 //---------------------------- run
@@ -151,7 +152,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 	printf("time sum %lu ns\n",time);
 	printf("lat avg %lu ns\n",time/(ops/THREAD_NUM));
 	printf("Mops avg %lf\n",dops*1000/time);
-	printf("GB/s avg %lf\n",dops*(8+8+VALUE_SIZE+4)*1000*1000*1000/1024/1024/1024/time);
+	printf("GB/s avg %lf\n",dops*(8+8+value_size+4)*1000*1000*1000/1024/1024/1024/time);
 
 }
 int main()
@@ -164,12 +165,12 @@ int main()
 
 	PH::PH_Interface phi;
 
-	phi.global_init(THREAD_NUM,PMEM_NUM,EVICT_NUM);
+	phi.global_init(value_size,key_range,THREAD_NUM,PMEM_NUM,EVICT_NUM);
 
 #if 1
 	phi.run_evict_thread();
 
-	size_t ops=TOTAL_OPS;
+	size_t ops=total_ops;
 
 	printf("insert\n");
 	work(phi,ops,INSERT_OP);

@@ -10,12 +10,24 @@
 
 namespace PH
 {
- // 2 // 10 // 52
-const size_t VALUE_FIRST_MASK = 0xc000000000000000; // 11000000 ...
-const int VALUE_FIRST_SHIFT = 62;
-const size_t VALUE_SECOND_MASK = 0x3ff0000000000000; // 001111 ... 00
-const int VALUE_SECOND_SHIFT = 52;
-const size_t VALUE_THIRD_MASK = 0x000fffffffffffff;
+
+/*
+#define VALUE_SIZE 100
+#define KEY_RANGE (size_t(100)*1000*1000)
+#define TOTAL_OPS (size_t(1000)*1000*1000)
+#define ENTRY_SIZE (8+8+VALUE_SIZE)
+#define TOTAL_DATA_SIZE (ENTRY_SIZE*KEY_RANGE)
+*/
+
+extern size_t VALUE_SIZE;
+
+//#define VALUE_SIZE 100
+
+extern size_t KEY_RANGE;
+//size_t TOTAL_OPS;
+extern size_t ENTRY_SIZE;
+extern size_t TOTAL_DATA_SIZE;
+
 
 class PH_Interface
 {
@@ -44,7 +56,7 @@ pthread_t evict_pthreads[100];
 //void *run_evict(void* p);
 
 public:
-void global_init(int num_thread,int num_pmem,int num_evict);
+void global_init(size_t VS,size_t KR,int num_thread,int num_pmem,int num_evict);
 void global_clean();
 
 //--------------------------------------------------------------

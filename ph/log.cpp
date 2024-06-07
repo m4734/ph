@@ -8,12 +8,12 @@
 #include "log.h"
 #include "data2.h"
 #include "thread2.h"
+#include "global2.h"
 //#include "hash.h"
 
 //using namespace PH;
 namespace PH
 {
-
 
 //const size_t ble_len = sizeof(BaseLogEntry);
 
@@ -35,7 +35,12 @@ void init_log(int num_pmem, int num_log)
 
 	log_max = num_pmem*num_log;
 	doubleLogList = new DoubleLog[log_max];
-	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
+
+
+//	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
+	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log);
+	HARD_EVICT_SPACE = log_size/20;
+	SOFT_EVICT_SPACE = log_size/10;
 
 	printf("LOG NUM %d LOG SIZE %lfGB\n",num_log,double(log_size)/1024/1024/1024);
 	
@@ -47,9 +52,9 @@ void init_log(int num_pmem, int num_log)
 			char path[100];
 			int len;
 #ifdef INTERLEAVE
-			sprintf(path,"/mnt/pmem4/log%d",cnt);
+			sprintf(path,"/mnt/pmem0/log%d",cnt);
 #else
-			sprintf(path,"/mnt/pmem%d/log%d",j,i);
+			sprintf(path,"/mnt/pmem%d/log%d",j+1,i+1); // 1~
 #endif
 			len = strlen(path);
 			path[len] = 0;
@@ -227,12 +232,12 @@ void DoubleLog::ready_log()//(size_t len)
 {
 //	check_turn(head_sum,ble_len);
 	size_t offset = head_sum % my_size;
-	if (offset+ble_len > my_size) // check the space
+	if (offset+ENTRY_SIZE > my_size) // check the space
 		head_sum+=(my_size-offset);
 
-	if (min_tail_sum + my_size < head_sum + ble_len)
+	if (min_tail_sum + my_size < head_sum + ENTRY_SIZE)
 		min_tail_sum = get_min_tail(log_num);
-	while(min_tail_sum + my_size < head_sum + ble_len)
+	while(min_tail_sum + my_size < head_sum + ENTRY_SIZE)
 	{
 //		printf("log %d full\n",log_num);
 //		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);

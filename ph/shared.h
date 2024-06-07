@@ -3,6 +3,7 @@
 namespace PH
 {
 
+
 struct NodeAddr
 {
 //	size_t loc : 2;

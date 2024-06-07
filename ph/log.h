@@ -5,7 +5,7 @@
 
 #include <atomic>
 
-#include "global2.h"
+//#include "global2.h"
 //#include "data2.h"
 
 namespace PH
@@ -14,7 +14,7 @@ namespace PH
 #define USE_DRAM_CACHE
 
 //#define LOG_SIZE_PER_PMEM (12*1024*1024*1024) // 128GB / 10% / threads
-const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
+//const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 //const size_t DRAM_LIST_UNIT = 1024*1024;
 //const size_t LIST_POOL_UNIT = 1024;
 //#define LOG_BLOCK_SIZE 4096
@@ -22,6 +22,12 @@ const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 //const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
 //const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
 
+ // 2 // 10 // 52
+const size_t VALUE_FIRST_MASK = 0xc000000000000000; // 11000000 ...
+const int VALUE_FIRST_SHIFT = 62;
+const size_t VALUE_SECOND_MASK = 0x3ff0000000000000; // 001111 ... 00
+const int VALUE_SECOND_SHIFT = 52;
+const size_t VALUE_THIRD_MASK = 0x000fffffffffffff;
 
 const size_t header_size = sizeof(uint64_t);
 

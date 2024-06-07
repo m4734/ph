@@ -1,10 +1,14 @@
 #include <cstdint>
 #include <atomic>
+#include <vector>
 
 #include "shared.h"
+//#include "global2.h"
 
 namespace PH
 {
+
+extern size_t NODE_SLOT_MAX;
 
 /*
 #define VERSION_SIZE 8
@@ -20,8 +24,8 @@ namespace PH
 
 const size_t HEADER_SIZE = 8;
 const size_t KEY_SIZE = 8;
-const size_t VALUE_SIZE = 100;
-const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
+//const size_t VALUE_SIZE = 100;
+//const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
 
 const size_t VER_DRAM_VALID = (size_t(1)<<63);
 const size_t VER_DELETE = (size_t(1)<<62);
@@ -113,7 +117,7 @@ bool inline is_valid(uint64_t *version)
 	return *version & VER_DRAM_VALID;
 }
 
-
+#if 0
 struct BaseLogEntry
 {
 	uint64_t header; // delete + version
@@ -121,9 +125,10 @@ struct BaseLogEntry
 	unsigned char value[VALUE_SIZE];
 	unsigned char pad[4];
 }; // 8 + 8 + 100 = 116 + 4 = 120
+#endif
 // need 8bytes align
 
-const size_t ble_len = sizeof(BaseLogEntry);
+//const size_t ble_len = sizeof(BaseLogEntry);
 /*
 struct NodeOffset
 {
@@ -136,7 +141,7 @@ const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
 const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
 
-const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
+//const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
 struct NodeMeta
 {
@@ -150,7 +155,8 @@ struct NodeMeta
 //	uint64_t my_offset;
 	NodeAddr my_offset;
 //	Node* node;
-	bool valid[NODE_SLOT_MAX];
+//	bool valid[NODE_SLOT_MAX];
+	std::vector<bool> valid;
 	int slot_cnt; // filled slot for warm
 //	std::atomic<uint8_t> valid_cnt;
 	int valid_cnt;

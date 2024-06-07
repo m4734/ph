@@ -10,6 +10,7 @@
 #include "cceh.h"
 #include "skiplist.h"
 #include "data2.h"
+#include "global2.h"
 
 namespace PH
 {
@@ -25,8 +26,6 @@ namespace PH
 	//extern volatile unsigned int seg_free_cnt;
 	//extern std::atomic<uint32_t> seg_free_head;
 	extern CCEH* hash_index;
-	extern const size_t ble_len;
-
 
 	// need to be private...
 
@@ -291,7 +290,7 @@ namespace PH
 		//--------------------------------------------------- make version
 		//if (kvp_p)
 		my_log->write_version(new_version);
-		my_log->head_sum+=ble_len;
+		my_log->head_sum+=ENTRY_SIZE;
 
 		// 6 update index
 #ifdef INDEX
@@ -339,7 +338,7 @@ namespace PH
 			offset_in_node = old_ea.offset % NODE_SIZE;
 			node_cnt = old_ea.offset/NODE_SIZE;
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[old_ea.file_num]+node_cnt*sizeof(NodeMeta));
-			cnt = (offset_in_node-sizeof(NodeAddr))/ble_len;
+			cnt = (offset_in_node-sizeof(NodeAddr))/ENTRY_SIZE;
 			nm->valid[cnt] = false; // invalidate
 			--nm->valid_cnt;
 
@@ -444,6 +443,9 @@ namespace PH
 
 	void PH_Evict_Thread::init()
 	{
+
+		sleep_time = 1000;
+
 		exit = 0;
 
 		int ln = (log_max-1) / num_evict_thread+1;
@@ -554,14 +556,14 @@ namespace PH
 			if (list_nodeMeta->valid[i] == false) // ??? invalidated??
 			{
 				//						new_nodeMeta->valid[i] = false;
-				offset+=ble_len;
+				offset+=ENTRY_SIZE;
 				continue;
 			}
 			key = *(uint64_t*)(addr+offset+HEADER_SIZE);
 			if (key >= half_key)
 			{
 //				new_nodeMeta->valid[moved_cnt] = true;
-				memcpy((unsigned char*)&temp_new_node+offset2,(unsigned char*)&temp_node+offset,ble_len);
+				memcpy((unsigned char*)&temp_new_node+offset2,(unsigned char*)&temp_node+offset,ENTRY_SIZE);
 				//need invalicdation
 				moved_idx[moved_cnt] = i;
 				++moved_cnt;
@@ -569,9 +571,9 @@ namespace PH
 				//						++new_nodeMeta->valid_cnt;
 				//						--list_nodeMeta->valid_cnt;
 
-				offset2+=ble_len;
+				offset2+=ENTRY_SIZE;
 			}
-			offset+=ble_len;
+			offset+=ENTRY_SIZE;
 		}
 
 		temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
@@ -582,16 +584,16 @@ namespace PH
 		EntryAddr ea;
 		for (i=0;i<moved_cnt;i++)
 		{
-			key = *(uint64_t*)(temp_new_node.buffer + ble_len*i + HEADER_SIZE);
+			key = *(uint64_t*)(temp_new_node.buffer + ENTRY_SIZE*i + HEADER_SIZE);
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			ea.loc = 3; // cold
 			ea.file_num = list_nodeMeta->my_offset.pool_num;
-			ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*moved_idx[i];
+			ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + sizeof(NodeAddr) + ENTRY_SIZE*moved_idx[i];
 			if (kvp_p->value == ea.value) // doesn't moved
 			{
 				// ea cold
 				ea.file_num = new_nodeMeta->my_offset.pool_num;
-				ea.offset = new_nodeMeta->my_offset.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*i;
+				ea.offset = new_nodeMeta->my_offset.node_offset*NODE_SIZE + sizeof(NodeAddr) + ENTRY_SIZE*i;
 				kvp_p->value = ea.value;
 				kvp_p->version = set_loc_cold(kvp_p->version);
 				new_nodeMeta->valid[i] = true;
@@ -668,7 +670,7 @@ namespace PH
 			if (nodeMeta->valid[cnt] == false)
 			{
 				++cnt;
-				src_offset+=ble_len;
+				src_offset+=ENTRY_SIZE;
 				continue;
 			}
 
@@ -698,7 +700,7 @@ namespace PH
 			if (slot_idx < NODE_SLOT_MAX)
 			{
 				old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
-				new_ea.offset = listNode->data_node_addr.node_offset*NODE_SIZE + sizeof(NodeAddr) + ble_len*slot_idx;
+				new_ea.offset = listNode->data_node_addr.node_offset*NODE_SIZE + sizeof(NodeAddr) + ENTRY_SIZE*slot_idx;
 				// lock here
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				//					if (kvp_p->value != (uint64_t)addr) // moved
@@ -711,12 +713,12 @@ namespace PH
 										       //						at_unlock2(list_nodeMeta->lock);
 					at_unlock2(listNode->lock);
 					++cnt;
-					src_offset+=ble_len;
+					src_offset+=ENTRY_SIZE;
 					continue; 
 				}
 
 
-				pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ble_len*slot_idx , addr + src_offset, ble_len);
+				pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ENTRY_SIZE*slot_idx , addr + src_offset, ENTRY_SIZE);
 				list_nodeMeta->valid[slot_idx] = true; // validate
 				++list_nodeMeta->valid_cnt;
 
@@ -733,7 +735,7 @@ namespace PH
 				//					nodeMeta->valid[cnt] = false; //invalidate
 				// not here...
 				++cnt;
-				src_offset+=ble_len;
+				src_offset+=ENTRY_SIZE;
 			}
 			//			if (i >= NODE_SLOT_MAX) // need split
 			else // cold split
@@ -870,8 +872,8 @@ namespace PH
 				printf("key is smaller than node key\n");
 			}
 
-			memcpy(buffer_write_start+write_size,addr,ble_len);
-			write_size+=ble_len;
+			memcpy(buffer_write_start+write_size,addr,ENTRY_SIZE);
+			write_size+=ENTRY_SIZE;
 		}
 
 		// we may need to cut!!!
@@ -885,7 +887,7 @@ namespace PH
 		{
 			node->torn_entry = ll;
 			node->torn_right = (sizeof(NodeAddr)+nodeMeta->written_size+write_size) % PMEM_BUFFER_SIZE;
-			node->torn_left = ble_len-node->torn_right;
+			node->torn_left = ENTRY_SIZE-node->torn_right;
 			write_size-=node->torn_right;
 			//		pmem_node_nt_write(dst_node, &temp_node,nodeMeta->size,write_size);
 			pmem_nt_write(dst_node->buffer + nodeMeta->written_size , buffer_write_start , write_size);
@@ -958,7 +960,7 @@ namespace PH
 			if (is_valid((uint64_t*)addr)) // test code
 				printf("valid erorr\n");
 
-			dst_addr.offset+=ble_len;
+			dst_addr.offset+=ENTRY_SIZE;
 		}
 
 		nodeMeta->written_size+=write_size;
@@ -977,9 +979,9 @@ namespace PH
 		}
 #endif
 
-		if (node->entry_list.size() * ble_len != node->entry_size_sum) // test
+		if (node->entry_list.size() * ENTRY_SIZE != node->entry_size_sum) // test
 		{
-			printf("missmatch %lu %lu\n",node->entry_list.size() * ble_len, node->entry_size_sum);
+			printf("missmatch %lu %lu\n",node->entry_list.size() * ENTRY_SIZE, node->entry_size_sum);
 		}
 
 		node->entry_list.clear();
@@ -997,16 +999,16 @@ namespace PH
 		int rv=0;
 
 		//pass invalid
-		while(dl->tail_sum+ble_len <= dl->head_sum)
+		while(dl->tail_sum+ENTRY_SIZE <= dl->head_sum)
 		{
 			addr = dl->dramLogAddr+(dl->tail_sum%dl->my_size);
 			header = *(uint64_t*)addr;
 
 			if (is_valid(header))
 				break;
-			dl->tail_sum+=ble_len;
+			dl->tail_sum+=ENTRY_SIZE;
 			//		dl->check_turn(dl->tail_sum,ble_len);
-			if (dl->tail_sum%dl->my_size + ble_len > dl->my_size)
+			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 			rv = 1;
 		}
@@ -1085,7 +1087,7 @@ namespace PH
 		if (dl->soft_adv_offset < dl->tail_sum) // jump if passed
 			dl->soft_adv_offset = dl->tail_sum;
 
-		while(dl->soft_adv_offset + ble_len + dl->my_size <= dl->head_sum + SOFT_EVICT_SPACE)
+		while(dl->soft_adv_offset + ENTRY_SIZE + dl->my_size <= dl->head_sum + SOFT_EVICT_SPACE)
 		{
 			addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
 			header = *(uint64_t*)addr;
@@ -1102,12 +1104,12 @@ namespace PH
 						continue;
 
 					nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
-					if (sizeof(NodeAddr) + nodeMeta->written_size + node->entry_size_sum + ble_len > NODE_SIZE) // NODE_BUFFER_SIZE???
+					if (sizeof(NodeAddr) + nodeMeta->written_size + node->entry_size_sum + ENTRY_SIZE > NODE_SIZE) // NODE_BUFFER_SIZE???
 					{
 						// warm is full
 						hot_to_warm(node,true);
 
-						if (sizeof(NodeAddr) + nodeMeta->written_size + ble_len > NODE_SIZE)
+						if (sizeof(NodeAddr) + nodeMeta->written_size + ENTRY_SIZE > NODE_SIZE)
 							warm_to_cold(node);
 						at_unlock2(node->lock);
 						continue; // retry
@@ -1117,7 +1119,7 @@ namespace PH
 					ll.log_num = dl->log_num;
 					ll.offset = dl->soft_adv_offset;
 					node->entry_list.push_back(ll);
-					node->entry_size_sum+=ble_len;
+					node->entry_size_sum+=ENTRY_SIZE;
 
 					if (key < node->key)
 						printf("thread2 1026\n");
@@ -1136,8 +1138,8 @@ namespace PH
 				}
 			}
 
-			dl->soft_adv_offset+=ble_len;
-			if ((dl->soft_adv_offset)%dl->my_size  + ble_len > dl->my_size)
+			dl->soft_adv_offset+=ENTRY_SIZE;
+			if ((dl->soft_adv_offset)%dl->my_size  + ENTRY_SIZE > dl->my_size)
 				dl->soft_adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
 			//		dl->check_turn(tail_sum,ble_len);
 
@@ -1180,12 +1182,21 @@ namespace PH
 			if (done)
 			{
 				run = 0;
-				printf("evict idle\n");
-				usleep(1000*1000);
+				if (sleep_time > 1000*1000)
+					printf("evict idle\n");
+//				usleep(1000*1000);
+				usleep(sleep_time);
 				_mm_mfence();
 				sync_thread();
 				_mm_mfence();
 				run = 1;
+				if (sleep_time < 1000*1000)
+					sleep_time*=1.5;
+			}
+			else
+			{
+				if (sleep_time > 100*2)
+					sleep_time*=0.5;
 			}
 		}
 		run = 0;

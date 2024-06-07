@@ -7,9 +7,12 @@
 
 #include "lock.h"
 #include "data2.h"
+#include "global2.h"
 
 namespace PH
 {
+
+size_t NODE_SLOT_MAX;
 
 	NodeAllocator* nodeAllocator;
 
@@ -42,6 +45,9 @@ namespace PH
 
 	void NodeAllocator::init()
 	{
+
+		NODE_SLOT_MAX = NODE_BUFFER_SIZE / ENTRY_SIZE;
+
 		nodeMetaPoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
 		nodePoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
 
@@ -86,7 +92,7 @@ namespace PH
 		req_size = POOL_SIZE;
 		for(i=0;i<num_pmem;i++)
 		{
-			sprintf(path,"/mnt/pmem%d/data%d",i,pool_cnt+i);
+			sprintf(path,"/mnt/pmem%d/data%d",i+1,pool_cnt+i); // 1~
 			nodeMetaPoolList[pool_cnt + i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0); 
 			if (!nodeMetaPoolList[pool_cnt + i])
 				printf("alloc_pool error1----------------------------------------------\n");
@@ -131,9 +137,12 @@ namespace PH
 //		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
 		nm->written_size = 0;
 		nm->slot_cnt = 0;
+		/*
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
+			\*/
+		nm->valid.resize(NODE_SLOT_MAX);
 		nm->valid_cnt = 0;
 
 		return nm->my_offset;
@@ -161,7 +170,7 @@ namespace PH
 			if (nm->valid[i] == false)
 				continue;
 			new_key = *(uint64_t*)(addr+offset+HEADER_SIZE);
-			offset+=ble_len;
+			offset+=ENTRY_SIZE;
 			for (j=cnt;j>0;j--)
 			{
 				if (new_key < keys[j-1])

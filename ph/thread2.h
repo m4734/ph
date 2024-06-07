@@ -78,6 +78,8 @@ class PH_Evict_Thread : public PH_Thread
 
 	DataNode temp_node;
 
+	size_t sleep_time;
+
 	public:
 	void init();
 	void clean();
