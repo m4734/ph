@@ -217,7 +217,6 @@ namespace PH
 		uint64_t new_addr,old_addr;
 		EntryAddr ea;
 		unsigned char* pmem_head_p;// = my_log->get_pmem_head_p();
-		unsigned char* dram_head_p;// = my_log->get_dram_head_p();
 
 #if 0 
 		unsigned char* checksum_i = (unsigned char*)&ble;
@@ -242,6 +241,31 @@ namespace PH
 
 		pmem_head_p = my_log->pmemLogAddr + my_log->head_sum%my_log->my_size;
 		//	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
+
+//test---------------------------------
+
+		unsigned char* dram_head_p;// = my_log->get_dram_head_p();
+		dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
+
+		uint64_t test_old_key;
+		test_old_key = *(uint64_t*)(dram_head_p+HEADER_SIZE);
+		
+		int ex;
+		KVP test_kvp;
+		KVP* test_kvp_p;
+		int test_seg_depth;
+		volatile int* test_seg_depth_p;
+		ex = hash_index->read(test_old_key,&test_kvp,&test_kvp_p,&test_seg_depth,&test_seg_depth_p);
+		if (ex)
+		{
+			EntryAddr test_ea;
+			test_ea.value = test_kvp.value;
+			if (dram_head_p == doubleLogList[test_ea.file_num].dramLogAddr + test_ea.offset)
+				printf("fiali43\n");
+		}
+
+
+//test
 
 		ea.loc = 1;
 		ea.file_num = my_log->log_num;
@@ -336,16 +360,23 @@ namespace PH
 			offset_in_node = old_ea.offset % NODE_SIZE;
 			node_cnt = old_ea.offset/NODE_SIZE;
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[old_ea.file_num]+node_cnt*sizeof(NodeMeta));
-			at_lock2(nm->rw_lock);
+//			at_lock2(nm->rw_lock);
+			// it doesn't change value just invalidate with meta
 			cnt = (offset_in_node-sizeof(NodeAddr))/ENTRY_SIZE;
 			nm->valid[cnt] = false; // invalidate
 			--nm->valid_cnt;
-			at_unlock2(nm->rw_lock);
+//			at_unlock2(nm->rw_lock);
 
 		}
 
 		// 7 unlock index -------------------------------------- lock to here
 		_mm_sfence();
+
+		uint64_t test_key;
+		test_key = *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+ ea.offset+HEADER_SIZE);
+		if (test_key != key)
+			printf("test file3\n");
+
 		hash_index->unlock_entry2(seg_lock,read_lock);
 		/*
 		   if (is_loc_hot(old_version))
@@ -381,10 +412,12 @@ namespace PH
 			ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 
 			//			seg_depth = *seg_depth_p;
-			ea.value = kvp.value;
 
 			if (ex == 0)
 				return -1;
+
+			ea.value = kvp.value;
+
 
 			unsigned char* addr;
 			if (ea.loc == 1) // hot
@@ -401,7 +434,10 @@ namespace PH
 				test_value = *(uint64_t*)buf;
 
 				if (key+1 != test_value || test_key+1 != test_value)
+				{
 					printf("test fail1\n");
+					ex = hash_index->read(test_key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
+				}
 
 
 			}
@@ -456,7 +492,7 @@ namespace PH
 			}
 			// need fence?
 			//			if (seg_depth_p == NULL || seg_depth == *seg_depth_p)// && ret == *ret_p)
-			//				break;
+			break;
 		}
 
 
@@ -1003,7 +1039,7 @@ namespace PH
 			//			continue;
 
 			src_addr.file_num = ll.log_num;
-			src_addr.offset = ll.offset%dl->my_size;
+			src_addr.offset = ll.offset%dl->my_size; // dobuleloglist log num my size
 
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			if (kvp_p->value == src_addr.value)
@@ -1012,15 +1048,13 @@ namespace PH
 				kvp_p->version = set_loc_warm(kvp_p->version);
 				nodeMeta->valid[nodeMeta->slot_cnt++] = true; // validate
 				++nodeMeta->valid_cnt;
+				set_invalid(header); // invalidate
 			}
 			else
 				nodeMeta->valid[nodeMeta->slot_cnt++] = false; // validate fail
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
-			set_invalid(header); // invalidate
-
-			if (is_valid((uint64_t*)addr)) // test code
-				printf("valid erorr\n");
+			_mm_sfence(); // need?
 
 			dst_addr.offset+=ENTRY_SIZE;
 		}
@@ -1183,13 +1217,6 @@ namespace PH
 					node->entry_list.push_back(ll);
 					node->entry_size_sum+=ENTRY_SIZE;
 
-					if (key < node->key)
-						printf("thread2 1026\n");
-					/*
-					   ll.test_key1 = node->key;
-					   ll.test_key2 = key;
-					   ll.test_ptr = node;
-					 */
 					// need to try flush
 					//			node->try_hot_to_warm();
 #ifdef SOFT_FLUSH
