@@ -814,11 +814,11 @@ void CCEH::split(int sn) // seg locked
 	mask = (uint64_t)1 << seg->depth;	
 
 	int j,l;//,nl1,nl2;
-//	int nll1[CL_PER_SEG],nll2[CL_PER_SEG],kc;
+	int nll1[CL_PER_SEG],nll2[CL_PER_SEG],kc;
 	uint64_t hk;
 //	l = 0;
-//	for (i=0;i<CL_PER_SEG;i++)
-//		nll1[i] = nll2[i] = KVP_PER_CL*i;	
+	for (i=0;i<CL_PER_SEG;i++)
+		nll1[i] = nll2[i] = KVP_PER_CL*i;	
 	for (i=0;i<CL_PER_SEG;i++)
 	{
 	//	nl1 = i*KVP_PER_CL;
@@ -846,10 +846,10 @@ void CCEH::split(int sn) // seg locked
 //			hk = hf((unsigned char*)(&kvp_p[l].key));
 //			hk = hf(load_key((uint64_t)kvp_p[l].key));// volatile?
 			hk = hf(kvp_p[l].key);
-//			kc = hk >> (64-CL_BIT);
+			kc = hk >> (64-CL_BIT); // cl_shift
 
 			// rearrange problem
-			/*
+			
 			if (hk & mask)
 			{
 				while(new_kvp_p2[nll2[kc]].key != INV0)
@@ -874,12 +874,12 @@ void CCEH::split(int sn) // seg locked
 				nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
 //				kvp_p[l].key = INV0;
 			}
-*/
+/*
 			if (hk & mask)
 				new_kvp_p2[l] = kvp_p[l];
 			else
 				new_kvp_p1[l] = kvp_p[l];
-
+*/
 			/*
 			else
 			{

@@ -1051,7 +1051,16 @@ namespace PH
 				set_invalid(header); // invalidate
 			}
 			else
+			{
+				if (kvp_p->key != key) // for test
+				{
+					hash_index->unlock_entry2(seg_lock,read_lock);
+					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				}
+				if (is_valid(header))
+					printf("what is happining.???\n");
 				nodeMeta->valid[nodeMeta->slot_cnt++] = false; // validate fail
+			}
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 			_mm_sfence(); // need?
