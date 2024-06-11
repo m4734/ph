@@ -163,8 +163,8 @@ class CCEH
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
 
-	bool read(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth);
-	bool read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth,bool &sf);
+	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* seg_depth_ret, volatile int **seg_depth_p);
+	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* seg_depth_ret ,volatile int **seg_depth,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);
@@ -183,6 +183,7 @@ class CCEH
 
 	KVP zero_entry;
 	std::atomic<uint8_t> zero_lock;
+	volatile int zero_depth;
 };
 #if 0
 class CCEH_vk : public CCEH

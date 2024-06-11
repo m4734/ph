@@ -9,13 +9,13 @@
 
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
-const size_t key_range = 100*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 1000*1000*1000; // 1G ops
-//#define KEY_RANGE 1000000000 //100M = 10G
+const size_t key_range = 10*1000*1000; // 100M *100B = 10GB
+const size_t total_ops = 100*1000*1000; // 1G ops
+					//#define KEY_RANGE 1000000000 //100M = 10G
 
-//#define THREAD_NUM 16
-//#define PMEM_NUM 4
-//#define EVICT_NUM 8
+					//#define THREAD_NUM 16
+					//#define PMEM_NUM 4
+					//#define EVICT_NUM 8
 
 #define THREAD_NUM 4
 #define PMEM_NUM 1
@@ -68,39 +68,56 @@ void *run(void *parameter)
 		size_t old_ops=0;
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 #endif
-	for (i=0;i<para->ops;i++)
-	{
-//		key = (para->op_id+i)%KEY_RANGE;
-//		key = rand() % KEY_RANGE;
-		key = key_gen();
-		*(uint64_t*)value = para->op_id+i;
-		para->phi->insert_op(key,value);
-	//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
-#ifdef PRINT_OPS
-		clock_gettime(CLOCK_MONOTONIC,&ts4);
-		if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+		for (i=0;i<para->ops;i++)
 		{
-			printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
-			old_ops = i;
-			ts3 = ts4;
+			//		key = (para->op_id+i)%KEY_RANGE;
+			//		key = rand() % KEY_RANGE;
+			key = key_gen();
+			*(uint64_t*)value = key+1;
+			para->phi->insert_op(key,value);
+			//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
+#ifdef PRINT_OPS
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+			{
+				printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
+				old_ops = i;
+				ts3 = ts4;
 
-		}
+			}
 #endif
 
-	}
+		}
 	}
 	else if (para->op_type == READ_OP)
 	{
-	for (i=0;i<para->ops;i++)
-	{
-		key = (para->op_id+i)%key_range;
-		if (para->phi->read_op(key,value) < 0)
-			printf("not found!\n");
-#ifdef VALIDATION
-		if (*(uint64_t*)value != para->op_id+i)
-			printf("validation fail key %lu value %lu\n",key,(*(uint64_t*)value));
+#ifdef PRINT_OPS
+		size_t old_ops=0;
+		clock_gettime(CLOCK_MONOTONIC,&ts3);
 #endif
-	}
+
+		for (i=0;i<para->ops;i++)
+		{
+			key = (para->op_id+i)%key_range;
+			if (para->phi->read_op(key,value) >= 0)
+			{
+#ifdef VALIDATION
+			if (*(uint64_t*)value != key+1)
+				printf("validation fail key %lu value %lu\n",key,(*(uint64_t*)value));
+#endif
+			}
+#ifdef PRINT_OPS
+			clock_gettime(CLOCK_MONOTONIC,&ts4);
+			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+			{
+				printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
+				old_ops = i;
+				ts3 = ts4;
+
+			}
+#endif
+
+		}
 
 	}
 
@@ -114,7 +131,7 @@ void *run(void *parameter)
 //#define LOG_PER_PMEM 4
 void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 {
-//--------------------------- init
+	//--------------------------- init
 
 	Parameter para[100];
 
@@ -130,7 +147,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 	printf("key range %lu\n",key_range);
 	printf("ops %lu\n",ops);
 
-//---------------------------- run
+	//---------------------------- run
 
 	pthread_t pthread[100];
 	for (i=0;i<THREAD_NUM;i++)
@@ -138,7 +155,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 		pthread_create(&pthread[i],NULL,run,(void*)&para[i]);
 	}
 
-//----------------------------- end
+	//----------------------------- end
 
 	size_t time=0;
 	for (i=0;i<THREAD_NUM;i++)

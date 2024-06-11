@@ -407,28 +407,20 @@ void CCEH::clean()
 
 //ValueEntry CCEH::find(unsigned char* const &key)
 
-bool CCEH::read(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth)
+int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int* seg_depth_ret , volatile int **seg_depth_ret_p)
 {
-	bool sf = false;
-	bool exist;
+	bool sf;
+	int ex;
 	while(true)
 	{
-		exist = read_with_fail(key,ret,seg_depth,sf);
+		ex = read_with_fail(key,kvp_ret,kvp_ret_p,seg_depth_ret,seg_depth_ret_p,sf);
 		if (sf)
-			return exist;
+			return ex;
 	}
 }
 
-bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **seg_depth, bool &sf)
+int CCEH::read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int* seg_depth_ret, volatile int **seg_depth_ret_p,bool &sf)
 {
-	/*
-	if (point)
-	{
-		inv0_value.node_offset = 0;
-		return inv0_value;
-//		return *insert_t(key,inv0_value,NULL); 
-	}
-	*/
 #ifdef ctt
 	find_cnt++;
 	struct timespec ts1,ts2;
@@ -446,12 +438,16 @@ bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **s
 //	if (key == (void*)INV0 && key_size == 8) // wrong!
 	if (zero_check(key))	
 	{
-		*ret = &zero_entry.value;
-		*seg_depth = NULL;
+//		*ret = zero_entry.value;
+		*kvp_ret = zero_entry;
+		*kvp_ret_p = &zero_entry;
+		*seg_depth_ret = zero_depth;
+		*seg_depth_ret_p = &zero_depth;
+		sf = true;
 		if (zero_entry.version & (VER_DELETE))
-			return false;
+			return 0;
 		else
-			return true;
+			return 1;
 //		return &inv0_value;
 //		ve_u.ve_64 = inv0_value;
 //return ve_u.ve;		
@@ -473,7 +469,8 @@ bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **s
 //	kvp_p = (KVP*)((unsigned char*)seg_list[sn]->cl + cn*CL_SIZE);
 	l = cn*KVP_PER_CL;
 
-	*seg_depth = &seg_list[sn]->depth;
+	*seg_depth_ret_p = &seg_list[sn]->depth;
+	*seg_depth_ret = seg_list[sn]->depth;
 	start_depth = seg_list[sn]->depth;
 	_mm_sfence();
 	kvp_p = (KVP*)seg_list[sn]->cl;
@@ -506,10 +503,15 @@ bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **s
 			ctt4+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 //			ve_u.ve_64 = kvp_p[l].value;
-			*ret = &kvp_p[l].value;
+//			*ret = kvp_p[l].value;
+			*kvp_ret = kvp_p[l];
+			*kvp_ret_p = &kvp_p[l];
+
 			_mm_sfence();
 			sf = (start_depth == seg_list[sn]->depth);
-			return true;
+//			return start_depth;
+//			return &kvp_p[l];
+			return 1;
 //			break;
 //			return ValueEntry(kvp_p[l].value);
 		}
@@ -518,7 +520,7 @@ bool CCEH::read_with_fail(uint64_t &key,volatile uint64_t **ret,volatile int **s
 //	return ve_u.ve;
 	_mm_sfence();
 	sf = (start_depth == seg_list[sn]->depth);
-	return false;
+	return 0;
 }
 
 //void CCEH::remove(unsigned char* const &key)

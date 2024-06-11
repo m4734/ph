@@ -161,7 +161,7 @@ struct NodeMeta
 //	std::atomic<uint8_t> valid_cnt;
 	int valid_cnt;
 
-//	std::atomic<uint8_t> lock;
+	std::atomic<uint8_t> rw_lock;
 };
 
 

@@ -144,6 +144,7 @@ size_t NODE_SLOT_MAX;
 			\*/
 		nm->valid.resize(NODE_SLOT_MAX);
 		nm->valid_cnt = 0;
+		nm->rw_lock = 0;
 
 		return nm->my_offset;
 	}

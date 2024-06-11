@@ -24,24 +24,24 @@ class ListNode;
 class PH_Thread
 {
 	public:
-	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),local_seg_free_head(0),op_cnt(0),update_request(0) {}
+	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0) {}
 
 	void update_free_cnt();
 	void update_tail_sum();
 	void op_check();
 	void sync_thread();
 
-	std::atomic<uint8_t> lock;
-	volatile uint8_t read_lock;
+	std::atomic<uint8_t> lock; // thread alloc lock
+	volatile uint8_t read_lock; // cceh read lock
 	volatile uint8_t run;
 	volatile uint8_t exit;
-	volatile size_t local_seg_free_head;
+//	volatile size_t local_seg_free_head;
 	size_t op_cnt;
 	int update_request;
 
 	size_t recent_log_tails[64];
 
-	unsigned char padding[64];
+	unsigned char padding[64]; // for cache line
 };
 
 class PH_Query_Thread : public PH_Thread
