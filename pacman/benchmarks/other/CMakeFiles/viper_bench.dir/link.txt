@@ -1,1 +1,0 @@
-/usr/bin/c++   -pthread -march=native -O3 -DNDEBUG   CMakeFiles/viper_bench.dir/viper_bench.cpp.o CMakeFiles/viper_bench.dir/__/histogram.cpp.o CMakeFiles/viper_bench.dir/viper/hotkeyset.cpp.o  -o viper_bench  -Wl,-rpath,/usr/local/lib ../../_deps/benchmark-build/src/libbenchmark.a /usr/local/lib/libpmem.so /usr/local/lib/libpmemobj.so -pthread /usr/lib/x86_64-linux-gnu/librt.so 
