@@ -243,7 +243,7 @@ namespace PH
 		//	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
 
 //test---------------------------------
-
+#if 0
 		unsigned char* dram_head_p;// = my_log->get_dram_head_p();
 		dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
 
@@ -263,9 +263,7 @@ namespace PH
 			if (dram_head_p == doubleLogList[test_ea.file_num].dramLogAddr + test_ea.offset)
 				printf("fiali43\n");
 		}
-
-
-//test
+#endif
 
 		ea.loc = 1;
 		ea.file_num = my_log->log_num;
@@ -371,12 +369,12 @@ namespace PH
 
 		// 7 unlock index -------------------------------------- lock to here
 		_mm_sfence();
-
+#if 0
 		uint64_t test_key;
 		test_key = *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+ ea.offset+HEADER_SIZE);
 		if (test_key != key)
 			printf("test file3\n");
-
+#endif
 		hash_index->unlock_entry2(seg_lock,read_lock);
 		/*
 		   if (is_loc_hot(old_version))
@@ -425,7 +423,7 @@ namespace PH
 				addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 				memcpy(buf,addr+HEADER_SIZE+KEY_SIZE,VALUE_SIZE);
 				//				_mm_sfence();
-
+#if 0
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -438,7 +436,7 @@ namespace PH
 					printf("test fail1\n");
 					ex = hash_index->read(test_key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 				}
-
+#endif
 
 			}
 			else // warm cold
@@ -477,7 +475,7 @@ namespace PH
 
 				_mm_sfence();
 
-
+#if 0
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -487,7 +485,7 @@ namespace PH
 
 				if (key+1 != test_value || test_key+1 != test_value)
 					printf("test fail2\n");
-
+#endif
 				at_unlock2(nm->rw_lock);
 			}
 			// need fence?
@@ -945,7 +943,7 @@ namespace PH
 			write_size+=node->torn_right;
 		}
 
-		unsigned char* old_addr[100]; //test ------------------------
+//		unsigned char* old_addr[100]; //test ------------------------
 
 		entry_list_cnt = node->entry_list.size();
 		for (i=0;i<entry_list_cnt;i++)
@@ -954,7 +952,7 @@ namespace PH
 			dl = &doubleLogList[ll.log_num];
 			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 
-			old_addr[i] = addr; // test--------------------
+//			old_addr[i] = addr; // test--------------------
 
 			header = (uint64_t*)addr;
 			if (dl->tail_sum > ll.offset || is_valid(header) == false)
@@ -1052,6 +1050,7 @@ namespace PH
 			}
 			else
 			{
+#if 0
 				if (kvp_p->key != key) // for test
 				{
 					hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1059,6 +1058,7 @@ namespace PH
 				}
 				if (is_valid(header))
 					printf("what is happining.???\n");
+#endif
 				nodeMeta->valid[nodeMeta->slot_cnt++] = false; // validate fail
 			}
 
@@ -1083,12 +1083,12 @@ namespace PH
 
 		}
 #endif
-
+#if 0
 		if (node->entry_list.size() * ENTRY_SIZE != node->entry_size_sum) // test
 		{
 			printf("missmatch %lu %lu\n",node->entry_list.size() * ENTRY_SIZE, node->entry_size_sum);
 		}
-
+#endif
 		node->entry_list.clear();
 		node->entry_size_sum = 0;
 
