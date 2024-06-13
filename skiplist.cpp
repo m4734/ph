@@ -86,7 +86,7 @@ void Skiplist::init()
 //	end_node->built = MAX_LEVEL;
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
-	end_node->my_listNode = list->empty_node;
+	end_node->my_listNode = list->end_node;
 
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)

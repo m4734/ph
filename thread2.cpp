@@ -389,7 +389,7 @@ namespace PH
 
 		return 0;
 	}
-	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf)
+	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf,std::string *value)
 	{
 		//	update_free_cnt();
 		op_check();
@@ -421,7 +421,10 @@ namespace PH
 			if (ea.loc == 1) // hot
 			{
 				addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-				memcpy(buf,addr+HEADER_SIZE+KEY_SIZE,VALUE_SIZE);
+				if (buf)
+					memcpy(buf,addr+HEADER_SIZE+KEY_SIZE,VALUE_SIZE0);
+				else
+					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
 #if 0
 				uint64_t test_key;
@@ -468,8 +471,10 @@ namespace PH
 				//		at_unlock2(nm->lock);
 
 				//	hash_index->read(key,&ea.value);//retry
-
-				memcpy(buf,addr+HEADER_SIZE+KEY_SIZE,VALUE_SIZE);
+				if (buf)
+					memcpy(buf,addr+HEADER_SIZE+KEY_SIZE,VALUE_SIZE0);
+				else
+					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//		at_unlock2(nm->lock);
 
 
@@ -1050,7 +1055,7 @@ namespace PH
 			}
 			else
 			{
-#if 0
+#if 1
 				if (kvp_p->key != key) // for test
 				{
 					hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1148,10 +1153,19 @@ namespace PH
 			SkiplistNode* node;
 
 			node = skiplist->find_node(key,prev,next);
-			if (node->entry_list.size() == 0)
-				return rv;
 			if (try_at_lock2(node->lock) == false)
 				return rv;
+			if (node->entry_list.size() == 0)
+			{
+				// test--------------------
+				KVP* kvp_p;
+				std::atomic<uint8_t> *seg_lock;
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+
+				//test---------------------
+				at_unlock2(node->lock);
+				return rv;
+			}
 			//				continue;
 			hot_to_warm(node,true);
 
@@ -1202,7 +1216,7 @@ namespace PH
 			{
 				rv = 1;
 				// regist the log num and size_t
-				while(true)
+				while(true) // the log allocated to this evict thread
 				{
 					node = skiplist->find_node(key,prev,next);
 					if (try_at_lock2(node->lock) == false)

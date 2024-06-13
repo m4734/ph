@@ -171,6 +171,7 @@ class CCEH
 	void unlock_entry2(std::atomic<uint8_t> *lock_p,volatile uint8_t &read_lock);
 
 	private:
+	void hard_check();
 
 	uint64_t dm;
 	int point;

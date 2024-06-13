@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <pthread.h>
+#include <string>
 
 //#include "skiplist.h"
 //#include "thread2.h"
@@ -19,7 +20,7 @@ namespace PH
 #define TOTAL_DATA_SIZE (ENTRY_SIZE*KEY_RANGE)
 */
 
-extern size_t VALUE_SIZE;
+extern size_t VALUE_SIZE0;
 
 //#define VALUE_SIZE 100
 
@@ -62,6 +63,7 @@ void global_clean();
 //--------------------------------------------------------------
 int insert_op(uint64_t key,unsigned char* value);
 int read_op(uint64_t key,unsigned char* buf);
+int read_op(uint64_t key,std::string *value);
 int delete_op(uint64_t key);
 int scan_op(uint64_t start_key,uint64_t end_key);
 int next_op(unsigned char* buf);

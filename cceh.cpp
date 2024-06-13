@@ -827,7 +827,7 @@ void CCEH::split(int sn) // seg locked
 
 		for (j=0;j<KVP_PER_CL;j++)
 		{
-			if (kvp_p[l].key == INV0 || kvp_p[l].value == 0)
+			if (kvp_p[l].key == INV0 || kvp_p[l].value == 0) // src empty
 			{
 //				if (kvp_p[l].value == 0)
 //					break;
@@ -855,7 +855,7 @@ void CCEH::split(int sn) // seg locked
 				while(new_kvp_p2[nll2[kc]].key != INV0)
 				{
 					nll2[kc]++;
-					nll2[kc]%=KVP_PER_CL*CL_PER_SEG;
+					nll2[kc]%=(KVP_PER_CL*CL_PER_SEG);
 				}
 				new_kvp_p2[nll2[kc]] = kvp_p[l];
 				nll2[kc]++;
@@ -867,11 +867,11 @@ void CCEH::split(int sn) // seg locked
 				while(new_kvp_p1[nll1[kc]].key != INV0)
 				{
 					nll1[kc]++;
-					nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
+					nll1[kc]%=(KVP_PER_CL*CL_PER_SEG);
 				}
 				new_kvp_p1[nll1[kc]] = kvp_p[l];
 				nll1[kc]++;
-				nll1[kc]%=KVP_PER_CL*CL_PER_SEG;
+				nll1[kc]%=(KVP_PER_CL*CL_PER_SEG);
 //				kvp_p[l].key = INV0;
 			}
 /*
@@ -944,7 +944,46 @@ void CCEH::split(int sn) // seg locked
 //	at_unlock2(seg->lock);
 _mm_sfence(); // seg lock deadlock?
 //	free_seg(seg);
+
+
 	temp_seg = seg;
+//	hard_check();
+}
+
+/*
+
+aaaaaaaabbbbcccc..........
+aaaabbbbcccc..............
+
+aaaa???
+
+1. copy same and read all
+2. copy and push
+
+*/
+
+void CCEH::hard_check()
+{
+	KVP kvp_p;
+	KVP* kvp_pp;
+	int seg_depth;
+	volatile int* seg_depth_p;
+	int i;
+	uint64_t key;
+	KVP* kvp_list;
+	kvp_list = (KVP*)temp_seg->cl;
+	for (i=0;i<KVP_PER_CL * CL_PER_SEG;i++)
+	{
+		key = kvp_list[i].key;
+		if (key == INV0)
+			continue;
+		if (read(key,&kvp_p,&kvp_pp,&seg_depth,&seg_depth_p) == 0)
+		{
+			if (read(key,&kvp_p,&kvp_pp,&seg_depth,&seg_depth_p) == 0)
+				printf("can't find\n");
+		}
+
+	}
 }
 
 //volatile uint64_t* CCEH::insert(unsigned char* const &key,ValueEntry &ve,void* unlock)

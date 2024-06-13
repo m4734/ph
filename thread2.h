@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <atomic>
+#include <string>
 
 //#include "skiplist.h"
 #include "shared.h"
@@ -54,7 +55,8 @@ class PH_Query_Thread : public PH_Thread
 	void clean();
 
 int insert_op(uint64_t key,unsigned char* value);
-int read_op(uint64_t key,unsigned char* buf);
+int read_op(uint64_t key,unsigned char* buf,std::string *value);
+//int read_op(uint64_t key,std::string *value);
 int delete_op(uint64_t key);
 int scan_op(uint64_t start_key,uint64_t end_key);
 int next_op(unsigned char* buf);

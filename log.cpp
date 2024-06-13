@@ -286,9 +286,9 @@ void DoubleLog::insert_pmem_log(uint64_t key,unsigned char *value)
 	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
 	unsigned char* head_p = pmemLogAddr + head_sum%my_size;
 	memcpy(head_p+HEADER_SIZE, &key, sizeof(uint64_t));
-	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
+	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE0);
 //	pmem_persist(head_p+header_size,ble_len-header_size);
-	pmem_persist(head_p+HEADER_SIZE,KEY_SIZE+VALUE_SIZE);
+	pmem_persist(head_p+HEADER_SIZE,KEY_SIZE+VALUE_SIZE0);
 	_mm_sfence();
 }
 #if 0
@@ -315,7 +315,7 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *va
 	unsigned char* head_p = dramLogAddr + head_sum%my_size;
 	memcpy(head_p,&version,HEADER_SIZE);
 	memcpy(head_p+HEADER_SIZE, &key, KEY_SIZE);
-	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE);
+	memcpy(head_p+HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE0);
 
 //	_mm_clwb();
 //	clwb(head_p,ENTRY_SIZE);

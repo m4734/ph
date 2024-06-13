@@ -26,7 +26,7 @@ thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
 thread_local PH_Thread* my_thread;
 
-size_t VALUE_SIZE;
+size_t VALUE_SIZE0;
 size_t KEY_RANGE;
 //size_t TOTAL_OPS;
 size_t ENTRY_SIZE;
@@ -102,9 +102,9 @@ void PH_Interface::clean_evict_thread()
 
 void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 {
-	printf("global init\n");
+	printf("global init VS %lu thread %d pmem %d evict %d\n",VS,n_t,n_p,n_e);
 
-	VALUE_SIZE = VS;
+	VALUE_SIZE0 = VS;
 	KEY_RANGE = KR;
 //	ENTRY_SIZE = 8 + 8 + VS;
 	ENTRY_SIZE = 8 + 8 + VS + (8 - VS%8);
@@ -194,8 +194,15 @@ int PH_Interface::read_op(uint64_t key,unsigned char* buf)
 {
 		if (my_query_thread == NULL)
 		new_query_thread();
-	return my_query_thread->read_op(key,buf);
+	return my_query_thread->read_op(key,buf,NULL);
 }
+int PH_Interface::read_op(uint64_t key,std::string *value)
+{
+	if (my_query_thread == NULL)
+		new_query_thread();
+	return my_query_thread->read_op(key,NULL,value);
+}
+
 int PH_Interface::delete_op(uint64_t key)
 {
 		if (my_query_thread == NULL)

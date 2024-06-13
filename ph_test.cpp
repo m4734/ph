@@ -6,11 +6,11 @@
 
 #include "global2.h"
 
-
+#if 1 
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
-const size_t key_range = 10*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 100*1000*1000; // 1G ops
+const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
+const size_t total_ops = 16*20*1000*1000; // 1G ops
 					//#define KEY_RANGE 1000000000 //100M = 10G
 
 					//#define THREAD_NUM 16
@@ -70,9 +70,9 @@ void *run(void *parameter)
 #endif
 		for (i=0;i<para->ops;i++)
 		{
-			//		key = (para->op_id+i)%KEY_RANGE;
+					key = (para->op_id+i)%key_range;
 			//		key = rand() % KEY_RANGE;
-			key = key_gen();
+//			key = key_gen();
 			*(uint64_t*)value = key+1;
 			para->phi->insert_op(key,value);
 			//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
@@ -198,3 +198,5 @@ int main()
 	printf("ph_test end\n");
 	return 0;
 }
+
+#endif
