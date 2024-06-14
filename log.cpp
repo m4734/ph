@@ -39,8 +39,8 @@ void init_log(int num_pmem, int num_log)
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log);
-	if (log_size < 1024*1024*1024)
-		log_size = 1024*1024*1024;
+//	if (log_size < 1024*1024*1024) // minimum
+//		log_size = 1024*1024*1024;
 	HARD_EVICT_SPACE = log_size/20;
 	SOFT_EVICT_SPACE = log_size/10;
 #if 0

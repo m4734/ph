@@ -282,23 +282,33 @@ namespace PH
 
 		// 2 lock index ------------------------------------- lock from here
 
-#ifdef INDEX
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
 		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 		//	kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
-		old_addr = kvp_p->value;
-#endif
+
+		uint64_t old_version,new_version;
+		bool new_key;	
+
+		if (kvp_p->key != key) // new key
+		{
+			if (kvp_p->key != INV0) // may test
+				printf("ececption1===============\n");
+			new_version = 1;
+			new_key = true;
+		}
+		else
+		{
+			old_addr = kvp_p->value;
+			old_version = kvp_p->version;
+			new_version = old_version+1;
+//			new_version = set_loc_hot(new_version);
+			set_valid(new_version); //???
+			new_key = false;
+		}
 
 		// 3 get and write new version <- persist
 
-		uint64_t old_version,new_version;
-#ifdef INDEX
-		old_version = kvp_p->version;
-		new_version = old_version+1;
-		new_version = set_loc_hot(new_version);
-		set_valid(new_version);
-#endif
 		// 4 add dram list
 #ifdef USE_DRAM_CACHE
 		//	new_addr = dram_head_p;
@@ -315,31 +325,35 @@ namespace PH
 		my_log->head_sum+=ENTRY_SIZE;
 
 		// 6 update index
-		bool new_key;	
 		//	kvp_p->value = (uint64_t)my_log->get_head_p();
 		kvp_p->value = new_addr;
 		kvp_p->version = new_version;
 		_mm_sfence(); // value first!
-		if (kvp_p->key != key) // not so good
+		if (new_key) // not so good
 		{
-			new_key = true;
 			kvp_p->key = key;
 			_mm_sfence();
+			hash_index->unlock_entry2(seg_lock,read_lock);
+
+{// test-----------------------------------------------------
+	KVP x1;
+	KVP *x2;
+	int x3;
+	volatile int *x4;
+	if (hash_index->read(key,&x1,&x2,&x3,&x4) == false)
+		printf("insert eerrror\n");
+}
+
+
+			return 0;
 		}
-		else
-			new_key = false;	
 
 		//	if (kvp_p)
 		// 5 add to key list if new key
 
 		// 8 remove old dram list
 #ifdef USE_DRAM_CACHE
-		if (new_key)
-		{
-			_mm_sfence();
-			hash_index->unlock_entry2(seg_lock,read_lock);
-			return 0;
-		}
+
 		EntryAddr old_ea;
 		unsigned char* addr;
 		old_ea.value = old_addr;
@@ -426,7 +440,7 @@ namespace PH
 				else
 					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#if 0
+#if 1
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -1161,6 +1175,7 @@ namespace PH
 				KVP* kvp_p;
 				std::atomic<uint8_t> *seg_lock;
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				printf("nothing to evict````````````````````\n");
 
 				//test---------------------
 				at_unlock2(node->lock);

@@ -21,6 +21,8 @@
 
 #define SPLIT_MASK (1 << 6) // I mean split bit
 
+#define KVP_PER_SEG (KVP_PER_CL * CL_PER_SEG)
+
 //#define ctt
 
 namespace PH
@@ -105,6 +107,7 @@ struct SEG
 //	std::mutex* seg_lock;	//struct c++
 //	volatile int depth; // 4
 	volatile int depth; // retry if split
+	volatile int split_cnt;
 
 }; // 64 * ???
 
@@ -163,8 +166,8 @@ class CCEH
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
 
-	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* seg_depth_ret, volatile int **seg_depth_p);
-	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* seg_depth_ret ,volatile int **seg_depth,bool &sf);
+	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* split_cnt_ret, volatile int **split_cnt_p);
+	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* split_cnt_ret ,volatile int **split_cnt_p,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);
