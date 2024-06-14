@@ -212,6 +212,20 @@ namespace PH
 		//	update_free_cnt();
 		op_check();
 
+// hash test
+
+	{
+		KVP* kvp_p;
+		std::atomic<uint8_t> *seg_lock;
+		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+		kvp_p->key = key;
+		kvp_p->value = *(uint64_t*)value;
+		hash_index->unlock_entry2(seg_lock,read_lock);
+
+		return 0;
+	}
+
+
 		//	unsigned char* new_addr;
 		//	unsigned char* old_addr;
 		uint64_t new_addr,old_addr;
@@ -408,6 +422,31 @@ namespace PH
 		//	update_free_cnt();
 		op_check();
 
+//hash test
+{
+	KVP* kvp_p;
+	volatile int* split_cnt_p;
+	int split_cnt;
+	KVP kvp;
+	int ex;
+	while(true)
+	{
+	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
+	if (ex == 0)
+	{
+		printf("deson't eixsit-----------------------------------------\n");
+		return -1;
+	}
+		if (buf)
+			memcpy(buf,(unsigned char*)&kvp_p->value,sizeof(uint64_t));
+		else
+			value->assign(kvp_p->value,sizeof(uint64_t));
+		if (split_cnt_p == NULL || split_cnt == *split_cnt_p)
+			return 0;
+	
+	}
+}
+
 		//	uint64_t ret;
 		//	hash_index->read(key,&ret);
 
@@ -508,8 +547,8 @@ namespace PH
 				at_unlock2(nm->rw_lock);
 			}
 			// need fence?
-			//			if (seg_depth_p == NULL || seg_depth == *seg_depth_p)// && ret == *ret_p)
-			break;
+			if (seg_depth_p == NULL || seg_depth == *seg_depth_p)// && ret == *ret_p)
+				break;
 		}
 
 
