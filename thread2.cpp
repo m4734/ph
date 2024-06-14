@@ -211,7 +211,7 @@ namespace PH
 	{
 		//	update_free_cnt();
 		op_check();
-
+#ifdef HASH_TEST
 // hash test
 
 	{
@@ -224,8 +224,7 @@ namespace PH
 
 		return 0;
 	}
-
-
+#endif
 		//	unsigned char* new_addr;
 		//	unsigned char* old_addr;
 		uint64_t new_addr,old_addr;
@@ -421,7 +420,7 @@ namespace PH
 	{
 		//	update_free_cnt();
 		op_check();
-
+#ifdef HASH_TEST
 //hash test
 {
 	KVP* kvp_p;
@@ -446,7 +445,7 @@ namespace PH
 	
 	}
 }
-
+#endif
 		//	uint64_t ret;
 		//	hash_index->read(key,&ret);
 
