@@ -105,6 +105,7 @@ namespace PH
 	void PH_Thread::sync_thread()
 	{
 		//	update_free_cnt();
+		return;
 		update_tail_sum();	
 		update_request = 0;
 	}
@@ -198,9 +199,14 @@ namespace PH
 		my_log->use = 0;
 		my_log = NULL;
 
-		hash_index->thread_local_clean();
+//		hash_index->thread_local_clean();
+		free(temp_seg);
 		run = 0;
 		read_lock = 0;
+
+		query_thread_list[thread_id].lock = 0;
+		printf("query thread list %d end\n",thread_id);
+		query_thread_list[thread_id].exit = 0;
 
 		//	delete recent_log_tails;
 	}
@@ -257,6 +263,7 @@ namespace PH
 
 //test---------------------------------
 #if 0
+{
 		unsigned char* dram_head_p;// = my_log->get_dram_head_p();
 		dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
 
@@ -274,8 +281,9 @@ namespace PH
 			EntryAddr test_ea;
 			test_ea.value = test_kvp.value;
 			if (dram_head_p == doubleLogList[test_ea.file_num].dramLogAddr + test_ea.offset)
-				printf("fiali43\n");
+				printf("fiali43-------------------------------\n");
 		}
+}
 #endif
 
 		ea.loc = 1;
@@ -291,7 +299,6 @@ namespace PH
 		   ble->key = key;
 		   memcpy(ble->value,value,VALUE_SIZE);
 		 */
-
 
 		// 2 lock index ------------------------------------- lock from here
 
@@ -316,10 +323,9 @@ namespace PH
 			old_version = kvp_p->version;
 			new_version = old_version+1;
 //			new_version = set_loc_hot(new_version);
-			set_valid(new_version); //???
 			new_key = false;
 		}
-
+		set_valid(new_version);
 		// 3 get and write new version <- persist
 
 		// 4 add dram list
@@ -347,20 +353,22 @@ namespace PH
 			kvp_p->key = key;
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
-
+#if 0
 {// test-----------------------------------------------------
 	KVP x1;
 	KVP *x2;
 	int x3;
 	volatile int *x4;
 	if (hash_index->read(key,&x1,&x2,&x3,&x4) == false)
-		printf("insert eerrror\n");
+	{
+		hash_index->read(key,&x1,&x2,&x3,&x4);
+		printf("insert eerrror========================================\n");
+	}
 }
 
-
+#endif
 			return 0;
 		}
-
 		//	if (kvp_p)
 		// 5 add to key list if new key
 
@@ -478,7 +486,7 @@ namespace PH
 				else
 					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#if 1
+#if 0
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -492,6 +500,10 @@ namespace PH
 					ex = hash_index->read(test_key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 				}
 #endif
+				if (ea.value != kvp_p->value)
+				{
+					continue;
+				}
 
 			}
 			else // warm cold
@@ -598,6 +610,7 @@ namespace PH
 				if (try_at_lock2(doubleLogList[i].evict_alloc))
 				{
 					log_list[log_cnt++] = &doubleLogList[i];
+					printf("evict thread %d -- log %d\n",thread_id,i);
 					break;
 				}
 			}
@@ -615,11 +628,16 @@ namespace PH
 
 	void PH_Evict_Thread::clean()
 	{
-		hash_index->thread_local_clean();
+//		hash_index->thread_local_clean();
+		free(temp_seg);
 		run = 0;
 		read_lock = 0;
 
 		delete[] log_list;
+
+		evict_thread_list[thread_id].lock = 0;
+		printf("evict rhread %d end\n",thread_id);
+		evict_thread_list[thread_id].exit = 0;
 	}
 	/*
 	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
@@ -1017,14 +1035,15 @@ namespace PH
 				node->entry_list[i].log_num = -1; // invalid
 				continue;
 			}
-			//test
+			//test-------------------------------
+#if 0
 			uint64_t key;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 			if (key < node->key)
 			{
 				printf("key is smaller than node key\n");
 			}
-
+#endif
 			memcpy(buffer_write_start+write_size,addr,ENTRY_SIZE);
 			write_size+=ENTRY_SIZE;
 		}
@@ -1067,7 +1086,7 @@ namespace PH
 			if (kvp_p->value == old_torn_addr.value)
 			{
 				kvp_p->value = dst_addr.value;
-				kvp_p->version = set_loc_warm(kvp_p->version);
+//				kvp_p->version = set_loc_warm(kvp_p->version);
 				nodeMeta->valid[nodeMeta->slot_cnt++] = true; // validate
 			}
 			else
@@ -1099,22 +1118,40 @@ namespace PH
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			if (kvp_p->value == src_addr.value)
 			{
+//				if (kvp_p->key != key)
+//					printf("ekfnelkfneslnflskenfes===============\n");
 				kvp_p->value = dst_addr.value;
-				kvp_p->version = set_loc_warm(kvp_p->version);
+//				kvp_p->version = set_loc_warm(kvp_p->version);
 				nodeMeta->valid[nodeMeta->slot_cnt++] = true; // validate
 				++nodeMeta->valid_cnt;
 				set_invalid(header); // invalidate
+
+//test---------------------------------------
+#if 0
+				{
+	KVP x1;
+	KVP *x2;
+	int x3;
+	volatile int *x4;
+	if (hash_index->read(key,&x1,&x2,&x3,&x4) == false)
+		printf("ereraerafvvvvvvvvvvvvv\n");
+
+					if (x1.value != dst_addr.value)
+						printf("xxxxxxxxxxxxxxxxxxxxxxxx\n");
+				}
+#endif
 			}
 			else
 			{
-#if 1
+#if 0
 				if (kvp_p->key != key) // for test
 				{
+					printf("key doesn't match========================\n");
 					hash_index->unlock_entry2(seg_lock,read_lock);
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				}
 				if (is_valid(header))
-					printf("what is happining.???\n");
+					printf("hash is gone but still valid... what is happining.???i---------------------\n");
 #endif
 				nodeMeta->valid[nodeMeta->slot_cnt++] = false; // validate fail
 			}
@@ -1209,6 +1246,7 @@ namespace PH
 				return rv;
 			if (node->entry_list.size() == 0)
 			{
+#if 0
 				// test--------------------
 				KVP* kvp_p;
 				std::atomic<uint8_t> *seg_lock;
@@ -1216,6 +1254,7 @@ namespace PH
 				printf("nothing to evict````````````````````\n");
 
 				//test---------------------
+#endif
 				at_unlock2(node->lock);
 				return rv;
 			}
@@ -1349,7 +1388,7 @@ namespace PH
 			{
 				run = 0;
 				if (sleep_time > 1000*1000)
-					printf("evict idle\n");
+					printf("evict idle %d\n",thread_id);
 				//				usleep(1000*1000);
 				usleep(sleep_time);
 				_mm_mfence();

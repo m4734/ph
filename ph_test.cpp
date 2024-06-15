@@ -6,7 +6,7 @@
 
 #include "global2.h"
 
-#if 1 
+#if 0 
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
@@ -37,6 +37,7 @@ struct Parameter
 	size_t time;
 	size_t op_id;
 	OP_TYPE op_type;
+	int id;
 };
 
 #define VALIDATION
@@ -80,7 +81,7 @@ void *run(void *parameter)
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
 			{
-				printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
+				printf("%d // old ops %lu ops %d diff %lu\n",para->id,old_ops,i,i-old_ops);
 				old_ops = i;
 				ts3 = ts4;
 
@@ -110,7 +111,7 @@ void *run(void *parameter)
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
 			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
 			{
-				printf("old ops %lu ops %d diff %lu\n",old_ops,i,i-old_ops);
+				printf("%d // old ops %lu ops %d diff %lu\n",para->id,old_ops,i,i-old_ops);
 				old_ops = i;
 				ts3 = ts4;
 
@@ -138,6 +139,7 @@ void work(PH::PH_Interface &phi, size_t ops, OP_TYPE op_type)
 	int i;
 	for (i=0;i<THREAD_NUM;i++)
 	{
+		para[i].id = i;
 		para[i].phi = &phi;
 		para[i].ops = ops/THREAD_NUM;
 		para[i].op_id = (ops/THREAD_NUM)*i;

@@ -19,7 +19,7 @@ namespace PH
 
 	extern thread_local PH_Thread* my_thread;
 
-	thread_local SEG* temp_seg = NULL;
+//	thread_local SEG* temp_seg = NULL;
 
 	//extern PH_Thread thread_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 	//extern int num_thread;
@@ -323,12 +323,14 @@ namespace PH
 
 	void CCEH::thread_local_init()
 	{
-		temp_seg = alloc_seg();
+		my_thread->temp_seg = alloc_seg();
 	}
 
 	void CCEH::thread_local_clean()
 	{
-		free(temp_seg);
+		printf("may not possible\n");
+//		free(temp_seg);
+//		free(my_thread->temp_
 	}
 
 	void CCEH::init(int in_depth)
@@ -463,6 +465,10 @@ namespace PH
 		//	sn = *(uint64_t*)key % ((uint64_t)1 << depth);
 		//	cn = *(uint64_t*)key >> (64-2);
 		sn = hk & dm;//((uint64_t)1 << depth);
+
+		//read lock will fix dm...
+		//but seg_list[sn] can be changed
+
 			     //	cn = hk >> (64-2);
 			     //	cn = hk >> (64-CL_BIT);	
 		cn = hk >> cl_shift;	
@@ -472,11 +478,17 @@ namespace PH
 
 //		*seg_depth_ret_p = &seg_list[sn]->depth;
 //		*seg_depth_ret = seg_list[sn]->depth;
-		*split_cnt_ret = seg_list[sn]->split_cnt;
-		*split_cnt_p = &seg_list[sn]->split_cnt;
-		start_split_cnt = seg_list[sn]->split_cnt;
+
+		SEG* seg = NULL;
+		while(seg != seg_list[sn])
+		{
+			seg = seg_list[sn];
+			*split_cnt_ret = seg->split_cnt;
+			*split_cnt_p = &seg->split_cnt;
+			start_split_cnt = seg->split_cnt;
+		}
 		_mm_sfence();
-		kvp_p = (KVP*)seg_list[sn]->cl;
+		kvp_p = (KVP*)seg->cl;
 		//	if (point)
 		//return NULL;
 		//	const int ll = (hk >> (64-CL_BIT)) * KVP_PER_CL;
@@ -501,7 +513,7 @@ namespace PH
 
 			if (kvp_p[l].key == INV0)
 			{
-				sf = (start_split_cnt == seg_list[sn]->split_cnt);
+				sf = (start_split_cnt == seg->split_cnt);
 				return 0;
 			}
 
@@ -518,7 +530,7 @@ namespace PH
 				*kvp_ret_p = &kvp_p[l];
 
 				_mm_sfence();
-				sf = (start_split_cnt == seg_list[sn]->split_cnt);
+				sf = (start_split_cnt == seg->split_cnt);
 				//			return start_depth;
 				//			return &kvp_p[l];
 				return 1;
@@ -529,7 +541,7 @@ namespace PH
 		}
 		//	return ve_u.ve;
 		_mm_sfence();
-		sf = (start_split_cnt == seg_list[sn]->split_cnt);
+		sf = (start_split_cnt == seg->split_cnt);
 		return 0;
 	}
 
@@ -801,7 +813,7 @@ retry:
 		SEG* new_seg2;
 
 		//	new_seg1 = alloc_seg();
-		new_seg1 = temp_seg;
+		new_seg1 = (SEG*)my_thread->temp_seg;
 		new_seg2 = alloc_seg();
 		//printf("alloc_seg1 %p\n",new_seg1);
 		//printf("alloc_seg2 %p\n",new_seg2);
@@ -1068,8 +1080,8 @@ retry:
 			      //	free_seg(seg);
 
 
-		temp_seg = seg;
-		hard_check();
+		my_thread->temp_seg = seg;
+//		hard_check(); // test
 	}
 
 	/*
@@ -1093,7 +1105,7 @@ retry:
 		int i;
 		uint64_t key;
 		KVP* kvp_list;
-		kvp_list = (KVP*)temp_seg->cl;
+		kvp_list = (KVP*)(((SEG*)my_thread->temp_seg)->cl);
 		for (i=0;i<KVP_PER_CL * CL_PER_SEG;i++)
 		{
 			key = kvp_list[i].key;
@@ -1257,23 +1269,23 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			--read_lock;
 			return NULL;
 		}
+
 		//	if (!point)
 		//	printf("%d ",(int)dir_lock);
 		//printf("at_lock2 seg %p\n",seg);	
 		//	if (sn != *(uint64_t*)key >> (64-depth))
 		//	if (sn != *(uint64_t*)key % ((uint64_t)1 << depth))
-#if 0
+#if 1
 		if (seg != seg_list[sn])//sn != hk % ((uint64_t)1 << depth))
 
 		{
 			//		printf("seg lock retry\n");
-			//		seg->lock = 0;
+			--read_lock;
 			at_unlock2(seg->lock);
-			//		seg->seg_lock->unlock();
 			//		goto retry;
 			//		continue;	
-			dir_lock--;			
-			return 0;		
+//			dir_lock--;			
+			return NULL;		
 		}
 #endif
 #if 0	

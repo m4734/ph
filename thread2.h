@@ -39,10 +39,13 @@ class PH_Thread
 //	volatile size_t local_seg_free_head;
 	size_t op_cnt;
 	int update_request;
+	int thread_id;
 
-	size_t recent_log_tails[64];
+	size_t recent_log_tails[64]; // remove this
+	void* temp_seg;
 
 	unsigned char padding[64]; // for cache line
+
 };
 
 class PH_Query_Thread : public PH_Thread

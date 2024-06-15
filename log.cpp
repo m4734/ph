@@ -244,7 +244,7 @@ void DoubleLog::ready_log()//(size_t len)
 	size_t offset = head_sum % my_size;
 	if (offset+ENTRY_SIZE > my_size) // check the space
 		head_sum+=(my_size-offset);
-
+#if 0
 	if (min_tail_sum + my_size < head_sum + ENTRY_SIZE)
 		min_tail_sum = get_min_tail(log_num);
 	while(min_tail_sum + my_size < head_sum + ENTRY_SIZE)
@@ -255,6 +255,15 @@ void DoubleLog::ready_log()//(size_t len)
 //		my_thread->update_tail_sum();
 		my_thread->sync_thread();
 		min_tail_sum = get_min_tail(log_num);
+	}
+#endif
+	while(tail_sum + my_size < head_sum + ENTRY_SIZE)
+	{
+//		printf("log %d full\n",log_num);
+//		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
+		usleep(1000*100);// sleep
+//		my_thread->update_tail_sum();
+		my_thread->sync_thread();
 	}
 
 

@@ -58,9 +58,9 @@ void PH_Interface::new_query_thread()
 	}
 
 	// find new DoubleLog
-
-	my_query_thread->init();
 	my_thread = my_query_thread;
+	my_query_thread->thread_id = i;
+	my_query_thread->init();
 }
 void PH_Interface::clean_query_thread()
 {
@@ -87,8 +87,9 @@ void PH_Interface::new_evict_thread()
 			break;
 	}
 
-	my_evict_thread->init();
 	my_thread = my_evict_thread;
+	my_evict_thread->thread_id = i;
+	my_evict_thread->init();
 }
 
 void PH_Interface::clean_evict_thread()
@@ -146,23 +147,26 @@ void PH_Interface::exit_threads()
 	{
 		if (query_thread_list[i].lock == 0)
 			continue;
-		query_thread_list[i].exit = 1;
+//		query_thread_list[i].exit = 1;
+		query_thread_list[i].clean();
 	}
 	for (i=0;i<num_evict_thread;i++)
 	{
 		if (evict_thread_list[i].lock == 0)
 			continue;
 		evict_thread_list[i].exit = 1;
+//		evict_thread_list[i].clean();
 	}
-
 	// query join???
 
 	for (i=0;i<num_evict_thread;i++)
 	{
-		if (evict_thread_list[i].exit)
+		if (evict_thread_list[i].lock == 0)
+			continue;
 		{
 			pthread_join(evict_pthreads[i],NULL);
-			evict_thread_list[i].exit = 0;
+//			evict_thread_list[i].exit = 0;
+//			evict_thread_list[i].clean();
 		}
 	}
 }
