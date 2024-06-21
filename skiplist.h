@@ -103,6 +103,7 @@ class SkiplistNode
 	size_t built;
 	std::atomic<ListNode*> my_listNode;
 //	NodeMeta* my_node;
+	NodeAddr myAddr;
 	NodeAddr data_node_addr;
 
 //	Tree_Node* next;
@@ -127,14 +128,24 @@ class Skiplist
 	std::atomic<uint8_t> node_alloc_lock; // lock?
 	SkiplistNode* node_free_head;
 
+//check
+	std::atomic<uint64_t> addr2_hit;
+	std::atomic<uint64_t> addr2_miss;
+	std::atomic<uint64_t> addr2_no;
+
+	size_t SKIPLIST_NODE_POOL_LIMIT;
+
 	public:
-	void init();
+	void init(size_t size);
 	void clean();
+
+	void setLimit(size_t size);
 	
 	SkiplistNode* alloc_sl_node();
 	void free_sl_node(SkiplistNode* node);
 
 	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next);
+	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock);
 	bool delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
 	void delete_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
 	bool insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);

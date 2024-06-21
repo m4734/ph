@@ -6,9 +6,12 @@
 #include "skiplist.h"
 #include "lock.h"
 #include "data2.h"
+#include "cceh.h"
 
 namespace PH
 {
+
+extern CCEH* hash_index;
 
 extern size_t HARD_EVICT_SPACE;
 extern size_t SOFT_EVICT_SPACE;
@@ -16,9 +19,13 @@ extern size_t SOFT_EVICT_SPACE;
 //const size_t DATA_SIZE = 100*1000*1000 * 100;//100M * 100B = 10G
 
 //const size_t NODE_POOL_LIST_SIZE = 1024;
+
+//NODE_POOL[NODE_POOL_LIST_SIZE][NODE_POOL_SIZE]
+// NODE_POOL size = NODE_POOL_LIST_SIZE * NODE_POOL_SIZE * NODE_SIZE = 1024*1024*1024*4096 4TB?
+
 const size_t NODE_POOL_LIST_SIZE = 1024*1024;
 const size_t NODE_POOL_SIZE = 1024; //4MB?
-const size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
+//size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 //4MB * 1024 * 4 * 3 = 4GB * 12GB
 
 const size_t KEY_MIN = 0x0000000000000000;
@@ -43,7 +50,6 @@ size_t getRandomLevel()
 	}
 	return level;
 }
-
 void SkiplistNode::setLevel(size_t l)
 {
 	level = l;
@@ -60,8 +66,9 @@ void SkiplistNode::setLevel()
 	built = 0;
 }
 
-void Skiplist::init()
+void Skiplist::init(size_t size)
 {
+	setLimit(size);
 //	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
 	node_pool_list = new SkiplistNode*[NODE_POOL_LIST_SIZE];
 
@@ -103,11 +110,19 @@ void Skiplist::init()
 //	nodeAllocator->linkNext(empty_node->data_node_addr);
 //	nodeAllocator->linkNext(start_node->data_node_addr);
 
+	//check
+	addr2_hit = 0;
+	addr2_miss = 0;
+	addr2_no = 0;
+
+
 }
 
 void Skiplist::clean()
 {
 	printf("sc cnt %ld pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
+
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)
 	{
@@ -122,6 +137,10 @@ void Skiplist::clean()
 SkiplistNode* Skiplist::alloc_sl_node()
 {
 	//just use lock
+
+	if (node_pool_cnt >= NODE_POOL_SIZE && node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)
+		return NULL;
+
 	while(node_alloc_lock);
 	at_lock2(node_alloc_lock);
 
@@ -138,7 +157,8 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	{
 		if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
 		{
-			printf("no space for node!\n");
+			printf("no space for node1!\n");
+			at_unlock2(node_alloc_lock);
 			return NULL;
 		}
 		++node_pool_list_cnt;
@@ -147,6 +167,8 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	}
 
 	SkiplistNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+	node->myAddr.pool_num = node_pool_list_cnt;
+	node->myAddr.node_offset = node_pool_cnt;
 	node->lock = 0;
 	node->delete_lock = 0;
 	node->next = NULL;
@@ -171,7 +193,8 @@ void Skiplist::free_sl_node(SkiplistNode* node)
 
 SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next) // what if max
 {
-	SkiplistNode* node = start_node;
+	SkiplistNode* node;// = start_node;
+	node = start_node;
 	int i;
 	for (i=MAX_LEVEL;i>=0;i--)
 	{
@@ -190,8 +213,53 @@ SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** 
 	return node;
 }
 
+SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock) // what if max
+{
+	SkiplistNode* node;// = start_node;
+// addr2
+	KVP kvp;
+	KVP* kvp_p;
+	int split_cnt;
+	int ex;
+	volatile int* split_cnt_p;
+	NodeAddr nodeAddr;
+	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
+	if (kvp.padding != INV0)
+	{
+		nodeAddr = *((NodeAddr*)&kvp.padding);
+		node = &skiplist->node_pool_list[nodeAddr.pool_num][nodeAddr.node_offset];
+		if (node->key <= key && key < node->next[0].load()->key)
+		{
+			addr2_hit++;
+			return node;
+		}
+		else
+			addr2_miss++;
+	}
+	else
+		addr2_no++;
+//addr2
+	node = find_node(key,prev,next);
+
+	//-------------------------------
+	nodeAddr = node->myAddr;
+	std::atomic<uint8_t>* seg_lock;
+	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+	kvp_p->padding = *(uint64_t*)&nodeAddr;
+	hash_index->unlock_entry2(seg_lock,read_lock);
+	//-------------------------------
+	return node;
+}
+
+void Skiplist::setLimit(size_t size)
+{
+	SKIPLIST_NODE_POOL_LIMIT = size / (NODE_POOL_SIZE * NODE_SIZE) +1;
+}
+
 void Skiplist::delete_node(SkiplistNode* node,SkiplistNode** prev,SkiplistNode** next)
 {
+		printf("not now\n");
+#if 0
 	size_t key = node->key;
 	at_lock2(node->delete_lock);
 	while(1)
@@ -209,6 +277,7 @@ void Skiplist::delete_node(SkiplistNode* node,SkiplistNode** prev,SkiplistNode**
 //		if (node->key != key)
 //			return;
 	}
+#endif
 }
 
 bool Skiplist::delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
@@ -348,7 +417,7 @@ ListNode* PH_List::alloc_list_node()
 	if (node_pool_cnt >= NODE_POOL_SIZE)
 	{
 		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
-			printf("no space for node!\n");
+			printf("no space for node2!\n");
 		++node_pool_list_cnt;
 		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
 		node_pool_cnt = 0;

@@ -46,6 +46,10 @@ class PH_Thread
 
 	unsigned char padding[64]; // for cache line
 
+	//check
+	uint64_t log_write_cnt;
+	uint64_t hot_to_warm_cnt;
+	uint64_t warm_to_cold_cnt;
 };
 
 class PH_Query_Thread : public PH_Thread

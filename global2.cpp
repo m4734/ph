@@ -41,6 +41,13 @@ int num_log;
 int num_query_thread;
 int num_evict_thread;
 
+
+	//check
+	std::atomic<uint64_t> log_write_sum;
+	std::atomic<uint64_t> hot_to_warm_sum;
+	std::atomic<uint64_t> warm_to_cold_sum;
+
+
 void PH_Interface::new_query_thread()
 {
 	if (my_query_thread)
@@ -135,7 +142,10 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 	list = new PH_List;
 	list->init();
 	skiplist = new Skiplist;
-	skiplist->init();
+	skiplist->init(TOTAL_DATA_SIZE/10); // warm 1/10...
+
+	//check
+	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = 0;
 
 	printf("global init end\n");
 }
@@ -186,6 +196,10 @@ printf("ccc\n");
 
 	clean_cceh();
 	clean_log();
+
+	//check
+
+	printf("log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
 }
 
 int PH_Interface::insert_op(uint64_t key,unsigned char* value)

@@ -6,11 +6,11 @@
 
 #include "global2.h"
 
-#if 0 
+#if 1 
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 16*20*1000*1000; // 1G ops
+const size_t total_ops = 3*200*1000*1000; // 1G ops
 					//#define KEY_RANGE 1000000000 //100M = 10G
 
 					//#define THREAD_NUM 16
@@ -19,7 +19,7 @@ const size_t total_ops = 16*20*1000*1000; // 1G ops
 
 #define THREAD_NUM 16
 #define PMEM_NUM 4
-#define EVICT_NUM 4
+#define EVICT_NUM 8
 
 #define PRINT_OPS
 
@@ -33,7 +33,7 @@ enum OP_TYPE
 struct Parameter
 {
 	PH::PH_Interface *phi;
-	int ops;
+	uint64_t ops;
 	size_t time;
 	size_t op_id;
 	OP_TYPE op_type;
@@ -53,7 +53,7 @@ size_t key_gen()
 
 void *run(void *parameter)
 {
-	int i;
+	uint64_t i;
 	Parameter *para = (Parameter*)parameter;
 
 	uint64_t key;
@@ -61,6 +61,7 @@ void *run(void *parameter)
 
 	struct timespec ts1,ts2,ts3,ts4;
 	para->time = 0;
+	uint64_t td,to;
 
 	clock_gettime(CLOCK_MONOTONIC,&ts1);
 	if (para->op_type == INSERT_OP)
@@ -79,9 +80,11 @@ void *run(void *parameter)
 			//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
 #ifdef PRINT_OPS
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
-			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+			td = (ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+			if (td > 1000000000)
 			{
-				printf("%d // old ops %lu ops %d diff %lu\n",para->id,old_ops,i,i-old_ops);
+				to = i-old_ops;
+				printf("%d // %lup ops %ld diff %lu\n",para->id,i*100/para->ops,i,to*1000000000/td);
 				old_ops = i;
 				ts3 = ts4;
 
@@ -109,9 +112,11 @@ void *run(void *parameter)
 			}
 #ifdef PRINT_OPS
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
-			if ((ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec > 1000000000)
+			td = (ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+			if (td > 1000000000)
 			{
-				printf("%d // old ops %lu ops %d diff %lu\n",para->id,old_ops,i,i-old_ops);
+				to = i-old_ops;
+				printf("%d // %lup ops %ld diff %lu\n",para->id,i*100/para->ops,i,to*1000000000/td);
 				old_ops = i;
 				ts3 = ts4;
 
@@ -191,10 +196,8 @@ int main()
 
 	size_t ops=total_ops;
 
-	printf("insert\n");
+	work(phi,key_range,INSERT_OP);
 	work(phi,ops,INSERT_OP);
-	printf("read\n");
-	work(phi,ops,READ_OP);
 #endif
 	phi.global_clean();
 	printf("ph_test end\n");

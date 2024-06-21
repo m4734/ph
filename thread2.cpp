@@ -12,6 +12,8 @@
 #include "data2.h"
 #include "global2.h"
 
+#define ADDR2
+
 namespace PH
 {
 
@@ -32,6 +34,11 @@ namespace PH
 	//PH_Thread thred_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 	PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 	PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
+
+	//check
+	extern std::atomic<uint64_t> log_write_sum;
+	extern std::atomic<uint64_t> hot_to_warm_sum;
+	extern std::atomic<uint64_t> warm_to_cold_sum;
 
 	extern Skiplist* skiplist;
 	extern PH_List* list;
@@ -192,6 +199,9 @@ namespace PH
 		read_lock = 0;
 
 		run = 1;
+
+		//check
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = 0;
 	}
 
 	void PH_Query_Thread::clean()
@@ -209,6 +219,11 @@ namespace PH
 		query_thread_list[thread_id].exit = 0;
 
 		//	delete recent_log_tails;
+
+		//check
+		log_write_sum+=log_write_cnt;
+		hot_to_warm_sum+=hot_to_warm_cnt;
+		warm_to_cold_sum+=warm_to_cold_cnt;
 	}
 
 #define INDEX
@@ -291,6 +306,9 @@ namespace PH
 		ea.offset = my_log->head_sum%my_log->my_size;
 
 		my_log->insert_pmem_log(key,value);
+
+		//check
+		log_write_cnt++;
 
 		//	my_log->ready_log();
 		//	head_p = my_log->get_head_p();
@@ -624,6 +642,10 @@ namespace PH
 		hash_index->thread_local_init();
 		read_lock = 0;
 		run = 1;
+
+		//check
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = 0;
+
 	}
 
 	void PH_Evict_Thread::clean()
@@ -638,6 +660,13 @@ namespace PH
 		evict_thread_list[thread_id].lock = 0;
 		printf("evict rhread %d end\n",thread_id);
 		evict_thread_list[thread_id].exit = 0;
+
+
+		//check
+		log_write_sum+=log_write_cnt;
+		hot_to_warm_sum+=hot_to_warm_cnt;
+		warm_to_cold_sum+=warm_to_cold_cnt;
+
 	}
 	/*
 	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
@@ -883,6 +912,8 @@ namespace PH
 					continue; 
 				}
 
+				//check
+				warm_to_cold_cnt++;
 
 				pmem_entry_write((unsigned char*)list_dataNode + sizeof(NodeAddr) + ENTRY_SIZE*slot_idx , addr + src_offset, ENTRY_SIZE);
 				list_nodeMeta->valid[slot_idx] = true; // validate
@@ -926,8 +957,7 @@ namespace PH
 
 		if (nodeMeta->valid_cnt)
 		{
-			SkiplistNode* new_skipNode = NULL;
-
+			SkiplistNode* new_skipNode;
 			new_skipNode = skiplist->alloc_sl_node();
 
 			if (new_skipNode) // warm split
@@ -974,6 +1004,7 @@ namespace PH
 
 	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool force)
 	{
+
 		//	printf("hot to warn\n");
 		int i;
 		LogLoc ll;
@@ -1044,6 +1075,11 @@ namespace PH
 				printf("key is smaller than node key\n");
 			}
 #endif
+
+		//check
+		hot_to_warm_cnt++;
+
+
 			memcpy(buffer_write_start+write_size,addr,ENTRY_SIZE);
 			write_size+=ENTRY_SIZE;
 		}
@@ -1240,10 +1276,18 @@ namespace PH
 			SkiplistNode* prev[MAX_LEVEL+1];
 			SkiplistNode* next[MAX_LEVEL+1];
 			SkiplistNode* node;
-
+#ifdef ADDR2
+			node = skiplist->find_node(key,prev,next,read_lock);
+#else
 			node = skiplist->find_node(key,prev,next);
+#endif
 			if (try_at_lock2(node->lock) == false)
 				return rv;
+			if (node->next[0].load()->key < key)
+			{
+				at_unlock2(node->lock);
+				return rv;
+			}
 			if (node->entry_list.size() == 0)
 			{
 #if 0
@@ -1310,11 +1354,23 @@ namespace PH
 				// regist the log num and size_t
 				while(true) // the log allocated to this evict thread
 				{
+#ifdef ADDR2
+					node = skiplist->find_node(key,prev,next,read_lock);
+#else
 					node = skiplist->find_node(key,prev,next);
+#endif
 					if (try_at_lock2(node->lock) == false)
 						continue;
 
+					if (node->next[0].load()->key < key) // may split
+					{
+						at_unlock2(node->lock);
+						continue;
+					}
+
+						// need to traverse to confirm the range...
 					nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+
 					if (sizeof(NodeAddr) + nodeMeta->written_size + node->entry_size_sum + ENTRY_SIZE > NODE_SIZE) // NODE_BUFFER_SIZE???
 					{
 						// warm is full
