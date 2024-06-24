@@ -724,12 +724,14 @@ namespace PH
 		offset2 = sizeof(NodeAddr);
 
 		half_key = find_half_in_node(list_nodeMeta,&temp_node);
+//		half_key = pivot;
+#if 0
 		if (half_key == listNode->key)
 		{
 			at_unlock2(list_nodeMeta->rw_lock);
 			return; // fail -- all same key?
 		}
-
+#endif
 		ListNode* new_listNode = list->alloc_list_node();
 		NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
 		DataNode* new_dataNode = nodeAddr_to_node(new_listNode->data_node_addr);
@@ -869,7 +871,7 @@ namespace PH
 
 			key = *(uint64_t*)(addr+src_offset+HEADER_SIZE);
 			listNode = node->my_listNode;
-			while (key > listNode->next->key)
+			while (key >= listNode->next->key)
 				listNode = listNode->next;
 
 			NodeMeta* list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
@@ -954,7 +956,7 @@ namespace PH
 
 		// split or init warm
 		//		at_lock2(nodeMeta->lock); // outer
-
+#if 0
 		if (nodeMeta->valid_cnt)
 		{
 			SkiplistNode* new_skipNode;
@@ -983,6 +985,41 @@ namespace PH
 
 			}
 		}
+#endif
+
+		// 1 check cold length and count them
+//		int cnt;
+		uint64_t current_key,next_key;
+//		ListNode* listNode;
+		ListNode* half_listNode;
+		current_key = node->key;
+		next_key = node->next[0].load()->key;
+		listNode = node->my_listNode;
+		half_listNode = node->my_listNode;
+		cnt = 0;
+		while (next_key > listNode->key)
+		{
+			listNode = listNode->next;
+			++cnt;
+			if (cnt%2 == 0)
+				half_listNode = half_listNode->next;
+		}
+
+		if (cnt > 20) // (WARM / COLD) RATIO
+		{
+			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
+			if (new_skipListNode)
+			{
+				new_skipListNode->key = half_listNode->key;
+				new_skipListNode->my_listNode = half_listNode; // may need to lock the node
+				SkiplistNode* prev[MAX_LEVEL+1];
+				SkiplistNode* next[MAX_LEVEL+1];
+				skiplist->insert_node(new_skipListNode,prev,next);
+			}
+		}
+		// 2 decide split key
+		// 3 split
+
 		/*
 		   else // warm init
 		   {
