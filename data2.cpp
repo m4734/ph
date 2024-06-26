@@ -146,6 +146,17 @@ size_t NODE_SLOT_MAX;
 		nm->valid_cnt = 0;
 		nm->rw_lock = 0;
 
+		nm->group_cnt = 1;
+
+		nm->next_p = NULL;
+		nm->next_node_in_group = NULL;
+
+		//pmem memset
+		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
+		memset(dataNode,0,NODE_SIZE);
+		pmem_persist(dataNode,NODE_SIZE);
+		_mm_sfence();
+
 		return nm->my_offset;
 	}
 

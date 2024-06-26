@@ -147,16 +147,26 @@ struct NodeMeta
 {
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
+//	NodaAddr next_addr;
+//	NodeAddr next_addr_in_group;
+
 	NodeMeta* next_p;
+	NodeMeta* next_node_in_group;
+	int group_cnt;
+
 	size_t written_size;
 //	size_t pool_num;
 //	uint64_t 
 //	NodeOffset my_offset;
 //	uint64_t my_offset;
 	NodeAddr my_offset;
+//	NodeAddr next_offset_in_group;
+
 //	Node* node;
 //	bool valid[NODE_SLOT_MAX];
 	std::vector<bool> valid;
+	// vecotr uint64_t key .... but we have to read pmem to split so it will be waste of dram cap
+
 	int slot_cnt; // filled slot for warm
 //	std::atomic<uint8_t> valid_cnt;
 	int valid_cnt;
@@ -213,7 +223,8 @@ class NodeAllocator
 	
 	std::atomic<uint8_t> lock=0;
 
-	size_t alloc_cnt;
+//	size_t alloc_cnt;
+	std::atomic<uint64_t> alloc_cnt;
 
 };
 
