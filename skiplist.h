@@ -45,8 +45,8 @@ class ListNode
 	public:
 	ListNode() : key(0), next(NULL), prev(NULL), lock(0) {};
 	size_t key;
-	ListNode* next;
-	ListNode* prev;
+	ListNode* volatile next; // pointer should be voaltile
+	ListNode* volatile prev;
 
 //	NodeMeta* my_node;
 	NodeAddr data_node_addr;

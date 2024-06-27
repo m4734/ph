@@ -33,12 +33,13 @@ const size_t VER_CL_LOC1 = (size_t(1)<<61);
 const size_t VER_CL_LOC2 = (size_t(1)<<60);
 const size_t VER_PL_LOC1 = (size_t(1)<<59);
 const size_t VER_PL_LOC2 = (size_t(1)<<58);
+const size_t VER_CHECKED = (size_t(1)<<57);
 
 const size_t VER_LOC_MASK = (VER_CL_LOC1+VER_CL_LOC2+VER_PL_LOC1+VER_PL_LOC2);
 const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
 const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
 
-const size_t VER_NUM_MASK = (size_t(1)<<58)-1;
+const size_t VER_NUM_MASK = (size_t(1)<<57)-1;
 /*
 inline unsigned char* value_to_node_addr(uint64_t value)
 {
@@ -60,6 +61,15 @@ inline size_t get_ver_num(uint64_t version)
 // 1 0 warm
 // 1 1 cold
 //const size_t VER_CL_HOT = VER_CL_LOC2;
+
+bool inline is_checked(uint64_t version)
+{
+	return version & VER_CHECKED;
+}
+void inline set_checked(uint64_t* version)
+{
+	*version |= VER_CHECKED;
+}
 
 bool inline is_loc_hot(uint64_t version)
 {

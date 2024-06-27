@@ -38,7 +38,7 @@ size_t NODE_SLOT_MAX;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
 		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
-		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
+		pmem_persist(&pmem_node->next_offset,NODE_HEADER_SIZE);
 		_mm_sfence();
 //		nm->size = sizeof(NodeAddr);
 	}
@@ -174,7 +174,7 @@ size_t NODE_SLOT_MAX;
 		uint64_t keys[NODE_SLOT_MAX];
 		uint64_t new_key;
 		int cnt = 0;
-		size_t offset = sizeof(NodeAddr);
+		size_t offset = NODE_HEADER_SIZE;
 		unsigned char* addr = (unsigned char*)node;
 
 		for (i=0;i<NODE_SLOT_MAX;i++) // always full?

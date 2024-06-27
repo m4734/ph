@@ -15,9 +15,11 @@ struct NodeAddr
 
 const NodeAddr emptyAddr = (NodeAddr) {0,0};
 
+const size_t NODE_HEADER_SIZE = 16; //8 + 8
 const size_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
-const size_t NODE_BUFFER_SIZE = NODE_SIZE-8-8; // unstable
+const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
 const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
+
 
 struct DataNode
 {
