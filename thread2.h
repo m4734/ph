@@ -80,6 +80,7 @@ class PH_Evict_Thread : public PH_Thread
 	int try_push(DoubleLog* dl);
 	void hot_to_warm(SkiplistNode* node,bool force);
 	void warm_to_cold(SkiplistNode* node);
+//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 

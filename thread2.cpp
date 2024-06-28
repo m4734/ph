@@ -704,7 +704,7 @@ namespace PH
 		_mm_sfence();
 	}
 
-
+#if 0
 	const size_t PMEM_BUFFER_SIZE = 256;
 
 	void PH_Evict_Thread::split_listNode(ListNode *listNode,SkiplistNode *skiplistNode)
@@ -842,7 +842,7 @@ namespace PH
 		at_unlock2(list_nodeMeta->rw_lock);
 
 	}
-
+#endif
 	void PH_Evict_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode)
 	{
 		// lock all the nodes
@@ -858,7 +858,7 @@ namespace PH
 //		std::vector<KA_Pair> key_list;
 		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
 		NodeMeta *list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
-		NodeMeta *half_list_nodeMeta;
+//		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
 		DataNode temp_dataNode[MAX_NODE_GROUP];
 		NodeMeta *old_nodeMeta[MAX_NODE_GROUP];
@@ -881,7 +881,7 @@ namespace PH
 			addr = temp_dataNode[group_idx].buffer;
 			offset = 0;
 
-			while(offset <= NODE_BUFFER_SIZE) // node is full
+			while(offset+ENTRY_SIZE <= NODE_BUFFER_SIZE) // node is full
 			{
 				key = *(uint64_t*)(addr+offset+HEADER_SIZE);
 				key_list.push(std::make_pair(key,(unsigned char*)(addr+offset))); // addr in temp dram
@@ -890,8 +890,8 @@ namespace PH
 
 			list_nodeMeta = list_nodeMeta->next_node_in_group;
 			group_idx++;
-			if (group_idx == MAX_NODE_GROUP/2)
-				half_list_nodeMeta = list_nodeMeta;
+//			if (group_idx == MAX_NODE_GROUP/2)
+//				half_list_nodeMeta = list_nodeMeta;
 		}
 
 		//sort them //pass
@@ -899,7 +899,6 @@ namespace PH
 		// fixed size here
 
 		//alloc dst first
-		ListNode* new_listNode;
 		NodeAddr new_nodeAddr[MAX_NODE_GROUP];
 		NodeMeta* new_nodeMeta[MAX_NODE_GROUP];
 		DataNode* new_dataNode;
@@ -913,8 +912,14 @@ namespace PH
 		}
 		for (i=0;i<MAX_NODE_GROUP-1;i++) // connect
 			new_nodeMeta[i]->next_node_in_group = new_nodeMeta[i+1];
+		for (i=0;i<MAX_NODE_GROUP/2;i++)
+		{
+			new_nodeMeta[i]->group_cnt = i+1;
+			new_nodeMeta[MAX_NODE_GROUP/2+i]->group_cnt = i+1;
+		}
+
 		new_nodeMeta[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
-		new_nodeMeta[0]->next_p = list_nodeMeta->next_p;
+		new_nodeMeta[0]->next_p = old_nodeMeta[0]->next_p;
 
 //-------------------------------------------------------------------------------
 
@@ -924,16 +929,18 @@ namespace PH
 		dst_group_idx = 0;
 		addr = sorted_temp_dataNode[0].buffer;
 		offset = 0;
-		for (i=0;i<key_list.size();i++)
+		int size = key_list.size();
+		for (i=0;i<size;i++)
 		{
 			memcpy(addr+offset,key_list.top().second,ENTRY_SIZE);
 			key_list_of_node[dst_group_idx].push_back(key_list.top().first);
 			key_list.pop();
 			offset+=ENTRY_SIZE;
-			if (offset > NODE_BUFFER_SIZE)
+			if (offset+ENTRY_SIZE > NODE_BUFFER_SIZE)
 			{
 				dst_group_idx++;
 				addr = sorted_temp_dataNode[dst_group_idx].buffer;
+				offset = 0;
 			}
 		}
 	
@@ -951,16 +958,17 @@ namespace PH
 			sorted_temp_dataNode[i].next_offset_in_group = new_nodeMeta[i+1]->my_offset;
 		}
 		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyAddr;
-		sorted_temp_dataNode[MAX_NODE_GROUP/2].next_offset = list_nodeMeta->next_p->my_offset;
+		sorted_temp_dataNode[MAX_NODE_GROUP/2].next_offset = old_nodeMeta[0]->next_p->my_offset;
 		sorted_temp_dataNode[0].next_offset = new_nodeMeta[MAX_NODE_GROUP/2]->my_offset;
 
+		// fill new nodes
 		int j;
 		KVP* kvp_p;
 		std::atomic<uint8_t>* seg_lock;
 		EntryAddr ea;
 		for (i=0;i<MAX_NODE_GROUP;i++) // persist
 		{
-			new_dataNode = nodeAddr_to_node(new_listNode[i].data_node_addr);
+			new_dataNode = nodeAddr_to_node(new_nodeMeta[i]->my_offset);
 			pmem_nt_write((unsigned char*)new_dataNode,(unsigned char*)&sorted_temp_dataNode[i],NODE_SIZE);
 			addr = new_dataNode->buffer;
 			offset = 0;
@@ -986,12 +994,17 @@ namespace PH
 			}
 		}
 
+		new_nodeMeta[MAX_NODE_GROUP/2]->next_p = old_nodeMeta[0]->next_p;
+
 		_mm_sfence();
 
 		// link the list
 		// link pmem first then dram...
 
 		// do not change listNode just link new nodemeta
+		ListNode* new_listNode;
+		new_listNode = list->alloc_list_node();
+
 		listNode->data_node_addr = new_nodeMeta[0]->my_offset;
 		new_listNode->data_node_addr = new_nodeMeta[MAX_NODE_GROUP/2]->my_offset;
 		new_listNode->key = key_list_of_node[MAX_NODE_GROUP/2][0];
@@ -1058,17 +1071,18 @@ namespace PH
 			new_ea.file_num = listNode->data_node_addr.pool_num;
 			//			new_ea.offset = ln->data_node_addr.offset*NODE_SIZE;
 
-			at_lock2(list_nodeMeta->rw_lock);//-------------------------------------lock dst cold
+			at_lock2(listNode->lock);//-------------------------------------lock dst cold
 							 //			at_lock2(listNode->lock);
 			if (key > listNode->next->key) // split??
 			{
-				//				at_unlock2(listNode->lock);
-				at_unlock2(list_nodeMeta->rw_lock);
+				at_unlock2(listNode->lock);
 				continue;
 			}
 
 			while (list_nodeMeta->valid_cnt >= NODE_SLOT_MAX && list_nodeMeta->next_node_in_group != NULL) // find space in group
 				list_nodeMeta = list_nodeMeta->next_node_in_group;
+
+			at_lock2(list_nodeMeta->rw_lock);
 
 			if (list_nodeMeta->valid_cnt < NODE_SLOT_MAX)
 			{
@@ -1085,7 +1099,7 @@ namespace PH
 			if (slot_idx < NODE_SLOT_MAX)
 			{
 				old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
-				new_ea.offset = listNode->data_node_addr.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+				new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 				// lock here
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				//					if (kvp_p->value != (uint64_t)addr) // moved
@@ -1098,6 +1112,7 @@ namespace PH
 										       //						at_unlock2(list_nodeMeta->lock);
 										       //					at_unlock2(listNode->lock);
 					at_unlock2(list_nodeMeta->rw_lock);
+					at_unlock2(listNode->lock);
 					++cnt;
 					src_offset+=ENTRY_SIZE;
 					continue; 
@@ -1106,8 +1121,8 @@ namespace PH
 				//check
 				warm_to_cold_cnt++;
 
-				DataNode* list_dataNode = nodeAddr_to_node(listNode->data_node_addr);
-				pmem_entry_write((unsigned char*)list_dataNode + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx , addr + src_offset, ENTRY_SIZE);
+				DataNode* list_dataNode = nodeAddr_to_node(list_nodeMeta->my_offset);
+				pmem_entry_write(list_dataNode->buffer + ENTRY_SIZE*slot_idx , addr + src_offset, ENTRY_SIZE);
 				list_nodeMeta->valid[slot_idx] = true; // validate
 				++list_nodeMeta->valid_cnt;
 
@@ -1125,6 +1140,9 @@ namespace PH
 				// not here...
 				++cnt;
 				src_offset+=ENTRY_SIZE;
+
+				at_unlock2(list_nodeMeta->rw_lock);
+
 			}
 			//			if (i >= NODE_SLOT_MAX) // need split
 			else // cold split
@@ -1141,6 +1159,8 @@ namespace PH
 
 					list_nodeMeta->next_node_in_group = new_nodeMeta;
 					new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
+
+					at_unlock2(list_nodeMeta->rw_lock);
 				}
 				else
 				{
@@ -1164,7 +1184,7 @@ namespace PH
 							at_unlock2(prev_listNode->lock);
 							continue;
 						}
-						at_lock2(listNode->lock);
+//						at_lock2(listNode->lock);
 						next_listNode = listNode->next;
 						at_lock2(next_listNode->lock);
 						if (listNode->next != next_listNode)
@@ -1174,18 +1194,21 @@ namespace PH
 							continue;
 						}
 
+						at_unlock2(list_nodeMeta->rw_lock);
 
 						split_listNode_group(listNode,node); // we have the lock
 
-						at_unlock2(listNode->next->lock);
-						at_unlock2(listNode->lock);
-						at_unlock2(listNode->prev->lock);
+						at_unlock2(next_listNode->lock);
+//						at_unlock2(listNode->lock);
+						at_unlock2(prev_listNode->lock);
 						break;
+
+						//2-1-3 deadlock
 					}
 				}
 			}
-			at_unlock2(list_nodeMeta->rw_lock);//-----------------------------------------unlock dst cold
-			//			at_unlock2(listNode->lock);
+//			at_unlock2(list_nodeMeta->rw_lock);//-----------------------------------------unlock dst cold
+			at_unlock2(listNode->lock);
 		}
 
 		// split or init warm
