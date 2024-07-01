@@ -29,6 +29,7 @@ extern size_t KEY_RANGE;
 extern size_t ENTRY_SIZE;
 extern size_t TOTAL_DATA_SIZE;
 
+void debug_error(const char* msg);
 
 class PH_Interface
 {

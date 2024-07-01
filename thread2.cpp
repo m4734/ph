@@ -843,6 +843,14 @@ namespace PH
 
 	}
 #endif
+	/*
+	template <typename A,typename B>
+	std::pair<A,B> operator<(const std::pair<A,B> &l, const std::pair<A,B> &r)
+	{
+		return l.first < r.first;
+	}
+	*/
+
 	void PH_Evict_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode)
 	{
 		// lock all the nodes
@@ -856,7 +864,8 @@ namespace PH
 
 		//scan all keys
 //		std::vector<KA_Pair> key_list;
-		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
+//		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
+		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> key_list;
 		NodeMeta *list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
 //		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
@@ -984,7 +993,10 @@ namespace PH
 
 					ea.loc = 3; // cold
 					ea.file_num = new_nodeMeta[i]->my_offset.pool_num;
-					ea.offset = new_nodeMeta[i]->my_offset.node_offset*NODE_SIZE + offset;
+					ea.offset = new_nodeMeta[i]->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + offset;
+					//test check
+					if (nodeAllocator->node_cnt[ea.file_num] < ea.offset/NODE_SIZE)
+						debug_error("errorrr111\n");
 				}
 				else
 					new_nodeMeta[i]->valid[j] = false;
@@ -1068,7 +1080,7 @@ namespace PH
 
 			NodeMeta* list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
 //			NodeMeta* first_nodeMeta_in_group = list_nodeMeta;
-			new_ea.file_num = listNode->data_node_addr.pool_num;
+//			new_ea.file_num = listNode->data_node_addr.pool_num;
 			//			new_ea.offset = ln->data_node_addr.offset*NODE_SIZE;
 
 			at_lock2(listNode->lock);//-------------------------------------lock dst cold
@@ -1096,10 +1108,15 @@ namespace PH
 			else
 				slot_idx = NODE_SLOT_MAX;
 
+			new_ea.file_num = list_nodeMeta->my_offset.pool_num;
 			if (slot_idx < NODE_SLOT_MAX)
 			{
 				old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 				new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+				//test check
+				if (nodeAllocator->node_cnt[new_ea.file_num] < new_ea.offset/NODE_SIZE)
+					debug_error("ererererr2222\n");
+
 				// lock here
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				//					if (kvp_p->value != (uint64_t)addr) // moved

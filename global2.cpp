@@ -47,6 +47,11 @@ int num_evict_thread;
 	std::atomic<uint64_t> hot_to_warm_sum;
 	std::atomic<uint64_t> warm_to_cold_sum;
 
+void debug_error(const char* msg)
+{
+	printf("error----------------------------------------\n");
+	printf("%s\n",msg);
+}
 
 void PH_Interface::new_query_thread()
 {
