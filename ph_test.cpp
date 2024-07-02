@@ -197,7 +197,7 @@ int main()
 	size_t ops=total_ops;
 
 	work(phi,key_range,INSERT_OP);
-	work(phi,ops,INSERT_OP);
+	work(phi,ops,READ_OP);
 #endif
 	phi.global_clean();
 	printf("ph_test end\n");

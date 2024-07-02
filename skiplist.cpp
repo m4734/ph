@@ -83,17 +83,20 @@ void Skiplist::init(size_t size)
 	empty_node = alloc_sl_node();
 	empty_node->key = KEY_MIN;
 	empty_node->my_listNode = list->empty_node; // may not need
+	empty_node->data_node_addr = nodeAllocator->alloc_node();
 
 	start_node = alloc_sl_node();
 	start_node->setLevel(MAX_LEVEL);
 	start_node->key = KEY_MIN;
 	start_node->my_listNode = list->start_node;
+	start_node->data_node_addr = nodeAllocator->alloc_node();
 
 	end_node = alloc_sl_node();
 //	end_node->built = MAX_LEVEL;
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
 	end_node->my_listNode = list->end_node;
+	end_node->data_node_addr = nodeAllocator->alloc_node();
 
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
@@ -173,7 +176,7 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	node->delete_lock = 0;
 	node->next = NULL;
 	node->setLevel();
-	node->data_node_addr = nodeAllocator->alloc_node();
+//	node->data_node_addr = nodeAllocator->alloc_node();
 
 //	if (node_pool_cnt < NODE_POOL_SIZE)
 	{
@@ -358,12 +361,15 @@ void PH_List::init()
 
 	empty_node = alloc_list_node();
 	empty_node->key = KEY_MIN;
+	empty_node->data_node_addr = nodeAllocator->alloc_node();
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
+	start_node->data_node_addr = nodeAllocator->alloc_node();
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
+	end_node->data_node_addr = nodeAllocator->alloc_node();
 
 //	List_Node* node = alloc_list_node();
 	empty_node->next = start_node;
@@ -427,7 +433,7 @@ ListNode* PH_List::alloc_list_node()
 	node->lock = 0;
 	node->next = NULL;
 	node->prev = NULL;
-	node->data_node_addr = nodeAllocator->alloc_node();
+//	node->data_node_addr = nodeAllocator->alloc_node();
 
 //	if (node_pool_cnt < NODE_POOL_SIZE)
 	{

@@ -506,7 +506,7 @@ namespace PH
 				else
 					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#if 0
+#if 1
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -532,7 +532,7 @@ namespace PH
 				int node_cnt;
 
 				node_cnt = ea.offset/NODE_SIZE;
-				nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
+				nm = (NodeMeta*)((unsigned char*)nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
 				at_lock2(nm->rw_lock);
 				_mm_sfence();
 
@@ -916,7 +916,6 @@ namespace PH
 		{
 			new_nodeAddr[i] = nodeAllocator->alloc_node();
 			new_nodeMeta[i] = nodeAddr_to_nodeMeta(new_nodeAddr[i]);
-			new_nodeMeta[i]->group_cnt = i+1;
 			at_lock2(new_nodeMeta[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<MAX_NODE_GROUP-1;i++) // connect
@@ -928,7 +927,14 @@ namespace PH
 		}
 
 		new_nodeMeta[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
-		new_nodeMeta[0]->next_p = old_nodeMeta[0]->next_p;
+		new_nodeMeta[MAX_NODE_GROUP/2]->next_p = old_nodeMeta[0]->next_p;
+		new_nodeMeta[0]->next_p = new_nodeMeta[MAX_NODE_GROUP/2];
+
+		if (new_nodeMeta[0]->next_p == NULL) // didn't happen
+			debug_error("next_p NULL");
+		if (new_nodeMeta[MAX_NODE_GROUP/2]->next_p == NULL) // didn't happen
+			debug_error("next_p NULL");
+
 
 //-------------------------------------------------------------------------------
 
@@ -991,7 +997,7 @@ namespace PH
 					new_nodeMeta[i]->valid[j] = true;
 					new_nodeMeta[i]->valid_cnt++;
 
-					ea.loc = 3; // cold
+//					ea.loc = 3; // cold
 					ea.file_num = new_nodeMeta[i]->my_offset.pool_num;
 					ea.offset = new_nodeMeta[i]->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + offset;
 					//test check
@@ -1006,7 +1012,6 @@ namespace PH
 			}
 		}
 
-		new_nodeMeta[MAX_NODE_GROUP/2]->next_p = old_nodeMeta[0]->next_p;
 
 		_mm_sfence();
 
@@ -1017,8 +1022,10 @@ namespace PH
 		ListNode* new_listNode;
 		new_listNode = list->alloc_list_node();
 
+		// don't alloc new node...
 		listNode->data_node_addr = new_nodeMeta[0]->my_offset;
 		new_listNode->data_node_addr = new_nodeMeta[MAX_NODE_GROUP/2]->my_offset;
+
 		new_listNode->key = key_list_of_node[MAX_NODE_GROUP/2][0];
 		new_listNode->prev = listNode;
 
@@ -1098,7 +1105,6 @@ namespace PH
 
 			if (list_nodeMeta->valid_cnt < NODE_SLOT_MAX)
 			{
-
 				for (slot_idx=0;slot_idx<NODE_SLOT_MAX;slot_idx++)
 				{
 					if (list_nodeMeta->valid[slot_idx] == false)
@@ -1147,7 +1153,7 @@ namespace PH
 				//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 
 				//					set_loc_cold(kvp_p->version);
-				kvp_p->version = set_loc_cold(kvp_p->version);
+//				kvp_p->version = set_loc_cold(kvp_p->version);
 				//					kvp_p->value = (uint64_t)addr;
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
@@ -1284,7 +1290,14 @@ namespace PH
 			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
 			if (new_skipListNode)
 			{
+				NodeMeta* new_nodeMeta;
 				new_skipListNode->key = half_listNode->key;
+
+				new_skipListNode->data_node_addr = nodeAllocator->alloc_node();
+				new_nodeMeta = nodeAddr_to_nodeMeta(new_skipListNode->data_node_addr);
+				new_nodeMeta->next_p = nodeMeta->next_p;
+				nodeMeta->next_p = new_nodeMeta;
+
 				new_skipListNode->my_listNode = half_listNode; // may need to lock the node
 				SkiplistNode* prev[MAX_LEVEL+1];
 				SkiplistNode* next[MAX_LEVEL+1];
