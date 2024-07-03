@@ -525,7 +525,7 @@ namespace PH
 				else
 					value->assign((char*)(addr+HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#if 1
+#if 0
 				uint64_t test_key;
 				uint64_t test_value;
 
