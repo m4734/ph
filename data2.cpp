@@ -160,6 +160,7 @@ size_t NODE_SLOT_MAX;
 		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
 
+//		nm->test = 0; // test
 		return nm->my_offset;
 	}
 

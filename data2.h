@@ -182,6 +182,9 @@ struct NodeMeta
 	int valid_cnt;
 
 	std::atomic<uint8_t> rw_lock;
+
+	//test
+//	int test=0;
 };
 
 
@@ -189,8 +192,6 @@ uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
 
 //void linkNext(NodeMeta* nm);
 //void linkNext(NodeAddr nodeAddr);
-
-
 
 class NodeAllocator
 {

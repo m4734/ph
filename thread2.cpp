@@ -88,6 +88,25 @@ namespace PH
 		return min;
 	}
 #endif
+
+	uint64_t test_the_index(KVP kvp)
+	{
+		EntryAddr ea;
+		unsigned char* addr;
+		uint64_t key;
+
+		ea.value = kvp.value;
+
+		if (ea.loc == 1)
+			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+		else
+			addr = nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
+
+		key = *(uint64_t*)(addr+HEADER_SIZE);
+
+		return key;
+	}
+
 	size_t get_min_tail(int log_num)
 	{
 		int i,mi;
@@ -929,12 +948,12 @@ namespace PH
 		new_nodeMeta[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
 		new_nodeMeta[MAX_NODE_GROUP/2]->next_p = old_nodeMeta[0]->next_p;
 		new_nodeMeta[0]->next_p = new_nodeMeta[MAX_NODE_GROUP/2];
-
+#if 0
 		if (new_nodeMeta[0]->next_p == NULL) // didn't happen
 			debug_error("next_p NULL");
 		if (new_nodeMeta[MAX_NODE_GROUP/2]->next_p == NULL) // didn't happen
 			debug_error("next_p NULL");
-
+#endif
 
 //-------------------------------------------------------------------------------
 
@@ -1000,12 +1019,29 @@ namespace PH
 //					ea.loc = 3; // cold
 					ea.file_num = new_nodeMeta[i]->my_offset.pool_num;
 					ea.offset = new_nodeMeta[i]->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + offset;
+#if 0
 					//test check
-					if (nodeAllocator->node_cnt[ea.file_num] < ea.offset/NODE_SIZE)
-						debug_error("errorrr111\n");
+					{
+						if (nodeAllocator->node_cnt[ea.file_num] < ea.offset/NODE_SIZE)
+							debug_error("errorrr111\n");
+						uint64_t test_key;
+						test_key = *(uint64_t*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+HEADER_SIZE);
+						if (test_key != key)
+							debug_error("key error\n");
+					}
+#endif
+
+					kvp_p->value = ea.value;
+
 				}
 				else
 					new_nodeMeta[i]->valid[j] = false;
+
+#if 0				//test
+				uint64_t test_key = test_the_index(*kvp_p);
+				if (test_key != kvp_p->key)
+					debug_error("index error\n");
+#endif
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				offset+=ENTRY_SIZE;
 
@@ -1119,10 +1155,11 @@ namespace PH
 			{
 				old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 				new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+#if 0
 				//test check
 				if (nodeAllocator->node_cnt[new_ea.file_num] < new_ea.offset/NODE_SIZE)
 					debug_error("ererererr2222\n");
-
+#endif
 				// lock here
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				//					if (kvp_p->value != (uint64_t)addr) // moved
@@ -1302,6 +1339,10 @@ namespace PH
 				SkiplistNode* prev[MAX_LEVEL+1];
 				SkiplistNode* next[MAX_LEVEL+1];
 				skiplist->insert_node(new_skipListNode,prev,next);
+#if 0
+				// test
+				nodeMeta->test = -1;
+#endif
 			}
 		}
 		// 2 decide split key
