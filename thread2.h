@@ -50,12 +50,18 @@ class PH_Thread
 	uint64_t log_write_cnt;
 	uint64_t hot_to_warm_cnt;
 	uint64_t warm_to_cold_cnt;
+
+	protected:
+	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 };
 
 class PH_Query_Thread : public PH_Thread
 {
 	private:
 	DoubleLog* my_log;
+
+	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,uint64_t version);
+	void invalidate_entry(EntryAddr &ea);
 
 	public:
 	void init();
@@ -78,11 +84,12 @@ class PH_Evict_Thread : public PH_Thread
 	int try_soft_evict(DoubleLog* dl);
 	int try_hard_evict(DoubleLog* dl);
 	int try_push(DoubleLog* dl);
+	int test_inv_log(DoubleLog* dl);
+
 	void hot_to_warm(SkiplistNode* node,bool force);
 	void warm_to_cold(SkiplistNode* node);
 //	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
-	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
 	DoubleLog** log_list;
 	int log_cnt;
