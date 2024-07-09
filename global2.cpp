@@ -46,6 +46,7 @@ int num_evict_thread;
 	std::atomic<uint64_t> log_write_sum;
 	std::atomic<uint64_t> hot_to_warm_sum;
 	std::atomic<uint64_t> warm_to_cold_sum;
+	std::atomic<uint64_t> direct_to_cold_sum;
 
 void debug_error(const char* msg)
 {
@@ -151,6 +152,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 
 	//check
 	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = 0;
+	direct_to_cold_sum = 0;
 
 	printf("global init end\n");
 }
@@ -205,6 +207,7 @@ printf("ccc\n");
 	//check
 
 	printf("log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
+	printf("direct to cold %lu\n",direct_to_cold_sum.load());
 }
 
 int PH_Interface::insert_op(uint64_t key,unsigned char* value)

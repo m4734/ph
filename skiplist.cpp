@@ -254,6 +254,45 @@ SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** 
 	return node;
 }
 
+SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock, KVP &kvp) // what if max
+{
+	SkiplistNode* node;// = start_node;
+// addr2
+//	KVP kvp;
+//	KVP* kvp_p;
+//	int split_cnt;
+//	int ex;
+//	volatile int* split_cnt_p;
+	NodeAddr nodeAddr;
+//	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
+	if (kvp.padding != INV0)
+	{
+		nodeAddr = *((NodeAddr*)&kvp.padding);
+		node = &skiplist->node_pool_list[nodeAddr.pool_num][nodeAddr.node_offset];
+		if (node->key <= key && key < node->next[0].load()->key)
+		{
+			addr2_hit++;
+			return node;
+		}
+		else
+			addr2_miss++;
+	}
+	else
+		addr2_no++;
+//addr2
+	node = find_node(key,prev,next);
+#if 0 // we don't have lock here
+	//-------------------------------
+	nodeAddr = node->myAddr;
+//	std::atomic<uint8_t>* seg_lock;
+//	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+	kvp_p->padding = *(uint64_t*)&nodeAddr;
+//	hash_index->unlock_entry2(seg_lock,read_lock);
+	//-------------------------------
+#endif
+	return node;
+}
+
 void Skiplist::setLimit(size_t size)
 {
 	SKIPLIST_NODE_POOL_LIMIT = size / (NODE_POOL_SIZE * NODE_SIZE) +1;

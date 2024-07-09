@@ -1,4 +1,5 @@
 #include <atomic>
+#include <stdio.h>
 
 #include "lock.h"
 
@@ -25,8 +26,15 @@ void at_lock2(std::atomic<uint8_t> &lock)
 	}
 #endif
 }
+
+//#define UNLOCK_TEST
+
 void at_unlock2(std::atomic<uint8_t> &lock)
 {
+#ifdef UNLOCK_TEST
+	if (lock == 0)
+		printf("unlock unlock!!------------------------------------\n");
+#endif
 	lock = 0;
 //	lock.store(0,std::memory_order_release);
 }

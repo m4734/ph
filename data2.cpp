@@ -146,7 +146,7 @@ size_t NODE_SLOT_MAX;
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
-		nm->valid_cnt = 0;
+		nm->valid_cnt = 0; // init
 		nm->rw_lock = 0;
 
 		nm->group_cnt = 1;

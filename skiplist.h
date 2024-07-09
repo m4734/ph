@@ -6,6 +6,7 @@
 namespace PH
 {
 
+struct KVP;
 const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
 //class NodeMeta;
@@ -149,6 +150,8 @@ class Skiplist
 
 	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next);
 	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock);
+	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock,KVP &kvp);
+
 	bool delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
 	void delete_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
 	bool insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
