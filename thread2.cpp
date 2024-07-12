@@ -42,6 +42,10 @@ namespace PH
 	extern std::atomic<uint64_t> hot_to_warm_sum;
 	extern std::atomic<uint64_t> warm_to_cold_sum;
 	extern std::atomic<uint64_t> direct_to_cold_sum;
+	extern std::atomic<uint64_t> hot_to_hot_sum;
+
+	extern std::atomic<uint64_t> soft_htw_sum;
+	extern std::atomic<uint64_t> hard_htw_sum;
 
 	extern Skiplist* skiplist;
 	extern PH_List* list;
@@ -223,8 +227,13 @@ namespace PH
 		run = 1;
 
 		//check
-		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = 0;
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = 0;
 		direct_to_cold_cnt = 0;
+
+		soft_htw_cnt = hard_htw_cnt=0;
+
+		seed_for_dtc = thread_id;
+		printf("sfd %u\n",seed_for_dtc);
 	}
 
 	void PH_Query_Thread::clean()
@@ -248,6 +257,10 @@ namespace PH
 		hot_to_warm_sum+=hot_to_warm_cnt;
 		warm_to_cold_sum+=warm_to_cold_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
+		hot_to_hot_sum+=hot_to_hot_cnt;
+
+		soft_htw_sum+=soft_htw_cnt;
+		hard_htw_sum+=hard_htw_cnt;
 	}	
 
 /*
@@ -581,6 +594,14 @@ namespace PH
 
 	}
 
+	int calc_th(DoubleLog* dl)
+	{
+		size_t empty_space = (dl->tail_sum+dl->my_size-dl->head_sum)%dl->my_size;
+		if (HARD_EVICT_SPACE/2 < empty_space)
+			return 0; // always hot
+		return ((HARD_EVICT_SPACE/2)-empty_space)*100/(HARD_EVICT_SPACE/2);
+	}
+
 	EntryAddr PH_Query_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp)
 	{
 		// 1 find skiplist node
@@ -641,6 +662,7 @@ namespace PH
 			KVP* kvp_p;
 			std::atomic<uint8_t> *seg_lock;
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock); //index lock before write
+			kvp = *kvp_p;
 
 			new_ea = insert_entry_to_slot(list_nodeMeta,entry);
 
@@ -674,7 +696,6 @@ namespace PH
 				direct_to_cold_cnt++;
 
 				break;
-
 			}
 			else // cold split
 			{
@@ -861,12 +882,19 @@ namespace PH
 		//	my_log->insert_log(&ble);
 
 		//NEED INDEX LOCK TO PREVENT MOVING
-		if (ex == 1 && old_ea.loc == 3 && (true))// && false) // to cold // ratio condition
+		int rv,dtc;
+		rv = rand_r(&seed_for_dtc);
+		if (ex == 1 && old_ea.loc == 3 && (rv % 100 <= calc_th(my_log) ))// && false) // to cold // ratio condition
+			dtc = 1;
+		else
+			dtc = 0;
+		if (dtc)
 		{
 //			printf("not now\n");
 
 //			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			new_ea = direct_to_cold(key,value,kvp);
+			new_ea = direct_to_cold(key,value,kvp); // kvp becomes old one
+			old_ea.value = kvp.value;
 			/*
 			   ea.loc = 3;
 			   ea.file_num;
@@ -912,6 +940,7 @@ namespace PH
 			//if (kvp_p)
 
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			old_ea.value = kvp_p->value;
 			if (kvp_p->key != key)
 			{
 				new_version = 1;
@@ -1003,6 +1032,7 @@ namespace PH
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 			set_invalid((uint64_t*)addr); // invalidate
+			hot_to_hot_cnt++;
 		}
 		else // warm or cold
 		{
@@ -1228,8 +1258,10 @@ namespace PH
 		run = 1;
 
 		//check
-		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = 0;
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = 0;
 		direct_to_cold_cnt = 0;
+
+		hard_htw_cnt = soft_htw_cnt=0;
 
 	}
 
@@ -1252,6 +1284,10 @@ namespace PH
 		hot_to_warm_sum+=hot_to_warm_cnt;
 		warm_to_cold_sum+=warm_to_cold_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
+		hot_to_hot_sum+=hot_to_hot_cnt;
+
+		soft_htw_sum+=soft_htw_cnt;
+		hard_htw_sum+=hard_htw_cnt;
 
 	}
 
@@ -1667,7 +1703,7 @@ namespace PH
 				half_listNode = half_listNode->next;
 		}
 
-		if (cnt > 20) // (WARM / COLD) RATIO
+		if (cnt > WARM_COLD_RATIO) // (WARM / COLD) RATIO
 		{
 			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
 			if (new_skipListNode)
@@ -1987,7 +2023,7 @@ namespace PH
 			//		dl->check_turn(dl->tail_sum,ble_len);
 			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
-			rv = 1;
+//			rv = 1;
 		}
 		return rv;
 	}
@@ -2007,13 +2043,17 @@ namespace PH
 		//	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
 		//		return rv;
 
-		//		while(dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
-		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
+		while(dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
+//		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
 		{
 			//need hard evict
 			addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
+			header = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 			// evict now
+
+			if (is_valid(header))
+			{
 
 			SkiplistNode* prev[MAX_LEVEL+1];
 			SkiplistNode* next[MAX_LEVEL+1];
@@ -2024,11 +2064,13 @@ namespace PH
 			node = skiplist->find_node(key,prev,next);
 #endif
 			if (try_at_lock2(node->lock) == false)
-				return rv;
+				continue;
+//				return rv;
 			if (node->next[0].load()->key < key)
 			{
 				at_unlock2(node->lock);
-				return rv;
+				continue;
+//				return rv;
 			}
 			if (node->entry_list.size() == 0)
 			{
@@ -2043,8 +2085,10 @@ namespace PH
 #endif
 				at_unlock2(node->lock);
 				return rv;
+//				continue;
 			}
 			//				continue;
+			hard_htw_cnt++;
 			hot_to_warm(node,true);
 
 			//	dl->head_sum+=ble_len;
@@ -2052,9 +2096,15 @@ namespace PH
 			// do we need flush?
 
 			at_unlock2(node->lock);
-
 			rv = 1;
-			try_push(dl);
+
+			}
+
+//			try_push(dl);
+			dl->tail_sum+=ENTRY_SIZE;
+			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
+				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
+//			rv = 1;
 		}
 
 		return rv;
@@ -2090,6 +2140,9 @@ namespace PH
 			header = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 
+//			if (dl->soft_adv_offset == 1500000240)
+//				debug_error("here!\n");
+
 			if (is_valid(header))// && is_checked(header) == false)
 			{
 				rv = 1;
@@ -2117,6 +2170,7 @@ namespace PH
 					{
 						// warm is full
 						hot_to_warm(node,true);
+						soft_htw_cnt++;
 
 						if (NODE_HEADER_SIZE + nodeMeta->written_size + ENTRY_SIZE > NODE_SIZE)
 							warm_to_cold(node);
@@ -2196,12 +2250,17 @@ namespace PH
 			{
 				run = 0;
 				if (sleep_time > 1000*1000)
+				{
 					printf("evict idle %d\n",thread_id);
 				//				usleep(1000*1000);
+
 				usleep(sleep_time);
+				}
+				/*
 				_mm_mfence();
 				sync_thread();
 				_mm_mfence();
+				*/
 				run = 1;
 				if (sleep_time < 1000*1000)
 					sleep_time*=1.5;

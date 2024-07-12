@@ -15,6 +15,8 @@ namespace PH
 #define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
+#define WARM_COLD_RATIO 10
+
 class DoubleLog;
 class SkiplistNode;
 class ListNode;
@@ -52,9 +54,15 @@ class PH_Thread
 	uint64_t hot_to_warm_cnt;
 	uint64_t warm_to_cold_cnt;
 	uint64_t direct_to_cold_cnt;
+	uint64_t hot_to_hot_cnt;
+
+	uint64_t soft_htw_cnt;
+	uint64_t hard_htw_cnt;
 
 	protected:
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
+
+	unsigned int seed_for_dtc;
 };
 
 class PH_Query_Thread : public PH_Thread

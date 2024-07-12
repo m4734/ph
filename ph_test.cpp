@@ -6,11 +6,11 @@
 
 #include "global2.h"
 
-#if 1 
+#if 0
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 3*200*1000*1000; // 1G ops
+const size_t total_ops = 5*200*1000*1000; // 1G ops
 					//#define KEY_RANGE 1000000000 //100M = 10G
 
 					//#define THREAD_NUM 16
@@ -198,7 +198,7 @@ int main()
 
 	work(phi,key_range,INSERT_OP);
 //	work(phi,ops,READ_OP);
-	work(phi,key_range,INSERT_OP);
+	work(phi,ops,INSERT_OP);
 #endif
 	phi.global_clean();
 	printf("ph_test end\n");

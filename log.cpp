@@ -38,11 +38,22 @@ void init_log(int num_pmem, int num_log)
 
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
-	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log);
+	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
+#if 0
 	if (log_size < 1024*1024*1024) // minimum
 		log_size = 1024*1024*1024;
+#endif
+
+#if 0
 	HARD_EVICT_SPACE = log_size/20;
 	SOFT_EVICT_SPACE = log_size/10;
+#else
+	HARD_EVICT_SPACE = ENTRY_SIZE * 1000 * 50; // 5MB
+	SOFT_EVICT_SPACE = ENTRY_SIZE * 1000 * 100; // 10MB
+#endif
+	printf("HARD EVICT SPACE %lu\n",HARD_EVICT_SPACE);
+	printf("SOFT EVICT SPACE %lu\n",SOFT_EVICT_SPACE);
+
 #if 0
 	if (SOFT_EVICT_SPACE < 1024*1024*1024)
 	{
@@ -178,10 +189,12 @@ void DoubleLog::init(char* filePath, size_t req_size)
 		printf("my_size %lu is not req_size %lu\n",my_size,req_size);
 	if (is_pmem == 0)
 		printf("is not pmem\n");
+#if 0
 #ifdef SKIP_MEMSET
 	printf("----------------skip memset----------------------\n");
 #else
 	memset(pmemLogAddr,0,my_size);
+#endif
 #endif
 
 #if 0
@@ -224,7 +237,7 @@ void DoubleLog::clean()
 		free(dram_list_pool[i]);
 	free(dram_list_pool);
 #endif
-printf(" my size %lu\n",my_size);
+//printf(" my size %lu\n",my_size);
 #ifdef USE_DRAM_CACHE
 	munmap(dramLogAddr,my_size);
 #endif
@@ -257,14 +270,19 @@ void DoubleLog::ready_log()//(size_t len)
 		min_tail_sum = get_min_tail(log_num);
 	}
 #endif
+
+#if 0
+	while(tail_sum + my_size < head_sum + ENTRY_SIZE);
+#else
 	while(tail_sum + my_size < head_sum + ENTRY_SIZE)
 	{
 //		printf("log %d full\n",log_num);
 //		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
-		usleep(1000*100);// sleep
+		usleep(1000);// sleep
 //		my_thread->update_tail_sum();
 		my_thread->sync_thread();
 	}
+#endif
 
 
 }
