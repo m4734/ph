@@ -130,6 +130,7 @@ namespace PH
 
 	void PH_Thread::op_check()
 	{
+		return; // do nothing now
 		++op_cnt;
 		if (op_cnt % 128 == 0 || update_request) // 128?
 			sync_thread();
@@ -263,7 +264,7 @@ namespace PH
 		hard_htw_sum+=hard_htw_cnt;
 	}	
 
-/*
+	/*
 	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
 	   {
 	   pmem_memcpy((unsigned char*)dst_node+offset,(unsigned char*)src_node+offset,len,PMEM_F_MEM_NONTEMPORAL);
@@ -328,7 +329,7 @@ namespace PH
 		new_ea.file_num = list_nodeMeta->my_offset.pool_num;
 		if (slot_idx < NODE_SLOT_MAX)
 		{
-//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
+			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 			new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 			DataNode* list_dataNode = nodeAddr_to_node(list_nodeMeta->my_offset);
@@ -336,22 +337,22 @@ namespace PH
 			list_nodeMeta->valid[slot_idx] = true; // validate
 			++list_nodeMeta->valid_cnt;
 
-				// modify hash index here
-				//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			// modify hash index here
+			//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 
-				//					set_loc_cold(kvp_p->version);
-				//				kvp_p->version = set_loc_cold(kvp_p->version);
-				//					kvp_p->value = (uint64_t)addr;
-				/*
-			kvp_p->value = new_ea.value;
-			_mm_sfence();
-			hash_index->unlock_entry2(seg_lock,read_lock);
-*/
-				//					nodeMeta->valid[cnt] = false; //invalidate
-				// not here...
-//			++cnt;
-//			src_offset+=ENTRY_SIZE;
-//			at_unlock2(list_nodeMeta->rw_lock);
+			//					set_loc_cold(kvp_p->version);
+			//				kvp_p->version = set_loc_cold(kvp_p->version);
+			//					kvp_p->value = (uint64_t)addr;
+			/*
+			   kvp_p->value = new_ea.value;
+			   _mm_sfence();
+			   hash_index->unlock_entry2(seg_lock,read_lock);
+			 */
+			//					nodeMeta->valid[cnt] = false; //invalidate
+			// not here...
+			//			++cnt;
+			//			src_offset+=ENTRY_SIZE;
+			//			at_unlock2(list_nodeMeta->rw_lock);
 		}
 		else
 			return emptyEntryAddr; // impossible??
@@ -513,7 +514,7 @@ namespace PH
 		int j;
 		KVP* kvp_p;
 		std::atomic<uint8_t>* seg_lock;
-//		EntryAddr ea;
+		//		EntryAddr ea;
 		for (i=0;i<MAX_NODE_GROUP;i++) // persist
 		{
 			new_dataNode = nodeAddr_to_node(new_nodeMeta[i]->my_offset);
@@ -548,8 +549,10 @@ namespace PH
 					kvp_p->value = ea.value;
 
 				}
+#if 1
 				else
 					new_nodeMeta[i]->valid[j] = false; // doesn't need...
+#endif
 
 #if 0				//test
 				uint64_t test_key = test_the_index(*kvp_p);
@@ -585,6 +588,8 @@ namespace PH
 		new_listNode->next = listNode->next;
 		listNode->next = new_listNode;
 
+		_mm_sfence();
+
 		// unlock
 		for (i=0;i<MAX_NODE_GROUP;i++)
 			at_unlock2(new_nodeMeta[i]->rw_lock);		
@@ -602,7 +607,7 @@ namespace PH
 		return ((HARD_EVICT_SPACE/2)-empty_space)*100/(HARD_EVICT_SPACE/2);
 	}
 
-	EntryAddr PH_Query_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp)
+	EntryAddr PH_Query_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock)
 	{
 		// 1 find skiplist node
 		// 2 find listnode
@@ -660,9 +665,9 @@ namespace PH
 
 			//index ehrere;;;
 			KVP* kvp_p;
-			std::atomic<uint8_t> *seg_lock;
+//			std::atomic<uint8_t> *seg_lock;
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock); //index lock before write
-			kvp = *kvp_p;
+			kvp = *kvp_p; // return old kvp
 
 			new_ea = insert_entry_to_slot(list_nodeMeta,entry);
 
@@ -671,7 +676,7 @@ namespace PH
 			{
 				uint64_t new_version = kvp_p->version+1;
 				set_valid(new_version);
-			
+
 				// update version
 				unsigned char* addr;
 				addr = nodeAllocator->nodePoolList[new_ea.file_num]+new_ea.offset; // loc = 3
@@ -686,7 +691,7 @@ namespace PH
 				kvp_p->version = new_version; //???
 
 				_mm_sfence();
-				hash_index->unlock_entry2(seg_lock,read_lock);
+//				hash_index->unlock_entry2(seg_lock,read_lock); // unlock outer
 
 				at_unlock2(list_nodeMeta->rw_lock);
 				at_unlock2(list_node->lock);
@@ -841,7 +846,7 @@ namespace PH
 
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
-//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+		//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 		//	kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
 
 		KVP kvp;
@@ -854,28 +859,28 @@ namespace PH
 		uint64_t old_version,new_version;
 		bool new_key;	
 
-//		if (kvp_p->key != key) // new key
+		//		if (kvp_p->key != key) // new key
 		if (ex == 0) // new key
 		{
-//			if (kvp_p->key != INV0) // may test
-//				printf("ececption1===============\n");
-/*
-			new_version = 1;
-			new_key = true;
-			set_valid(new_version);
-			new_ea.value = 0;
-			*/
+			//			if (kvp_p->key != INV0) // may test
+			//				printf("ececption1===============\n");
+			/*
+			   new_version = 1;
+			   new_key = true;
+			   set_valid(new_version);
+			   new_ea.value = 0;
+			 */
 		}
 		else
 		{
 			old_ea.value = kvp_p->value;
-//			old_version = kvp_p->version;
+			//			old_version = kvp_p->version;
 			/*
-			new_version = old_version+1;
-			set_valid(new_version);
+			   new_version = old_version+1;
+			   set_valid(new_version);
 			//			new_version = set_loc_hot(new_version);
 			new_key = false;
-			*/
+			 */
 		}
 
 		// 1 write kv
@@ -884,16 +889,16 @@ namespace PH
 		//NEED INDEX LOCK TO PREVENT MOVING
 		int rv,dtc;
 		rv = rand_r(&seed_for_dtc);
-		if (ex == 1 && old_ea.loc == 3 && (rv % 100 <= calc_th(my_log) ))// && false) // to cold // ratio condition
+		if (ex == 1 && old_ea.loc == 3 && ((rv % 100) <= calc_th(my_log) ))// && false) // to cold // ratio condition
 			dtc = 1;
 		else
 			dtc = 0;
 		if (dtc)
 		{
-//			printf("not now\n");
+			//			printf("not now\n");
 
-//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			new_ea = direct_to_cold(key,value,kvp); // kvp becomes old one
+			//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			new_ea = direct_to_cold(key,value,kvp,seg_lock); // kvp becomes old one
 			old_ea.value = kvp.value;
 			/*
 			   ea.loc = 3;
@@ -901,7 +906,7 @@ namespace PH
 			   ea.offset;
 			 */
 #if 0
-//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			if (kvp_p->key != key)
 			{
 				new_version = 1;
@@ -914,7 +919,7 @@ namespace PH
 				set_valid(new_version);
 				ex = 1;
 			}
-//			new_version = kvp_p->version+1;
+			//			new_version = kvp_p->version+1;
 
 			// update version
 			unsigned char* addr;
@@ -927,7 +932,7 @@ namespace PH
 		else // to log
 		{
 
-//			my_log->ready_log();
+			//			my_log->ready_log();
 			pmem_head_p = my_log->pmemLogAddr + my_log->head_sum%my_log->my_size;
 			//	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
 
@@ -978,10 +983,10 @@ namespace PH
 
 
 
-		// 6 update index
-		//	kvp_p->value = (uint64_t)my_log->get_head_p();
+			// 6 update index
+			//	kvp_p->value = (uint64_t)my_log->get_head_p();
 
-		// try lock
+			// try lock
 
 
 			if (ex == 0) // not so good // what about direct to cold
@@ -997,27 +1002,28 @@ namespace PH
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				return 0;
 			}
-			hash_index->unlock_entry2(seg_lock,read_lock);
+//			hash_index->unlock_entry2(seg_lock,read_lock);
 
 		}
 		//	if (kvp_p)
 		// 5 add to key list if new key
 
 		// 7 unlock index -------------------------------------- lock to here
-//		_mm_sfence();
+		//		_mm_sfence();
 #if 0				//test
-				uint64_t test_key = test_the_index(*kvp_p);
-				if (test_key != kvp_p->key)
-					debug_error("index error\n");
+		uint64_t test_key = test_the_index(*kvp_p);
+		if (test_key != kvp_p->key)
+			debug_error("index error\n");
 #endif
 
-//		hash_index->unlock_entry2(seg_lock,read_lock);
+		//		hash_index->unlock_entry2(seg_lock,read_lock);
 
 
 		// 8 remove old dram list
 #ifdef USE_DRAM_CACHE
 
 		invalidate_entry(old_ea);
+		hash_index->unlock_entry2(seg_lock,read_lock);
 
 #endif
 		// 9 check GC
@@ -1044,16 +1050,25 @@ namespace PH
 			offset_in_node = ea.offset % NODE_SIZE;
 			node_cnt = ea.offset/NODE_SIZE;
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
-						at_lock2(nm->rw_lock);
+//			at_lock2(nm->rw_lock);
 			// it doesn't change value just invalidate with meta
 			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+
+//			if ( (offset_in_node-NODE_HEADER_SIZE)%ENTRY_SIZE != 0)
+//				debug_error("divde\n");
+
+
 			if (nm->valid[cnt])
 			{
 				nm->valid[cnt] = false; // invalidate
 				--nm->valid_cnt;
 			}
-						at_unlock2(nm->rw_lock);
+			else
+				debug_error("impossible\n");
+//			at_unlock2(nm->rw_lock);
 		}
+
+		// no nm rw lock but need hash entry lock...
 	}
 
 	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf,std::string *value)
@@ -1458,9 +1473,9 @@ namespace PH
 
 		old_ea.loc = 2; // warm
 		old_ea.file_num = node->data_node_addr.pool_num;
-//		old_ea.offset = node->data_node_addr.offset*NODE_SIZE + sizeof(NodeAddr);
+		//		old_ea.offset = node->data_node_addr.offset*NODE_SIZE + sizeof(NodeAddr);
 
-//		new_ea.loc = 3; // cold
+		//		new_ea.loc = 3; // cold
 
 		//while (offset < NODE_SIZE)
 		cnt = 0;
@@ -1570,7 +1585,7 @@ namespace PH
 			}
 #endif
 			//			if (i >= NODE_SLOT_MAX) // need split
-//			if (new_ea != emptyEntryAddr)
+			//			if (new_ea != emptyEntryAddr)
 			if (new_ea.value != 0)
 			{
 				kvp_p->value = new_ea.value;
@@ -1642,7 +1657,7 @@ namespace PH
 					split_listNode_group(listNode,node); // we have the lock
 
 					at_unlock2(next_listNode->lock);
-						//						at_unlock2(listNode->lock);
+					//						at_unlock2(listNode->lock);
 					at_unlock2(prev_listNode->lock);
 
 					//2-1-3 deadlock
@@ -1927,6 +1942,7 @@ namespace PH
 				}
 #endif
 			}
+#if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
 			else
 			{
 #if 0
@@ -1941,11 +1957,12 @@ namespace PH
 #endif
 				nodeMeta->valid[nodeMeta->slot_cnt++] = false; // validate fail
 			}
+#endif
 
 #if 0				//test
-				uint64_t test_key = test_the_index(*kvp_p);
-				if (test_key != kvp_p->key)
-					debug_error("index error\n");
+			uint64_t test_key = test_the_index(*kvp_p);
+			if (test_key != kvp_p->key)
+				debug_error("index error\n");
 #endif
 			_mm_sfence(); // need?
 			hash_index->unlock_entry2(seg_lock,read_lock);
@@ -2023,7 +2040,7 @@ namespace PH
 			//		dl->check_turn(dl->tail_sum,ble_len);
 			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
-//			rv = 1;
+			//			rv = 1;
 		}
 		return rv;
 	}
@@ -2044,7 +2061,7 @@ namespace PH
 		//		return rv;
 
 		while(dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
-//		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
+			//		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
 		{
 			//need hard evict
 			addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
@@ -2055,56 +2072,68 @@ namespace PH
 			if (is_valid(header))
 			{
 
-			SkiplistNode* prev[MAX_LEVEL+1];
-			SkiplistNode* next[MAX_LEVEL+1];
-			SkiplistNode* node;
+				SkiplistNode* prev[MAX_LEVEL+1];
+				SkiplistNode* next[MAX_LEVEL+1];
+				SkiplistNode* node;
 #ifdef ADDR2
-			node = skiplist->find_node(key,prev,next,read_lock);
+				node = skiplist->find_node(key,prev,next,read_lock);
 #else
-			node = skiplist->find_node(key,prev,next);
+				node = skiplist->find_node(key,prev,next);
 #endif
-			if (try_at_lock2(node->lock) == false)
-				continue;
-//				return rv;
-			if (node->next[0].load()->key < key)
-			{
-				at_unlock2(node->lock);
-				continue;
-//				return rv;
-			}
-			if (node->entry_list.size() == 0)
-			{
+				if (try_at_lock2(node->lock) == false)
+					continue;
+				//				return rv;
+				if (node->next[0].load()->key < key)
+				{
+					at_unlock2(node->lock);
+					continue;
+					//				return rv;
+				}
+				if (node->entry_list.size() == 0)
+				{
 #if 0
-				// test--------------------
-				KVP* kvp_p;
-				std::atomic<uint8_t> *seg_lock;
-				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-				printf("nothing to evict````````````````````\n");
+					// test--------------------
+					KVP* kvp_p;
+					std::atomic<uint8_t> *seg_lock;
+					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					printf("nothing to evict````````````````````\n");
 
-				//test---------------------
+					//test---------------------
 #endif
+					at_unlock2(node->lock);
+					return rv;
+					//				continue;
+				}
+				//				continue;
+				hard_htw_cnt++;
+				hot_to_warm(node,true);
+
+
+				NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+
+				if (NODE_HEADER_SIZE + nodeMeta->written_size + ENTRY_SIZE > NODE_SIZE)
+				{
+					try_push(dl);
+					warm_to_cold(node);
+					at_unlock2(node->lock);
+					rv = 1;
+					continue;
+				}
+
+				//	dl->head_sum+=ble_len;
+
+				// do we need flush?
+
 				at_unlock2(node->lock);
-				return rv;
-//				continue;
-			}
-			//				continue;
-			hard_htw_cnt++;
-			hot_to_warm(node,true);
-
-			//	dl->head_sum+=ble_len;
-
-			// do we need flush?
-
-			at_unlock2(node->lock);
-			rv = 1;
+				rv = 1;
 
 			}
 
-//			try_push(dl);
+			//			try_push(dl);
 			dl->tail_sum+=ENTRY_SIZE;
 			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
-//			rv = 1;
+			//			rv = 1;
 		}
 
 		return rv;
@@ -2140,8 +2169,8 @@ namespace PH
 			header = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 
-//			if (dl->soft_adv_offset == 1500000240)
-//				debug_error("here!\n");
+			//			if (dl->soft_adv_offset == 1500000240)
+			//				debug_error("here!\n");
 
 			if (is_valid(header))// && is_checked(header) == false)
 			{
@@ -2245,22 +2274,26 @@ namespace PH
 				if (evict_log(log_list[i]))
 					done = 0;
 			}
-#if 1
+			if (done)
+			{
+				usleep(1);
+			}
+#if 0
 			if (done)
 			{
 				run = 0;
 				if (sleep_time > 1000*1000)
 				{
 					printf("evict idle %d\n",thread_id);
-				//				usleep(1000*1000);
+					//				usleep(1000*1000);
 
-				usleep(sleep_time);
+					usleep(sleep_time);
 				}
 				/*
-				_mm_mfence();
-				sync_thread();
-				_mm_mfence();
-				*/
+				   _mm_mfence();
+				   sync_thread();
+				   _mm_mfence();
+				 */
 				run = 1;
 				if (sleep_time < 1000*1000)
 					sleep_time*=1.5;

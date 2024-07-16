@@ -155,6 +155,8 @@ const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
 
 struct NodeMeta
 {
+//	NodeMeta() : valid(NULL) {}
+//	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
 //	NodaAddr next_addr;
@@ -173,13 +175,14 @@ struct NodeMeta
 //	NodeAddr next_offset_in_group;
 
 //	Node* node;
-//	bool valid[NODE_SLOT_MAX];
-	std::vector<bool> valid;
+//	volatile bool valid[NODE_SLOT_MAX];
+	volatile bool *valid;
+//	std::vector<bool> valid;
 	// vecotr uint64_t key .... but we have to read pmem to split so it will be waste of dram cap
 
 	int slot_cnt; // filled slot for warm
-//	std::atomic<uint8_t> valid_cnt;
-	int valid_cnt;
+	std::atomic<uint8_t> valid_cnt;
+//	int valid_cnt;
 
 	std::atomic<uint8_t> rw_lock;
 

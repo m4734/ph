@@ -123,7 +123,7 @@ void Skiplist::init(size_t size)
 
 void Skiplist::clean()
 {
-	printf("sc cnt %ld pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+	printf("skiplist cnt %ld\n",node_pool_list_cnt);
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 
 	int i;
@@ -426,7 +426,7 @@ void PH_List::init()
 
 void PH_List::clean()
 {
-	printf("lc cnt %ld pool0 %p  pool %p \n",node_pool_list_cnt,node_pool_list[0],node_pool_list);
+	printf("list pool cnt %ld\n",node_pool_list_cnt);
 
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)

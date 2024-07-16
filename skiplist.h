@@ -87,7 +87,7 @@ class PH_List
 class SkiplistNode
 {
 	public:
-	~SkiplistNode() { delete next; }
+//	~SkiplistNode() { delete next; }
 	size_t key;
 //	SkiplistNode* node_p; // tree node or leaf
 //	std::vector<std::atomic<SkiplistNode*>> next;

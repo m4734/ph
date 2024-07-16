@@ -71,9 +71,15 @@ size_t NODE_SLOT_MAX;
 	}
 	void NodeAllocator::clean()
 	{
-		int i;
+		int i,j;
+		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)
 		{
+			for (j=0;j<node_cnt[i];j++)
+			{
+				nodeMeta = (NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j);
+				free((bool*)nodeMeta->valid);
+			}
 			munmap(nodeMetaPoolList[i],sizeof(NodeMeta)*POOL_NODE_MAX);
 			pmem_unmap(nodePoolList[i],POOL_SIZE);
 		}
@@ -131,6 +137,9 @@ size_t NODE_SLOT_MAX;
 			nm->my_offset.node_offset = node_cnt[pool_num];
 			++node_cnt[pool_num];
 			++alloc_cnt;
+
+			nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+
 			at_unlock2(lock);
 		}
 //		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
@@ -142,7 +151,7 @@ size_t NODE_SLOT_MAX;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
 			\*/
-		nm->valid.resize(NODE_SLOT_MAX);
+//		nm->valid.resize(NODE_SLOT_MAX);
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;

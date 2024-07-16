@@ -70,7 +70,7 @@ class PH_Query_Thread : public PH_Thread
 	private:
 	DoubleLog* my_log;
 
-	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp);
+	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock);
 	void invalidate_entry(EntryAddr &ea);
 
 	public:

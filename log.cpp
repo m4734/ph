@@ -49,7 +49,7 @@ void init_log(int num_pmem, int num_log)
 	SOFT_EVICT_SPACE = log_size/10;
 #else
 	HARD_EVICT_SPACE = ENTRY_SIZE * 1000 * 50; // 5MB
-	SOFT_EVICT_SPACE = ENTRY_SIZE * 1000 * 100; // 10MB
+	SOFT_EVICT_SPACE = ENTRY_SIZE * 1000 * 100 * 2; // 10MB
 #endif
 	printf("HARD EVICT SPACE %lu\n",HARD_EVICT_SPACE);
 	printf("SOFT EVICT SPACE %lu\n",SOFT_EVICT_SPACE);
@@ -278,7 +278,7 @@ void DoubleLog::ready_log()//(size_t len)
 	{
 //		printf("log %d full\n",log_num);
 //		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
-		usleep(1000);// sleep
+		usleep(1);// sleep
 //		my_thread->update_tail_sum();
 		my_thread->sync_thread();
 	}
