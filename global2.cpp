@@ -48,6 +48,7 @@ int num_evict_thread;
 	std::atomic<uint64_t> warm_to_cold_sum;
 	std::atomic<uint64_t> direct_to_cold_sum;
 	std::atomic<uint64_t> hot_to_hot_sum;
+	std::atomic<uint64_t> hot_to_cold_sum;
 
 	std::atomic<uint64_t> soft_htw_sum;
 	std::atomic<uint64_t> hard_htw_sum;
@@ -57,6 +58,17 @@ void debug_error(const char* msg)
 {
 	printf("error----------------------------------------\n");
 	printf("%s\n",msg);
+}
+
+void PH_Interface::reset_test()
+{
+	int i;
+	for (i=0;i<QUERY_THREAD_MAX;i++)
+		query_thread_list[i].reset_test();
+	for (i=0;i<EVICT_THREAD_MAX;i++)
+		evict_thread_list[i].reset_test();
+	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	soft_htw_sum = hard_htw_sum = 0;
 }
 
 void PH_Interface::new_query_thread()
@@ -157,7 +169,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 //	skiplist->init(TOTAL_DATA_SIZE/10); // warm 1/10...
 
 	//check
-	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = 0;
+	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	direct_to_cold_sum = 0;
 
 	soft_htw_sum = hard_htw_sum = 0;
@@ -217,6 +229,7 @@ printf("ccc\n");
 	printf("log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
 	printf("direct to cold %lu\n",direct_to_cold_sum.load());
 	printf("hot to hot %lu\n",hot_to_hot_sum.load());
+	printf("hot to cold %lu\n",hot_to_cold_sum.load());
 
 	printf("soft htw %lu hard htw %lu\n",soft_htw_sum.load(),hard_htw_sum.load());
 }

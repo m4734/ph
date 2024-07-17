@@ -27,6 +27,17 @@ const size_t KEY_SIZE = 8;
 //const size_t VALUE_SIZE = 100;
 //const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
 
+union EntryHeader
+{
+	struct
+	{
+		size_t prev_loc : 2;
+		size_t valid : 1;
+		size_t version : 61;
+	};
+	uint64_t value;
+};
+
 const size_t VER_DRAM_VALID = (size_t(1)<<63);
 const size_t VER_DELETE = (size_t(1)<<62);
 const size_t VER_CL_LOC1 = (size_t(1)<<61);
@@ -61,7 +72,7 @@ inline size_t get_ver_num(uint64_t version)
 // 1 0 warm
 // 1 1 cold
 //const size_t VER_CL_HOT = VER_CL_LOC2;
-
+#if 0
 bool inline is_checked(uint64_t version)
 {
 	return version & VER_CHECKED;
@@ -126,6 +137,36 @@ bool inline is_valid(uint64_t *version)
 {
 	return *version & VER_DRAM_VALID;
 }
+#endif
+
+void inline set_invalid(EntryHeader &h)
+{
+	h.valid = false;
+}
+void inline set_invalid(EntryHeader *h)
+{
+	h->valid = false;
+}
+
+void inline set_valid(EntryHeader &h)
+{
+	h.valid = true;
+}
+void inline set_valid(EntryHeader *h)
+{
+	h->valid = true;
+}
+
+bool inline is_valid(EntryHeader &h)
+{
+	return h.valid;
+}
+bool inline is_valid(EntryHeader *h)
+{
+	return h->valid;
+}
+
+
 
 #if 0
 struct BaseLogEntry

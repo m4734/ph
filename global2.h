@@ -74,6 +74,8 @@ int end_op();
 void run_evict_direct();
 void run_evict_thread();
 
+void reset_test();
+
 //Skiplist* skiplist;
 //PH_List* list;
 

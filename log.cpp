@@ -23,6 +23,7 @@ DoubleLog* doubleLogList; // should be private
 
 size_t HARD_EVICT_SPACE;
 size_t SOFT_EVICT_SPACE;
+size_t SOFT_BATCH_SIZE;
 
 extern thread_local PH_Thread* my_thread;
 
@@ -49,10 +50,12 @@ void init_log(int num_pmem, int num_log)
 	SOFT_EVICT_SPACE = log_size/10;
 #else
 	HARD_EVICT_SPACE = ENTRY_SIZE * 1000 * 50; // 5MB
-	SOFT_EVICT_SPACE = ENTRY_SIZE * 1000 * 100 * 2; // 10MB
+	SOFT_EVICT_SPACE = (ENTRY_SIZE * 1000 * 100) * 10 ; // (10MB) * x
 #endif
 	printf("HARD EVICT SPACE %lu\n",HARD_EVICT_SPACE);
 	printf("SOFT EVICT SPACE %lu\n",SOFT_EVICT_SPACE);
+
+	SOFT_BATCH_SIZE = 1024; // 1KB
 
 #if 0
 	if (SOFT_EVICT_SPACE < 1024*1024*1024)

@@ -124,6 +124,7 @@ void Skiplist::init(size_t size)
 void Skiplist::clean()
 {
 	printf("skiplist cnt %ld\n",node_pool_list_cnt);
+	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 
 	int i;
@@ -134,6 +135,8 @@ void Skiplist::clean()
 	}
 //	free(node_pool_list);
 	delete[] node_pool_list;
+
+	printf("skiplist is cleaned\n");
 }
 
 
@@ -427,6 +430,7 @@ void PH_List::init()
 void PH_List::clean()
 {
 	printf("list pool cnt %ld\n",node_pool_list_cnt);
+	printf("cold node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE,double(node_pool_list_cnt+1)*NODE_POOL_SIZE*NODE_SIZE*MAX_NODE_GROUP/1024/1024/1024);
 
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)

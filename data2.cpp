@@ -71,6 +71,7 @@ size_t NODE_SLOT_MAX;
 	}
 	void NodeAllocator::clean()
 	{
+		printf("node cnt %ld size %lfGB\n",pool_cnt*POOL_NODE_MAX,double(pool_cnt*POOL_NODE_MAX)*NODE_SIZE/1024/1024/1024);
 		int i,j;
 		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)

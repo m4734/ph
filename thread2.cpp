@@ -21,6 +21,7 @@ namespace PH
 
 	extern size_t HARD_EVICT_SPACE;
 	extern size_t SOFT_EVICT_SPACE;
+	extern size_t SOFT_BATCH_SIZE;
 
 	//extern int num_thread;
 	extern int num_query_thread;
@@ -43,6 +44,7 @@ namespace PH
 	extern std::atomic<uint64_t> warm_to_cold_sum;
 	extern std::atomic<uint64_t> direct_to_cold_sum;
 	extern std::atomic<uint64_t> hot_to_hot_sum;
+	extern std::atomic<uint64_t> hot_to_cold_sum;
 
 	extern std::atomic<uint64_t> soft_htw_sum;
 	extern std::atomic<uint64_t> hard_htw_sum;
@@ -126,6 +128,12 @@ namespace PH
 		}
 		query_thread_list[mi].update_request = 1;
 		return min;
+	}
+
+	void PH_Thread::reset_test()
+	{
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = direct_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
+		soft_htw_cnt = hard_htw_cnt = 0;
 	}
 
 	void PH_Thread::op_check()
@@ -228,13 +236,13 @@ namespace PH
 		run = 1;
 
 		//check
-		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = 0;
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		direct_to_cold_cnt = 0;
 
 		soft_htw_cnt = hard_htw_cnt=0;
 
 		seed_for_dtc = thread_id;
-		printf("sfd %u\n",seed_for_dtc);
+//		printf("sfd %u\n",seed_for_dtc);
 	}
 
 	void PH_Query_Thread::clean()
@@ -259,6 +267,7 @@ namespace PH
 		warm_to_cold_sum+=warm_to_cold_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
 		hot_to_hot_sum+=hot_to_hot_cnt;
+		hot_to_cold_sum+=hot_to_cold_cnt;
 
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
@@ -601,10 +610,12 @@ namespace PH
 
 	int calc_th(DoubleLog* dl)
 	{
+		const size_t threshold = HARD_EVICT_SPACE/2;
+//		const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
 		size_t empty_space = (dl->tail_sum+dl->my_size-dl->head_sum)%dl->my_size;
-		if (HARD_EVICT_SPACE/2 < empty_space)
+		if (threshold < empty_space)
 			return 0; // always hot
-		return ((HARD_EVICT_SPACE/2)-empty_space)*100/(HARD_EVICT_SPACE/2);
+		return ((threshold)-empty_space)*100/(threshold);
 	}
 
 	EntryAddr PH_Query_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock)
@@ -674,13 +685,19 @@ namespace PH
 
 			if (new_ea.value != 0) // good
 			{
-				uint64_t new_version = kvp_p->version+1;
+//				uint64_t new_version = kvp_p->version+1;
+				EntryAddr old_ea;
+				old_ea.value = kvp_p->value;
+				EntryHeader new_version;
+				new_version.value = kvp_p->version;
+				new_version.prev_loc = old_ea.loc;
+				new_version.version++;
 				set_valid(new_version);
 
 				// update version
 				unsigned char* addr;
 				addr = nodeAllocator->nodePoolList[new_ea.file_num]+new_ea.offset; // loc = 3
-				*(uint64_t*)addr = new_version;
+				*(uint64_t*)addr = new_version.value;
 				pmem_persist(addr,HEADER_SIZE);
 				_mm_sfence();
 
@@ -688,7 +705,7 @@ namespace PH
 
 				_mm_sfence();
 				//write version after key value
-				kvp_p->version = new_version; //???
+				kvp_p->version = new_version.value; //???
 
 				_mm_sfence();
 //				hash_index->unlock_entry2(seg_lock,read_lock); // unlock outer
@@ -856,7 +873,8 @@ namespace PH
 
 		ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 
-		uint64_t old_version,new_version;
+//		uint64_t old_version,new_version;
+		EntryHeader new_version;
 		bool new_key;	
 
 		//		if (kvp_p->key != key) // new key
@@ -948,26 +966,30 @@ namespace PH
 			old_ea.value = kvp_p->value;
 			if (kvp_p->key != key)
 			{
-				new_version = 1;
+				new_version.prev_loc = 0;
+//				new_version = 1;
 				set_valid(new_version);
+				new_version.version = 1;
 				ex = 0;
 			}
 			else
 			{
-				new_version = kvp_p->version+1;
+				new_version.prev_loc = old_ea.loc;
+				new_version.value = kvp_p->version;
+				new_version.version++;
 				set_valid(new_version);
 				ex = 1;
 			}
 
 			// update version
-			my_log->write_version(new_version); // has fence
+			my_log->write_version(new_version.value); // has fence
 
 			// 3 get and write new version <- persist
 
 			// 4 add dram list
 #ifdef USE_DRAM_CACHE
 			//	new_addr = dram_head_p;
-			my_log->insert_dram_log(new_version,key,value);
+			my_log->insert_dram_log(new_version.value,key,value);
 #else
 			new_addr = pmem_head_p; // PMEM
 #endif
@@ -978,7 +1000,7 @@ namespace PH
 			log_write_cnt++;
 
 			kvp_p->value = new_ea.value;
-			kvp_p->version = new_version;
+			kvp_p->version = new_version.value;
 			_mm_sfence(); // value first!
 
 
@@ -1037,7 +1059,7 @@ namespace PH
 		if (ea.loc == 1) // hot log
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-			set_invalid((uint64_t*)addr); // invalidate
+			set_invalid((EntryHeader*)addr); // invalidate
 			hot_to_hot_cnt++;
 		}
 		else // warm or cold
@@ -1273,7 +1295,7 @@ namespace PH
 		run = 1;
 
 		//check
-		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = 0;
+		log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		direct_to_cold_cnt = 0;
 
 		hard_htw_cnt = soft_htw_cnt=0;
@@ -1300,6 +1322,7 @@ namespace PH
 		warm_to_cold_sum+=warm_to_cold_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
 		hot_to_hot_sum+=hot_to_hot_cnt;
+		hot_to_cold_sum+=hot_to_cold_cnt;
 
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
@@ -1588,6 +1611,10 @@ namespace PH
 			//			if (new_ea != emptyEntryAddr)
 			if (new_ea.value != 0)
 			{
+				EntryHeader eh;
+				eh.value = kvp_p->version;
+				eh.prev_loc = 2;
+				kvp_p->version = eh.value; // warm to cold ...
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
 
@@ -1718,7 +1745,7 @@ namespace PH
 				half_listNode = half_listNode->next;
 		}
 
-		if (cnt > WARM_COLD_RATIO) // (WARM / COLD) RATIO
+		if (cnt * MAX_NODE_GROUP > WARM_COLD_RATIO) // (WARM / COLD) RATIO
 		{
 			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
 			if (new_skipListNode)
@@ -1770,7 +1797,8 @@ namespace PH
 		int i;
 		LogLoc ll;
 		unsigned char* addr;
-		uint64_t* header;
+//		uint64_t* header;
+		EntryHeader* header;
 		DoubleLog* dl;
 		//	unsigned char node_buffer[NODE_SIZE]; 
 		size_t entry_list_cnt;
@@ -1822,10 +1850,16 @@ namespace PH
 
 			//			old_addr[i] = addr; // test--------------------
 
-			header = (uint64_t*)addr;
+			header = (EntryHeader*)addr;
 			if (dl->tail_sum > ll.offset || is_valid(header) == false)
 			{
 				node->entry_list[i].log_num = -1; // invalid
+				continue;
+			}
+			if (header.prev_loc == 3) // cold
+			{
+
+				node->entry_list[i].log_num = -1;
 				continue;
 			}
 			//test-------------------------------
@@ -1907,7 +1941,7 @@ namespace PH
 				continue;
 			dl = &doubleLogList[ll.log_num];
 			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
-			header = (uint64_t*)addr;
+			header = (EntryHeader*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 			//		if (dl->tail_sum > ll.offset || is_valid(header) == false)
 			//			continue;
@@ -1920,6 +1954,10 @@ namespace PH
 			{
 				//				if (kvp_p->key != key)
 				//					printf("ekfnelkfneslnflskenfes===============\n");
+				EntryHeader eh;
+				eh.value = kvp_p->version;
+				eh.prev_loc = 1;
+				kvp_p->version = eh.value; // hot to warm... //set_prev_loc_warm(kvp_p->version);
 				kvp_p->value = dst_addr.value;
 				//				kvp_p->version = set_loc_warm(kvp_p->version);
 				nodeMeta->valid[nodeMeta->slot_cnt++] = true; // validate
@@ -2000,6 +2038,8 @@ namespace PH
 
 	int PH_Evict_Thread::test_inv_log(DoubleLog* dl)
 	{
+		printf ("error not now\n");
+#if 0
 		unsigned char* addr;
 		uint64_t header;
 		int rv=0;
@@ -2019,20 +2059,22 @@ namespace PH
 			rv = 1;
 		}
 		return rv;
-
+#endif
+		return 0;
 	}
 
 	int PH_Evict_Thread::try_push(DoubleLog* dl)
 	{
 		unsigned char* addr;
-		uint64_t header;
+//		uint64_t header;
+		EntryHeader header;
 		int rv=0;
 
 		//pass invalid
 		while(dl->tail_sum+ENTRY_SIZE <= dl->head_sum)
 		{
 			addr = dl->dramLogAddr+(dl->tail_sum%dl->my_size);
-			header = *(uint64_t*)addr;
+			header.value = *(uint64_t*)addr;
 
 			if (is_valid(header))
 				break;
@@ -2051,7 +2093,8 @@ namespace PH
 		//	size_t tail_sum = dl->get_tail_sum();
 
 		unsigned char* addr;
-		uint64_t header;
+//		uint64_t header;
+		EntryHeader header;
 		uint64_t key;
 		int rv=0;
 
@@ -2065,7 +2108,7 @@ namespace PH
 		{
 			//need hard evict
 			addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
-			header = *(uint64_t*)addr;
+			header.value = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 			// evict now
 
@@ -2143,7 +2186,8 @@ namespace PH
 	{
 		unsigned char* addr;
 		//	size_t adv_offset=0;
-		uint64_t header,key;
+		uint64_t key;
+		EntryHeader header;
 		int rv = 0;
 		//	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
 
@@ -2166,7 +2210,7 @@ namespace PH
 		while(dl->soft_adv_offset + ENTRY_SIZE + dl->my_size <= dl->head_sum + SOFT_EVICT_SPACE)
 		{
 			addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
-			header = *(uint64_t*)addr;
+			header.value = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+HEADER_SIZE);
 
 			//			if (dl->soft_adv_offset == 1500000240)
@@ -2217,9 +2261,11 @@ namespace PH
 
 					// need to try flush
 					//			node->try_hot_to_warm();
-#ifdef SOFT_FLUSH
-					hot_to_warm(node,false);
-#endif
+					if (node->entry_size_sum >= SOFT_BATCH_SIZE)
+					{
+						hot_to_warm(node,true);
+						soft_htw_cnt++;
+					}
 					at_unlock2(node->lock);
 					break;
 				}
