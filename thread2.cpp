@@ -618,8 +618,10 @@ namespace PH
 		return ((threshold)-empty_space)*100/(threshold);
 	}
 
-	EntryAddr PH_Query_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock)
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock)
 	{
+		//NO UNLOCK IN HERE!
+
 		// 1 find skiplist node
 		// 2 find listnode
 		// 3 insert kv
@@ -715,7 +717,7 @@ namespace PH
 				at_unlock2(skiplist_node->lock);
 
 				//check
-				direct_to_cold_cnt++;
+//				direct_to_cold_cnt++;
 
 				break;
 			}
@@ -918,6 +920,8 @@ namespace PH
 			//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			new_ea = direct_to_cold(key,value,kvp,seg_lock); // kvp becomes old one
 			old_ea.value = kvp.value;
+
+			direct_to_cold_cnt++;
 			/*
 			   ea.loc = 3;
 			   ea.file_num;
@@ -1053,7 +1057,7 @@ namespace PH
 		return 0;
 	}
 
-	void PH_Query_Thread::invalidate_entry(EntryAddr &ea)
+	void PH_Thread::invalidate_entry(EntryAddr &ea)
 	{
 		unsigned char* addr;
 		if (ea.loc == 1) // hot log
@@ -1818,7 +1822,7 @@ namespace PH
 		size_t write_size=0;
 		unsigned char* buffer_write_start = temp_node.buffer+nodeMeta->written_size;
 
-		std::atomic<uint8_t>* seg_lock;
+//		std::atomic<uint8_t>* seg_lock;
 		/*
 		   if (node->my_node->entry_sum == 0) // impossible???
 		   {
@@ -1841,6 +1845,11 @@ namespace PH
 #endif
 		//		unsigned char* old_addr[100]; //test ------------------------
 
+		EntryAddr old_ea;
+		uint64_t key;
+		KVP kvp;
+		std::atomic<uint8_t>* seg_lock;
+
 		entry_list_cnt = node->entry_list.size();
 		for (i=0;i<entry_list_cnt;i++)
 		{
@@ -1856,8 +1865,28 @@ namespace PH
 				node->entry_list[i].log_num = -1; // invalid
 				continue;
 			}
-			if (header.prev_loc == 3) // cold
+			if (header->prev_loc == 3 && false) // cold
 			{
+				// direct to cold here
+
+				// set old ea
+				// direct to cold
+				// invalidate old ea
+				// unlock index
+
+/*
+				old_ea.loc = 1; // HOT
+				old_ea.file_num = ll.log_num;
+				old_ea.offset = ll.offset%dl->my_size;
+*/
+				key = *(uint64_t*)(addr+HEADER_SIZE);
+				direct_to_cold(key,addr + HEADER_SIZE + KEY_SIZE,kvp,seg_lock);
+				old_ea.value = kvp.value;
+
+				invalidate_entry(old_ea);
+				hash_index->unlock_entry2(seg_lock,read_lock);
+
+				hot_to_cold_cnt++;
 
 				node->entry_list[i].log_num = -1;
 				continue;
@@ -1905,7 +1934,7 @@ namespace PH
 		_mm_sfence();
 
 		KVP* kvp_p;
-		size_t key;
+//		size_t key;
 		//	unsigned char* dst_addr = (unsigned char*)dst_node + nodeMeta->size;
 		EntryAddr dst_addr,src_addr;
 		dst_addr.loc = 2; // warm	

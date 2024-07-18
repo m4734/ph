@@ -65,6 +65,9 @@ class PH_Thread
 	protected:
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
+	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock);
+	void invalidate_entry(EntryAddr &ea);
+
 	unsigned int seed_for_dtc;
 };
 
@@ -73,8 +76,6 @@ class PH_Query_Thread : public PH_Thread
 	private:
 	DoubleLog* my_log;
 
-	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock);
-	void invalidate_entry(EntryAddr &ea);
 
 	public:
 	void init();
