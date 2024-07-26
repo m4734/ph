@@ -33,6 +33,28 @@ namespace PH
 
 	const EntryAddr emptyEntryAddr = (EntryAddr) {.value = 0};
 
+	const size_t MAX_LEVEL = 30;
+
+	union SkipAddr
+	{
+		SkipAddr() : value(0) {}
+		SkipAddr(uint64_t v) : value(v) {}
+
+		struct
+		{
+			uint32_t ver;
+			uint16_t pool_num; 
+			uint16_t offset;
+		};
+//		uint64_t value;
+		std::atomic<uint64_t> value;
+
+		SkipAddr operator=(const SkipAddr &sa)
+		{
+			value = sa.value.load();
+			return (SkipAddr)value;
+		}
+	};
 
 
 

@@ -69,6 +69,9 @@ class PH_Thread
 	void invalidate_entry(EntryAddr &ea);
 
 	unsigned int seed_for_dtc;
+
+	SkipAddr prev_sa_list[MAX_LEVEL+1];
+	SkipAddr next_sa_list[MAX_LEVEL+1];
 };
 
 class PH_Query_Thread : public PH_Thread
@@ -90,6 +93,8 @@ int next_op(unsigned char* buf);
 
 };
 
+//extern const size_t WARM_BATCH_MAX_SIZE;
+
 class PH_Evict_Thread : public PH_Thread
 {
 	private:
@@ -104,11 +109,16 @@ class PH_Evict_Thread : public PH_Thread
 	void warm_to_cold(SkiplistNode* node);
 //	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
+	void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
 
 	DoubleLog** log_list;
 	int log_cnt;
 
-	DataNode temp_node;
+//	DataNode temp_node;
+	unsigned char *htw_evict_buffer;//[WARM_BATCH_MAX_SIZE];
+	
+	int* child1_path;
+	int* child2_path;
 
 	size_t sleep_time;
 

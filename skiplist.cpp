@@ -23,8 +23,12 @@ extern size_t SOFT_EVICT_SPACE;
 //NODE_POOL[NODE_POOL_LIST_SIZE][NODE_POOL_SIZE]
 // NODE_POOL size = NODE_POOL_LIST_SIZE * NODE_POOL_SIZE * NODE_SIZE = 1024*1024*1024*4096 4TB?
 
-const size_t NODE_POOL_LIST_SIZE = 1024*1024; // 4GB?
-const size_t NODE_POOL_SIZE = 1024; //4MB?
+//const size_t NODE_POOL_LIST_SIZE = 1024*1024; // 4GB?
+//const size_t NODE_POOL_SIZE = 1024; //4MB?
+
+const size_t NODE_POOL_LIST_SIZE = 1024*32;
+const size_t NODE_POOL_SIZE = 1024*32;
+
 //size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 //4MB * 1024 * 4 * 3 = 4GB * 12GB
 
@@ -32,6 +36,15 @@ const size_t KEY_MIN = 0x0000000000000000;
 const size_t KEY_MAX = 0xffffffffffffffff;
 
 //const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
+
+//const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
+size_t WARM_BATCH_MAX_SIZE = 1024;
+//#define WARM_BATCH_MAX_SIZE 1024
+size_t WARM_BATCH_ENTRY_CNT; // 8-9
+size_t WARM_BATCH_CNT; // 4096/1024
+//size_t WARM_BATCH_SIZE; // 120 * 8-9
+size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
+
 
 // should be private
 Skiplist* skiplist;
@@ -53,21 +66,43 @@ size_t getRandomLevel()
 void SkiplistNode::setLevel(size_t l)
 {
 	level = l;
-	delete next;
-	next = new std::atomic<SkiplistNode*>[l+1];
+//	delete next;
+//	next.clear();
+//	next = new std::atomic<SkiplistNode*>[l+1];
+//	next.resize(l+1);
+	if (next_size > l+1)
+	{
+		delete next;
+		next = new SkipAddr[l+1];
+	}
 	built = 0;
 }
 
 void SkiplistNode::setLevel()
 {
 	level = getRandomLevel();
-	delete next;
-	next = new std::atomic<SkiplistNode*>[level+1];
+//	delete next;
+//	next = new std::atomic<SkiplistNode*>[level+1];
+//	next.clear();
+//	next.resize(level+1);
+	if (next_size > level+1)
+	{
+		delete next;
+		next = new SkipAddr[level+1];
+	}
+
 	built = 0;
 }
 
+extern size_t ENTRY_SIZE;
+
 void Skiplist::init(size_t size)
 {
+	WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
+	WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
+//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
+	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+
 	setLimit(size);
 //	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
 	node_pool_list = new SkiplistNode*[NODE_POOL_LIST_SIZE];
@@ -79,6 +114,7 @@ void Skiplist::init(size_t size)
 	node_free_head = NULL;
 
 	node_alloc_lock = 0;
+	node_counter = 1; // 0 should be del
 
 	empty_node = alloc_sl_node();
 	empty_node->key = KEY_MIN;
@@ -100,7 +136,7 @@ void Skiplist::init(size_t size)
 
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
-		start_node->next[i] = end_node;
+		start_node->next[i] = end_node->my_sa;
 	start_node->built = MAX_LEVEL;
 
 	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
@@ -139,7 +175,6 @@ void Skiplist::clean()
 	printf("skiplist is cleaned\n");
 }
 
-
 SkiplistNode* Skiplist::alloc_sl_node()
 {
 	//just use lock
@@ -150,91 +185,132 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	while(node_alloc_lock);
 	at_lock2(node_alloc_lock);
 
+	SkiplistNode* node;
+
 	if (node_free_head) // no pmem alloc...
 	{
-		SkiplistNode* rv = node_free_head;
-		node_free_head = node_free_head->next[0];
+		node = node_free_head;
+		node_free_head = sa_to_node(node_free_head->next[0]);
 		at_unlock2(node_alloc_lock);
-		return rv;
 	}
-	
-
-	if (node_pool_cnt >= NODE_POOL_SIZE)
+	else
 	{
-		if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
+		if (node_pool_cnt >= NODE_POOL_SIZE)
 		{
-			printf("no space for node1!\n");
-			at_unlock2(node_alloc_lock);
-			return NULL;
+			if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
+			{
+				printf("no space for node1!\n");
+				at_unlock2(node_alloc_lock);
+				return NULL;
+			}
+			++node_pool_list_cnt;
+			node_pool_list[node_pool_list_cnt] = new SkiplistNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+			node_pool_cnt = 0;
 		}
-		++node_pool_list_cnt;
-		node_pool_list[node_pool_list_cnt] = new SkiplistNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
-		node_pool_cnt = 0;
-	}
 
-	SkiplistNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
-	node->myAddr.pool_num = node_pool_list_cnt;
-	node->myAddr.node_offset = node_pool_cnt;
+		SkiplistNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt]; // first alloc
+		node->myAddr.pool_num = node_pool_list_cnt;
+		node->myAddr.node_offset = node_pool_cnt;
+		node_pool_cnt++;
+	}
 	node->lock = 0;
-	node->delete_lock = 0;
-	node->next = NULL;
+	node->rw_lock = 0;
+//	node->next = NULL;
 	node->setLevel();
+	node->dst_cnt = 0;
+
+	node->head = node->tail = 0;
+	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
+	node->entry_list.resize(NODE_SLOT_MAX);
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
-//	if (node_pool_cnt < NODE_POOL_SIZE)
-	{
-		node_pool_cnt++;
-		at_unlock2(node_alloc_lock);
-		return node;
-	}
+	node->ver = node_counter.fetch_add(1);
+	node->my_sa.ver = node->ver;
+	node->my_sa.pool_num = node_pool_list_cnt;
+	node->my_sa.offset = node_pool_cnt;
+
+	at_unlock2(node_alloc_lock);
+	return node;
 }
 
 void Skiplist::free_sl_node(SkiplistNode* node)
 {
 	at_lock2(node_alloc_lock);
-	node->next[0] = node_free_head;
+	node->next[0] = node_free_head->my_sa;
 	node_free_head = node;
 	at_unlock2(node_alloc_lock);
 }
-
-SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next) // what if max
+/*
+inline SkiplistNode* Skiplist::sa_to_node(SkipAddr &sa)
+{
+#if 0
+	SkiplistNode* node = node_pool_list[sa.pool_num][sa.offset];
+	if (node->ver != sa.ver)
+		return NULL;
+	return node;
+#endif
+	return node_pool_list[sa.pool_num][sa.offset];
+}
+*/
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // what if max
 {
 	SkiplistNode* node;// = start_node;
+	SkiplistNode* next_node;
 	node = start_node;
 	int i;
+	SkipAddr sa;
+	uint64_t v;
 	for (i=MAX_LEVEL;i>=0;i--)
 	{
 		while(true)
 		{
-			while(node->next[i].load()->delete_lock);
-			if (node->next[i].load()->key <= key)
-				node = node->next[i];
+			sa.value = node->next[i].value.load();
+			next_node = sa_to_node(sa);
+			if (next_node->ver != sa.ver)
+			{
+				if (sa.ver == 0)
+				{
+					v = sa.value;
+					if (node->next[i].value.compare_exchange_strong(v,next_node->next[i].value))
+					{
+						next_node->dst_cnt--; // passed cas
+						if (next_node->dst_cnt == 0)
+							free_sl_node(next_node);
+					}
+				}
+				continue;
+			}
+			if (next_node->key <= key) // == for split
+				node = next_node;
 			else
 				break;
 		}
-		prev[i] = node;
+		prev[i] = node->my_sa;
 		next[i] = node->next[i];
 
 	}
 	return node;
 }
 
-SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock) // what if max
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock) // what if max
 {
 	SkiplistNode* node;// = start_node;
+	SkiplistNode* next_node;
 // addr2
 	KVP kvp;
 	KVP* kvp_p;
 	int split_cnt;
 	int ex;
 	volatile int* split_cnt_p;
-	NodeAddr nodeAddr;
+	SkipAddr sa,next_sa;
 	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
 	if (kvp.padding != INV0)
 	{
-		nodeAddr = *((NodeAddr*)&kvp.padding);
-		node = &skiplist->node_pool_list[nodeAddr.pool_num][nodeAddr.node_offset];
-		if (node->key <= key && key < node->next[0].load()->key)
+		sa.value = kvp.padding;
+		node = sa_to_node(sa);
+		next_sa = node->next[0];
+		next_node = sa_to_node(next_sa);
+		if (node->ver == sa.ver && node->key <= key && next_node->ver == next_sa.ver && key < next_node->key)
 		{
 			addr2_hit++;
 			return node;
@@ -248,31 +324,28 @@ SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** 
 	node = find_node(key,prev,next);
 
 	//-------------------------------
-	nodeAddr = node->myAddr;
+	sa = node->my_sa;
 	std::atomic<uint8_t>* seg_lock;
 	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-	kvp_p->padding = *(uint64_t*)&nodeAddr;
+	kvp_p->padding = sa.value;
 	hash_index->unlock_entry2(seg_lock,read_lock);
 	//-------------------------------
 	return node;
 }
 
-SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock, KVP &kvp) // what if max
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, KVP &kvp) // what if max
 {
+
 	SkiplistNode* node;// = start_node;
-// addr2
-//	KVP kvp;
-//	KVP* kvp_p;
-//	int split_cnt;
-//	int ex;
-//	volatile int* split_cnt_p;
-	NodeAddr nodeAddr;
-//	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
+	SkiplistNode* next_node;
+	SkipAddr sa,next_sa;
 	if (kvp.padding != INV0)
 	{
-		nodeAddr = *((NodeAddr*)&kvp.padding);
-		node = &skiplist->node_pool_list[nodeAddr.pool_num][nodeAddr.node_offset];
-		if (node->key <= key && key < node->next[0].load()->key)
+		sa.value = kvp.padding;
+		node = sa_to_node(sa);
+		next_sa = node->next[0];
+		next_node = sa_to_node(next_sa);
+		if (node->ver == sa.ver && node->key <= key && next_node->ver == next_sa.ver && key < next_node->key)
 		{
 			addr2_hit++;
 			return node;
@@ -284,15 +357,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkiplistNode** prev,SkiplistNode** 
 		addr2_no++;
 //addr2
 	node = find_node(key,prev,next);
-#if 0 // we don't have lock here
-	//-------------------------------
-	nodeAddr = node->myAddr;
-//	std::atomic<uint8_t>* seg_lock;
-//	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-	kvp_p->padding = *(uint64_t*)&nodeAddr;
-//	hash_index->unlock_entry2(seg_lock,read_lock);
-	//-------------------------------
-#endif
+
 	return node;
 }
 
@@ -301,81 +366,108 @@ void Skiplist::setLimit(size_t size)
 	SKIPLIST_NODE_POOL_LIMIT = size / (NODE_POOL_SIZE * NODE_SIZE) +1;
 }
 
-void Skiplist::delete_node(SkiplistNode* node,SkiplistNode** prev,SkiplistNode** next)
+void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
-		printf("not now\n");
-#if 0
-	size_t key = node->key;
-	at_lock2(node->delete_lock);
+//		printf("not now\n");
+#if 1
+//	size_t key = node->key;
+//	at_lock2(node->delete_lock);
 	while(1)
 	{
+//		node = find_node(key,prev,next);
 //		if (at_try_lock2(node->delete_lock))
 		{
-			if (delete_node_with_fail(node,prev,next))
+			if (delete_node_with_fail(node))//,prev,next))
 				return;
 //			at_unlock2(node->delete_lock);
 		}
 //		else
 //			printf("impossible use lock\n");
 
-		node = find_node(key,prev,next);
 //		if (node->key != key)
 //			return;
 	}
 #endif
 }
 
-bool Skiplist::delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
+bool Skiplist::delete_node_with_fail(SkiplistNode* node)//, SkipAddr** prev_sa_list,SkipAddr** next_sa_list) // always success?? // need lock
 {
-	if (try_at_lock2(node->lock) == 0)
-		return false;
+//	if (try_at_lock2(node->lock) == 0)
+//		return false;
 	
-	SkiplistNode* pn;
-	SkiplistNode* nn;
+//	SkiplistNode* pn;
+//	SkiplistNode* nn;
+	SkipAddr old_sa,new_sa;
 	int i;
-
-	for (i=node->level;i>=0;i--)
+	uint64_t v;
+	i = node->level;
+//	for (i=node->level;i>=0;i--)
+	while(i>=0)
 	{
-		if (prev[i]->delete_lock) // prev first...
-			return false;
+//		if (prev[i]->delete_lock) // prev first...
+//			return false;
 //		while(node->next[i]->delete_lock);
 //		if (at_try_lock2(prev[i]->lock) == 0)
 //			continue;
-		pn = prev[i]->next[i];
-		nn = node->next[i];
-		if (pn != node)
-			return false;
-		if (prev[i]->next[i].compare_exchange_strong(pn,nn) == false)
-			return false;
-		node->level--;
+//		pn = prev[i]->next[i];
+//		if (pn != node)
+//			return false;
+//		if (prev[i]->next[i].compare_exchange_strong(pn,nn) == false)
+//			return false;
+		old_sa = node->next[i];
+		if (old_sa.ver > 0)
+		{
+			new_sa = old_sa;
+			new_sa.ver = 0;
+//			node->next[i].value = new_sa.value;
+			v = old_sa.value;
+			if (node->next[i].value.compare_exchange_strong(v,new_sa.value) == false)
+				continue;
+			
+		}
+		i--;
+//		node->level--;
 	}
 	return true;
 
 }
 
-bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
+bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkipAddr* prev_sa_list, SkipAddr* next_sa_list)// SkiplistNode** prev,SkiplistNode** next)
 {
 	// level already
 	int i;
 
-	SkiplistNode *pn;
+	SkiplistNode *pnn;
+	SkipAddr old_sa,new_sa,next_sa;
+	uint64_t v;
 
 	for (i=node->built;i<=node->level;i++)
 	{
-		if (prev[i]->delete_lock) // not gonna happend
+//		if (prev[i]->delete_lock) // not gonna happend
+//			return false;
+
+		if (prev_sa_list[i].ver == 0 || next_sa_list[i].ver == 0)
 			return false;
-		pn = prev[i]->next[i];
-		if (pn != next[i])
+
+//		pn = prev[i]->next[i];
+		old_sa.value = prev_sa_list[i].value.load();
+//		pnn = sa_to_node(old_sa)
+		if (old_sa.value != next_sa_list[i].value)
 			return false;
-		node->next[i] = next[i];
-		if (prev[i]->next[i].compare_exchange_strong(pn,node) == false)
+		node->next[i].value = next_sa_list[i].value.load();
+
+		new_sa.value = node->my_sa.value.load();
+
+		pnn = sa_to_node(prev_sa_list[i]);
+		v = old_sa.value;
+		if (pnn->next[i].value.compare_exchange_strong(v,new_sa.value) == false)
 			return false;
 		node->built++;
 	}
 	return true;
 }
 
-void Skiplist::insert_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next)
+void Skiplist::insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next)
 {
 	while(1)
 	{

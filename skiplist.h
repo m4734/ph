@@ -1,5 +1,6 @@
 #include<vector>
 #include<atomic>
+//#include<queue>
 
 #include "shared.h"
 
@@ -7,7 +8,7 @@ namespace PH
 {
 
 struct KVP;
-const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
+//const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
 //class NodeMeta;
 //struct NodeAddr;
@@ -84,38 +85,52 @@ class PH_List
 
 
 //struct SkiplistNode
+
+
 class SkiplistNode
 {
 	public:
-//	~SkiplistNode() { delete next; }
+	SkiplistNode() :next(NULL),next_size(0) {}
+	~SkiplistNode() { delete next; }
 	size_t key;
 //	SkiplistNode* node_p; // tree node or leaf
 //	std::vector<std::atomic<SkiplistNode*>> next;
 //	std::vector<AtomicPointer> next;
-	std::atomic<SkiplistNode*> *next = NULL;
+//	std::atomic<SkiplistNode*> *next = NULL;
+//	std::vector<SkipAddr> next; // don't want MAX LEVEL space
+	SkipAddr *next;
+	int next_size;
 
 	std::vector<LogLoc> entry_list;
+//	std::queue<LogLoc> entry_list;
 	/*
 	LogLoc torn_entry;
 	size_t torn_left=0;
 	size_t torn_right=0;
 	*/
-	size_t entry_size_sum=0;
-	
+//	size_t entry_size_sum=0;
 
-	size_t level;
-	size_t built;
+	volatile uint32_t ver;
+	std::atomic<int> dst_cnt;
+
+	int level;
+	int built;
 	std::atomic<ListNode*> my_listNode;
 //	NodeMeta* my_node;
-	NodeAddr myAddr;
+	NodeAddr myAddr; // nodeMeta addr
 	NodeAddr data_node_addr;
 
-//	Tree_Node* next;
 	std::atomic<uint8_t> lock;
-	std::atomic<uint8_t> delete_lock;
+	std::atomic<uint8_t> rw_lock;
 
 	void setLevel();
 	void setLevel(size_t l);
+
+	int head,tail;
+	int remain_cnt;
+
+	NodeAddr dataNodeHeader;
+	SkipAddr my_sa;
 };
 
 class Skiplist
@@ -132,12 +147,15 @@ class Skiplist
 	std::atomic<uint8_t> node_alloc_lock; // lock?
 	SkiplistNode* node_free_head;
 
+	std::atomic<uint64_t> node_counter;
+
 //check
 	std::atomic<uint64_t> addr2_hit;
 	std::atomic<uint64_t> addr2_miss;
 	std::atomic<uint64_t> addr2_no;
 
 	size_t SKIPLIST_NODE_POOL_LIMIT;
+
 
 	public:
 	void init(size_t size);
@@ -148,14 +166,23 @@ class Skiplist
 	SkiplistNode* alloc_sl_node();
 	void free_sl_node(SkiplistNode* node);
 
-	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next);
-	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock);
-	SkiplistNode* find_node(size_t key,SkiplistNode** prev,SkiplistNode** next,volatile uint8_t &read_lock,KVP &kvp);
+	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next);
+	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock);
+	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock,KVP &kvp);
 
-	bool delete_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
-	void delete_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
-	bool insert_node_with_fail(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
-	void insert_node(SkiplistNode* node, SkiplistNode** prev,SkiplistNode** next);
+	bool delete_node_with_fail(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
+	void delete_node(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
+	bool insert_node_with_fail(SkiplistNode* node, SkipAddr* prev,SkipAddr* next);
+	void insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next);
+
+	inline SkiplistNode* sa_to_node(SkipAddr *sa)
+	{
+		return &node_pool_list[sa->pool_num][sa->offset];
+	}
+	inline SkiplistNode* sa_to_node(SkipAddr &sa)
+	{
+		return &node_pool_list[sa.pool_num][sa.offset];
+	}
 
 
 //	void split(

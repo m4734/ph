@@ -145,8 +145,8 @@ size_t NODE_SLOT_MAX;
 		}
 //		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
 //		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-		nm->written_size = 0;
-		nm->slot_cnt = 0;
+//		nm->written_size = 0;
+//		nm->slot_cnt = 0;
 		/*
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
@@ -195,7 +195,7 @@ size_t NODE_SLOT_MAX;
 		{
 			if (nm->valid[i] == false)
 				continue;
-			new_key = *(uint64_t*)(addr+offset+HEADER_SIZE);
+			new_key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 			offset+=ENTRY_SIZE;
 			for (j=cnt;j>0;j--)
 			{

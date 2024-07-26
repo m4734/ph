@@ -22,7 +22,7 @@ extern size_t NODE_SLOT_MAX;
 #define VER_PL_LOC2 (size_t(1)<<58)
 */
 
-const size_t HEADER_SIZE = 8;
+const size_t ENTRY_HEADER_SIZE = 8;
 const size_t KEY_SIZE = 8;
 //const size_t VALUE_SIZE = 100;
 //const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
@@ -207,7 +207,7 @@ struct NodeMeta
 	NodeMeta* next_node_in_group;
 	int group_cnt;
 
-	size_t written_size;
+//	size_t written_size;
 //	size_t pool_num;
 //	uint64_t 
 //	NodeOffset my_offset;
@@ -221,7 +221,7 @@ struct NodeMeta
 //	std::vector<bool> valid;
 	// vecotr uint64_t key .... but we have to read pmem to split so it will be waste of dram cap
 
-	int slot_cnt; // filled slot for warm
+//	int slot_cnt; // filled slot for warm
 	std::atomic<uint8_t> valid_cnt;
 //	int valid_cnt;
 
