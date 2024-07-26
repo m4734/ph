@@ -74,6 +74,7 @@ void SkiplistNode::setLevel(size_t l)
 	{
 		delete next;
 		next = new SkipAddr[l+1];
+		next_size = l+1;
 	}
 	built = 0;
 }
@@ -89,6 +90,7 @@ void SkiplistNode::setLevel()
 	{
 		delete next;
 		next = new SkipAddr[level+1];
+		next_size = level+1;
 	}
 
 	built = 0;
