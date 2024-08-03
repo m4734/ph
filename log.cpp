@@ -45,12 +45,12 @@ void init_log(int num_pmem, int num_log)
 		log_size = 1024*1024*1024;
 #endif
 
-#if 0
+#if 1
 	HARD_EVICT_SPACE = log_size/20;
 	SOFT_EVICT_SPACE = log_size/10;
 #else
 	HARD_EVICT_SPACE = ENTRY_SIZE * 1000 * 50; // 5MB
-	SOFT_EVICT_SPACE = (ENTRY_SIZE * 1000 * 100) * 10 ; // (10MB) * x
+	SOFT_EVICT_SPACE = (ENTRY_SIZE * 1000 * 100) * 1; // (10MB) * x
 #endif
 	printf("HARD EVICT SPACE %lu\n",HARD_EVICT_SPACE);
 	printf("SOFT EVICT SPACE %lu\n",SOFT_EVICT_SPACE);
@@ -66,7 +66,7 @@ void init_log(int num_pmem, int num_log)
 
 	}
 #endif
-	printf("LOG NUM %d LOG SIZE %lfGB\n",num_log,double(log_size)/1024/1024/1024);
+	printf("LOG NUM %d LOG SIZE %lfGB SUM %lfGB\n",num_log,double(log_size)/1024/1024/1024,double(log_size)*num_log*num_pmem/1024/1024/1024);
 	
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)

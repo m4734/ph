@@ -2,6 +2,7 @@
 // volatile and out of place
 
 #include<atomic>
+#include<vector>
 //#include <mutex>
 
 //#include "global.h" //value entry
@@ -121,7 +122,11 @@ class CCEH
 	void thread_local_init();
 	void thread_local_clean();
 
+	void remove_ts(void* temp_seg);
+	void* ret_seg();
+
 	private:
+	SEG* alloc_seg();
 
 //	inline	bool compare_key(const volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
 //	inline	void insert_key(volatile uint64_t &key1,unsigned char* const &key2,const uint32_t &hash);
@@ -188,6 +193,9 @@ class CCEH
 	KVP zero_entry;
 	std::atomic<uint8_t> zero_lock;
 	volatile int zero_depth;
+
+	std::atomic<uint8_t> remove_ts_lock;
+	std::vector<void*> remove_ts_list;
 };
 #if 0
 class CCEH_vk : public CCEH

@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <x86intrin.h> //fence
+
 
 #include "global2.h"
 #include "log.h"
@@ -90,7 +92,7 @@ void PH_Interface::new_query_thread()
 	// find new DoubleLog
 	my_thread = my_query_thread;
 	my_query_thread->thread_id = i;
-	my_query_thread->init();
+//	my_query_thread->init();
 }
 void PH_Interface::clean_query_thread()
 {
@@ -119,7 +121,7 @@ void PH_Interface::new_evict_thread()
 
 	my_thread = my_evict_thread;
 	my_evict_thread->thread_id = i;
-	my_evict_thread->init();
+//	my_evict_thread->init();
 }
 
 void PH_Interface::clean_evict_thread()
@@ -174,7 +176,24 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 
 	soft_htw_sum = hard_htw_sum = 0;
 
+	init_threads();
+
 	printf("global init end\n");
+}
+
+void PH_Interface::init_threads()
+{
+	int i;
+	for (i=0;i<num_query_thread;i++)
+	{
+		query_thread_list[i].thread_id = i;
+		query_thread_list[i].init();
+	}
+	for (i=0;i<num_evict_thread;i++)
+	{
+		evict_thread_list[i].thread_id = i;
+		evict_thread_list[i].init();
+	}
 }
 
 void PH_Interface::exit_threads()
@@ -183,27 +202,38 @@ void PH_Interface::exit_threads()
 	for (i=0;i<num_query_thread;i++)
 	{
 		if (query_thread_list[i].lock == 0)
+		{
+//			printf("xxxx\n");
 			continue;
+		}
 //		query_thread_list[i].exit = 1;
-		query_thread_list[i].clean();
+//		query_thread_list[i].clean();
+		while(query_thread_list[i].run);
 	}
+//	printf("query clean\n");
 	for (i=0;i<num_evict_thread;i++)
 	{
 		if (evict_thread_list[i].lock == 0)
+		{
+			printf("eceptioehtn\n");
 			continue;
+		}
 		evict_thread_list[i].exit = 1;
 //		evict_thread_list[i].clean();
 	}
+	_mm_mfence();
 	// query join???
-
+//	printf("start evict join\n");
+	for (i=0;i<num_evict_thread;i++) // thread list and pthread are not synced!!!!
+		pthread_join(evict_pthreads[i],NULL);
+//	printf("joined\n");
 	for (i=0;i<num_evict_thread;i++)
 	{
 		if (evict_thread_list[i].lock == 0)
 			continue;
 		{
-			pthread_join(evict_pthreads[i],NULL);
 //			evict_thread_list[i].exit = 0;
-//			evict_thread_list[i].clean();
+			evict_thread_list[i].clean();
 		}
 	}
 }
@@ -284,7 +314,7 @@ void PH_Interface::run_evict_direct()
 	if (my_evict_thread == NULL)
 		new_evict_thread();
 	my_evict_thread->evict_loop();
-	clean_evict_thread();
+//	clean_evict_thread();
 }
 
 //void PH_Interface::*run_evict(void* p)

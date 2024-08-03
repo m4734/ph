@@ -65,6 +65,7 @@ class PH_List
 	ListNode* end_node;
 
 	ListNode** node_pool_list;
+//	std::vector<ListNode*> node_pool_list;
 	size_t node_pool_cnt;
 	size_t node_pool_list_cnt;
 
@@ -88,10 +89,12 @@ class PH_List
 
 
 class SkiplistNode
+//struct SkiplistNode
 {
 	public:
 	SkiplistNode() :next(NULL),next_size(0) {}
-	~SkiplistNode() { delete next; }
+	~SkiplistNode() { delete[] next; }
+
 	size_t key;
 //	SkiplistNode* node_p; // tree node or leaf
 //	std::vector<std::atomic<SkiplistNode*>> next;
@@ -125,9 +128,11 @@ class SkiplistNode
 
 	void setLevel();
 	void setLevel(size_t l);
+//	void free();
 
-	int head,tail;
-	int remain_cnt;
+	int list_head,list_tail;
+	int data_head,data_tail;
+//	int remain_cnt;
 
 	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
@@ -141,6 +146,7 @@ class Skiplist
 	SkiplistNode* end_node;
 
 	SkiplistNode** node_pool_list;
+//	std::vector<SkiplistNode*> node_pool_list;
 	size_t node_pool_cnt;
 	size_t node_pool_list_cnt;
 

@@ -44,6 +44,7 @@ size_t WARM_BATCH_ENTRY_CNT; // 8-9
 size_t WARM_BATCH_CNT; // 4096/1024
 //size_t WARM_BATCH_SIZE; // 120 * 8-9
 size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
+size_t WARM_LOG_MAX; // 8*2
 
 
 // should be private
@@ -70,7 +71,7 @@ void SkiplistNode::setLevel(size_t l)
 //	next.clear();
 //	next = new std::atomic<SkiplistNode*>[l+1];
 //	next.resize(l+1);
-	if (next_size > l+1)
+	if (next_size < l+1)
 	{
 		delete next;
 		next = new SkipAddr[l+1];
@@ -86,7 +87,7 @@ void SkiplistNode::setLevel()
 //	next = new std::atomic<SkiplistNode*>[level+1];
 //	next.clear();
 //	next.resize(level+1);
-	if (next_size > level+1)
+	if (next_size < level+1)
 	{
 		delete next;
 		next = new SkipAddr[level+1];
@@ -95,7 +96,12 @@ void SkiplistNode::setLevel()
 
 	built = 0;
 }
-
+/*
+void SkiplistNode::free()
+{
+	delete next;
+}
+*/
 extern size_t ENTRY_SIZE;
 
 void Skiplist::init(size_t size)
@@ -104,13 +110,16 @@ void Skiplist::init(size_t size)
 	WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
 //	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+	WARM_LOG_MAX = WARM_BATCH_ENTRY_CNT;
 
 	setLimit(size);
 //	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
 	node_pool_list = new SkiplistNode*[NODE_POOL_LIST_SIZE];
 
 //	node_pool_list[0] = (Tree_Node*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+
 	node_pool_list[0] = new SkiplistNode[NODE_POOL_SIZE];
+//	node_pool_list.push_back(new SkiplistNode[NODE_POOL_SIZE]);
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
 	node_free_head = NULL;
@@ -118,10 +127,6 @@ void Skiplist::init(size_t size)
 	node_alloc_lock = 0;
 	node_counter = 1; // 0 should be del
 
-	empty_node = alloc_sl_node();
-	empty_node->key = KEY_MIN;
-	empty_node->my_listNode = list->empty_node; // may not need
-	empty_node->data_node_addr = nodeAllocator->alloc_node();
 
 	start_node = alloc_sl_node();
 	start_node->setLevel(MAX_LEVEL);
@@ -130,16 +135,27 @@ void Skiplist::init(size_t size)
 	start_node->data_node_addr = nodeAllocator->alloc_node();
 
 	end_node = alloc_sl_node();
-//	end_node->built = MAX_LEVEL;
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
 	end_node->my_listNode = list->end_node;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
 
+	empty_node = alloc_sl_node();
+	empty_node->setLevel(MAX_LEVEL);
+	empty_node->key = KEY_MIN;
+	empty_node->my_listNode = list->empty_node;
+	empty_node->data_node_addr = nodeAllocator->alloc_node();
+
 	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
-		start_node->next[i] = end_node->my_sa;
+	{
+		start_node->next[i] = empty_node->my_sa;
+		empty_node->next[i] = end_node->my_sa;
+	}
 	start_node->built = MAX_LEVEL;
+	start_node->dataNodeHeader = empty_node->data_node_addr;
+	empty_node->built = MAX_LEVEL;
+	empty_node->dataNodeHeader = end_node->data_node_addr;
 
 	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
@@ -161,20 +177,21 @@ void Skiplist::init(size_t size)
 
 void Skiplist::clean()
 {
-	printf("skiplist cnt %ld\n",node_pool_list_cnt);
+//	printf("skiplist cnt %ld\n",node_pool_list_cnt);
 	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 
-	int i;
+	int i,j;
 	for (i=0;i<=node_pool_list_cnt;i++)
 	{
 //		free(node_pool_list[i]);
+//		for (j=0;j<NODE_POOL_SIZE;j++)
 		delete[] node_pool_list[i];
 	}
 //	free(node_pool_list);
 	delete[] node_pool_list;
 
-	printf("skiplist is cleaned\n");
+//	printf("skiplist is cleaned\n");
 }
 
 SkiplistNode* Skiplist::alloc_sl_node()
@@ -199,20 +216,25 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	{
 		if (node_pool_cnt >= NODE_POOL_SIZE)
 		{
+			
 			if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
 			{
 				printf("no space for node1!\n");
 				at_unlock2(node_alloc_lock);
 				return NULL;
 			}
+			
 			++node_pool_list_cnt;
 			node_pool_list[node_pool_list_cnt] = new SkiplistNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+//			node_pool_list.push_back(new SkiplistNode[NODE_POOL_SIZE]);
 			node_pool_cnt = 0;
 		}
 
-		SkiplistNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt]; // first alloc
+		node = &node_pool_list[node_pool_list_cnt][node_pool_cnt]; // first alloc
 		node->myAddr.pool_num = node_pool_list_cnt;
 		node->myAddr.node_offset = node_pool_cnt;
+//		node->next = NULL;
+//		node->next_size = 0;
 		node_pool_cnt++;
 	}
 	node->lock = 0;
@@ -221,15 +243,16 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	node->setLevel();
 	node->dst_cnt = 0;
 
-	node->head = node->tail = 0;
-	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
+	node->list_head = node->list_tail = 0;
+	node->data_head = node->data_tail = 0;
+//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 	node->entry_list.resize(NODE_SLOT_MAX);
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
 	node->ver = node_counter.fetch_add(1);
 	node->my_sa.ver = node->ver;
 	node->my_sa.pool_num = node_pool_list_cnt;
-	node->my_sa.offset = node_pool_cnt;
+	node->my_sa.offset = node_pool_cnt-1;
 
 	at_unlock2(node_alloc_lock);
 	return node;
@@ -258,6 +281,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 {
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
+	SkiplistNode temp;
 	node = start_node;
 	int i;
 	SkipAddr sa;
@@ -267,13 +291,14 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 		while(true)
 		{
 			sa.value = node->next[i].value.load();
-			next_node = sa_to_node(sa);
+//			next_node = sa_to_node(sa);
+			next_node = &node_pool_list[sa.pool_num][sa.offset];
 			if (next_node->ver != sa.ver)
 			{
-				if (sa.ver == 0)
+				if (next_node->ver == 0)
 				{
 					v = sa.value;
-					if (node->next[i].value.compare_exchange_strong(v,next_node->next[i].value))
+					if (node->next[i].value.compare_exchange_strong(v,next_node->next[i].value.load()))
 					{
 						next_node->dst_cnt--; // passed cas
 						if (next_node->dst_cnt == 0)
@@ -289,7 +314,6 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 		}
 		prev[i] = node->my_sa;
 		next[i] = node->next[i];
-
 	}
 	return node;
 }
@@ -370,8 +394,9 @@ void Skiplist::setLimit(size_t size)
 
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
+	node->ver = 0;
 //		printf("not now\n");
-#if 1
+#if 0
 //	size_t key = node->key;
 //	at_lock2(node->delete_lock);
 	while(1)
@@ -441,28 +466,30 @@ bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkipAddr* prev_sa_list,
 
 	SkiplistNode *pnn;
 	SkipAddr old_sa,new_sa,next_sa;
-	uint64_t v;
+	uint64_t pnn_next;
 
 	for (i=node->built;i<=node->level;i++)
 	{
 //		if (prev[i]->delete_lock) // not gonna happend
 //			return false;
 
-		if (prev_sa_list[i].ver == 0 || next_sa_list[i].ver == 0)
+		if (prev_sa_list[i].ver == 0 || next_sa_list[i].ver == 0) // some node is deleted
 			return false;
 
 //		pn = prev[i]->next[i];
-		old_sa.value = prev_sa_list[i].value.load();
-//		pnn = sa_to_node(old_sa)
-		if (old_sa.value != next_sa_list[i].value)
+//		old_sa.value = prev_sa_list[i].value.load();
+		pnn = sa_to_node(prev_sa_list[i]);
+		pnn_next = pnn->next[i].value;
+		if (pnn_next != next_sa_list[i].value) // prev_sa->next == next_sa
 			return false;
 		node->next[i].value = next_sa_list[i].value.load();
 
 		new_sa.value = node->my_sa.value.load();
 
-		pnn = sa_to_node(prev_sa_list[i]);
-		v = old_sa.value;
-		if (pnn->next[i].value.compare_exchange_strong(v,new_sa.value) == false)
+		if (new_sa.pool_num >= 65535) // test
+			printf("insert error\n");
+
+		if (pnn->next[i].value.compare_exchange_strong(pnn_next,new_sa.value) == false)
 			return false;
 		node->built++;
 	}
@@ -488,16 +515,12 @@ void PH_List::init()
 
 //	node_pool_list[0] = (Tree_Node*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
 	node_pool_list[0] = new ListNode[NODE_POOL_SIZE];
+//	node_pool_list.push_back(new ListNode[NODE_POOL_SIZE]);
 	node_pool_cnt=0;
 	node_pool_list_cnt = 0;
 	node_free_head = NULL;
 
 	node_alloc_lock = 0;
-
-
-	empty_node = alloc_list_node();
-	empty_node->key = KEY_MIN;
-	empty_node->data_node_addr = nodeAllocator->alloc_node();
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
@@ -507,18 +530,22 @@ void PH_List::init()
 	end_node->key = KEY_MAX;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
 
+	empty_node = alloc_list_node();
+	empty_node->key = KEY_MIN;
+	empty_node->data_node_addr = nodeAllocator->alloc_node();
+
 //	List_Node* node = alloc_list_node();
-	empty_node->next = start_node;
-	start_node->next = end_node;
-	start_node->prev = empty_node;
-	end_node->prev = start_node;
+	start_node->next = empty_node;
+	empty_node->next = end_node;
+	empty_node->prev = start_node;
+	end_node->prev = empty_node;
 
 	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	NodeMeta* nm_end = nodeAddr_to_nodeMeta(end_node->data_node_addr);
 
-	nodeAllocator->linkNext(nm_empty,nm_start);
-	nodeAllocator->linkNext(nm_start,nm_end);
+	nodeAllocator->linkNext(nm_start,nm_empty);
+	nodeAllocator->linkNext(nm_empty,nm_end);
 }
 
 void PH_List::clean()
@@ -563,6 +590,7 @@ ListNode* PH_List::alloc_list_node()
 			printf("no space for node2!\n");
 		++node_pool_list_cnt;
 		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+//		node_pool_list.push_back(new ListNode[NODE_POOL_SIZE]);
 		node_pool_cnt = 0;
 	}
 

@@ -6,7 +6,7 @@
 
 #include "global2.h"
 
-#if 1
+#if 0
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
@@ -197,6 +197,9 @@ int main()
 	size_t ops=total_ops;
 
 	work(phi,key_range,INSERT_OP);
+
+	printf("loaded-----------------------------------------\n");
+
 //	work(phi,ops,READ_OP);
 	work(phi,ops,INSERT_OP);
 #endif

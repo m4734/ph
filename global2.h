@@ -51,6 +51,7 @@ void clean_query_thread();
 void new_evict_thread();
 void clean_evict_thread();
 
+void init_threads();
 void exit_threads();
 
 pthread_t evict_pthreads[100];

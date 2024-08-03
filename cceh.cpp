@@ -19,8 +19,6 @@ namespace PH
 
 	extern thread_local PH_Thread* my_thread;
 
-//	thread_local SEG* temp_seg = NULL;
-
 	//extern PH_Thread thread_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 	//extern int num_thread;
 	extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
@@ -53,14 +51,16 @@ namespace PH
 #endif
 	uint64_t r_mask[65];
 
+#if 0
 	unsigned char** key_array = 0;
 	int* key_cnt = 0;
 	std::atomic<int> key_array_cnt;
 	thread_local int key_array_index=0;
 	int max_index;
-
+#endif
 	//test
 	std::atomic<uint32_t> alloc_seg_cnt;
+//	std::atomic<uint32_t> free_seg_cnt;
 
 	uint64_t MurmurHash64A_L8 ( const void * key )
 	{
@@ -239,7 +239,7 @@ namespace PH
 	}
 #endif
 
-	SEG* alloc_seg() // use free list
+	SEG* CCEH::alloc_seg() // use free list
 	{
 		SEG* seg;
 		alloc_seg_cnt++;
@@ -247,6 +247,11 @@ namespace PH
 			printf("posix_memalign error2\n");
 		seg->split_cnt=0;
 		return seg;
+	}
+	void free_seg(void* seg)
+	{
+		free(seg);
+//		free_seg_cnt++;
 	}
 #if 0
 	void free_seg(SEG* seg)
@@ -321,8 +326,14 @@ namespace PH
 		clean();
 	}
 
+	void* CCEH::ret_seg()
+	{
+		return alloc_seg();
+	}
+
 	void CCEH::thread_local_init()
 	{
+		printf("no local init\n");
 		my_thread->temp_seg = alloc_seg();
 	}
 
@@ -373,6 +384,8 @@ namespace PH
 		write_lock = 0;
 		//	free_seg_lock = 0;
 
+		remove_ts_lock = 0;
+
 		//test
 #if ctt
 		bc = sc = ctt1 = ctt3 = ctt2 = 0;
@@ -398,10 +411,22 @@ namespace PH
 				   }
 				 */
 				//			free_seg(seg_list[i]); //free?
-				free(seg_list[i]);			
+
+//				free(seg_list[i]);			
+				free_seg(seg_list[i]);
 			}
 		}
 		free((void*)seg_list);
+
+//		printf("free seg cnt %u\n",free_seg_cnt.load());
+
+		//clean temp segs
+		for (i=0;i<remove_ts_list.size();i++)
+		{
+			free_seg(remove_ts_list[i]);
+//			free(remove_ts_list[i]);
+		}
+
 
 #ifdef ctt
 		printf("depth %d split_cnt %d insert %ld insert_avg %ld split %ld ctt3 %ld insert_cnt %d bc %d find %ld find_cnt %d find_avg %ld \n",depth,sc,ctt1,ctt1/pic,ctt2,ctt3,pic,bc,ctt4,find_cnt,ctt4/find_cnt);
@@ -1476,6 +1501,7 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			r_mask[i] = r_mask[i-1]*2+1;
 
 		//	if (key_size != 8) // ke yarray init
+#if 0
 		if (KEY_SIZE != 8)
 		{
 			key_array = (unsigned char**)malloc(sizeof(unsigned char*) * KEY_ARRAY_MAX);
@@ -1488,8 +1514,18 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			//		for (i=0;i<KEY_ARRAY_MAX;i++)
 			//			key_cnt[i] = 0;
 		}
+#endif
 
 		hash_index = new CCEH(20); // M
+	}
+
+	void CCEH::remove_ts(void* temp_seg)
+	{
+		at_lock2(remove_ts_lock);
+
+		remove_ts_list.push_back(temp_seg);
+
+		at_unlock2(remove_ts_lock);
 	}
 
 	void clean_cceh()
@@ -1499,9 +1535,10 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 
 		printf("SEG size %ld hash %lfGB\n",sizeof(SEG),double(alloc_seg_cnt*sizeof(SEG))/1024/1024/1024);
 		printf("SEG count %u\n",alloc_seg_cnt.load());
+//		printf("free seg cnt %u\n",free_seg_cnt.load());
 
 		//	printf("seg index %u min %u cnt %u\n",seg_free_index.load(),seg_free_min.load(),seg_free_cnt.load());
-
+#if 0
 		if (key_array)
 		{
 			int i;
@@ -1510,7 +1547,7 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			free(key_array);
 			free(key_cnt);
 		}
-
+#endif
 		delete hash_index;
 
 	}

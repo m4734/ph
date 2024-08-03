@@ -128,10 +128,13 @@ size_t NODE_SLOT_MAX;
 		}
 		else
 		{
-			if (node_cnt[pool_cnt - num_pmem + alloc_cnt % num_pmem] >= POOL_NODE_MAX)
-				alloc_pool();
 
 			size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+			if (node_cnt[pool_num] >= POOL_NODE_MAX)
+			{
+				alloc_pool();
+				pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+			}
 
 			nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
 			nm->my_offset.pool_num = pool_num;

@@ -15,7 +15,7 @@ namespace PH
 #define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
-#define WARM_COLD_RATIO (10/2)
+#define WARM_COLD_RATIO (10)
 
 class DoubleLog;
 class SkiplistNode;
@@ -65,7 +65,7 @@ class PH_Thread
 	protected:
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
-	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock);
+	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm);
 	void invalidate_entry(EntryAddr &ea);
 
 	unsigned int seed_for_dtc;
