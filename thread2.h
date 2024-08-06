@@ -60,6 +60,8 @@ class PH_Thread
 	uint64_t soft_htw_cnt;
 	uint64_t hard_htw_cnt;
 
+	uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
+
 	void reset_test();
 
 	protected:
@@ -115,7 +117,7 @@ class PH_Evict_Thread : public PH_Thread
 	int log_cnt;
 
 //	DataNode temp_node;
-	unsigned char *htw_evict_buffer;//[WARM_BATCH_MAX_SIZE];
+	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 	
 	int* child1_path;
 	int* child2_path;
