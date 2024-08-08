@@ -15,7 +15,7 @@ namespace PH
 #define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
-#define WARM_COLD_RATIO (10)
+#define WARM_COLD_RATIO (1000)
 
 class DoubleLog;
 class SkiplistNode;

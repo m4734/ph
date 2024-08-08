@@ -133,6 +133,7 @@ class SkiplistNode
 	int list_head,list_tail;
 	int data_head,data_tail;
 //	int remain_cnt;
+	int recent_entry_cnt;
 
 	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;

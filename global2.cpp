@@ -23,6 +23,7 @@ extern Skiplist* skiplist;
 extern PH_List* list;
 
 extern NodeAllocator* nodeAllocator;
+extern NodeAllocator* warm_nodeAllocator;
 
 thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
@@ -162,7 +163,10 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 	init_cceh();
 
 	nodeAllocator = new NodeAllocator;
-	nodeAllocator->init();
+	nodeAllocator->init(NODE_SIZE);
+
+	warm_nodeAllocator = new NodeAllocator;
+	nodeAllocator->init(WARM_NODE_SIZE);
 
 //	init_evict();
 
@@ -260,6 +264,7 @@ printf("cc\n");
 	delete list;
 printf("ccc\n");
 	nodeAllocator->clean();
+	warm_nodeAllocator->clean();
 
 	clean_cceh();
 	clean_log();

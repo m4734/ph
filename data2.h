@@ -51,6 +51,7 @@ const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
 const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
 
 const size_t VER_NUM_MASK = (size_t(1)<<57)-1;
+
 /*
 inline unsigned char* value_to_node_addr(uint64_t value)
 {
@@ -240,7 +241,7 @@ uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
 class NodeAllocator
 {
 	public:
-	void init();
+	void init(size_t ns);
 	void clean();
 
 //	Node* get_node(NodeMeta* nm);
@@ -251,6 +252,14 @@ class NodeAllocator
 //	private:
 	public:
 
+	inline DataNode* nodeAddr_to_node(NodeAddr nodeAddr)
+	{
+		return (DataNode*)(nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
+	}
+	inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
+	{
+		return (NodeMeta*)(nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
+	}
 
 	void linkNext(NodeMeta* nm1,NodeMeta* nm2);
 //	void linkNext(NodeAddr nodeAddr);
@@ -281,17 +290,11 @@ class NodeAllocator
 //	size_t alloc_cnt;
 	std::atomic<uint64_t> alloc_cnt;
 
+	size_t node_size;
 };
 
-extern NodeAllocator* nodeAllocator;
+//extern NodeAllocator* nodeAllocator;
+//extern NodeAllocator* 
 
-inline DataNode* nodeAddr_to_node(NodeAddr nodeAddr)
-{
-	return (DataNode*)(nodeAllocator->nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
-}
-inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
-{
-	return (NodeMeta*)(nodeAllocator->nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
-}
 
 }

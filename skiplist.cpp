@@ -44,7 +44,9 @@ size_t WARM_BATCH_ENTRY_CNT; // 8-9
 size_t WARM_BATCH_CNT; // 4096/1024
 //size_t WARM_BATCH_SIZE; // 120 * 8-9
 size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
-size_t WARM_LOG_MAX; // 8*2
+size_t WARM_LOG_MAX; // 8*2~3
+size_t WARM_LOG_MIN; // 8
+size_t WARM_LOG_THRESHOLD; // 16
 
 
 // should be private
@@ -110,7 +112,9 @@ void Skiplist::init(size_t size)
 	WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
 //	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
-	WARM_LOG_MAX = WARM_BATCH_ENTRY_CNT;
+	WARM_LOG_MAX = WARM_BATCH_ENTRY_CNT * 3;
+	WARM_LOG_MIN = WARM_BATCH_ENTRY_CNT;
+	WARM_LOG_THRESHOLD = WARM_BATCH_ENTRY_CNT * 2;
 
 	setLimit(size);
 //	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
@@ -157,9 +161,9 @@ void Skiplist::init(size_t size)
 	empty_node->built = MAX_LEVEL;
 	empty_node->dataNodeHeader = end_node->data_node_addr;
 
-	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
-	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
-	NodeMeta* nm_end = nodeAddr_to_nodeMeta(end_node->data_node_addr);
+	NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 
 	nodeAllocator->linkNext(nm_empty,nm_start);
 	nodeAllocator->linkNext(nm_start,nm_end);
@@ -178,7 +182,18 @@ void Skiplist::init(size_t size)
 void Skiplist::clean()
 {
 //	printf("skiplist cnt %ld\n",node_pool_list_cnt);
-	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
+
+	int cnt=0;
+	SkiplistNode* node;
+	node = start_node;
+	while(node != end_node)
+	{
+		node = skiplist->sa_to_node(node->next[0]);
+		cnt++;
+	}
+	printf("warm node cnt %d\n",cnt);
+
+	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 
 	int i,j;
@@ -242,6 +257,7 @@ SkiplistNode* Skiplist::alloc_sl_node()
 //	node->next = NULL;
 	node->setLevel();
 	node->dst_cnt = 0;
+	node->recent_entry_cnt = 0;
 
 	node->list_head = node->list_tail = 0;
 	node->data_head = node->data_tail = 0;
@@ -302,7 +318,10 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 					{
 						next_node->dst_cnt--; // passed cas
 						if (next_node->dst_cnt == 0)
+						{
+							nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr));
 							free_sl_node(next_node);
+						}
 					}
 				}
 				continue;
@@ -540,9 +559,9 @@ void PH_List::init()
 	empty_node->prev = start_node;
 	end_node->prev = empty_node;
 
-	NodeMeta* nm_empty = nodeAddr_to_nodeMeta(empty_node->data_node_addr);
-	NodeMeta* nm_start = nodeAddr_to_nodeMeta(start_node->data_node_addr);
-	NodeMeta* nm_end = nodeAddr_to_nodeMeta(end_node->data_node_addr);
+	NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 
 	nodeAllocator->linkNext(nm_start,nm_empty);
 	nodeAllocator->linkNext(nm_empty,nm_end);
@@ -550,8 +569,20 @@ void PH_List::init()
 
 void PH_List::clean()
 {
-	printf("list pool cnt %ld\n",node_pool_list_cnt);
-	printf("cold node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE,double(node_pool_list_cnt+1)*NODE_POOL_SIZE*NODE_SIZE*MAX_NODE_GROUP/1024/1024/1024);
+
+	int cnt=0;
+	ListNode* node;
+	node = start_node;
+	while(node != end_node)
+	{
+		node = node->next;
+		cnt++;
+	}
+	printf("cold node cnt %d\n",cnt);
+
+
+//	printf("list pool cnt %ld\n",node_pool_list_cnt);
+	printf("cold node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE*MAX_NODE_GROUP+node_pool_cnt,double(node_pool_list_cnt+1)*NODE_POOL_SIZE*NODE_SIZE*MAX_NODE_GROUP/1024/1024/1024);
 
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)

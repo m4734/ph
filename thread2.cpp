@@ -18,6 +18,8 @@
 
 namespace PH
 {
+	extern NodeAllocator* nodeAllocator;
+	extern NodeAllocator* warm_nodeAllocator;
 
 	extern size_t HARD_EVICT_SPACE;
 	extern size_t SOFT_EVICT_SPACE;
@@ -60,6 +62,8 @@ namespace PH
 	extern size_t WARM_BATCH_CNT;
 	extern size_t WARM_NODE_ENTRY_CNT;
 	extern size_t WARM_LOG_MAX;
+	extern size_t WARM_LOG_MIN;
+	extern size_t WARM_LOG_THRESHOLD;
 
 	extern Skiplist* skiplist;
 	extern PH_List* list;
@@ -219,6 +223,26 @@ namespace PH
 	}
 #endif
 	//-------------------------------------------------
+	ListNode* find_halfNode(SkiplistNode* node,int &cnt)
+	{
+		uint64_t current_key,next_key;
+		//		ListNode* listNode;
+		ListNode* half_listNode;
+		ListNode* listNode;
+		current_key = node->key;
+		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+		listNode = node->my_listNode;
+		half_listNode = node->my_listNode;
+		cnt = 0;
+		while (next_key > listNode->key)
+		{
+			listNode = listNode->next;
+			++cnt;
+			if (cnt%2 == 0)
+				half_listNode = half_listNode->next;
+		}
+		return half_listNode;
+	}
 
 
 	void PH_Query_Thread::init()
@@ -343,9 +367,9 @@ namespace PH
 	void append_group(NodeMeta* list_nodeMeta)
 	{
 		NodeAddr new_nodeAddr = nodeAllocator->alloc_node();
-		NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_nodeAddr);
-		DataNode* new_dataNode = nodeAddr_to_node(new_nodeAddr);
-		pmem_next_in_group_write(nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
+		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
+		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
+		pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
 
 		list_nodeMeta->next_node_in_group = new_nodeMeta;
 		new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
@@ -374,7 +398,7 @@ namespace PH
 			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 			new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
-			DataNode* list_dataNode = nodeAddr_to_node(list_nodeMeta->my_offset);
+			DataNode* list_dataNode = nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset);
 			pmem_entry_write(list_dataNode->buffer + ENTRY_SIZE*slot_idx , src_addr, ENTRY_SIZE);
 			list_nodeMeta->valid[slot_idx] = true; // validate
 			++list_nodeMeta->valid_cnt;
@@ -430,7 +454,7 @@ namespace PH
 		//		std::vector<KA_Pair> key_list;
 		//		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
 		std::priority_queue<std::pair<uint64_t,SecondOfPair>,std::vector<std::pair<uint64_t,SecondOfPair>>,std::greater<std::pair<uint64_t,SecondOfPair>>> key_list;
-		NodeMeta *list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
+		NodeMeta *list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 		//		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
 		DataNode temp_dataNode[MAX_NODE_GROUP];
@@ -450,7 +474,7 @@ namespace PH
 
 			at_lock2(list_nodeMeta->rw_lock); // lock the node
 
-			list_dataNode_p[group_idx] = nodeAddr_to_node(list_nodeMeta->my_offset);
+			list_dataNode_p[group_idx] = nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset);
 			temp_dataNode[group_idx] = *list_dataNode_p[group_idx]; // pmem to dram
 			old_nodeMeta[group_idx] = list_nodeMeta;
 
@@ -489,7 +513,7 @@ namespace PH
 		for (i=0;i<MAX_NODE_GROUP;i++)
 		{
 			new_nodeAddr[i] = nodeAllocator->alloc_node();
-			new_nodeMeta[i] = nodeAddr_to_nodeMeta(new_nodeAddr[i]);
+			new_nodeMeta[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr[i]);
 			at_lock2(new_nodeMeta[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<MAX_NODE_GROUP-1;i++) // connect
@@ -559,7 +583,7 @@ namespace PH
 		//		EntryAddr ea;
 		for (i=0;i<MAX_NODE_GROUP;i++) // persist
 		{
-			new_dataNode = nodeAddr_to_node(new_nodeMeta[i]->my_offset);
+			new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeMeta[i]->my_offset);
 			pmem_nt_write((unsigned char*)new_dataNode,(unsigned char*)&sorted_temp_dataNode[i],NODE_SIZE);
 			addr = new_dataNode->buffer;
 			offset = 0;
@@ -647,13 +671,20 @@ namespace PH
 	int calc_th(DoubleLog* dl)
 	{
 //		const size_t threshold = HARD_EVICT_SPACE;
-				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
+//				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
+
+		const size_t min_threshold = HARD_EVICT_SPACE;
+		const size_t max_threshold = SOFT_EVICT_SPACE/2;
+		const size_t threshold = max_threshold-min_threshold;
+
+		//HARD 0 ~ SOFT 100
+
 		size_t empty_space = (dl->tail_sum+dl->my_size-dl->head_sum)%dl->my_size;
-//		if (empty_space < )
-//			return 100;
-		if (threshold < empty_space)
+		if (empty_space < min_threshold)
+			return 100; // always cold
+		if (max_threshold < empty_space)
 			return 0; // always hot
-		return ((threshold)-empty_space)*100/(threshold);
+		return ((threshold)-(empty_space-min_threshold))*100/(threshold);
 	}
 
 	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm = NULL)
@@ -713,7 +744,7 @@ namespace PH
 
 			//----------------------------------------------------------------------------- listnode
 
-			list_nodeMeta = nodeAddr_to_nodeMeta(list_node->data_node_addr);
+			list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(list_node->data_node_addr);
 			while (list_nodeMeta->valid_cnt >= NODE_SLOT_MAX && list_nodeMeta->next_node_in_group != NULL) // find space in group
 				list_nodeMeta = list_nodeMeta->next_node_in_group;
 
@@ -1586,7 +1617,7 @@ namespace PH
 		NodeMeta* nodeMeta;
 		NodeMeta* new_nodeMeta;
 
-		nodeMeta = nodeAddr_to_nodeMeta(old_skipListNode->data_node_addr);
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(old_skipListNode->data_node_addr);
 
 		// move data
 
@@ -1594,7 +1625,7 @@ namespace PH
 		DataNode child1_temp_dataNode,child2_temp_dataNode;
 		DataNode* parent_dataNode;
 
-		parent_dataNode = nodeAddr_to_node(old_skipListNode->data_node_addr);
+		parent_dataNode = nodeAllocator->nodeAddr_to_node(old_skipListNode->data_node_addr);
 
 		parent_temp_dataNode = *parent_dataNode;
 		memset(&child1_temp_dataNode,0,sizeof(DataNode));
@@ -1683,8 +1714,8 @@ namespace PH
 		NodeAddr child1_addr,child2_addr;
 		child1_addr = nodeAllocator->alloc_node();
 		child2_addr = nodeAllocator->alloc_node();
-		child1_dataNode_p = nodeAddr_to_node(child1_addr);
-		child2_dataNode_p = nodeAddr_to_node(child2_addr);
+		child1_dataNode_p = nodeAllocator->nodeAddr_to_node(child1_addr);
+		child2_dataNode_p = nodeAllocator->nodeAddr_to_node(child2_addr);
 
 		child1_temp_dataNode.next_offset = child2_addr;
 		child2_temp_dataNode.next_offset = (skiplist->sa_to_node(old_skipListNode->next[0]))->data_node_addr;
@@ -1714,8 +1745,8 @@ namespace PH
 		NodeMeta* child1_nodeMeta;
 		NodeMeta* child2_nodeMeta;
 
-		child1_nodeMeta = nodeAddr_to_nodeMeta(child1_addr);
-		child2_nodeMeta = nodeAddr_to_nodeMeta(child2_addr);
+		child1_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(child1_addr);
+		child2_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(child2_addr);
 
 		child1_nodeMeta->next_p = child2_nodeMeta;
 		child2_nodeMeta->next_p = nodeMeta->next_p;
@@ -1845,7 +1876,7 @@ namespace PH
 
 		//delete old here...
 
-		skiplist->delete_node(old_skipListNode);
+		skiplist->delete_node(old_skipListNode); // delete duringn find node
 
 	}
 
@@ -1857,10 +1888,10 @@ namespace PH
 
 		//	printf("warm_to_cold\n");
 		ListNode* listNode;
-		NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+		NodeMeta *nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 		at_lock2(nodeMeta->rw_lock);
 		//		DataNode dataNode = *nodeAddr_to_node(node->data_node_addr); // dram copy
-		DataNode *dataNode = nodeAddr_to_node(node->data_node_addr);
+		DataNode *dataNode = nodeAllocator->nodeAddr_to_node(node->data_node_addr);
 		size_t src_offset;
 		int cnt = 0;
 		uint64_t key;
@@ -1931,7 +1962,7 @@ namespace PH
 			while (key >= listNode->next->key)
 				listNode = listNode->next;
 
-			NodeMeta* list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
+			NodeMeta* list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 			//			NodeMeta* first_nodeMeta_in_group = list_nodeMeta;
 			//			new_ea.file_num = listNode->data_node_addr.pool_num;
 			//			new_ea.offset = ln->data_node_addr.offset*NODE_SIZE;
@@ -2137,30 +2168,16 @@ namespace PH
 		}
 #endif
 
-		// 1 check cold length and count them
-		//		int cnt;
-		uint64_t current_key,next_key;
-		//		ListNode* listNode;
 		ListNode* half_listNode;
-		current_key = node->key;
-		next_key = (skiplist->sa_to_node(node->next[0]))->key;
-		listNode = node->my_listNode;
-		half_listNode = node->my_listNode;
-		cnt = 0;
-		while (next_key > listNode->key)
-		{
-			listNode = listNode->next;
-			++cnt;
-			if (cnt%2 == 0)
-				half_listNode = half_listNode->next;
-		}
+
+		half_listNode = find_halfNode(node,cnt);
 
 		if (cnt * MAX_NODE_GROUP > WARM_COLD_RATIO) // (WARM / COLD) RATIO
 		{
 			//			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
 			//			if (new_skipListNode)
 			{
-				NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//				at_lock2(nodeMeta->rw_lock);
 //				hot_to_warm(node,true); // flush all
 				split_warm_node(node,half_listNode);
@@ -2207,12 +2224,12 @@ namespace PH
 		//	unsigned char node_buffer[NODE_SIZE]; 
 		//		size_t entry_list_cnt;
 
-		NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 		//		at_lock2(nodeMeta->rw_lock);//------------------------------------------------lock here
 
 		//	Node temp_node;
 		//		DataNode* dst_node = nodeAddr_to_node(node->data_node_addr);
-		unsigned char* dst_node = (unsigned char*)nodeAddr_to_node(node->data_node_addr);
+		unsigned char* dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr);
 
 		size_t write_size;
 		//		unsigned char* buffer_write_start = temp_node.buffer+nodeMeta->written_size;
@@ -2245,8 +2262,11 @@ namespace PH
 		int list_index,li;
 		//		bool parital = false;
 
+		int ex_entry_cnt;
+
 		do
 		{
+			ex_entry_cnt = 0;
 
 			buffer_write_start = evict_buffer + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
 			batch_num = (node->data_head % WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
@@ -2303,7 +2323,7 @@ namespace PH
 					node->entry_list[li].log_num = -1; // invalid
 									  //		continue;
 				}
-				else if (header->prev_loc == 3)// && false) // cold // hot to cold
+				else if (header->prev_loc == 3 && false) // cold // hot to cold
 				{
 					// direct to cold here
 
@@ -2336,6 +2356,8 @@ namespace PH
 					hot_to_warm_cnt++;
 					slot_index++; // fill entry
 					write_size+=ENTRY_SIZE;
+					if (header->prev_loc != 0)
+						ex_entry_cnt++;
 				}
 				list_index++;
 				//check
@@ -2457,6 +2479,20 @@ namespace PH
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 		htw_cnt++;
+
+		node->recent_entry_cnt = ex_entry_cnt;
+		/*
+		if (node->recent_entry_cnt < WARM_LOG_MIN)
+		{
+		}
+		else if (node->recent_entry_cnt > WARM_LOG_MAX) // too much warm nodes...
+		{
+			ListNode* half_listNode;
+			int cnt;
+			half_listNode = find_halfNode(node,cnt);
+			split_warm_node(node,half_listNode);
+		}
+		*/
 	}
 
 	int PH_Evict_Thread::test_inv_log(DoubleLog* dl)
@@ -2556,7 +2592,7 @@ namespace PH
 					//				return rv;
 				}
 				hard_htw_cnt++;
-				NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				at_lock2(nodeMeta->rw_lock);
 				hot_to_warm(node,false); // always partial...
 				at_unlock2(nodeMeta->rw_lock);
@@ -2581,10 +2617,28 @@ namespace PH
 				if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 
-				if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-					warm_to_cold(node);
-
-				at_unlock2(node->lock);
+				//check if we need warm merge before unlock the node
+				if (node->recent_entry_cnt < WARM_LOG_MIN && node->ver > 3) // DO NOT DELETE 
+				{
+					while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
+					{
+						if (node->data_tail < node->data_head)
+							warm_to_cold(node);
+						if (node->list_tail < node->list_head)
+						{
+							at_lock2(nodeMeta->rw_lock);
+							hot_to_warm(node,false);
+							at_unlock2(nodeMeta->rw_lock);
+						}
+					}
+					skiplist->delete_node(node); // it will be jumped during find_node
+				}
+				else
+				{
+					if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+						warm_to_cold(node);
+					at_unlock2(node->lock);
+				}
 				rv = 1;
 
 			}
@@ -2600,6 +2654,35 @@ namespace PH
 		}
 
 		return rv;
+	}
+
+	void list_gc(SkiplistNode* skiplistNode)
+	{
+		DoubleLog* dl;
+		LogLoc ll;
+		EntryHeader* header;
+		unsigned char* addr;
+
+		int i,dst;
+		int li;
+		dst = skiplistNode->list_head-1;
+		for (i=skiplistNode->list_head-1;i>=skiplistNode->list_tail;i--)
+		{
+			li = i % WARM_NODE_ENTRY_CNT;
+			ll = skiplistNode->entry_list[li];
+			dl = &doubleLogList[ll.log_num];
+			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+			header = (EntryHeader*)addr;
+
+			if (dl->tail_sum > ll.offset || is_valid(header) == false)
+				continue;
+			if (dst != i)
+				skiplistNode->entry_list[dst%WARM_NODE_ENTRY_CNT] = skiplistNode->entry_list[li];
+			dst--;
+		}
+
+		skiplistNode->list_tail = dst+1;
+
 	}
 
 	int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
@@ -2648,7 +2731,11 @@ namespace PH
 					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
 					if (try_at_lock2(node->lock) == false)
+					{
+						// too busy???
+						// may need split here
 						continue;
+					}
 
 					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
 					{
@@ -2657,7 +2744,7 @@ namespace PH
 					}
 
 					// need to traverse to confirm the range...
-					nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+					nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 #if 0
 					if (NODE_HEADER_SIZE + nodeMeta->written_size + node->entry_size_sum + ENTRY_SIZE > NODE_SIZE) // NODE_BUFFER_SIZE???
 					{
@@ -2680,7 +2767,7 @@ namespace PH
 					//	printf("warm node full!!\n");
 					//	else
 //					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
-					if (node->list_head - node->list_tail < WARM_LOG_MAX)
+					if (node->list_head - node->list_tail < WARM_LOG_THRESHOLD)// WARM_LOG_MIN)
 					{
 						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
 						//	node->entry_list.push_back(ll);
@@ -2690,15 +2777,16 @@ namespace PH
 						at_unlock2(node->lock);
 						break;
 					}
+					list_gc(node);
 
 					//					set_checked((uint64_t*)addr);
 
 					// need to try flush
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
-//					if (node->head - node->tail >= node->remain_cnt)
+					if (node->list_head - node->list_tail >= WARM_LOG_THRESHOLD)
 					{
-						NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
+						NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 						at_lock2(nodeMeta->rw_lock);
 						hot_to_warm(node,false);
 						at_unlock2(nodeMeta->rw_lock);

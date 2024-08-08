@@ -8,6 +8,7 @@ namespace PH
 	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
 	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 
+	const size_t WARM_NODE_SIZE = 4096 * 4;
 
 	struct NodeAddr
 	{
