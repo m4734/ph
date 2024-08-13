@@ -66,6 +66,15 @@ size_t getRandomLevel()
 	}
 	return level;
 }
+
+inline unsigned char* SkiplistNode::get_entry(int index)
+{
+	int group_num = index/WARM_NODE_ENTRY_CNT;
+	int batch_num = (index%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
+	int offset = index%WARM_BATCH_ENTRY_CNT;
+	return group_node_p[group_num] + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + offset*ENTRY_SIZE;
+}
+
 void SkiplistNode::setLevel(size_t l)
 {
 	level = l;
@@ -131,26 +140,38 @@ void Skiplist::init(size_t size)
 	node_alloc_lock = 0;
 	node_counter = 1; // 0 should be del
 
+	NodeMeta* nodeMeta;
+	int i;
 
 	start_node = alloc_sl_node();
 	start_node->setLevel(MAX_LEVEL);
 	start_node->key = KEY_MIN;
 	start_node->my_listNode = list->start_node;
 	start_node->data_node_addr = nodeAllocator->alloc_node();
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	for (i=1;i<MAX_NODE_GROUP;i++)
+	{
+		nodeMeta = append_group(nodeMeta);
+	}
 
 	end_node = alloc_sl_node();
 	end_node->setLevel(MAX_LEVEL);
 	end_node->key = KEY_MAX;
 	end_node->my_listNode = list->end_node;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
+	for (i=1;i<MAX_NODE_GROUP;i++)
+		nodeMeta = append_group(nodeMeta);
 
 	empty_node = alloc_sl_node();
 	empty_node->setLevel(MAX_LEVEL);
 	empty_node->key = KEY_MIN;
 	empty_node->my_listNode = list->empty_node;
 	empty_node->data_node_addr = nodeAllocator->alloc_node();
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	for (i=1;i<MAX_NODE_GROUP;i++)
+		nodeMeta = append_group(nodeMeta);
 
-	int i;
 	for (i=0;i<=MAX_LEVEL;i++)
 	{
 		start_node->next[i] = empty_node->my_sa;

@@ -15,9 +15,29 @@ namespace PH
 size_t NODE_SLOT_MAX;
 
 	NodeAllocator* nodeAllocator;
-	NodeAllocator* warm_nodeAllocator;
 
 	extern int num_pmem;
+
+	void pmem_next_in_group_write(DataNode* dst_node,NodeAddr nodeAddr)
+	{
+		dst_node->next_offset_in_group = nodeAddr;
+		pmem_persist(dst_node,NODE_HEADER_SIZE);
+		_mm_sfence();
+	}
+
+	NodeMeta* append_group(NodeMeta* list_nodeMeta)
+	{
+		NodeAddr new_nodeAddr = nodeAllocator->alloc_node();
+		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
+		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
+		pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
+
+		list_nodeMeta->next_node_in_group = new_nodeMeta;
+		new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
+		return new_nodeMeta;
+	}
+
+
 #if 0
 	void NodeAllocator::linkNext(NodeAddr nodeAddr)
 	{
@@ -37,17 +57,15 @@ size_t NODE_SLOT_MAX;
 	{
 		nm1->next_p = nm2;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
-		memset(pmem_node,0,node_size);
+		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,NODE_HEADER_SIZE);
 		_mm_sfence();
 //		nm->size = sizeof(NodeAddr);
 	}
 
-	void NodeAllocator::init(size_t ns)
+	void NodeAllocator::init()
 	{
-		node_size = ns;
-
 		NODE_SLOT_MAX = NODE_BUFFER_SIZE / ENTRY_SIZE;
 
 		nodeMetaPoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
@@ -73,7 +91,7 @@ size_t NODE_SLOT_MAX;
 	}
 	void NodeAllocator::clean()
 	{
-		printf("node cnt %ld size %lfGB\n",pool_cnt*POOL_NODE_MAX,double(pool_cnt*POOL_NODE_MAX)*node_size/1024/1024/1024);
+		printf("node cnt %ld size %lfGB\n",pool_cnt*POOL_NODE_MAX,double(pool_cnt*POOL_NODE_MAX)*NODE_SIZE/1024/1024/1024);
 		int i,j;
 		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)
@@ -171,8 +189,8 @@ size_t NODE_SLOT_MAX;
 
 		//pmem memset
 		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
-		memset(dataNode,0,node_size);
-		pmem_persist(dataNode,node_size);
+		memset(dataNode,0,NODE_SIZE);
+		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
 
 //		nm->test = 0; // test

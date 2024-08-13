@@ -137,6 +137,10 @@ class SkiplistNode
 
 	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
+
+	unsigned char* group_node_p[MAX_NODE_GROUP];
+
+	inline unsigned char* get_entry(int index);
 };
 
 class Skiplist

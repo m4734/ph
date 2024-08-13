@@ -19,7 +19,6 @@
 namespace PH
 {
 	extern NodeAllocator* nodeAllocator;
-	extern NodeAllocator* warm_nodeAllocator;
 
 	extern size_t HARD_EVICT_SPACE;
 	extern size_t SOFT_EVICT_SPACE;
@@ -357,23 +356,6 @@ namespace PH
 		pmem_persist(dst_node,NODE_HEADER_SIZE);
 		_mm_sfence();
 	}
-	void pmem_next_in_group_write(DataNode* dst_node,NodeAddr nodeAddr)
-	{
-		dst_node->next_offset_in_group = nodeAddr;
-		pmem_persist(dst_node,NODE_HEADER_SIZE);
-		_mm_sfence();
-	}
-
-	void append_group(NodeMeta* list_nodeMeta)
-	{
-		NodeAddr new_nodeAddr = nodeAllocator->alloc_node();
-		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
-		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
-		pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
-
-		list_nodeMeta->next_node_in_group = new_nodeMeta;
-		new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
-	}
 
 	EntryAddr insert_entry_to_slot(NodeMeta* list_nodeMeta,unsigned char* src_addr) // need lock from outside
 	{
@@ -673,8 +655,9 @@ namespace PH
 //		const size_t threshold = HARD_EVICT_SPACE;
 //				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
 
-		const size_t min_threshold = HARD_EVICT_SPACE;
-		const size_t max_threshold = SOFT_EVICT_SPACE/2;
+		const size_t min_threshold = HARD_EVICT_SPACE/2;
+//		const size_t max_threshold = SOFT_EVICT_SPACE/2;
+		const size_t max_threshold = HARD_EVICT_SPACE;
 		const size_t threshold = max_threshold-min_threshold;
 
 		//HARD 0 ~ SOFT 100
@@ -1606,7 +1589,10 @@ namespace PH
 		child2_sl_node = skiplist->alloc_sl_node();
 
 		if (child1_sl_node == NULL || child2_sl_node == NULL) // alloc fail
+		{
+			printf("alloc fail\n");
 			return;
+		}
 
 		at_lock2(child1_sl_node->lock);
 		at_lock2(child2_sl_node->lock);

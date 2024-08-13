@@ -234,6 +234,7 @@ struct NodeMeta
 
 
 uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
+NodeMeta* append_group(NodeMeta* list_nodeMeta);
 
 //void linkNext(NodeMeta* nm);
 //void linkNext(NodeAddr nodeAddr);
@@ -241,7 +242,7 @@ uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
 class NodeAllocator
 {
 	public:
-	void init(size_t ns);
+	void init();
 	void clean();
 
 //	Node* get_node(NodeMeta* nm);
@@ -289,8 +290,6 @@ class NodeAllocator
 
 //	size_t alloc_cnt;
 	std::atomic<uint64_t> alloc_cnt;
-
-	size_t node_size;
 };
 
 //extern NodeAllocator* nodeAllocator;
