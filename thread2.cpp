@@ -292,7 +292,7 @@ namespace PH
 		htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
-		seed_for_dtc = thread_id;
+//		seed_for_dtc = thread_id;
 		//		printf("sfd %u\n",seed_for_dtc);
 	}
 
@@ -2325,24 +2325,23 @@ namespace PH
 
 		//target_cnt > 0 && may fit batch
 
-		target_cnt = node->list_head-node->list_tail;
+		// want to make left + batch_num*batch = target_cnt
+
+		int list_length;
+		list_length = node->list_head-node->list_tail;
+		left = WARM_BATCH_ENTRY_CNT - (node->data_head%WARM_BATCH_ENTRY_CNT);
+		if (left > list_length)
 		{
-			int list_length;
-			list_length = node->list_head-node->list_tail;
-			left = WARM_NODE_ENTRY_CNT - (node->data_head%WARM_NODE_ENTRY_CNT);
-			if (left > list_length)
-			{
-				batch_cnt = 0;
-				target_cnt = list_length;
-			}
-			else
-			{
-				batch_cnt = (list_length-left)/WARM_NODE_ENTRY_CNT;
-				target_cnt = left + batch_cnt*WARM_NODE_ENTRY_CNT;
-			}
+			batch_cnt = 0;
+			left = target_cnt = list_length;
+		}
+		else
+		{
+			batch_cnt = (list_length-left)/WARM_BATCH_ENTRY_CNT;
+			target_cnt = left + batch_cnt*WARM_BATCH_ENTRY_CNT;
 		}
 
-		while (target_cnt > node->data_head-node->data_tail)
+		while (target_cnt > WARM_GROUP_ENTRY_CNT-(node->data_head-node->data_tail)) // empty space
 		{
 			// call wtc
 			warm_to_cold(node);
@@ -2649,7 +2648,7 @@ namespace PH
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 
 				//check if we need warm merge before unlock the node
-				if (node->recent_entry_cnt < WARM_LOG_MIN && node->ver > 3) // DO NOT DELETE  // still have lock
+				if (false && node->recent_entry_cnt < WARM_NODE_ENTRY_CNT && node->ver > 3) // DO NOT DELETE  // still have lock
 				{
 					flush_warm_node(node);
 					skiplist->delete_node(node); // it will be jumped during find_node
@@ -2784,7 +2783,7 @@ namespace PH
 					//	printf("warm node full!!\n");
 					//	else
 					//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
-					if (node->list_head - node->list_tail < WARM_LOG_THRESHOLD)// WARM_LOG_MIN)
+					if (node->list_head - node->list_tail < WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
 					{
 						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
 						//	node->entry_list.push_back(ll);
@@ -2801,7 +2800,7 @@ namespace PH
 					// need to try flush
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
-					if (node->list_head - node->list_tail >= WARM_LOG_THRESHOLD)
+					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
 					{
 //						NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 //						at_lock2(nodeMeta->rw_lock);

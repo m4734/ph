@@ -99,7 +99,7 @@ void PH_Interface::new_query_thread()
 	// find new DoubleLog
 	my_thread = my_query_thread;
 	my_query_thread->thread_id = i;
-//	my_query_thread->init();
+	my_query_thread->init();
 }
 void PH_Interface::clean_query_thread()
 {
@@ -197,7 +197,7 @@ void PH_Interface::init_threads()
 	for (i=0;i<num_query_thread;i++)
 	{
 		query_thread_list[i].thread_id = i;
-		query_thread_list[i].init();
+//		query_thread_list[i].init();
 	}
 	for (i=0;i<num_evict_thread;i++)
 	{
@@ -317,7 +317,11 @@ int PH_Interface::next_op(unsigned char* buf)
 int PH_Interface::end_op()
 {
 	if (my_query_thread)
-		my_query_thread->clean();
+	{
+		clean_query_thread();
+//		my_query_thread->clean();
+//		my_query_thread = NULL;
+	}
 	return 0;
 }
 

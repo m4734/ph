@@ -9,8 +9,13 @@
 #if 1
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
-const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 5*200*1000*1000; // 1G ops
+//const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
+//const size_t total_ops = 5*200*1000*1000; // 1G ops
+
+const size_t key_range = 200*1000; // 100M *100B = 10GB
+const size_t total_ops = 5*200*1000; // 1G ops
+
+
 					//#define KEY_RANGE 1000000000 //100M = 10G
 
 					//#define THREAD_NUM 16
@@ -131,6 +136,7 @@ void *run(void *parameter)
 
 	para->time = (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 	para->phi->end_op();
+//	para->phi->clean_query_thread();
 	return NULL;
 }
 
