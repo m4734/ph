@@ -112,6 +112,9 @@ class PH_Evict_Thread : public PH_Thread
 //	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
 	void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
+	void split_empty_warm_node(SkiplistNode* old_skiplistNode);
+	void may_split_warm_node(SkiplistNode* node);
+	void flush_warm_node(SkiplistNode* node);
 
 	DoubleLog** log_list;
 	int log_cnt;

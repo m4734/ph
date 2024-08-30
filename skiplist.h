@@ -121,7 +121,7 @@ class SkiplistNode
 	std::atomic<ListNode*> my_listNode;
 //	NodeMeta* my_node;
 	NodeAddr myAddr; // nodeMeta addr
-	NodeAddr data_node_addr;
+	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 
 	std::atomic<uint8_t> lock;
 	std::atomic<uint8_t> rw_lock;
@@ -135,12 +135,16 @@ class SkiplistNode
 //	int remain_cnt;
 	int recent_entry_cnt;
 
-	NodeAddr dataNodeHeader;
+//	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
 
-	unsigned char* group_node_p[MAX_NODE_GROUP];
+	int list_cnt;
+	ListNode* half_listNode;
 
-	inline unsigned char* get_entry(int index);
+//	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
+//	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];
+
+//	inline unsigned char* get_entry(int index);
 };
 
 class Skiplist
@@ -194,6 +198,8 @@ class Skiplist
 	{
 		return &node_pool_list[sa.pool_num][sa.offset];
 	}
+
+	SkiplistNode* allocate_node();
 
 
 //	void split(

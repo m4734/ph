@@ -30,10 +30,14 @@ size_t NODE_SLOT_MAX;
 		NodeAddr new_nodeAddr = nodeAllocator->alloc_node();
 		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
 		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
-		pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
-
-		list_nodeMeta->next_node_in_group = new_nodeMeta;
-		new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
+		if (list_nodeMeta)
+		{
+			pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
+			list_nodeMeta->next_node_in_group = new_nodeMeta;
+			new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
+		}
+		else
+			new_nodeMeta->group_cnt = 0;
 		return new_nodeMeta;
 	}
 
@@ -57,7 +61,7 @@ size_t NODE_SLOT_MAX;
 	{
 		nm1->next_p = nm2;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
-		memset(pmem_node,0,NODE_SIZE);
+//		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,NODE_HEADER_SIZE);
 		_mm_sfence();
@@ -135,7 +139,6 @@ size_t NODE_SLOT_MAX;
 		pool_cnt += num_pmem;
 	}
 
-//	NodeMeta* NodeAllocator::alloc_node()
 	NodeAddr NodeAllocator::alloc_node()
 	{
 		at_lock2(lock);

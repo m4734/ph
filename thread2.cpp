@@ -55,9 +55,10 @@ namespace PH
 	extern std::atomic<uint64_t> htw_cnt_sum;
 	extern std::atomic<uint64_t> wtc_cnt_sum;
 
-	//	extern const size_t WARM_BATCH_MAX_SIZE;
-	extern size_t WARM_BATCH_MAX_SIZE;
+//	extern const size_t WARM_BATCH_MAX_SIZE;
+//	extern size_t WARM_BATCH_MAX_SIZE;
 	extern size_t WARM_BATCH_ENTRY_CNT;
+	extern size_t WARM_GROUP_ENTRY_CNT;
 	extern size_t WARM_BATCH_CNT;
 	extern size_t WARM_NODE_ENTRY_CNT;
 	extern size_t WARM_LOG_MAX;
@@ -266,15 +267,15 @@ namespace PH
 
 		if (my_log == 0)
 			printf("new query thread no log!!!\n");
-//		else
-//			printf("log allocated\n");
+		//		else
+		//			printf("log allocated\n");
 
 		//	my_log->my_thread = this;
 
 		//	local_seg_free_cnt = min_seg_free_cnt();
 		//	local_seg_free_cnt = INV9;
 		//	local_seg_free_head = seg_free_head;
-//		temp_seg = hash_index->thread_local_init();
+		//		temp_seg = hash_index->thread_local_init();
 		temp_seg = hash_index->ret_seg();
 
 		//	recent_log_tails = new size_t[log_num];
@@ -292,7 +293,7 @@ namespace PH
 		htw_cnt = wtc_cnt = 0;
 
 		seed_for_dtc = thread_id;
-//		printf("sfd %u\n",seed_for_dtc);
+		//		printf("sfd %u\n",seed_for_dtc);
 	}
 
 	void PH_Query_Thread::clean()
@@ -301,13 +302,13 @@ namespace PH
 		my_log = NULL;
 
 		//		hash_index->thread_local_clean();
-//		free(temp_seg);
+		//		free(temp_seg);
 		hash_index->remove_ts(temp_seg);
 		run = 0;
 		read_lock = 0;
 
 		query_thread_list[thread_id].lock = 0;
-//		printf("query thread list %d end\n",thread_id);
+		//		printf("query thread list %d end\n",thread_id);
 		query_thread_list[thread_id].exit = 0;
 
 		//	delete recent_log_tails;
@@ -596,7 +597,7 @@ namespace PH
 
 					kvp_p->value = ea.value;
 
-//					EA_test(key,ea);
+					//					EA_test(key,ea);
 
 				}
 #if 1
@@ -652,11 +653,11 @@ namespace PH
 
 	int calc_th(DoubleLog* dl)
 	{
-//		const size_t threshold = HARD_EVICT_SPACE;
-//				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
+		//		const size_t threshold = HARD_EVICT_SPACE;
+		//				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
 
 		const size_t min_threshold = HARD_EVICT_SPACE/2;
-//		const size_t max_threshold = SOFT_EVICT_SPACE/2;
+		//		const size_t max_threshold = SOFT_EVICT_SPACE/2;
 		const size_t max_threshold = HARD_EVICT_SPACE;
 		const size_t threshold = max_threshold-min_threshold;
 
@@ -670,15 +671,17 @@ namespace PH
 		return ((threshold)-(empty_space-min_threshold))*100/(threshold);
 	}
 
-	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm = NULL)
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm = NULL) // may lock from outside
 	{
-//		printf("not now\n");
+		//		printf("not now\n");
 		//NO UNLOCK IN HERE!
 
 		// 1 find skiplist node
 		// 2 find listnode
 		// 3 insert kv
 		// 4 return addr
+
+		int cold_split_cnt = 0;
 
 		EntryAddr new_ea;
 
@@ -768,7 +771,7 @@ namespace PH
 				//write version after key value
 				kvp_p->version = new_version.value; //???
 
-//				test_the_index(*kvp_p);
+				//				test_the_index(*kvp_p);
 
 				_mm_sfence();
 				//				hash_index->unlock_entry2(seg_lock,read_lock); // unlock outer
@@ -836,6 +839,8 @@ namespace PH
 					at_unlock2(prev_listNode->lock);
 
 					//2-1-3 deadlock
+
+					cold_split_cnt++;
 				}
 			}
 			// rw lock is unloced
@@ -843,6 +848,9 @@ namespace PH
 			if (skiplist_from_warm == NULL)
 				at_unlock2(skiplist_node->lock);
 		}
+
+		if (cold_split_cnt > 0)
+			skiplist_node->half_listNode = find_halfNode(skiplist_node,skiplist_node->list_cnt);
 
 		return new_ea;
 	}
@@ -1139,6 +1147,7 @@ namespace PH
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
 			//			at_lock2(nm->rw_lock);
 			// it doesn't change value just invalidate with meta
+#if 0 // we don't need batch...
 			if (ea.loc == 2)
 			{
 				int batch_num,offset_in_batch;
@@ -1148,10 +1157,8 @@ namespace PH
 			}
 			else
 				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-
-			//			if ( (offset_in_node-NODE_HEADER_SIZE)%ENTRY_SIZE != 0)
-			//				debug_error("divde\n");
-
+#endif
+			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
 #if 0
 			if (nm->valid[cnt])
 			{
@@ -1161,8 +1168,8 @@ namespace PH
 			else
 				debug_error("impossible\n");
 #else
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
+			nm->valid[cnt] = false; // invalidate
+			--nm->valid_cnt;
 #endif
 			//			at_unlock2(nm->rw_lock);
 		}
@@ -1266,7 +1273,7 @@ namespace PH
 				else
 				{
 					offset = ((ea.offset%NODE_SIZE)/WARM_BATCH_MAX_SIZE)*WARM_BATCH_ENTRY_CNT
-					+ ((ea.offset%WARM_BATCH_MAX_SIZE)-NODE_HEADER_SIZE)/ENTRY_SIZE;
+						+ ((ea.offset%WARM_BATCH_MAX_SIZE)-NODE_HEADER_SIZE)/ENTRY_SIZE;
 				}
 
 				if (nm->valid[offset] == false) // invaldidated
@@ -1363,7 +1370,7 @@ namespace PH
 				if (try_at_lock2(doubleLogList[i].evict_alloc))
 				{
 					log_list[log_cnt++] = &doubleLogList[i];
-//					printf("evict thread %d -- log %d\n",thread_id,i);
+					//					printf("evict thread %d -- log %d\n",thread_id,i);
 					break;
 				}
 			}
@@ -1379,7 +1386,7 @@ namespace PH
 
 		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
 
-//		hash_index->thread_local_init();
+		//		hash_index->thread_local_init();
 		temp_seg = hash_index->ret_seg();
 		read_lock = 0;
 		run = 1;
@@ -1397,7 +1404,7 @@ namespace PH
 	void PH_Evict_Thread::clean()
 	{
 		//		hash_index->thread_local_clean();
-//		free(temp_seg); // ERROR!
+		//		free(temp_seg); // ERROR!
 		hash_index->remove_ts(temp_seg);
 
 		run = 0;
@@ -1579,6 +1586,8 @@ namespace PH
 
 	void PH_Evict_Thread::split_warm_node(SkiplistNode* old_skipListNode,ListNode* half_listNode)
 	{
+		printf("don't use this now\n");
+#if 0
 		uint64_t half_key;
 		SkiplistNode* child1_sl_node;
 		SkiplistNode* child2_sl_node;
@@ -1707,8 +1716,8 @@ namespace PH
 		child2_temp_dataNode.next_offset = (skiplist->sa_to_node(old_skipListNode->next[0]))->data_node_addr;
 		//		child2_temp_dataNode.next_offset = node->next[0].load()->data_node_addr; // do we have the lock?
 
-		child1_sl_node->dataNodeHeader = child1_temp_dataNode.next_offset;
-		child2_sl_node->dataNodeHeader = child2_temp_dataNode.next_offset;
+//		child1_sl_node->dataNodeHeader = child1_temp_dataNode.next_offset;
+//		child2_sl_node->dataNodeHeader = child2_temp_dataNode.next_offset;
 
 		pmem_nt_write((unsigned char*)child1_dataNode_p,(unsigned char*)&child1_temp_dataNode,NODE_SIZE);
 		pmem_nt_write((unsigned char*)child2_dataNode_p,(unsigned char*)&child2_temp_dataNode,NODE_SIZE);
@@ -1788,7 +1797,7 @@ namespace PH
 			new_ea.offset = child1_addr.node_offset*NODE_SIZE + WARM_BATCH_MAX_SIZE*(i/WARM_BATCH_ENTRY_CNT) + NODE_HEADER_SIZE + ENTRY_SIZE * (i%WARM_BATCH_ENTRY_CNT);
 			kvp_p->value = new_ea.value;
 
-//			EA_test(key,new_ea);
+			//			EA_test(key,new_ea);
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1819,7 +1828,7 @@ namespace PH
 			new_ea.offset = child2_addr.node_offset*NODE_SIZE + WARM_BATCH_MAX_SIZE*(i/WARM_BATCH_ENTRY_CNT) + NODE_HEADER_SIZE + ENTRY_SIZE * (i%WARM_BATCH_ENTRY_CNT);
 			kvp_p->value = new_ea.value;
 
-//			EA_test(key,new_ea);
+			//			EA_test(key,new_ea);
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 		}
@@ -1863,70 +1872,174 @@ namespace PH
 		//delete old here...
 
 		skiplist->delete_node(old_skipListNode); // delete duringn find node
+#endif
+	}
+
+	void PH_Evict_Thread::flush_warm_node(SkiplistNode* node) // lock from outside
+	{
+		while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
+		{
+			if (node->data_tail < node->data_head)
+				warm_to_cold(node);
+			if (node->list_tail < node->list_head)
+			{
+//				at_lock2(nodeMeta->rw_lock);
+				hot_to_warm(node,false);
+//				at_unlock2(nodeMeta->rw_lock);
+			}
+		}
+	}
+
+	void PH_Evict_Thread::split_empty_warm_node(SkiplistNode *old_skipListNode)
+	{
+		//we will not reuse old skiplist
+
+		uint64_t half_key;
+		SkiplistNode* child1_sl_node;
+		SkiplistNode* child2_sl_node;
+
+		half_key = old_skipListNode->half_listNode->key; // need skiplist node lock to access half listNode
+
+		child1_sl_node = skiplist->allocate_node();
+		child2_sl_node = skiplist->allocate_node();
+
+		if (child1_sl_node == NULL || child2_sl_node == NULL) // alloc fail
+		{
+			printf("alloc fail\n");
+			return;
+		}
+
+		at_lock2(child1_sl_node->lock);
+		at_lock2(child2_sl_node->lock);
+
+		child1_sl_node->key = old_skipListNode->key;
+		child1_sl_node->my_listNode = old_skipListNode->my_listNode.load();
+
+		child2_sl_node->key = half_key;
+		child2_sl_node->my_listNode = old_skipListNode->half_listNode;
+
+		NodeMeta* nodeMeta;
+		NodeMeta* new_nodeMeta;
+
+//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(old_skipListNode->data_node_addr);
+
+		// set new nodes
+
+		NodeMeta* child1_meta;
+		NodeMeta* child2_meta;
+		NodeMeta* next_meta;
+		
+		child1_meta = nodeAllocator->nodeAddr_to_nodeMeta(child1_sl_node->data_node_addr[0]);
+		child2_meta = nodeAllocator->nodeAddr_to_nodeMeta(child2_sl_node->data_node_addr[0]);
+		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->sa_to_node(old_skipListNode->next[0])->data_node_addr[0]);
+
+		nodeAllocator->linkNext(child1_meta,child2_meta);
+//		nodeAllocator->linkNext(child2_meta,skiplist->sa_to_node(old_skipListNode->next[0]));
+		nodeAllocator->linkNext(child1_meta,next_meta);
+
+		_mm_sfence();
+
+		skiplist->insert_node(child1_sl_node,prev_sa_list,next_sa_list);
+		skiplist->insert_node(child2_sl_node,prev_sa_list,next_sa_list);
+
+		// prev - 0 - 1 - 2
+
+		//		nodeAllocator->free_node(nodeMeta);
+
+		// should be persist here
+
+		child1_sl_node->list_head = child1_sl_node->list_tail = 0;
+		child2_sl_node->list_head = child2_sl_node->list_tail = 0;
+
+		at_unlock2(child1_sl_node->lock);
+		at_unlock2(child2_sl_node->lock);
+
+		//entry list
+		// next dataNodeHeader
+		// my_listNode myAddr data_node_addr
+		//lock
+
+		//head tail remain_cnt
+
+		//delete old here...
+
+		skiplist->delete_node(old_skipListNode); // delete duringn find node
 
 	}
 
-	void PH_Evict_Thread::warm_to_cold(SkiplistNode* node)
+	void PH_Evict_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
 	{
+		if (node->list_cnt * MAX_NODE_GROUP > WARM_COLD_RATIO * WARM_MAX_NODE_GROUP) // (WARM / COLD) RATIO
+		{
+			// flush all
+			flush_warm_node(node);
+			{
+//				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+				//				at_lock2(nodeMeta->rw_lock);
+				//				hot_to_warm(node,true); // flush all
+				split_empty_warm_node(node);
+				//				at_unlock2(nodeMeta->rw_lock);
+			}
+		}
+
+	}
+
+	void PH_Evict_Thread::warm_to_cold(SkiplistNode* node) // lock form outside
+	{
+
+		//evict unit will be 1024 // batch evict
 
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
-		//	printf("warm_to_cold\n");
+		int node_num;
+		node_num = (node->data_head%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
+
 		ListNode* listNode;
-		NodeMeta *nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-		at_lock2(nodeMeta->rw_lock);
-		//		DataNode dataNode = *nodeAddr_to_node(node->data_node_addr); // dram copy
-		DataNode *dataNode = nodeAllocator->nodeAddr_to_node(node->data_node_addr);
+		NodeMeta *nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[node_num]);
+		at_lock2(nodeMeta->rw_lock); // warm node lock..
+		DataNode *dataNode = nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
 		size_t src_offset;
 		int cnt = 0;
 		uint64_t key;
-		//		unsigned char* addr = (unsigned char*)&dataNode;
 		EntryAddr old_ea,new_ea;
 		int i;
 		int slot_idx;
+		int cold_split_cnt = 0;
 
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
 
 		old_ea.loc = 2; // warm
-		old_ea.file_num = node->data_node_addr.pool_num;
+		old_ea.file_num = node->data_node_addr[node_num].pool_num;
 		//		old_ea.offset = node->data_node_addr.offset*NODE_SIZE + sizeof(NodeAddr);
 
 		//		new_ea.loc = 3; // cold
 
-		//while (offset < NODE_SIZE)
-
 		int start_slot,end_slot,batch_num;
 
-		//		batch_num = ((node->head+WARM_BATCH_CNT)%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
 		batch_num = (node->data_tail % WARM_NODE_ENTRY_CNT) / WARM_BATCH_ENTRY_CNT;
 		start_slot = WARM_BATCH_ENTRY_CNT*batch_num;
 		end_slot = start_slot + WARM_BATCH_ENTRY_CNT;
 
-		//		cnt = 0;
-		//		while (cnt < nodeMeta->slot_cnt)
-
-//		unsigned char temp_buffer[WARM_BATCH_MAX_SIZE];
-//		memcpy(temp_buffer,(unsigned char*)dataNode + batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
 		memcpy(evict_buffer,(unsigned char*)dataNode + batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
 
-		//		src_offset = batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE;
-		src_offset = NODE_HEADER_SIZE; // temp buffer size is changed
+//		src_offset = batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE; // in batch...
+		src_offset = NODE_HEADER_SIZE; // temp buffer size is changed // in evict buffer...
 
-		cnt = start_slot;
-		while (cnt < end_slot)
+		i = start_slot;
+//		for (i=start_slot;i<end_slot;i++)
+		while (i < end_slot)
 		{
-			if (nodeMeta->valid[cnt] == false)
+			if (nodeMeta->valid[i] == false)
 			{
-				++cnt;
+				i++;
 				src_offset+=ENTRY_SIZE;
 				continue;
 			}
-			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
+			old_ea.offset = node->data_node_addr[node_num].node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
 
 			key = *(uint64_t*)(evict_buffer+src_offset+ENTRY_HEADER_SIZE);
-//			EA_test(key,old_ea);
 #if 0
 			// lock here
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -1978,7 +2091,7 @@ namespace PH
 				hash_index->unlock_entry2(seg_lock,read_lock); // unlock
 				at_unlock2(list_nodeMeta->rw_lock);
 				at_unlock2(listNode->lock);
-				++cnt;
+				++i;
 				src_offset+=ENTRY_SIZE;
 				continue; 
 			}
@@ -2039,19 +2152,19 @@ namespace PH
 			{
 				EntryHeader eh;
 				eh.value = kvp_p->version;
-//				eh.prev_loc = 2;
+				//				eh.prev_loc = 2;
 				kvp_p->version = eh.value; // warm to cold ...
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
 
-				nodeMeta->valid[cnt] = false;
+				nodeMeta->valid[i] = false;
 				nodeMeta->valid_cnt--;
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				at_unlock2(list_nodeMeta->rw_lock);
 
-				++cnt;
 				src_offset+=ENTRY_SIZE;
+				i++;
 
 				//check
 				warm_to_cold_cnt++;
@@ -2060,18 +2173,13 @@ namespace PH
 			{
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
-				// try append first
-				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP)
+				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
 				{
-					// append
-					//	ListNode* new_listNode = list->alloc_list_node();
 					append_group(list_nodeMeta);
 					at_unlock2(list_nodeMeta->rw_lock);
 				}
-				else
+				else // split
 				{
-
-					// then split
 					//split cold here
 					//find half
 
@@ -2111,6 +2219,8 @@ namespace PH
 					//					at_unlock2(next_listNode->lock);
 					//						at_unlock2(listNode->lock);
 					at_unlock2(prev_listNode->lock);
+
+					cold_split_cnt++;
 
 					//2-1-3 deadlock
 				}
@@ -2154,10 +2264,13 @@ namespace PH
 		}
 #endif
 
+		if (cold_split_cnt > 0)
+			node->half_listNode = find_halfNode(node,node->list_cnt);
+
+#if 0 // not here
 		ListNode* half_listNode;
 
-		half_listNode = find_halfNode(node,cnt);
-
+		half_listNode = find_halfNode(node,node->list_cnt);
 		if (cnt * MAX_NODE_GROUP > WARM_COLD_RATIO) // (WARM / COLD) RATIO
 		{
 			//			SkiplistNode* new_skipListNode = skiplist->alloc_sl_node();
@@ -2165,11 +2278,12 @@ namespace PH
 			{
 				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//				at_lock2(nodeMeta->rw_lock);
-//				hot_to_warm(node,true); // flush all
+				//				hot_to_warm(node,true); // flush all
 				split_warm_node(node,half_listNode);
 				//				at_unlock2(nodeMeta->rw_lock);
 			}
 		}
+#endif
 		// 2 decide split key
 		// 3 split
 
@@ -2196,123 +2310,101 @@ namespace PH
 		wtc_cnt++;
 	}
 
-	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all)
+	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
 
 		struct timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
+		// hot to warm should be in one node
+		int target_cnt;
+		int batch_cnt;
+		int node_num;
+		int left;
+		// fixed size
+
+		//target_cnt > 0 && may fit batch
+
+		target_cnt = node->list_head-node->list_tail;
+		{
+			int list_length;
+			list_length = node->list_head-node->list_tail;
+			left = WARM_NODE_ENTRY_CNT - (node->data_head%WARM_NODE_ENTRY_CNT);
+			if (left > list_length)
+			{
+				batch_cnt = 0;
+				target_cnt = list_length;
+			}
+			else
+			{
+				batch_cnt = (list_length-left)/WARM_NODE_ENTRY_CNT;
+				target_cnt = left + batch_cnt*WARM_NODE_ENTRY_CNT;
+			}
+		}
+
+		while (target_cnt > node->data_head-node->data_tail)
+		{
+			// call wtc
+		}
+
+		//------------------------------------------------------------- calc cnt and make space
+
+		unsigned char* dst_node;
 		int i;
-		LogLoc ll;
 		unsigned char* addr;
 		EntryHeader* header;
 		DoubleLog* dl;
-		//	unsigned char node_buffer[NODE_SIZE]; 
-		//		size_t entry_list_cnt;
-
-		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-		//		at_lock2(nodeMeta->rw_lock);//------------------------------------------------lock here
-
-		//	Node temp_node;
-		//		DataNode* dst_node = nodeAddr_to_node(node->data_node_addr);
-		unsigned char* dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr);
-
-		size_t write_size;
-		//		unsigned char* buffer_write_start = temp_node.buffer+nodeMeta->written_size;
-		//		unsigned char* buffer_write_start = htw_evict_buffer + ((node->tail%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ETNRY_CNT)*WARM_BATCH_SIZE + NODE_HEADER_SIZE + (node->tail%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
-		unsigned char* buffer_write_start;
-		int batch_num;
-
-		// buffer
-		// header | start1 ~~~ end1 | pad |1024| empty header | start2 ~~~ end2 | pad |2048| ...
-
-		//		std::atomic<uint8_t>* seg_lock;
-		/*
-		   if (node->my_node->entry_sum == 0) // impossible???
-		   {
-		   temp_node.next_offset = node->next_offset;
-		   write_size+=sizeof(NodeOffset);
-		   }
-		 */
-		//		unsigned char* old_addr[100]; //test ------------------------
-
-		EntryAddr old_ea;
+		LogLoc ll;
+		int li;
+		int ex_entry_cnt=0;
 		uint64_t key;
+		EntryAddr old_ea;
 		KVP kvp;
 		KVP* kvp_p;
 		std::atomic<uint8_t>* seg_lock;
 		volatile int* seg_depth_p;
 		int seg_depth;
-		int start_slot,end_slot;
-		int slot_index;
-		int list_index,li;
-		//		bool parital = false;
 
-		int ex_entry_cnt;
+		size_t written_size;
+		size_t start_offset;
+		unsigned char* buffer_start;
+		int write_cnt;
+		int batch_num;
 
-		do
+		while(target_cnt > 0)
 		{
-			ex_entry_cnt = 0;
 
-			buffer_write_start = evict_buffer + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
-			batch_num = (node->data_head % WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
-			// write only one or less batch
+			node_num = (node->data_head%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
+			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
 
-			start_slot = node->data_head % WARM_NODE_ENTRY_CNT;
-			end_slot = (start_slot + WARM_BATCH_ENTRY_CNT)-(start_slot%WARM_BATCH_ENTRY_CNT);
+			start_offset = NODE_HEADER_SIZE + (node->data_head % WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE; // always HEADER!
+			buffer_start = evict_buffer+start_offset;
+			batch_num = (node->data_head%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
 
-			memset(evict_buffer,0,WARM_BATCH_MAX_SIZE);
-			memcpy(evict_buffer,&node->dataNodeHeader,sizeof(NodeAddr)); //if batch_num == 1
-
-			if (start_slot % WARM_BATCH_ENTRY_CNT != 0) // read modfiy write
-				memcpy(evict_buffer,dst_node+batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
-
-#if 0
-			if (node->head - node->tail >= WARM_BATCH_ENTRY_CNT) // full
+			if (left > 0)
 			{
-				memset(htw_evict_buffer,0,WARM_BATCH_MAX_SIZE);
-				*(uint64_t*)htw_evict_buffer = *(uint64_t*)(&node->dataNodeHeader); // only first batch need this
-				node->remain_cnt = WARM_BATCH_ENTRY_CNT;
+				write_cnt = left;
+				left = 0;
 			}
-			else // lack
+			else
+				write_cnt = WARM_BATCH_ENTRY_CNT;
+			target_cnt-=write_cnt;
+
+			written_size = 0;
+
+			for (i=0;i<write_cnt;i++) // fill evict buffer
 			{
-				end_slot = node->head % WARM_NODE_ENTRY_CNT;
-				//			partial = true;
-				node->remain_cnt = WARM_BATCH_ENTRY_CNT-(end_slot%WARM_NODE_ENTRY_CNT);
-			}
-#endif
-
-			write_size = 0;
-			//		entry_list_cnt = node->entry_list.size();
-			//		for (i=0;i<entry_list_cnt;i++)
-			slot_index = start_slot;
-			list_index = node->list_tail;
-//			for (i=start_slot;i<end_slot;i++)
-
-//			if (start_slot % WARM_BATCH_ENTRY_CNT || end_slot %WARM_BATCH_ENTRY_CNT) // from split
-//				debug_error("staend\n");
-
-			while(slot_index<end_slot)
-			{
-				if (list_index >= node->list_head)
-					break;
-				li = list_index%WARM_NODE_ENTRY_CNT;
+				li = (node->list_tail+i)%WARM_NODE_ENTRY_CNT; // need list max
 				ll = node->entry_list[li];
 				dl = &doubleLogList[ll.log_num];
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 
-				//			old_addr[i] = addr; // test--------------------
-
 				header = (EntryHeader*)addr;
 				if (dl->tail_sum > ll.offset || is_valid(header) == false)
-				{
 					node->entry_list[li].log_num = -1; // invalid
-									  //		continue;
-				}
 				else if (header->prev_loc == 3 && false) // cold // hot to cold
 				{
 					// direct to cold here
-
 					// set old ea
 					// direct to cold
 					// invalidate old ea
@@ -2324,7 +2416,7 @@ namespace PH
 					   old_ea.offset = ll.offset%dl->my_size;
 					 */
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
+					//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 					direct_to_cold(key,addr + ENTRY_HEADER_SIZE + KEY_SIZE,kvp,seg_lock,node);
 					old_ea.value = kvp.value;
 
@@ -2334,59 +2426,44 @@ namespace PH
 					hot_to_cold_cnt++;
 
 					node->entry_list[li].log_num = -1;
-					//		continue;
 				}
 				else
 				{
-					memcpy(buffer_write_start+write_size,addr,ENTRY_SIZE);
+					memcpy(buffer_start+written_size,addr,ENTRY_SIZE);
 					hot_to_warm_cnt++;
-					slot_index++; // fill entry
-					write_size+=ENTRY_SIZE;
+					written_size+=ENTRY_SIZE;
 					if (header->prev_loc != 0)
 						ex_entry_cnt++;
 				}
-				list_index++;
-				//check
 			}
-			
-//			memset(buffer_write_start+write_size,0,ENTRY_SIZE*(WARM_BATCH_ENTRY_CNT)-write_size);
-//			if (write_size >= WARM_BATCH_MAX_SIZE || ENTRY_SIZE*(WARM_BATCH_ENTRY_CNT) < write_size)
-//				debug_error("sfsnflskefnslnef\n"); ??BUGGGG!!
 
-//			if (buffer_write_start - evict_buffer + write_size > WARM_BATCH_MAX_SIZE)
-//				debug_error("1111111111");
+			//-----------------------------------------------
 
-			//		if (write_size > 0)
-			//		if (parital)
-			{
-				pmem_nt_write(dst_node+WARM_BATCH_MAX_SIZE*batch_num,evict_buffer,WARM_BATCH_MAX_SIZE);
-			}
+			NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[node_num]);
+			at_lock2(nodeMeta->rw_lock);//------------------------------------------------lock here
+
+			//------------------------------- evict buffer filled
+
+			pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
+
+			//------------------------------- pmem write
 
 			// invalidate from here
 
 			_mm_sfence();
 
-			KVP* kvp_p;
-			//		size_t key;
-			//	unsigned char* dst_addr = (unsigned char*)dst_node + nodeMeta->size;
 			EntryAddr dst_addr,src_addr;
 			dst_addr.loc = 2; // warm	
 			dst_addr.file_num = nodeMeta->my_offset.pool_num;
-			//		dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE + nodeMeta->written_size;
-			dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
+			dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + start_offset; //nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
 
 			src_addr.loc = 1; //hot
 
-			//		for (i=0;i<entry_list_cnt;i++)
-
-			//		int slot_cnt = node->tail%WARM_NODE_ENTRY_CNT;
-
-			slot_index = node->data_head;
-			int si;
-			for (i=node->list_tail;i<list_index;i++)
+			int slot_index,sii;
+			sii = slot_index = node->data_head%WARM_NODE_ENTRY_CNT;
+			for (i=0;i<write_cnt;i++)
 			{
-				li = i % WARM_NODE_ENTRY_CNT;
-				si = slot_index % WARM_NODE_ENTRY_CNT;
+				li = (node->list_tail+i) % WARM_NODE_ENTRY_CNT;
 				ll = node->entry_list[li];
 				if (ll.log_num == -1)
 					continue;
@@ -2394,8 +2471,6 @@ namespace PH
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 				header = (EntryHeader*)addr;
 				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-				//		if (dl->tail_sum > ll.offset || is_valid(header) == false)
-				//			continue;
 
 				src_addr.file_num = ll.log_num;
 				src_addr.offset = ll.offset%dl->my_size; // dobuleloglist log num my size
@@ -2404,63 +2479,40 @@ namespace PH
 				if (kvp_p->value == src_addr.value)
 				{
 					/*
-					EntryHeader eh;
-					eh.value = kvp_p->version;
-//					eh.prev_loc = 1;
+					   EntryHeader eh;
+					   eh.value = kvp_p->version;
+					//					eh.prev_loc = 1;
 					kvp_p->version = eh.value; // hot to warm... //set_prev_loc_warm(kvp_p->version);
 					if (eh.prev_loc == 0 && eh.version > 1)
-						debug_error("fefefe\n");
+					debug_error("fefefe\n");
 
 					//	kvp_p->version = set_loc_warm(kvp_p->version);
-					*/
+					 */
 					// just change location
 					kvp_p->value = dst_addr.value;
-
-//					EA_test(key,dst_addr);
-
-					nodeMeta->valid[si] = true; // validate
+					nodeMeta->valid[slot_index] = true; // validate
 					++nodeMeta->valid_cnt;
 					_mm_sfence();
 					set_invalid(header); // invalidate
-
 				}
 #if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
 				else // inserted during hot to warm
 				{
-//					debug_error("htw\n");
-					nodeMeta->valid[si] = false; // validate fail
+					//					debug_error("htw\n");
+					nodeMeta->valid[slot_index] = false; // validate fail
 				}
 				slot_index++;
 #endif
-
 				_mm_sfence(); // need?
 				hash_index->unlock_entry2(seg_lock,read_lock);
-
 				dst_addr.offset+=ENTRY_SIZE;
 			}
-//			node->tail+=(end_slot-start_slot);
-			while (slot_index % WARM_BATCH_ENTRY_CNT) // fill empty space
-			{
-				slot_index++;
-				nodeMeta->valid[slot_index%WARM_NODE_ENTRY_CNT] = false;
-			}
-			node->list_tail = list_index;
-			node->data_head = slot_index;
-			/*
-			if (node->list_tail % WARM_BATCH_ENTRY_CNT)
-				debug_error("lis t tail\n");
-				*/
-//			if (node->data_head % WARM_BATCH_ENTRY_CNT)
-//				debug_error("alingne\n");
 
-			//		nodeMeta->written_size+=write_size;
+			node->list_tail+= write_cnt;
+			node->data_head+= slot_index-sii;
 
-		} while(node->list_tail < node->list_head && evict_all);
-
-		//		node->entry_list.clear();
-		//		node->entry_size_sum = 0;
-
-		//		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
+			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
+		}
 
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
@@ -2468,17 +2520,17 @@ namespace PH
 
 		node->recent_entry_cnt = ex_entry_cnt;
 		/*
-		if (node->recent_entry_cnt < WARM_LOG_MIN)
-		{
-		}
-		else if (node->recent_entry_cnt > WARM_LOG_MAX) // too much warm nodes...
-		{
-			ListNode* half_listNode;
-			int cnt;
-			half_listNode = find_halfNode(node,cnt);
-			split_warm_node(node,half_listNode);
-		}
-		*/
+		   if (node->recent_entry_cnt < WARM_LOG_MIN)
+		   {
+		   }
+		   else if (node->recent_entry_cnt > WARM_LOG_MAX) // too much warm nodes...
+		   {
+		   ListNode* half_listNode;
+		   int cnt;
+		   half_listNode = find_halfNode(node,cnt);
+		   split_warm_node(node,half_listNode);
+		   }
+		 */
 	}
 
 	int PH_Evict_Thread::test_inv_log(DoubleLog* dl)
@@ -2534,11 +2586,7 @@ namespace PH
 
 	int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 	{
-		//	size_t head_sum = dl->get_head_sum();
-		//	size_t tail_sum = dl->get_tail_sum();
-
 		unsigned char* addr;
-		//		uint64_t header;
 		EntryHeader header;
 		uint64_t key;
 		int rv=0;
@@ -2559,9 +2607,6 @@ namespace PH
 
 			if (is_valid(header))
 			{
-
-				//				SkiplistNode* prev[MAX_LEVEL+1];
-				//				SkiplistNode* next[MAX_LEVEL+1];
 				SkiplistNode* node;
 #ifdef ADDR2
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
@@ -2570,18 +2615,17 @@ namespace PH
 #endif
 				if (try_at_lock2(node->lock) == false)
 					continue;
-				//				return rv;
 				if ((skiplist->sa_to_node(node->next[0]))->key < key)
 				{
 					at_unlock2(node->lock);
 					continue;
-					//				return rv;
 				}
 				hard_htw_cnt++;
-				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-				at_lock2(nodeMeta->rw_lock);
+//				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+//				at_lock2(nodeMeta->rw_lock);
 				hot_to_warm(node,false); // always partial...
-				at_unlock2(nodeMeta->rw_lock);
+				may_split_warm_node(node); // lock???
+//				at_unlock2(nodeMeta->rw_lock);
 
 #if 0 // becaus hard evict is always parital there is still space i think
 				NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
@@ -2604,25 +2648,15 @@ namespace PH
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 
 				//check if we need warm merge before unlock the node
-				if (node->recent_entry_cnt < WARM_LOG_MIN && node->ver > 3) // DO NOT DELETE 
+				if (node->recent_entry_cnt < WARM_LOG_MIN && node->ver > 3) // DO NOT DELETE  // still have lock
 				{
-					while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
-					{
-						if (node->data_tail < node->data_head)
-							warm_to_cold(node);
-						if (node->list_tail < node->list_head)
-						{
-							at_lock2(nodeMeta->rw_lock);
-							hot_to_warm(node,false);
-							at_unlock2(nodeMeta->rw_lock);
-						}
-					}
+					flush_warm_node(node);
 					skiplist->delete_node(node); // it will be jumped during find_node
 				}
 				else
 				{
-					if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-						warm_to_cold(node);
+//					if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+//						warm_to_cold(node);
 					at_unlock2(node->lock);
 				}
 				rv = 1;
@@ -2674,14 +2708,10 @@ namespace PH
 	int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
 	{
 		unsigned char* addr;
-		//	size_t adv_offset=0;
 		uint64_t key;
 		EntryHeader header;
 		int rv = 0;
-		//	addr = dl->dramLogAddr + (dl->tail_sum%dl->my_size);
 
-		//		SkiplistNode* prev[MAX_LEVEL+1];
-		//		SkiplistNode* next[MAX_LEVEL+1];
 		SkiplistNode* node;
 		NodeMeta* nodeMeta;
 		LogLoc ll;
@@ -2730,7 +2760,7 @@ namespace PH
 					}
 
 					// need to traverse to confirm the range...
-					nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+//					nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 #if 0
 					if (NODE_HEADER_SIZE + nodeMeta->written_size + node->entry_size_sum + ENTRY_SIZE > NODE_SIZE) // NODE_BUFFER_SIZE???
 					{
@@ -2752,7 +2782,7 @@ namespace PH
 					//	if (node->tail + WARM_NODE_ENTRY_CNT <= node->head)
 					//	printf("warm node full!!\n");
 					//	else
-//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
+					//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
 					if (node->list_head - node->list_tail < WARM_LOG_THRESHOLD)// WARM_LOG_MIN)
 					{
 						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
@@ -2772,16 +2802,17 @@ namespace PH
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
 					if (node->list_head - node->list_tail >= WARM_LOG_THRESHOLD)
 					{
-						NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-						at_lock2(nodeMeta->rw_lock);
+//						NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+//						at_lock2(nodeMeta->rw_lock);
 						hot_to_warm(node,false);
-						at_unlock2(nodeMeta->rw_lock);
-						if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-							warm_to_cold(node); // in lock???
+						may_split_warm_node(node);
+//						at_unlock2(nodeMeta->rw_lock);
+//						if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+//							warm_to_cold(node); // in lock???
 						soft_htw_cnt++;
 					}
 					at_unlock2(node->lock);
-//					break;
+					//					break;
 				}
 			}
 
@@ -2822,7 +2853,7 @@ namespace PH
 	{
 		int i,done;
 		//	while(done == 0)
-//		printf("evict start\n");
+		//		printf("evict start\n");
 		while(exit == 0)
 		{
 			//		update_free_cnt();
@@ -2866,7 +2897,7 @@ namespace PH
 #endif
 		}
 		run = 0;
-//		printf("evict end\n");
+		//		printf("evict end\n");
 	}
 
 }
