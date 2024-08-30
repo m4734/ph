@@ -1147,7 +1147,7 @@ namespace PH
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
 			//			at_lock2(nm->rw_lock);
 			// it doesn't change value just invalidate with meta
-#if 0 // we don't need batch...
+#if 1 // we don't need batch... // no i need the batch
 			if (ea.loc == 2)
 			{
 				int batch_num,offset_in_batch;
@@ -1157,8 +1157,9 @@ namespace PH
 			}
 			else
 				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-#endif
+#else
 			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+#endif
 #if 0
 			if (nm->valid[cnt])
 			{
@@ -2212,7 +2213,7 @@ namespace PH
 						break;
 					}
 
-					at_unlock2(list_nodeMeta->rw_lock);
+					at_unlock2(list_nodeMeta->rw_lock); // what?
 
 					split_listNode_group(listNode,node); // we have the lock
 
@@ -2467,6 +2468,7 @@ namespace PH
 				ll = node->entry_list[li];
 				if (ll.log_num == -1)
 					continue;
+
 				dl = &doubleLogList[ll.log_num];
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 				header = (EntryHeader*)addr;
