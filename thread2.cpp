@@ -2345,6 +2345,7 @@ namespace PH
 		while (target_cnt > node->data_head-node->data_tail)
 		{
 			// call wtc
+			warm_to_cold(node);
 		}
 
 		//------------------------------------------------------------- calc cnt and make space
