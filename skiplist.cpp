@@ -142,7 +142,7 @@ void Skiplist::init(size_t size)
 	WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
 	WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
-	WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 16*4 = 64
+	WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
 //	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
 //	WARM_LOG_MAX = WARM_BATCH_ENTRY_CNT * 3;
 //	WARM_LOG_MIN = WARM_BATCH_ENTRY_CNT;
@@ -221,7 +221,7 @@ void Skiplist::clean()
 		node = skiplist->sa_to_node(node->next[0]);
 		cnt++;
 	}
-	printf("warm node cnt %d\n",cnt);
+	printf("warm node cnt %d = %lfGB?\n",cnt,(double)cnt*NODE_SIZE/1024/1024/1024);
 
 	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());

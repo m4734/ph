@@ -875,8 +875,6 @@ namespace PH
 			return 0;
 		}
 #endif
-		//	unsigned char* new_addr;
-		//	unsigned char* old_addr;
 		EntryAddr new_ea;
 		EntryAddr old_ea;
 		unsigned char* pmem_head_p;// = my_log->get_pmem_head_p();
@@ -929,7 +927,7 @@ namespace PH
 		 */
 
 
-		my_log->ready_log(); // to prevent dead lock ( from entry lock -> ready log ) it should be (ready_log -> entry lock)
+//		my_log->ready_log(); // to prevent dead lock ( from entry lock -> ready log ) it should be (ready_log -> entry lock)
 
 
 		// 2 lock index ------------------------------------- lock from here
@@ -993,39 +991,12 @@ namespace PH
 			old_ea.value = kvp.value;
 
 			direct_to_cold_cnt++;
-			/*
-			   ea.loc = 3;
-			   ea.file_num;
-			   ea.offset;
-			 */
-#if 0
-			//			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			if (kvp_p->key != key)
-			{
-				new_version = 1;
-				set_valid(new_version);
-				ex = 0;
-			}
-			else
-			{
-				new_version = kvp_p->version+1;
-				set_valid(new_version);
-				ex = 1;
-			}
-			//			new_version = kvp_p->version+1;
-
-			// update version
-			unsigned char* addr;
-			addr = nodeAllocator->nodePoolList[new_ea.file_num]+new_ea.offset; // loc = 3
-			*(uint64_t*)addr = new_version;
-			pmem_persist(addr,HEADER_SIZE);
-			_mm_sfence();
-#endif
 		}
 		else // to log
 		{
 
-			//			my_log->ready_log();
+			my_log->ready_log();
+
 			pmem_head_p = my_log->pmemLogAddr + my_log->head_sum%my_log->my_size;
 			//	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
 
@@ -1088,11 +1059,6 @@ namespace PH
 			{
 				kvp_p->key = key;
 				_mm_sfence();
-#if 0				//test
-				uint64_t test_key = test_the_index(*kvp_p);
-				if (test_key != kvp_p->key)
-					debug_error("index error\n");
-#endif
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				return 0;
@@ -1105,11 +1071,6 @@ namespace PH
 
 		// 7 unlock index -------------------------------------- lock to here
 		//		_mm_sfence();
-#if 0				//test
-		uint64_t test_key = test_the_index(*kvp_p);
-		if (test_key != kvp_p->key)
-			debug_error("index error\n");
-#endif
 
 		//		hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1994,7 +1955,7 @@ namespace PH
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
 		int node_num;
-		node_num = (node->data_head%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
+		node_num = (node->data_tail%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
 
 		ListNode* listNode;
 		NodeMeta *nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[node_num]);
@@ -2403,7 +2364,7 @@ namespace PH
 				header = (EntryHeader*)addr;
 				if (dl->tail_sum > ll.offset || is_valid(header) == false)
 					node->entry_list[li].log_num = -1; // invalid
-				else if (header->prev_loc == 3 && false) // cold // hot to cold
+				else if (header->prev_loc == 3)// && false) // cold // hot to cold
 				{
 					// direct to cold here
 					// set old ea

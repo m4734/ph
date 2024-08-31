@@ -218,7 +218,7 @@ struct NodeMeta
 
 //	Node* node;
 //	volatile bool valid[NODE_SLOT_MAX];
-	volatile bool *valid;
+	volatile bool *valid; // must have rw lock...
 //	std::vector<bool> valid;
 	// vecotr uint64_t key .... but we have to read pmem to split so it will be waste of dram cap
 
