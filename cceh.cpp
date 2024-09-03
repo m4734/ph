@@ -435,7 +435,7 @@ namespace PH
 
 	//ValueEntry CCEH::find(unsigned char* const &key)
 
-	int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int* split_cnt_ret , volatile int **split_cnt_p)
+	int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int &split_cnt_ret , volatile int* &split_cnt_p)
 	{
 		bool sf;
 		int ex;
@@ -447,7 +447,7 @@ namespace PH
 		}
 	}
 
-	int CCEH::read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int* split_cnt_ret, volatile int **split_cnt_p,bool &sf)
+	int CCEH::read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int &split_cnt_ret, volatile int* &split_cnt_p,bool &sf)
 	{
 #ifdef ctt
 		find_cnt++;
@@ -469,8 +469,8 @@ namespace PH
 			//		*ret = zero_entry.value;
 			*kvp_ret = zero_entry;
 			*kvp_ret_p = &zero_entry;
-			*split_cnt_ret = zero_depth;
-			*split_cnt_p = &zero_depth;
+			split_cnt_ret = zero_depth;
+			split_cnt_p = &zero_depth;
 			sf = true;
 			if (zero_entry.version & (VER_DELETE))
 				return 0;
@@ -504,14 +504,16 @@ namespace PH
 //		*seg_depth_ret_p = &seg_list[sn]->depth;
 //		*seg_depth_ret = seg_list[sn]->depth;
 
-		SEG* seg = NULL;
-		while(seg != seg_list[sn])
-		{
-			seg = seg_list[sn];
-			*split_cnt_ret = seg->split_cnt;
-			*split_cnt_p = &seg->split_cnt;
+//		SEG* seg = NULL;
+//		seg = seg_list[sn];
+//		while(seg != seg_list[sn])
+//		do
+//		{
+		SEG* seg = seg_list[sn];
+			split_cnt_ret = seg->split_cnt;
+			split_cnt_p = &seg->split_cnt;
 			start_split_cnt = seg->split_cnt;
-		}
+//		} while (seg != seg_list[sn]);
 		_mm_sfence();
 		kvp_p = (KVP*)seg->cl;
 		//	if (point)
@@ -1136,9 +1138,9 @@ retry:
 			key = kvp_list[i].key;
 			if (key == INV0)
 				continue;
-			if (read(key,&kvp_p,&kvp_pp,&seg_depth,&seg_depth_p) == 0)
+			if (read(key,&kvp_p,&kvp_pp,seg_depth,seg_depth_p) == 0)
 			{
-				if (read(key,&kvp_p,&kvp_pp,&seg_depth,&seg_depth_p) == 0) // break here
+				if (read(key,&kvp_p,&kvp_pp,seg_depth,seg_depth_p) == 0) // break here
 					printf("can't find-------------------------------------\n");
 			}
 

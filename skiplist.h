@@ -164,11 +164,6 @@ class Skiplist
 
 	std::atomic<uint64_t> node_counter;
 
-//check
-	std::atomic<uint64_t> addr2_hit;
-	std::atomic<uint64_t> addr2_miss;
-	std::atomic<uint64_t> addr2_no;
-
 	size_t SKIPLIST_NODE_POOL_LIMIT;
 
 
@@ -201,6 +196,10 @@ class Skiplist
 
 	SkiplistNode* allocate_node();
 
+//check
+	std::atomic<uint64_t> addr2_hit;
+	std::atomic<uint64_t> addr2_miss;
+	std::atomic<uint64_t> addr2_no;
 
 //	void split(
 };

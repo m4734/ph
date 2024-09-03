@@ -1,5 +1,7 @@
 #pragma once
 
+//#define STAT
+
 namespace PH
 {
 
@@ -22,11 +24,20 @@ namespace PH
 
 	const NodeAddr emptyNodeAddr = (NodeAddr) {0,0};
 
+	enum Loc
+	{
+		WARM_LOG, // historical
+
+		HOT_LOG,
+		WARM_LIST,
+		COLD_LIST
+	};
+
 	union EntryAddr
 	{
 		struct
 		{
-			size_t loc : 2; // 1 hot / 2 warm / 3 cold
+			size_t loc : 2; // 1 hot / 2 warm / 3 cold	
 			size_t file_num : 14;
 			size_t offset : 48; 
 		};

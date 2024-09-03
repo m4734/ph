@@ -34,14 +34,6 @@ const size_t header_size = sizeof(uint64_t);
 
 void init_log(int num_pmem,int num_log);
 void clean_log();
-/*
-struct Dram_List
-{
-	struct Dram_List* prev=NULL;
-	struct Dram_List* next=NULL;
-	BaseLogEntry ble;
-};
-*/
 
 class PH_Thread;
 
@@ -91,7 +83,7 @@ class DoubleLog
 //	void alloc_new_dram_pool();
 #endif
 	public:
-	void init(char* filePath,size_t size);
+	void init(char* filePath,size_t size,size_t hes,size_t ses);
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
 	void ready_log();
@@ -115,11 +107,21 @@ class DoubleLog
 #endif
 	int log_num;
 
+	size_t hard_evict_space;
+	size_t soft_evict_space;
+
 	std::atomic<uint8_t> use=0;
 	std::atomic<uint8_t> evict_alloc=0;
+
+	size_t block_cnt;
+
+	DoubleLog* warm_log = NULL;
+	size_t warm_per_hot=0;
+	size_t last_warm_head=0;
 };
 
 extern DoubleLog* doubleLogList;
+//extern DoubleLog* WDLL; // warm double log list
 
 inline unsigned char* value_to_log_addr(uint64_t value)
 {

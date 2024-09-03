@@ -33,7 +33,7 @@ void at_lock2(std::atomic<uint8_t> &lock)
 
 void at_unlock2(std::atomic<uint8_t> &lock)
 {
-	_mm_mfence();
+//	_mm_mfence();
 #ifdef UNLOCK_TEST
 	if (lock == 0)
 		printf("unlock unlock!!------------------------------------\n");

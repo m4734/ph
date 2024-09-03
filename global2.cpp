@@ -43,8 +43,12 @@ int num_log;
 int num_query_thread;
 int num_evict_thread;
 
+extern int log_max;
+
 
 	//check
+	std::atomic<uint64_t> warm_to_warm_sum;
+	std::atomic<uint64_t> warm_log_write_sum;
 	std::atomic<uint64_t> log_write_sum;
 	std::atomic<uint64_t> hot_to_warm_sum;
 	std::atomic<uint64_t> warm_to_cold_sum;
@@ -74,10 +78,16 @@ void PH_Interface::reset_test()
 		query_thread_list[i].reset_test();
 	for (i=0;i<EVICT_THREAD_MAX;i++)
 		evict_thread_list[i].reset_test();
-	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	for (i=0;i<log_max;i++)
+		doubleLogList[i].block_cnt = 0;
+
+	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
 	htw_time_sum = wtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
+
+	skiplist->addr2_hit = skiplist->addr2_miss = skiplist->addr2_no = 0;
 }
 
 void PH_Interface::new_query_thread()
@@ -98,14 +108,14 @@ void PH_Interface::new_query_thread()
 
 	// find new DoubleLog
 	my_thread = my_query_thread;
-	my_query_thread->thread_id = i;
+//	my_query_thread->thread_id = i;
 	my_query_thread->init();
 }
 void PH_Interface::clean_query_thread()
 {
 	my_query_thread->clean();
 
-	at_unlock2(my_query_thread->lock);
+//	at_unlock2(my_query_thread->lock); // unlock twice??
 	my_query_thread = NULL;
 	my_thread = NULL;
 }
@@ -127,7 +137,7 @@ void PH_Interface::new_evict_thread()
 	}
 
 	my_thread = my_evict_thread;
-	my_evict_thread->thread_id = i;
+//	my_evict_thread->thread_id = i;
 //	my_evict_thread->init();
 }
 
@@ -156,6 +166,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 	num_evict_thread = n_e;
 	num_thread = num_query_thread + num_evict_thread;
 
+//	log_max = num_pmem*num_log*2;
 
 	init_log(num_pmem,num_log);
 
@@ -178,7 +189,8 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 //	skiplist->init(TOTAL_DATA_SIZE/10); // warm 1/10...
 
 	//check
-	log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	warm_to_warm_sum = 0;
 	direct_to_cold_sum = 0;
 
 	soft_htw_sum = hard_htw_sum = 0;
@@ -261,19 +273,33 @@ printf("cc\n");
 printf("ccc\n");
 	nodeAllocator->clean();
 
+	int i;
+	size_t hbs=0;
+	size_t wbs=0;
+	for (i=0;i<log_max;i+=2)
+		hbs+=doubleLogList[i].block_cnt;
+	for (i=1;i<log_max;i+=2)
+		wbs+=doubleLogList[i].block_cnt;
+	
+	printf("hot block cnt %lu warm block cnt %lu\n",hbs,wbs);
+
 	clean_cceh();
 	clean_log();
 
 	//check
 
-	printf("log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
+	printf("log_write %lu warm_log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),warm_log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
+	printf("warm_to_warm %lu\n",warm_to_warm_sum.load());
 	printf("direct to cold %lu\n",direct_to_cold_sum.load());
 	printf("hot to hot %lu\n",hot_to_hot_sum.load());
 	printf("hot to cold %lu\n",hot_to_cold_sum.load());
 
 	printf("soft htw %lu hard htw %lu\n",soft_htw_sum.load(),hard_htw_sum.load());
 
+	printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
+
 	printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);
+
 }
 
 int PH_Interface::insert_op(uint64_t key,unsigned char* value)

@@ -13,8 +13,8 @@ namespace PH
 
 extern CCEH* hash_index;
 
-extern size_t HARD_EVICT_SPACE;
-extern size_t SOFT_EVICT_SPACE;
+//extern size_t HARD_EVICT_SPACE;
+//extern size_t SOFT_EVICT_SPACE;
 
 //const size_t DATA_SIZE = 100*1000*1000 * 100;//100M * 100B = 10G
 
@@ -376,14 +376,14 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
 // addr2
-	KVP kvp;
+	KVP kvp; // is not inited
 	KVP* kvp_p;
 	int split_cnt;
 	int ex;
 	volatile int* split_cnt_p;
 	SkipAddr sa,next_sa;
-	ex = hash_index->read(key,&kvp,&kvp_p,&split_cnt,&split_cnt_p);
-	if (kvp.padding != INV0)
+	ex = hash_index->read(key,&kvp,&kvp_p,split_cnt,split_cnt_p);
+	if (ex && kvp.padding != INV0)
 	{
 		sa.value = kvp.padding;
 		node = sa_to_node(sa);
@@ -391,14 +391,20 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 		next_node = sa_to_node(next_sa);
 		if (node->ver == sa.ver && node->key <= key && next_node->ver == next_sa.ver && key < next_node->key)
 		{
+#ifdef STAT
 			addr2_hit++;
+#endif
 			return node;
 		}
+#ifdef STAT
 		else
 			addr2_miss++;
+#endif
 	}
+#ifdef STAT
 	else
 		addr2_no++;
+#endif
 //addr2
 	node = find_node(key,prev,next);
 
@@ -418,7 +424,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
 	SkipAddr sa,next_sa;
-	if (kvp.padding != INV0)
+	if (kvp.value != 0 && kvp.padding != INV0)
 	{
 		sa.value = kvp.padding;
 		node = sa_to_node(sa);
@@ -426,14 +432,20 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 		next_node = sa_to_node(next_sa);
 		if (node->ver == sa.ver && node->key <= key && next_node->ver == next_sa.ver && key < next_node->key)
 		{
+#ifdef STAT
 			addr2_hit++;
+#endif
 			return node;
 		}
+#ifdef STAT
 		else
 			addr2_miss++;
+#endif
 	}
+#ifdef STAT
 	else
 		addr2_no++;
+#endif
 //addr2
 	node = find_node(key,prev,next);
 

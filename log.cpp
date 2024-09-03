@@ -21,9 +21,11 @@ size_t log_size;
 int log_max;
 DoubleLog* doubleLogList; // should be private
 
+//DoubleLog* WDLL;
+size_t warm_log_size;
+
 size_t HARD_EVICT_SPACE;
 size_t SOFT_EVICT_SPACE;
-size_t SOFT_BATCH_SIZE;
 
 extern thread_local PH_Thread* my_thread;
 
@@ -34,28 +36,28 @@ void init_log(int num_pmem, int num_log)
 
 	printf("init log\n");
 
-	log_max = num_pmem*num_log;
+	log_max = num_pmem*num_log*2;
 	doubleLogList = new DoubleLog[log_max];
+//	WDLL = new DoubleLog[log_max];
 
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
+	warm_log_size = log_size/5;
 #if 0
 	if (log_size < 1024*1024*1024) // minimum
 		log_size = 1024*1024*1024;
 #endif
 
 #if 1
-	HARD_EVICT_SPACE = log_size/100;
-	SOFT_EVICT_SPACE = log_size/5;
+	HARD_EVICT_SPACE = log_size/20; // 5%
+	SOFT_EVICT_SPACE = log_size/10; // 10%
 #else
 	HARD_EVICT_SPACE = (ENTRY_SIZE * 1000 * 50) * 2; // 5MB
 	SOFT_EVICT_SPACE = (ENTRY_SIZE * 1000 * 100) * 2; // (10MB) * x
 #endif
 	printf("HARD EVICT SPACE %lu\n",HARD_EVICT_SPACE);
 	printf("SOFT EVICT SPACE %lu\n",SOFT_EVICT_SPACE);
-
-	SOFT_BATCH_SIZE = 1024; // 1KB
 
 	if (SOFT_EVICT_SPACE > log_size)
 		printf("SOFT EVICT TOO BIG\n");
@@ -70,7 +72,8 @@ void init_log(int num_pmem, int num_log)
 	}
 #endif
 	printf("LOG NUM %d LOG SIZE %lfGB SUM %lfGB\n",num_log,double(log_size)/1024/1024/1024,double(log_size)*num_log*num_pmem/1024/1024/1024);
-	
+	printf("WL NUM %d WL SIZE %lfGB SUM %lfGB\n",num_log,double(warm_log_size)/1024/1024/1024,double(warm_log_size)*num_log*num_pmem/1024/1024/1024);
+
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)
 	{
@@ -86,7 +89,23 @@ void init_log(int num_pmem, int num_log)
 			len = strlen(path);
 			path[len] = 0;
 			doubleLogList[cnt].log_num = cnt;
-			doubleLogList[cnt++].init(path,log_size);
+			doubleLogList[cnt++].init(path,log_size,HARD_EVICT_SPACE,SOFT_EVICT_SPACE);
+
+#ifdef INTERLEAVE
+			sprintf(path,"/mnt/pmem0/warm_log%d",cnt);
+#else
+			sprintf(path,"/mnt/pmem%d/warm_log%d",j+1,i+1); // 1~
+#endif
+
+			len = strlen(path);
+			path[len] = 0;
+//			WDLL[cnt].log_num = cnt;
+//			WDLL[cnt].init(path,warm_log_size,HARD_EVICT_SPACE/10,SOFT_EVICT_SPACE/10);
+//			WDLL[cnt].init(path,warm_log_size,ENTRY_SIZE,warm_log_size);
+			doubleLogList[cnt].log_num = cnt;
+			doubleLogList[cnt++].init(path,warm_log_size,warm_log_size/10,warm_log_size);
+
+			doubleLogList[cnt-2].warm_log = &doubleLogList[cnt-1];
 		}
 	}
 }
@@ -182,7 +201,7 @@ void DoubleLog::remove_dram_list(Dram_List* dl)
 }
 #endif
 
-void DoubleLog::init(char* filePath, size_t req_size)
+void DoubleLog::init(char* filePath, size_t req_size,size_t hes,size_t ses)
 {
 //	tail_offset = LOG_BLOCK_SIZE;
 //	head_offset = LOG_BLOCK_SIZE;
@@ -232,6 +251,11 @@ void DoubleLog::init(char* filePath, size_t req_size)
 	min_tail_sum = 0;
 
 	soft_adv_offset = 0;
+
+	hard_evict_space = hes;
+	soft_evict_space = ses;
+
+	block_cnt = 0;
 }
 
 void DoubleLog::clean()
@@ -261,8 +285,15 @@ void DoubleLog::ready_log()//(size_t len)
 {
 //	check_turn(head_sum,ble_len);
 	size_t offset = head_sum % my_size;
-	if (offset+ENTRY_SIZE > my_size) // check the space
+	if (offset+ENTRY_SIZE >= my_size) // check the space
+	{
 		head_sum+=(my_size-offset);
+		if (warm_log)
+		{
+			warm_per_hot = warm_log->head_sum-last_warm_head;
+			last_warm_head = warm_log->head_sum;
+		}
+	}
 #if 0
 	if (min_tail_sum + my_size < head_sum + ENTRY_SIZE)
 		min_tail_sum = get_min_tail(log_num);
@@ -276,7 +307,8 @@ void DoubleLog::ready_log()//(size_t len)
 		min_tail_sum = get_min_tail(log_num);
 	}
 #endif
-
+	if (tail_sum + my_size < head_sum + ENTRY_SIZE)
+		block_cnt++;
 #if 0
 	while(tail_sum + my_size < head_sum + ENTRY_SIZE);
 #else

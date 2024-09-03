@@ -108,6 +108,7 @@ struct SEG
 //	std::mutex* seg_lock;	//struct c++
 //	volatile int depth; // 4
 	volatile int depth; // retry if split
+//	unsigned char padding[64];
 	volatile int split_cnt;
 
 }; // 64 * ???
@@ -171,8 +172,8 @@ class CCEH
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
 
-	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* split_cnt_ret, volatile int **split_cnt_p);
-	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int* split_cnt_ret ,volatile int **split_cnt_p,bool &sf);
+	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int& split_cnt_ret, volatile int* &split_cnt_p);
+	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int& split_cnt_ret ,volatile int* &split_cnt_p,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);

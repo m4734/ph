@@ -50,8 +50,10 @@ class PH_Thread
 	unsigned char padding[64]; // for cache line
 
 	//check
+	uint64_t warm_log_write_cnt;
 	uint64_t log_write_cnt;
 	uint64_t hot_to_warm_cnt;
+	uint64_t warm_to_warm_cnt;
 	uint64_t warm_to_cold_cnt;
 	uint64_t direct_to_cold_cnt;
 	uint64_t hot_to_hot_cnt;
@@ -67,19 +69,22 @@ class PH_Thread
 	protected:
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
-	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm);
+	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update);
 	void invalidate_entry(EntryAddr &ea);
 
 	unsigned int seed_for_dtc;
 
 	SkipAddr prev_sa_list[MAX_LEVEL+1];
 	SkipAddr next_sa_list[MAX_LEVEL+1];
+
+	int reset_test_cnt = 0;
 };
 
 class PH_Query_Thread : public PH_Thread
 {
 	private:
 	DoubleLog* my_log;
+	DoubleLog* my_warm_log;
 
 
 	public:
@@ -117,6 +122,7 @@ class PH_Evict_Thread : public PH_Thread
 	void flush_warm_node(SkiplistNode* node);
 
 	DoubleLog** log_list;
+	DoubleLog** warm_log_list;
 	int log_cnt;
 
 //	DataNode temp_node;
