@@ -967,8 +967,18 @@ namespace PH
 		volatile int *seg_depth_p;
 		int seg_depth;
 		int ex;
-
+#ifdef NO_READ
+		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+		kvp = *kvp_p;
+		if (kvp.key == key)
+			ex = 1;
+		else
+			ex = 0;
+		hash_index->unlock_entry2(seg_lock,read_lock);
+#else
 		ex = hash_index->read(key,&kvp,&kvp_p,seg_depth,seg_depth_p);
+#endif
+
 
 		//		uint64_t old_version,new_version;
 		EntryHeader new_version;
@@ -1007,6 +1017,9 @@ namespace PH
 		Loc dst_loc;
 
 		dtc = 0;
+
+#ifdef USE_WAMR_LOG
+
 		if (ex == 0 || old_ea.loc == HOT_LOG) // promote warm
 		{
 			dst_log = my_log;
@@ -1044,6 +1057,20 @@ namespace PH
 				dst_loc = WARM_LOG;
 			}
 		}
+#else
+	if (ex == 1 && old_ea.loc == COLD_LIST)
+	{
+		rv = rand_r(&seed_for_dtc);
+		if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
+			dtc = 1;
+	}
+
+	if (dtc == 0)
+	{
+		dst_log = my_log;
+		dst_loc = HOT_LOG;
+	}
+#endif
 
 		if (dtc)
 		{
@@ -1248,11 +1275,22 @@ namespace PH
 		uint64_t ret;
 		int ex;
 
+		std::atomic<uint8_t>* seg_lock;
+
 		while (true)
 		{
 			//			seg_depth = hash_index->read(key,&ret,&seg_depth_p);
+#ifdef NO_READ
+			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			if (kvp_p->key != key)
+				ex = 0;
+			else
+				ex = 1;
+			kvp = *kvp_p;
+			hash_index->unlock_entry2(seg_lock,read_lock);
+#else
 			ex = hash_index->read(key,&kvp,&kvp_p,seg_depth,seg_depth_p);
-
+#endif
 			//			seg_depth = *seg_depth_p;
 
 			if (ex == 0)
@@ -2147,9 +2185,9 @@ namespace PH
 				header = (EntryHeader*)addr;
 				if (dl->tail_sum > ll.offset || is_valid(header) == false)
 					node->entry_list[li].log_num = -1; // invalid
-				else if (header->prev_loc == 3 && false) // cold // hot to cold
+				else if (/*true ||*/ (header->prev_loc == 3 && false)) // cold // hot to cold
 				{
-					printf("impossible\n");
+//					printf("impossible\n");
 					// direct to cold here
 					// set old ea
 					// direct to cold

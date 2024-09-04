@@ -382,7 +382,17 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	int ex;
 	volatile int* split_cnt_p;
 	SkipAddr sa,next_sa;
+
+#ifdef NO_READ
+	std::atomic<uint8_t>* seg_lock;
+	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+	kvp = *kvp_p;
+	hash_index->unlock_entry2(seg_lock,read_lock);
+#else
 	ex = hash_index->read(key,&kvp,&kvp_p,split_cnt,split_cnt_p);
+#endif
+	
+
 	if (ex && kvp.padding != INV0)
 	{
 		sa.value = kvp.padding;
@@ -405,12 +415,15 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	else
 		addr2_no++;
 #endif
+
 //addr2
 	node = find_node(key,prev,next);
 
 	//-------------------------------
 	sa = node->my_sa;
+#ifndef NO_READ
 	std::atomic<uint8_t>* seg_lock;
+#endif
 	kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 	kvp_p->padding = sa.value;
 	hash_index->unlock_entry2(seg_lock,read_lock);

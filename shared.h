@@ -1,6 +1,8 @@
 #pragma once
 
 //#define STAT
+//#define NO_READ // bad effect
+//#define USE_WARM_LOG // batch eff is good but throughput
 
 namespace PH
 {

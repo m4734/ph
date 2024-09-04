@@ -65,6 +65,8 @@ extern int log_max;
 	std::atomic<uint64_t> htw_time_sum;
 	std::atomic<uint64_t> wtc_time_sum;
 
+	std::atomic<uint64_t> dtc_time_sum;
+
 void debug_error(const char* msg)
 {
 	printf("error----------------------------------------\n");
@@ -298,7 +300,8 @@ printf("ccc\n");
 
 	printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
 
-	printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);
+	if (htw_cnt_sum > 0 && wtc_cnt_sum > 0)
+		printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);
 
 }
 

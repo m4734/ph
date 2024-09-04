@@ -51,7 +51,7 @@ void init_log(int num_pmem, int num_log)
 
 #if 1
 	HARD_EVICT_SPACE = log_size/20; // 5%
-	SOFT_EVICT_SPACE = log_size/10; // 10%
+	SOFT_EVICT_SPACE = log_size/2; // 10%
 #else
 	HARD_EVICT_SPACE = (ENTRY_SIZE * 1000 * 50) * 2; // 5MB
 	SOFT_EVICT_SPACE = (ENTRY_SIZE * 1000 * 100) * 2; // (10MB) * x
@@ -99,9 +99,6 @@ void init_log(int num_pmem, int num_log)
 
 			len = strlen(path);
 			path[len] = 0;
-//			WDLL[cnt].log_num = cnt;
-//			WDLL[cnt].init(path,warm_log_size,HARD_EVICT_SPACE/10,SOFT_EVICT_SPACE/10);
-//			WDLL[cnt].init(path,warm_log_size,ENTRY_SIZE,warm_log_size);
 			doubleLogList[cnt].log_num = cnt;
 			doubleLogList[cnt++].init(path,warm_log_size,warm_log_size/10,warm_log_size);
 

@@ -437,6 +437,9 @@ namespace PH
 
 	int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int &split_cnt_ret , volatile int* &split_cnt_p)
 	{
+#ifdef NO_READ
+printf("NO READ NOW\n");
+#endif
 		bool sf;
 		int ex;
 		while(true)
