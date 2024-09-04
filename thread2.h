@@ -63,6 +63,7 @@ class PH_Thread
 	uint64_t hard_htw_cnt;
 
 	uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
+	uint64_t dtc_time;
 
 	void reset_test();
 

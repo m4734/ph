@@ -224,7 +224,9 @@ void Skiplist::clean()
 	printf("warm node cnt %d = %lfGB?\n",cnt,(double)cnt*NODE_SIZE/1024/1024/1024);
 
 	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
+#ifdef STAT
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
+#endif
 
 	int i,j;
 	for (i=0;i<=node_pool_list_cnt;i++)

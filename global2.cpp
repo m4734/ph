@@ -86,7 +86,7 @@ void PH_Interface::reset_test()
 	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
-	htw_time_sum = wtc_time_sum = 0;
+	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
 
 	skiplist->addr2_hit = skiplist->addr2_miss = skiplist->addr2_no = 0;
@@ -197,7 +197,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 
 	soft_htw_sum = hard_htw_sum = 0;
 
-	htw_time_sum = wtc_time_sum = 0;
+	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
 
 	init_threads();
@@ -302,6 +302,8 @@ printf("ccc\n");
 
 	if (htw_cnt_sum > 0 && wtc_cnt_sum > 0)
 		printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);
+	if (direct_to_cold_sum > 0)
+		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
 
 }
 

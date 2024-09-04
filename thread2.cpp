@@ -56,6 +56,8 @@ namespace PH
 	extern std::atomic<uint64_t> htw_cnt_sum;
 	extern std::atomic<uint64_t> wtc_cnt_sum;
 
+	extern std::atomic<uint64_t> dtc_time_sum;
+
 	//	extern const size_t WARM_BATCH_MAX_SIZE;
 	//	extern size_t WARM_BATCH_MAX_SIZE;
 	extern size_t WARM_BATCH_ENTRY_CNT;
@@ -162,7 +164,7 @@ namespace PH
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
 
-		htw_time = wtc_time = 0;
+		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
 		reset_test_cnt++;
@@ -299,7 +301,7 @@ namespace PH
 		direct_to_cold_cnt = 0;
 
 		soft_htw_cnt = hard_htw_cnt=0;
-		htw_time = wtc_time = 0;
+		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
 		seed_for_dtc = thread_id;
@@ -340,6 +342,8 @@ namespace PH
 		wtc_time_sum+=wtc_time;
 		htw_cnt_sum+=htw_cnt;
 		wtc_cnt_sum+=wtc_cnt;
+
+		dtc_time_sum+=dtc_time;
 	}	
 
 	/*
@@ -693,6 +697,9 @@ namespace PH
 		// 3 insert kv
 		// 4 return addr
 
+		timespec ts1,ts2;
+		clock_gettime(CLOCK_MONOTONIC,&ts1);
+
 		int cold_split_cnt = 0;
 
 		EntryAddr new_ea;
@@ -765,6 +772,9 @@ namespace PH
 				at_unlock2(list_node->lock);
 				if (skiplist_from_warm == NULL)
 					at_unlock2(skiplist_node->lock);
+
+				clock_gettime(CLOCK_MONOTONIC,&ts2);
+				dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 				return new_ea;
 			}
 			kvp = *kvp_p; // return old kvp
@@ -877,6 +887,9 @@ namespace PH
 
 		if (cold_split_cnt > 0)
 			skiplist_node->half_listNode = find_halfNode(skiplist_node,skiplist_node->list_cnt);
+
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 
 		return new_ea;
 	}
@@ -1473,7 +1486,7 @@ namespace PH
 		direct_to_cold_cnt = 0;
 
 		hard_htw_cnt = soft_htw_cnt=0;
-		htw_time = wtc_time = 0;
+		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
 	}
@@ -1515,6 +1528,8 @@ namespace PH
 		wtc_time_sum+=wtc_time;
 		htw_cnt_sum+=htw_cnt;
 		wtc_cnt_sum+=wtc_cnt;
+
+		dtc_time_sum+=dtc_time;
 	}
 
 #if 0
