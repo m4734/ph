@@ -27,6 +27,18 @@ struct KVP;
 
 class PH_Thread
 {
+	protected:
+	void hot_to_warm(SkiplistNode* node,bool force);
+	void warm_to_cold(SkiplistNode* node);
+//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
+	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
+	void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
+	void split_empty_warm_node(SkiplistNode* old_skiplistNode);
+	int may_split_warm_node(SkiplistNode* node);
+	void flush_warm_node(SkiplistNode* node);
+
+	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
+
 	public:
 	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0) {}
 
@@ -113,21 +125,10 @@ class PH_Evict_Thread : public PH_Thread
 	int try_push(DoubleLog* dl);
 	int test_inv_log(DoubleLog* dl);
 
-	void hot_to_warm(SkiplistNode* node,bool force);
-	void warm_to_cold(SkiplistNode* node);
-//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
-	void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
-	void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
-	void split_empty_warm_node(SkiplistNode* old_skiplistNode);
-	void may_split_warm_node(SkiplistNode* node);
-	void flush_warm_node(SkiplistNode* node);
 
 	DoubleLog** log_list;
 	DoubleLog** warm_log_list;
 	int log_cnt;
-
-//	DataNode temp_node;
-	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 	
 	int* child1_path;
 	int* child2_path;

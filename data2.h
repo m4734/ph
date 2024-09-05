@@ -201,8 +201,8 @@ struct NodeMeta
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
-//	NodaAddr next_addr;
-//	NodeAddr next_addr_in_group;
+	NodeAddr next_addr;
+	NodeAddr next_addr_in_group;
 
 	NodeMeta* next_p;
 	NodeMeta* next_node_in_group;

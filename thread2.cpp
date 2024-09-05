@@ -254,6 +254,8 @@ namespace PH
 	void PH_Query_Thread::init()
 	{
 
+		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
+
 		int i;
 
 		my_log = 0;
@@ -310,6 +312,8 @@ namespace PH
 
 	void PH_Query_Thread::clean()
 	{
+		delete evict_buffer;
+
 		my_log->use = 0;
 		my_log = NULL;
 
@@ -894,6 +898,36 @@ namespace PH
 		return new_ea;
 	}
 
+	void list_gc(SkiplistNode* skiplistNode) // need node lock
+	{
+		DoubleLog* dl;
+		LogLoc ll;
+		EntryHeader* header;
+		unsigned char* addr;
+
+		int i,dst;
+		int li;
+		dst = skiplistNode->list_head-1;
+		for (i=skiplistNode->list_head-1;i>=skiplistNode->list_tail;i--)
+		{
+			li = i % WARM_NODE_ENTRY_CNT;
+			ll = skiplistNode->entry_list[li];
+			dl = &doubleLogList[ll.log_num];
+			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+			header = (EntryHeader*)addr;
+
+			if (dl->tail_sum > ll.offset || is_valid(header) == false)
+				continue;
+			if (dst != i)
+				skiplistNode->entry_list[dst%WARM_NODE_ENTRY_CNT] = skiplistNode->entry_list[li];
+			dst--;
+		}
+
+		skiplistNode->list_tail = dst+1;
+
+	}
+
+
 #define INDEX
 
 	int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
@@ -1028,10 +1062,11 @@ namespace PH
 		int rv,dtc;
 		DoubleLog* dst_log;
 		Loc dst_loc;
+		size_t prev_head_sum;
 
 		dtc = 0;
 
-#ifdef USE_WAMR_LOG
+#ifdef USE_WARM_LOG
 
 		if (ex == 0 || old_ea.loc == HOT_LOG) // promote warm
 		{
@@ -1094,6 +1129,11 @@ namespace PH
 			old_ea.value = kvp.value;
 
 			direct_to_cold_cnt++;
+
+			if (ex)
+				invalidate_entry(old_ea);
+			_mm_sfence();
+			hash_index->unlock_entry2(seg_lock,read_lock);
 		}
 		else // to log
 		{
@@ -1145,6 +1185,7 @@ namespace PH
 			new_addr = pmem_head_p; // PMEM
 #endif
 
+			prev_head_sum = dst_log->head_sum;
 			dst_log->head_sum+=ENTRY_SIZE;
 
 			//check
@@ -1168,11 +1209,48 @@ namespace PH
 				kvp_p->key = key;
 				_mm_sfence();
 
-				hash_index->unlock_entry2(seg_lock,read_lock);
-				return 0;
+//				hash_index->unlock_entry2(seg_lock,read_lock);
+//				return 0;
 			}
 			//			hash_index->unlock_entry2(seg_lock,read_lock);
+			if (ex)
+				invalidate_entry(old_ea);
+			_mm_sfence();
+			hash_index->unlock_entry2(seg_lock,read_lock);
+/*
+			kvp = *kvp_p;
+			SkiplistNode* node;
+			while(true)
+			{
+				node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+				if (try_at_lock2(node->lock) == false)
+					continue;
+				if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
+				{
+					at_unlock2(node->lock);
+					continue;
+				}
+				break;
+			}
 
+			LogLoc ll;
+			ll.log_num = dst_log->log_num;
+			ll.offset = prev_head_sum;
+			if (node->list_head - node->list_tail >= WARM_NODE_ENTRY_CNT)
+			{
+				list_gc(node);
+				if (node->list_head - node->list_tail >= WARM_NODE_ENTRY_CNT) // evict
+				{
+					hot_to_warm(node,false);
+					soft_htw_cnt++;
+				}
+			}
+			node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
+			node->list_head++;
+	
+			if (may_split_warm_node(node) == 0)
+				at_unlock2(node->lock);
+				*/
 		}
 		//	if (kvp_p)
 		// 5 add to key list if new key
@@ -1186,8 +1264,6 @@ namespace PH
 		// 8 remove old dram list
 #ifdef USE_DRAM_CACHE
 
-		invalidate_entry(old_ea);
-		hash_index->unlock_entry2(seg_lock,read_lock);
 
 #endif
 		// 9 check GC
@@ -1672,7 +1748,7 @@ namespace PH
 	}
 #endif
 
-	void PH_Evict_Thread::flush_warm_node(SkiplistNode* node) // lock from outside
+	void PH_Thread::flush_warm_node(SkiplistNode* node) // lock from outside
 	{
 		while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
 		{
@@ -1687,7 +1763,7 @@ namespace PH
 		}
 	}
 
-	void PH_Evict_Thread::split_empty_warm_node(SkiplistNode *old_skipListNode)
+	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skipListNode)
 	{
 		//we will not reuse old skiplist
 
@@ -1764,7 +1840,7 @@ namespace PH
 
 	}
 
-	void PH_Evict_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
+	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
 	{
 		if (node->list_cnt * MAX_NODE_GROUP > WARM_COLD_RATIO * WARM_MAX_NODE_GROUP) // (WARM / COLD) RATIO
 		{
@@ -1777,11 +1853,13 @@ namespace PH
 				split_empty_warm_node(node);
 				//				at_unlock2(nodeMeta->rw_lock);
 			}
+			return 1;
 		}
+		return 0;
 
 	}
 
-	void PH_Evict_Thread::warm_to_cold(SkiplistNode* node) // lock form outside
+	void PH_Thread::warm_to_cold(SkiplistNode* node) // lock form outside
 	{
 
 		//evict unit will be 1024 // batch evict
@@ -1954,6 +2032,8 @@ namespace PH
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
 
+//				if (nodeMeta->valid[i] == false)
+//					debug_error("valid2\n");
 				nodeMeta->valid[i] = false;
 				nodeMeta->valid_cnt--;
 
@@ -2107,42 +2187,20 @@ namespace PH
 		wtc_cnt++;
 	}
 
-	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
+//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
+	void PH_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
 
 		struct timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
 		// hot to warm should be in one node
-		int target_cnt;
-		int batch_cnt;
 		int node_num;
-		int left;
 		// fixed size
 
 		//target_cnt > 0 && may fit batch
 
 		// want to make left + batch_num*batch = target_cnt
-
-		int list_length;
-		list_length = node->list_head-node->list_tail;
-		left = WARM_BATCH_ENTRY_CNT - (node->data_head%WARM_BATCH_ENTRY_CNT);
-		if (left > list_length)
-		{
-			batch_cnt = 0;
-			left = target_cnt = list_length;
-		}
-		else
-		{
-			batch_cnt = (list_length-left)/WARM_BATCH_ENTRY_CNT;
-			target_cnt = left + batch_cnt*WARM_BATCH_ENTRY_CNT;
-		}
-
-		while (target_cnt > WARM_GROUP_ENTRY_CNT-(node->data_head-node->data_tail)) // empty space
-		{
-			// call wtc
-			warm_to_cold(node);
-		}
 
 		//------------------------------------------------------------- calc cnt and make space
 
@@ -2167,10 +2225,14 @@ namespace PH
 		size_t start_offset;
 		unsigned char* buffer_start;
 		int write_cnt;
+		int target_cnt;
 		int batch_num;
+		int i_dst;
 
-		while(target_cnt > 0)
+		do
 		{
+			if (WARM_GROUP_ENTRY_CNT - (node->data_head-node->data_tail) < WARM_BATCH_ENTRY_CNT) // if no space
+				warm_to_cold(node);
 
 			node_num = (node->data_head%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
@@ -2179,20 +2241,13 @@ namespace PH
 			buffer_start = evict_buffer+start_offset;
 			batch_num = (node->data_head%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
 
-			if (left > 0)
-			{
-				write_cnt = left;
-				left = 0;
-			}
-			else
-				write_cnt = WARM_BATCH_ENTRY_CNT;
-			target_cnt-=write_cnt;
-
 			written_size = 0;
+			write_cnt = 0;
+			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
 
-			for (i=0;i<write_cnt;i++) // fill evict buffer
+			for (i=node->list_tail;i<node->list_head && write_cnt < target_cnt;i++)
 			{
-				li = (node->list_tail+i)%WARM_NODE_ENTRY_CNT; // need list max
+				li = i%WARM_NODE_ENTRY_CNT; // need list max
 				ll = node->entry_list[li];
 				dl = &doubleLogList[ll.log_num];
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
@@ -2240,12 +2295,15 @@ namespace PH
 					if (header->prev_loc != 0)
 						ex_entry_cnt++;
 
+					write_cnt++;
+
 					if (ll.log_num%2 == 0)
 						hot_to_warm_cnt++;
 					else
 						warm_to_warm_cnt++;
 				}
 			}
+			i_dst = i;
 
 			//-----------------------------------------------
 
@@ -2254,7 +2312,18 @@ namespace PH
 
 			//------------------------------- evict buffer filled
 
-			pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
+			if (node->data_head % WARM_BATCH_ENTRY_CNT)
+				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
+			else
+			{
+				if (batch_num == 0)
+				{
+					memcpy(evict_buffer,&nodeMeta->next_addr,sizeof(NodeAddr)); // warm node must be fixed
+					memcpy(evict_buffer+sizeof(NodeAddr),&nodeMeta->next_addr_in_group,sizeof(NodeAddr)); // warm node must be fixed
+				}
+				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
+
+			}
 
 			//------------------------------- pmem write
 
@@ -2268,12 +2337,11 @@ namespace PH
 			dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + start_offset; //nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
 
 			//			src_addr.loc = 1; //hot
+			int slot_index = node->data_head%WARM_NODE_ENTRY_CNT; // have to in batch
 
-			int slot_index,sii;
-			sii = slot_index = node->data_head%WARM_NODE_ENTRY_CNT;
-			for (i=0;i<write_cnt;i++)
+			for (i=node->list_tail;i<i_dst;i++)
 			{
-				li = (node->list_tail+i) % WARM_NODE_ENTRY_CNT;
+				li = i % WARM_NODE_ENTRY_CNT;
 				ll = node->entry_list[li];
 				if (ll.log_num == -1)
 					continue;
@@ -2306,6 +2374,14 @@ namespace PH
 					 */
 					// just change location
 					kvp_p->value = dst_addr.value;
+					/*
+					{
+						EntryAddr ta;
+						ta.value = kvp_p->value;
+						if (ta.loc != WARM_LIST || ((ta.offset%1024-NODE_HEADER_SIZE)%ENTRY_SIZE))
+							debug_error("warm offset error\n");
+					}
+					*/
 					nodeMeta->valid[slot_index] = true; // validate
 					++nodeMeta->valid_cnt;
 					_mm_sfence();
@@ -2317,18 +2393,18 @@ namespace PH
 					//					debug_error("htw\n");
 					nodeMeta->valid[slot_index] = false; // validate fail
 				}
-				slot_index++;
 #endif
+				slot_index++;
 				_mm_sfence(); // need?
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				dst_addr.offset+=ENTRY_SIZE;
 			}
 
-			node->list_tail+= write_cnt;
-			node->data_head+= slot_index-sii;
+			node->list_tail = i_dst;
+			node->data_head+= write_cnt;
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
-		}
+		}while(node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
 
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
@@ -2392,10 +2468,9 @@ namespace PH
 			if (is_valid(header))
 				break;
 			dl->tail_sum+=ENTRY_SIZE;
-			//		dl->check_turn(dl->tail_sum,ble_len);
 			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
-			//			rv = 1;
+			rv = 1;
 		}
 		return rv;
 	}
@@ -2406,6 +2481,7 @@ namespace PH
 		EntryHeader header;
 		uint64_t key;
 		int rv=0;
+		int split_warm_node;
 
 		KVP kvp;
 		EntryAddr old_ea;
@@ -2416,7 +2492,7 @@ namespace PH
 		//	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
 		//		return rv;
 
-		while(dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space)//HARD_EVICT_SPACE)
+		while(dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space && dl->head_sum + dl->hard_evict_space < dl->soft_adv_offset + dl->my_size)//HARD_EVICT_SPACE)
 		//		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
 		{
 			//need hard evict
@@ -2479,7 +2555,7 @@ namespace PH
 				//NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//at_lock2(nodeMeta->rw_lock);
 				hot_to_warm(node,false); // always partial...
-				may_split_warm_node(node); // lock???
+				split_warm_node = may_split_warm_node(node); // lock???
 				//	at_unlock2(nodeMeta->rw_lock);
 
 #if 0 // becaus hard evict is always parital there is still space i think
@@ -2497,9 +2573,11 @@ namespace PH
 				//	dl->head_sum+=ble_len;
 
 				// do we need flush?
+				/* // list order may not sorted
 				dl->tail_sum+=ENTRY_SIZE;
 				if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
+					*/
 
 				//check if we need warm merge before unlock the node
 				if (false && node->recent_entry_cnt < WARM_NODE_ENTRY_CNT && node->ver > 3) // DO NOT DELETE  // still have lock
@@ -2511,42 +2589,14 @@ namespace PH
 				{
 					//					if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
 					//						warm_to_cold(node);
-					at_unlock2(node->lock);
+					if (split_warm_node == 0)
+						at_unlock2(node->lock);
 				}
 				rv = 1;
 			}
 		}
 
 		return rv;
-	}
-
-	void list_gc(SkiplistNode* skiplistNode)
-	{
-		DoubleLog* dl;
-		LogLoc ll;
-		EntryHeader* header;
-		unsigned char* addr;
-
-		int i,dst;
-		int li;
-		dst = skiplistNode->list_head-1;
-		for (i=skiplistNode->list_head-1;i>=skiplistNode->list_tail;i--)
-		{
-			li = i % WARM_NODE_ENTRY_CNT;
-			ll = skiplistNode->entry_list[li];
-			dl = &doubleLogList[ll.log_num];
-			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
-			header = (EntryHeader*)addr;
-
-			if (dl->tail_sum > ll.offset || is_valid(header) == false)
-				continue;
-			if (dst != i)
-				skiplistNode->entry_list[dst%WARM_NODE_ENTRY_CNT] = skiplistNode->entry_list[li];
-			dst--;
-		}
-
-		skiplistNode->list_tail = dst+1;
-
 	}
 
 	int PH_Evict_Thread::try_soft_evict(DoubleLog* dl) // need return???
@@ -2678,10 +2728,12 @@ namespace PH
 		return 0;
 #else
 		int diff=0;
+		
 		if (try_soft_evict(dl))
 			diff = 1;
 		if (try_push(dl))
 			diff = 1;
+			
 		if (try_hard_evict(dl))
 			diff = 1;
 		if (try_push(dl))

@@ -134,6 +134,7 @@ SkiplistNode* Skiplist::allocate_node()
 		nodeMeta = append_group(nodeMeta);
 		node->data_node_addr[i] = nodeMeta->my_offset;
 	}
+
 	return node;
 }
 

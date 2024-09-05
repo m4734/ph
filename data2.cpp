@@ -34,6 +34,7 @@ size_t NODE_SLOT_MAX;
 		{
 			pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
 			list_nodeMeta->next_node_in_group = new_nodeMeta;
+			list_nodeMeta->next_addr_in_group = new_nodeMeta->my_offset;
 			new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
 		}
 		else
@@ -60,6 +61,7 @@ size_t NODE_SLOT_MAX;
 	void NodeAllocator::linkNext(NodeMeta* nm1,NodeMeta* nm2)
 	{
 		nm1->next_p = nm2;
+		nm1->next_addr = nm2->my_offset;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
 //		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
