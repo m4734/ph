@@ -15,11 +15,12 @@ namespace PH
 #define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
-#define WARM_COLD_RATIO (10)
+#define WARM_COLD_RATIO (20)
 
 class DoubleLog;
 class SkiplistNode;
 class ListNode;
+struct NodeMeta;
 struct KVP;
 
 //class Skiplist;
@@ -36,8 +37,15 @@ class PH_Thread
 	void split_empty_warm_node(SkiplistNode* old_skiplistNode);
 	int may_split_warm_node(SkiplistNode* node);
 	void flush_warm_node(SkiplistNode* node);
+	void try_cold_split(ListNode* listNode,NodeMeta* list_nodeMeta,SkiplistNode* node);
 
 	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
+
+	DataNode split_buffer[MAX_NODE_GROUP];
+	DataNode sorted_buffer1[MAX_NODE_GROUP];
+	DataNode sorted_buffer2[MAX_NODE_GROUP];
+	uint64_t* key_list_buffer;
+	EntryAddr* old_ea_list_buffer;
 
 	public:
 	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0) {}

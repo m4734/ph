@@ -213,7 +213,7 @@ void Skiplist::init(size_t size)
 void Skiplist::clean()
 {
 //	printf("skiplist cnt %ld\n",node_pool_list_cnt);
-
+/*
 	int cnt=0;
 	SkiplistNode* node;
 	node = start_node;
@@ -223,8 +223,9 @@ void Skiplist::clean()
 		cnt++;
 	}
 	printf("warm node cnt %d = %lfGB?\n",cnt,(double)cnt*NODE_SIZE/1024/1024/1024);
-
-	printf("warm node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt,double(node_pool_list_cnt)*NODE_POOL_SIZE*NODE_SIZE/1024/1024/1024);
+*/
+	size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
+	printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
 #ifdef STAT
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 #endif
@@ -298,12 +299,15 @@ SkiplistNode* Skiplist::alloc_sl_node()
 	node->entry_list.resize(NODE_SLOT_MAX);
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
+	node->key_list_size = 0;
+	node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
+
 	node->ver = node_counter.fetch_add(1);
 	node->my_sa.ver = node->ver;
 	node->my_sa.pool_num = node_pool_list_cnt;
 	node->my_sa.offset = node_pool_cnt-1;
 
-	node->list_cnt = 0;
+	node->cold_block_sum = 0;
 	node->half_listNode = NULL;
 
 	at_unlock2(node_alloc_lock);
@@ -606,14 +610,17 @@ void PH_List::init()
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
 	start_node->data_node_addr = nodeAllocator->alloc_node();
+	start_node->block_cnt=1;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
+	end_node->block_cnt=1;
 
 	empty_node = alloc_list_node();
 	empty_node->key = KEY_MIN;
 	empty_node->data_node_addr = nodeAllocator->alloc_node();
+	empty_node->block_cnt=1;
 
 //	List_Node* node = alloc_list_node();
 	empty_node->next = start_node;
@@ -632,19 +639,29 @@ void PH_List::init()
 void PH_List::clean()
 {
 
-	int cnt=0;
+	size_t max,use,bc;
 	ListNode* node;
+	NodeMeta* nodeMeta;
 	node = start_node;
+	max = use = bc = 0;
 	while(node != end_node)
 	{
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+		while (nodeMeta)
+		{
+			bc++;
+			max+=34;
+			use+=nodeMeta->valid_cnt;
+			nodeMeta = nodeMeta->next_node_in_group;
+		}
 		node = node->next;
-		cnt++;
 	}
-	printf("cold node cnt %d\n",cnt);
+	printf("cold use %ld max %ld = %lf\n",use,max,double(use)/max);
 
+	int cnt = node_pool_list_cnt * NODE_POOL_SIZE + node_pool_cnt;
 
+	printf("cold list cnt %d size %lfGB max size %lfGB\n",cnt,double(bc)*NODE_SIZE/1024/1024/1024,double(cnt)*MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
 //	printf("list pool cnt %ld\n",node_pool_list_cnt);
-	printf("cold node %ld size %lfGB\n",node_pool_list_cnt*NODE_POOL_SIZE*MAX_NODE_GROUP+node_pool_cnt,double(node_pool_list_cnt+1)*NODE_POOL_SIZE*NODE_SIZE*MAX_NODE_GROUP/1024/1024/1024);
 
 	int i;
 	for (i=0;i<=node_pool_list_cnt;i++)
@@ -688,6 +705,7 @@ ListNode* PH_List::alloc_list_node()
 	}
 
 	ListNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+	node->block_cnt = 0;
 	node->lock = 0;
 	node->next = NULL;
 	node->prev = NULL;

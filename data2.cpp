@@ -38,7 +38,7 @@ size_t NODE_SLOT_MAX;
 			new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
 		}
 		else
-			new_nodeMeta->group_cnt = 0;
+			new_nodeMeta->group_cnt = 1;
 		return new_nodeMeta;
 	}
 
@@ -97,11 +97,12 @@ size_t NODE_SLOT_MAX;
 	}
 	void NodeAllocator::clean()
 	{
-		printf("node cnt %ld size %lfGB\n",pool_cnt*POOL_NODE_MAX,double(pool_cnt*POOL_NODE_MAX)*NODE_SIZE/1024/1024/1024);
+		size_t sum = 0;
 		int i,j;
 		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)
 		{
+			sum+=node_cnt[i];
 			for (j=0;j<node_cnt[i];j++)
 			{
 				nodeMeta = (NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j);
@@ -112,6 +113,8 @@ size_t NODE_SLOT_MAX;
 		}
 		free(nodeMetaPoolList);
 		free(nodePoolList);
+
+		printf("node cnt %ld sum %ld size %lfGB\n",alloc_cnt.load(),sum,double(sum)*NODE_SIZE/1024/1024/1024);
 	}
 
 	void NodeAllocator::alloc_pool()

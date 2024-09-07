@@ -45,13 +45,14 @@ struct LogLoc
 class ListNode
 {
 	public:
-	ListNode() : key(0), next(NULL), prev(NULL), lock(0) {};
+	ListNode() : key(0), next(NULL), prev(NULL), lock(0),block_cnt(0) {};
 	size_t key;
 	ListNode* volatile next; // pointer should be voaltile
 	ListNode* volatile prev;
 
 //	NodeMeta* my_node;
 	NodeAddr data_node_addr;
+	int block_cnt;
 
 	std::atomic<uint8_t> lock;
 };
@@ -104,6 +105,9 @@ class SkiplistNode
 	SkipAddr *next;
 	int next_size;
 
+	std::vector<uint64_t> key_list;
+	uint8_t key_list_size;
+
 	std::vector<LogLoc> entry_list;
 //	std::queue<LogLoc> entry_list;
 	/*
@@ -138,7 +142,7 @@ class SkiplistNode
 //	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
 
-	int list_cnt;
+	int cold_block_sum;
 	ListNode* half_listNode;
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
