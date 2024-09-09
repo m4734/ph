@@ -1188,7 +1188,7 @@ namespace PH
 #else					
 				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 #endif
-				new_version.prev_loc = old_ea.loc; // will be 3
+//				new_version.prev_loc = old_ea.loc; // will be 3
 				set_valid(new_version);
 
 				// update version
@@ -1517,7 +1517,7 @@ namespace PH
 			if (kvp_p->key != key) // new key...
 			{
 				//				new_version.prev_loc = 0;
-				new_version.prev_loc = HOT_LOG;
+//				new_version.prev_loc = HOT_LOG;
 				//				new_version = 1;
 #ifdef KVP_VER
 				new_version.version = 1;
@@ -1531,10 +1531,10 @@ namespace PH
 			{
 #ifdef KVP_VER
 				new_version.value = kvp_p->version;
-				new_version.prev_loc = old_ea.loc;
+//				new_version.prev_loc = old_ea.loc;
 				new_version.version++;
 #else
-				new_version.prev_loc = old_ea.loc;
+//				new_version.prev_loc = old_ea.loc;
 				new_version.version = new_ver;
 #endif
 				set_valid(new_version);
@@ -2611,7 +2611,7 @@ namespace PH
 				header = (EntryHeader*)addr;
 				if (dl->tail_sum > ll.offset || is_valid(header) == false)
 					node->entry_list[li].log_num = -1; // invalid
-				else if (/*true ||*/ (header->prev_loc == 3 && false)) // cold // hot to cold
+				else if (/*true ||*/ (/*header->prev_loc == 3 && */false)) // cold // hot to cold
 				{
 //					printf("impossible\n");
 					// direct to cold here
@@ -2648,8 +2648,8 @@ namespace PH
 					memcpy(buffer_start+written_size,addr,ENTRY_SIZE);
 
 					written_size+=ENTRY_SIZE;
-					if (header->prev_loc != 0)
-						ex_entry_cnt++;
+//					if (header->prev_loc != 0)
+//						ex_entry_cnt++;
 
 					write_cnt++;
 
@@ -2881,7 +2881,7 @@ namespace PH
 				continue;
 			}
 
-			if (false && header.prev_loc == 3)
+			if (false /*&& header.prev_loc == 3*/)
 			{
 				if (dl->log_num%2 == 0)
 					old_ea.loc = HOT_LOG;

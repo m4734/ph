@@ -31,9 +31,9 @@ union EntryHeader
 {
 	struct
 	{
-		size_t prev_loc : 2;
+//		size_t prev_loc : 2;
 		size_t valid : 1;
-		size_t version : 61;
+		size_t version : 63;
 	};
 	uint64_t value;
 };
