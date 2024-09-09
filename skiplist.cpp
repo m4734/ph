@@ -385,9 +385,9 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 // addr2
 	KVP kvp; // is not inited
 	KVP* kvp_p;
-	int split_cnt;
+	uint8_t split_cnt;
 	int ex;
-	volatile int* split_cnt_p;
+	volatile uint8_t* split_cnt_p;
 	SkipAddr sa,next_sa;
 
 #ifdef NO_READ
@@ -659,8 +659,8 @@ void PH_List::clean()
 	printf("cold use %ld max %ld = %lf\n",use,max,double(use)/max);
 
 	int cnt = node_pool_list_cnt * NODE_POOL_SIZE + node_pool_cnt;
-
-	printf("cold list cnt %d size %lfGB max size %lfGB\n",cnt,double(bc)*NODE_SIZE/1024/1024/1024,double(cnt)*MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
+	printf("cold node cnt %d size %lfGB\n",bc,double(bc)*NODE_SIZE/1024/1024/1024);
+	printf("cold list cnt %d\n",cnt);
 //	printf("list pool cnt %ld\n",node_pool_list_cnt);
 
 	int i;

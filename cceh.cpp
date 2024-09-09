@@ -435,7 +435,7 @@ namespace PH
 
 	//ValueEntry CCEH::find(unsigned char* const &key)
 
-	int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int &split_cnt_ret , volatile int* &split_cnt_p)
+	int CCEH::read(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, uint8_t &split_cnt_ret , volatile uint8_t* &split_cnt_p)
 	{
 #ifdef NO_READ
 printf("NO READ NOW\n");
@@ -450,7 +450,7 @@ printf("NO READ NOW\n");
 		}
 	}
 
-	int CCEH::read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, int &split_cnt_ret, volatile int* &split_cnt_p,bool &sf)
+	int CCEH::read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_ret_p, uint8_t &split_cnt_ret, volatile uint8_t* &split_cnt_p,bool &sf)
 	{
 #ifdef ctt
 		find_cnt++;
@@ -1128,10 +1128,11 @@ retry:
 
 	void CCEH::hard_check()
 	{
+		printf("not now\n");
 		KVP kvp_p;
 		KVP* kvp_pp;
-		int seg_depth;
-		volatile int* seg_depth_p;
+		uint8_t seg_depth;
+		volatile uint8_t* seg_depth_p;
 		int i;
 		uint64_t key;
 		KVP* kvp_list;

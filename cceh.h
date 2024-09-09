@@ -17,7 +17,7 @@
 
 
 #define CL_BIT 4
-#define CL_PER_SEG (1 << CL_BIT)
+#define CL_PER_SEG (1 << CL_BIT) // = 16 = 1024/64?
 #define LINEAR_MULTI 4
 
 #define SPLIT_MASK (1 << 6) // I mean split bit
@@ -107,9 +107,9 @@ struct SEG
 	std::atomic<uint8_t> lock; // 1 ?
 //	std::mutex* seg_lock;	//struct c++
 //	volatile int depth; // 4
-	volatile int depth; // retry if split
+	volatile uint8_t depth; // retry if split
 //	unsigned char padding[64];
-	volatile int split_cnt;
+	volatile uint8_t split_cnt;
 
 }; // 64 * ???
 
@@ -172,8 +172,8 @@ class CCEH
 	void lock(KVP* kvp);	
 	void unlock(KVP* kvp);
 
-	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int& split_cnt_ret, volatile int* &split_cnt_p);
-	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, int& split_cnt_ret ,volatile int* &split_cnt_p,bool &sf);
+	int read(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, uint8_t& split_cnt_ret, volatile uint8_t* &split_cnt_p);
+	int read_with_fail(uint64_t &key, KVP* kvp_ret, KVP** kvp_p, uint8_t& split_cnt_ret ,volatile uint8_t* &split_cnt_p,bool &sf);
 	void remove(uint64_t &key);
 
 //	void unlock_entry2(void* unlock);
@@ -193,7 +193,7 @@ class CCEH
 
 	KVP zero_entry;
 	std::atomic<uint8_t> zero_lock;
-	volatile int zero_depth;
+	volatile uint8_t zero_depth;
 
 	std::atomic<uint8_t> remove_ts_lock;
 	std::vector<void*> remove_ts_list;
@@ -212,7 +212,5 @@ inline bool zero_check(unsigned char* const &key);
 #endif
 void init_cceh();
 void clean_cceh();
-
-
 
 }

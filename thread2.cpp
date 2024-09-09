@@ -134,8 +134,8 @@ namespace PH
 		bool ex;
 		KVP* kvp_p;
 		KVP kvp2;
-		volatile int *seg_depth_p;
-		int seg_depth;
+		volatile uint8_t *seg_depth_p;
+		uint8_t seg_depth;
 		ex = hash_index->read(key,&kvp2,&kvp_p,seg_depth,seg_depth_p);
 
 		if (key != kvp.key || kvp2.key != kvp.key || kvp2.value != kvp.value)
@@ -1365,8 +1365,8 @@ namespace PH
 		//	kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
 
 		KVP kvp;
-		volatile int *seg_depth_p;
-		int seg_depth;
+		volatile uint8_t *seg_depth_p;
+		uint8_t seg_depth;
 		int ex;
 #ifdef NO_READ
 		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -1716,8 +1716,8 @@ namespace PH
 		//	hash_index->read(key,&ret);
 
 		EntryAddr ea;
-		volatile int *seg_depth_p;
-		int seg_depth;
+		volatile uint8_t *seg_depth_p;
+		uint8_t seg_depth;
 		KVP* kvp_p;
 		KVP kvp;
 		uint64_t ret;
@@ -2574,8 +2574,8 @@ namespace PH
 		KVP kvp;
 		KVP* kvp_p;
 		std::atomic<uint8_t>* seg_lock;
-		volatile int* seg_depth_p;
-		int seg_depth;
+		volatile uint8_t* seg_depth_p;
+		uint8_t seg_depth;
 
 		size_t written_size;
 		size_t start_offset;
