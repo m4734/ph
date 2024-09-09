@@ -3,6 +3,7 @@
 //#define STAT
 //#define NO_READ // bad effect
 //#define USE_WARM_LOG // batch eff is good but throughput
+//#define KVP_VER
 
 namespace PH
 {

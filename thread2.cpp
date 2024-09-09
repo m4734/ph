@@ -38,6 +38,8 @@ namespace PH
 	PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 	PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
+	extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
+
 	//check
 	extern std::atomic<uint64_t> warm_to_warm_sum;
 	extern std::atomic<uint64_t> warm_log_write_sum;
@@ -1179,10 +1181,14 @@ namespace PH
 				EntryAddr old_ea;
 				old_ea.value = kvp_p->value;
 				EntryHeader new_version;
+#ifdef KVP_VER
 				new_version.value = kvp_p->version;
-				new_version.prev_loc = old_ea.loc; // will be 3
 				if (new_update)
 					new_version.version++;
+#else					
+				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+#endif
+				new_version.prev_loc = old_ea.loc; // will be 3
 				set_valid(new_version);
 
 				// update version
@@ -1196,11 +1202,11 @@ namespace PH
 
 				_mm_sfence();
 				//write version after key value
+#ifdef KVP_VER
 				kvp_p->version = new_version.value; //???
-
-				//				test_the_index(*kvp_p);
-
 				_mm_sfence();
+#endif
+
 				//				hash_index->unlock_entry2(seg_lock,read_lock); // unlock outer
 
 				at_unlock2(list_nodeMeta->rw_lock);
@@ -1502,20 +1508,35 @@ namespace PH
 
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			old_ea.value = kvp_p->value;
+#ifdef KVP_VER
+
+#else
+			uint64_t new_ver;
+			new_ver = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+#endif
 			if (kvp_p->key != key) // new key...
 			{
 				//				new_version.prev_loc = 0;
 				new_version.prev_loc = HOT_LOG;
 				//				new_version = 1;
-				set_valid(new_version);
+#ifdef KVP_VER
 				new_version.version = 1;
+#else
+				new_version.version = new_ver;
+#endif
+				set_valid(new_version);
 				ex = 0;
 			}
 			else
 			{
+#ifdef KVP_VER
 				new_version.value = kvp_p->version;
 				new_version.prev_loc = old_ea.loc;
 				new_version.version++;
+#else
+				new_version.prev_loc = old_ea.loc;
+				new_version.version = new_ver;
+#endif
 				set_valid(new_version);
 				ex = 1;
 			}

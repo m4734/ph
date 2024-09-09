@@ -45,6 +45,7 @@ int num_evict_thread;
 
 extern int log_max;
 
+	std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 
 	//check
 	std::atomic<uint64_t> warm_to_warm_sum;
@@ -155,6 +156,10 @@ void PH_Interface::clean_evict_thread()
 void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 {
 	printf("global init VS %lu thread %d pmem %d evict %d\n",VS,n_t,n_p,n_e);
+
+	int i;
+	for (i=0;i<COUNTER_MAX;i++)
+		global_seq_num[i] = 0; // NOT RECOVER
 
 	VALUE_SIZE0 = VS;
 	KEY_RANGE = KR;

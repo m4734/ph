@@ -29,6 +29,8 @@ namespace PH
 	extern size_t ENTRY_SIZE;
 	extern size_t TOTAL_DATA_SIZE;
 
+	const int COUNTER_MAX = 1024;
+
 	void debug_error(const char* msg);
 
 	class PH_Interface
