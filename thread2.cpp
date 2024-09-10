@@ -524,8 +524,8 @@ namespace PH
 		// fixed size here
 
 		//-------------------------------------------------------------------------------
-//		if (key_list.size() > 0)
-//			printf("test here\n");
+		//		if (key_list.size() > 0)
+		//			printf("test here\n");
 
 		int size = key_list.size();
 		int group1_idx = 0;
@@ -598,7 +598,7 @@ namespace PH
 			sorted_buffer2[i].next_offset_in_group = new_nodeMeta2[i+1]->my_offset;
 		}
 
-//		new_nodeMeta1[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
+		//		new_nodeMeta1[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
 		new_nodeMeta2[0]->next_p = old_nodeMeta[0]->next_p;
 		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->my_offset;
 		new_nodeMeta1[0]->next_p = new_nodeMeta2[0];
@@ -610,7 +610,7 @@ namespace PH
 		//memcpy to pmem
 
 		// link!?
-//		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyNodeAddr;
+		//		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyNodeAddr;
 		sorted_buffer2[0].next_offset = old_nodeMeta[0]->next_p->my_offset;
 		sorted_buffer1[0].next_offset = new_nodeMeta2[0]->my_offset;
 
@@ -667,7 +667,7 @@ namespace PH
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 
-//				EA_test(key,dst_ea);
+				//				EA_test(key,dst_ea);
 			}
 			else
 				new_nodeMeta1[group1_idx]->valid[j] = false;
@@ -710,7 +710,7 @@ namespace PH
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 
-//				EA_test(key,dst_ea);
+				//				EA_test(key,dst_ea);
 			}
 			else
 				new_nodeMeta2[group2_idx]->valid[j] = false;
@@ -1073,8 +1073,8 @@ namespace PH
 		at_unlock2(list_nodeMeta->rw_lock); // what?
 
 		split_listNode_group(listNode,node); // we have the lock
-		//at_unlock2(next_listNode->lock);
-		//at_unlock2(listNode->lock);
+						     //at_unlock2(next_listNode->lock);
+						     //at_unlock2(listNode->lock);
 		at_unlock2(prev_listNode->lock);
 
 		//2-1-3 deadlock
@@ -1188,7 +1188,7 @@ namespace PH
 #else					
 				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 #endif
-//				new_version.prev_loc = old_ea.loc; // will be 3
+				//				new_version.prev_loc = old_ea.loc; // will be 3
 				set_valid(new_version);
 
 				// update version
@@ -1460,25 +1460,25 @@ namespace PH
 			}
 		}
 #else
-	if (ex == 1 && old_ea.loc == COLD_LIST)
-	{
-		rv = rand_r(&seed_for_dtc);
-		if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
-			dtc = 1;
-	}
+		if (ex == 1 && old_ea.loc == COLD_LIST)
+		{
+			rv = rand_r(&seed_for_dtc);
+			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
+				dtc = 1;
+		}
 
-	if (dtc == 0)
-	{
-		dst_log = my_log;
-		dst_loc = HOT_LOG;
-	}
+		if (dtc == 0)
+		{
+			dst_log = my_log;
+			dst_loc = HOT_LOG;
+		}
 #endif
 
 		if (dtc)
 		{
 			dst_loc = COLD_LIST;
 			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-//			kvp.value = 0;
+			//			kvp.value = 0;
 			new_ea = direct_to_cold(key,value,kvp,seg_lock,NULL,true); // kvp becomes old one
 			old_ea.value = kvp.value;
 
@@ -1517,7 +1517,7 @@ namespace PH
 			if (kvp_p->key != key) // new key...
 			{
 				//				new_version.prev_loc = 0;
-//				new_version.prev_loc = HOT_LOG;
+				//				new_version.prev_loc = HOT_LOG;
 				//				new_version = 1;
 #ifdef KVP_VER
 				new_version.version = 1;
@@ -1531,10 +1531,10 @@ namespace PH
 			{
 #ifdef KVP_VER
 				new_version.value = kvp_p->version;
-//				new_version.prev_loc = old_ea.loc;
+				//				new_version.prev_loc = old_ea.loc;
 				new_version.version++;
 #else
-//				new_version.prev_loc = old_ea.loc;
+				//				new_version.prev_loc = old_ea.loc;
 				new_version.version = new_ver;
 #endif
 				set_valid(new_version);
@@ -1578,8 +1578,8 @@ namespace PH
 				kvp_p->key = key;
 				_mm_sfence();
 
-//				hash_index->unlock_entry2(seg_lock,read_lock);
-//				return 0;
+				//				hash_index->unlock_entry2(seg_lock,read_lock);
+				//				return 0;
 			}
 			//			hash_index->unlock_entry2(seg_lock,read_lock);
 			if (ex)
@@ -1708,7 +1708,6 @@ namespace PH
 					value->assign(kvp_p->value,sizeof(uint64_t));
 				if (split_cnt_p == NULL || split_cnt == *split_cnt_p)
 					return 0;
-
 			}
 		}
 #endif
@@ -1725,20 +1724,13 @@ namespace PH
 
 		std::atomic<uint8_t>* seg_lock;
 
+		// if we use hash seg lock, do not use nm lock because there will be dead lock in cold evict
+		// we will not use seg lock
+
 		while (true)
 		{
 			//			seg_depth = hash_index->read(key,&ret,&seg_depth_p);
-#ifdef NO_READ
-			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			if (kvp_p->key != key)
-				ex = 0;
-			else
-				ex = 1;
-			kvp = *kvp_p;
-			hash_index->unlock_entry2(seg_lock,read_lock);
-#else
 			ex = hash_index->read(key,&kvp,&kvp_p,seg_depth,seg_depth_p);
-#endif
 			//			seg_depth = *seg_depth_p;
 
 			if (ex == 0)
@@ -1749,6 +1741,14 @@ namespace PH
 			unsigned char* addr;
 			if (ea.loc == HOT_LOG || ea.loc == WARM_LOG) // hot or warm
 			{
+				size_t old_tail_sum,logical_tail,logical_offset,diff;
+				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
+				logical_tail = old_tail_sum % doubleLogList[ea.file_num].my_size;
+				if (old_tail_sum > ea.offset)
+					logical_offset = ea.offset + doubleLogList[ea.file_num].my_size;
+				else
+					logical_offset = ea.offset;
+
 				addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 				if (buf)
 					memcpy(buf,addr+ENTRY_HEADER_SIZE+KEY_SIZE,VALUE_SIZE0);
@@ -1769,11 +1769,13 @@ namespace PH
 					ex = hash_index->read(test_key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 				}
 #endif
-				if (ea.value != kvp_p->value)
-				{
-					continue;
-				}
 
+//				if (ea.value != kvp_p->value) // value is unique ?
+//					continue;
+
+				diff = doubleLogList[ea.file_num].tail_sum-old_tail_sum;
+				if (logical_tail+diff > logical_offset) // entry may be overwritten // try again
+					continue;
 			}
 			else // warm cold
 			{
@@ -1833,11 +1835,13 @@ namespace PH
 #endif
 				at_unlock2(nm->rw_lock);
 			}
+
+			// read address from hash -> lock the node -> copy value -> check hash again (there was the value anyway) -> unlock the node 
+
 			// need fence?
 			if (seg_depth_p == NULL || seg_depth == *seg_depth_p)// && ret == *ret_p)
 				break;
 		}
-
 
 		return 0;
 	}
@@ -2141,13 +2145,13 @@ namespace PH
 		{
 			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
 			/*
-			uint64_t half1,half2; // overflow
-			half1 = (old_skipListNode->key)/2; // approx
-			half2 = (skiplist->sa_to_node(old_skipListNode->next[0])->key)/2; // approx
-			half_key = half1 + half2;
-		if (half_key <= old_skipListNode->key)
-			debug_error("half error\n");
-			*/
+			   uint64_t half1,half2; // overflow
+			   half1 = (old_skipListNode->key)/2; // approx
+			   half2 = (skiplist->sa_to_node(old_skipListNode->next[0])->key)/2; // approx
+			   half_key = half1 + half2;
+			   if (half_key <= old_skipListNode->key)
+			   debug_error("half error\n");
+			 */
 			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
 			half_key = old_skipListNode->half_listNode->key; 
 		}
@@ -2428,8 +2432,8 @@ namespace PH
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
 
-//				if (nodeMeta->valid[i] == false)
-//					debug_error("valid2\n");
+				//				if (nodeMeta->valid[i] == false)
+				//					debug_error("valid2\n");
 				nodeMeta->valid[i] = false;
 				nodeMeta->valid_cnt--;
 
@@ -2543,7 +2547,7 @@ namespace PH
 		wtc_cnt++;
 	}
 
-//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
+	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	void PH_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
 
@@ -2613,7 +2617,7 @@ namespace PH
 					node->entry_list[li].log_num = -1; // invalid
 				else if (/*true ||*/ (/*header->prev_loc == 3 && */false)) // cold // hot to cold
 				{
-//					printf("impossible\n");
+					//					printf("impossible\n");
 					// direct to cold here
 					// set old ea
 					// direct to cold
@@ -2648,8 +2652,8 @@ namespace PH
 					memcpy(buffer_start+written_size,addr,ENTRY_SIZE);
 
 					written_size+=ENTRY_SIZE;
-//					if (header->prev_loc != 0)
-//						ex_entry_cnt++;
+					//					if (header->prev_loc != 0)
+					//						ex_entry_cnt++;
 
 					write_cnt++;
 
@@ -2731,19 +2735,19 @@ namespace PH
 					// just change location
 					kvp_p->value = dst_addr.value;
 					/*
-					{
-						EntryAddr ta;
-						ta.value = kvp_p->value;
-						if (ta.loc != WARM_LIST || ((ta.offset%1024-NODE_HEADER_SIZE)%ENTRY_SIZE))
-							debug_error("warm offset error\n");
-					}
-					*/
+					   {
+					   EntryAddr ta;
+					   ta.value = kvp_p->value;
+					   if (ta.loc != WARM_LIST || ((ta.offset%1024-NODE_HEADER_SIZE)%ENTRY_SIZE))
+					   debug_error("warm offset error\n");
+					   }
+					 */
 					nodeMeta->valid[slot_index] = true; // validate
 					++nodeMeta->valid_cnt;
 					_mm_sfence();
 					set_invalid(header); // invalidate
-		#ifdef HOT_KEY_LIST	
-			//remove the key from key list	
+#ifdef HOT_KEY_LIST	
+					//remove the key from key list	
 					uint64_t temp1,temp2=0;	
 					for (j=node->key_list_size-1;j>=0;j--)
 					{
@@ -2757,7 +2761,7 @@ namespace PH
 						temp2 = temp1;
 					}
 					node->key_list_size--;
-		#endif
+#endif
 				}
 #if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
 				else // inserted during hot to warm
@@ -2865,7 +2869,7 @@ namespace PH
 		//		return rv;
 
 		while(dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space && dl->head_sum + dl->hard_evict_space < dl->soft_adv_offset + dl->my_size)//HARD_EVICT_SPACE)
-		//		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
+																				   //		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
 		{
 			//need hard evict
 			addr = dl->dramLogAddr + (dl->tail_sum % dl->my_size);
@@ -2895,7 +2899,7 @@ namespace PH
 
 				if (old_ea.value == kvp.value) // ok
 				{
-//					old_ea.value = kvp.value;
+					//					old_ea.value = kvp.value;
 
 					invalidate_entry(old_ea);
 					hash_index->unlock_entry2(seg_lock,read_lock);
@@ -2928,7 +2932,7 @@ namespace PH
 				//at_lock2(nodeMeta->rw_lock);
 				hot_to_warm(node,false); // always partial...
 				split_warm_node = may_split_warm_node(node); // lock???
-				//	at_unlock2(nodeMeta->rw_lock);
+									     //	at_unlock2(nodeMeta->rw_lock);
 
 #if 0 // becaus hard evict is always parital there is still space i think
 				NodeMeta *nodeMeta = nodeAddr_to_nodeMeta(node->data_node_addr);
@@ -2946,10 +2950,10 @@ namespace PH
 
 				// do we need flush?
 				/* // list order may not sorted
-				dl->tail_sum+=ENTRY_SIZE;
-				if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
-					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
-					*/
+				   dl->tail_sum+=ENTRY_SIZE;
+				   if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
+				   dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
+				 */
 
 				//check if we need warm merge before unlock the node
 				if (false && node->recent_entry_cnt < WARM_NODE_ENTRY_CNT && node->ver > 3) // DO NOT DELETE  // still have lock
@@ -3065,13 +3069,13 @@ namespace PH
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
 					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
 					{
-	//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-	//	at_lock2(nodeMeta->rw_lock);
+						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+						//	at_lock2(nodeMeta->rw_lock);
 						hot_to_warm(node,false);
 						may_split_warm_node(node);
-	//	at_unlock2(nodeMeta->rw_lock);
-	//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-	//	warm_to_cold(node); // in lock???
+						//	at_unlock2(nodeMeta->rw_lock);
+						//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+						//	warm_to_cold(node); // in lock???
 						soft_htw_cnt++;
 					}
 					at_unlock2(node->lock);
@@ -3100,12 +3104,12 @@ namespace PH
 		return 0;
 #else
 		int diff=0;
-		
+
 		if (try_soft_evict(dl))
 			diff = 1;
 		if (try_push(dl))
 			diff = 1;
-			
+
 		if (try_hard_evict(dl))
 			diff = 1;
 		if (try_push(dl))

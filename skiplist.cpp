@@ -380,6 +380,11 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock) // what if max
 {
+#ifdef ADDR_CACHE
+
+#else
+	return find_node(key,prev,next);
+#endif
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
 // addr2
@@ -440,7 +445,11 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, KVP &kvp) // what if max
 {
+#ifdef ADDR_CACHE
 
+#else
+	return find_node(key,prev,next);
+#endif
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
 	SkipAddr sa,next_sa;
@@ -659,7 +668,7 @@ void PH_List::clean()
 	printf("cold use %ld max %ld = %lf\n",use,max,double(use)/max);
 
 	int cnt = node_pool_list_cnt * NODE_POOL_SIZE + node_pool_cnt;
-	printf("cold node cnt %d size %lfGB\n",bc,double(bc)*NODE_SIZE/1024/1024/1024);
+	printf("cold node cnt %ld size %lfGB\n",bc,double(bc)*NODE_SIZE/1024/1024/1024);
 	printf("cold list cnt %d\n",cnt);
 //	printf("list pool cnt %ld\n",node_pool_list_cnt);
 
