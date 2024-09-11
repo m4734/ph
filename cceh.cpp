@@ -543,6 +543,8 @@ printf("NO READ NOW\n");
 
 			if (kvp_p[l].key == INV0)
 			{
+				kvp_ret->value = 0;
+				kvp_ret_p = NULL;
 				sf = (start_split_cnt == seg->split_cnt);
 				return 0;
 			}
@@ -572,6 +574,10 @@ printf("NO READ NOW\n");
 		//	return ve_u.ve;
 		_mm_sfence();
 		sf = (start_split_cnt == seg->split_cnt);
+
+		kvp_ret->value = 0;
+		kvp_ret_p = NULL;
+
 		return 0;
 	}
 
