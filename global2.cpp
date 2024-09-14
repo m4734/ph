@@ -282,13 +282,10 @@ printf("ccc\n");
 
 	int i;
 	size_t hbs=0;
-	size_t wbs=0;
-	for (i=0;i<log_max;i+=2)
+	for (i=0;i<log_max;i++)
 		hbs+=doubleLogList[i].block_cnt;
-	for (i=1;i<log_max;i+=2)
-		wbs+=doubleLogList[i].block_cnt;
 	
-	printf("hot block cnt %lu warm block cnt %lu\n",hbs,wbs);
+	printf("hot block cnt %lu\n",hbs);
 
 	clean_cceh();
 	clean_log();

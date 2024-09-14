@@ -2,7 +2,6 @@
 
 //#define STAT
 //#define NO_READ // bad effect
-//#define USE_WARM_LOG // batch eff is good but throughput
 //#define KVP_VER
 #define ADDR_CACHE
 #define HOT_KEY_LIST
@@ -31,7 +30,7 @@ namespace PH
 
 	enum Loc
 	{
-		WARM_LOG, // historical
+		NONE, // historical
 
 		HOT_LOG,
 		WARM_LIST,

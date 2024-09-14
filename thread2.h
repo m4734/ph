@@ -135,7 +135,6 @@ class PH_Evict_Thread : public PH_Thread
 
 
 	DoubleLog** log_list;
-	DoubleLog** warm_log_list;
 	int log_cnt;
 	
 	int* child1_path;

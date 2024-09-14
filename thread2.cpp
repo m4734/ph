@@ -267,10 +267,9 @@ namespace PH
 		int i;
 
 		my_log = 0;
-		my_warm_log = 0;
 		exit = 0;
 
-		for (i=0;i<log_max;i+=2)
+		for (i=0;i<log_max;i++)
 		{
 			while (doubleLogList[i].use == 0)
 			{
@@ -278,8 +277,6 @@ namespace PH
 				if (try_at_lock2(doubleLogList[i].use))
 				{
 					my_log = &doubleLogList[i];
-					//					my_warm_log = &WDLL[i];
-					my_warm_log = &doubleLogList[i+1]; // warm log
 				}
 			}
 			if (my_log)
@@ -1420,46 +1417,6 @@ namespace PH
 
 		dtc = 0;
 
-#ifdef USE_WARM_LOG
-
-		if (ex == 0 || old_ea.loc == HOT_LOG) // promote warm
-		{
-			dst_log = my_log;
-			dst_loc = HOT_LOG;
-		}
-		else if (old_ea.loc == WARM_LOG)
-		{
-			if (my_log->warm_per_hot > my_warm_log->head_sum-old_ea.offset)
-			{
-				dst_log = my_log;
-				dst_loc = HOT_LOG;
-			}
-			else
-			{
-				dst_log = my_warm_log;
-				dst_loc = WARM_LOG;
-			}
-		}
-		else// if (old_ea.loc == WARM_LIST)
-		{
-			if (old_ea.loc == COLD_LIST) // dtc
-			{
-				rv = rand_r(&seed_for_dtc);
-				if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_warm_log) )// && false) // to cold // ratio condition
-					dtc = 1;
-				else
-				{
-					dst_log = my_warm_log;
-					dst_loc = WARM_LOG;
-				}
-			}
-			else
-			{
-				dst_log = my_warm_log;
-				dst_loc = WARM_LOG;
-			}
-		}
-#else
 		if (ex == 1 && old_ea.loc == COLD_LIST)
 		{
 			rv = rand_r(&seed_for_dtc);
@@ -1472,7 +1429,6 @@ namespace PH
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
 		}
-#endif
 
 		if (dtc)
 		{
@@ -1627,10 +1583,7 @@ namespace PH
 			dst_log->head_sum+=ENTRY_SIZE;
 
 			//check
-			if (dst_loc == HOT_LOG)
-				log_write_cnt++;
-			else if (dst_loc == WARM_LOG)
-				warm_log_write_cnt++;
+			log_write_cnt++;
 
 			kvp_p->value = new_ea.value;
 			kvp_p->version = new_version.value;
@@ -1678,7 +1631,7 @@ namespace PH
 	void PH_Thread::invalidate_entry(EntryAddr &ea) // need kv lock
 	{
 		unsigned char* addr;
-		if (ea.loc == HOT_LOG || ea.loc == WARM_LOG) // hot log
+		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 			set_invalid((EntryHeader*)addr); // invalidate
@@ -1784,7 +1737,7 @@ namespace PH
 			ea.value = kvp.value;
 
 			unsigned char* addr;
-			if (ea.loc == HOT_LOG || ea.loc == WARM_LOG) // hot or warm
+			if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot or warm
 			{
 				size_t old_tail_sum,logical_tail,logical_offset,diff;
 				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
@@ -1921,14 +1874,13 @@ namespace PH
 
 		exit = 0;
 
-		int ln = (log_max/2-1) / num_evict_thread+1;
+		int ln = (log_max-1) / num_evict_thread+1;
 
 		log_cnt = 0;
 		log_list = new DoubleLog*[ln];
-		warm_log_list = new DoubleLog*[ln];
 
 		int i;
-		for (i=0;i<log_max;i+=2)
+		for (i=0;i<log_max;i++)
 		{
 			while (doubleLogList[i].evict_alloc == 0)
 			{
@@ -1936,8 +1888,6 @@ namespace PH
 				if (try_at_lock2(doubleLogList[i].evict_alloc))
 				{
 					log_list[log_cnt] = &doubleLogList[i];
-					//					warm_log_list[log_cnt] = &WDLL[i];
-					warm_log_list[log_cnt] = &doubleLogList[i+1];
 					log_cnt++;
 
 					//					printf("evict thread %d -- log %d\n",thread_id,i);
@@ -1952,7 +1902,7 @@ namespace PH
 			printf("can not find log\n");
 
 		for (i=log_cnt;i<ln;i++)
-			warm_log_list[i] = log_list[i] = NULL;
+			log_list[i] = NULL;
 
 		child1_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
 		child2_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
@@ -1986,7 +1936,6 @@ namespace PH
 		run = 0;
 		read_lock = 0;
 		delete[] log_list; // remove pointers....
-		delete[] warm_log_list;
 
 		free(evict_buffer);
 		free(key_list_buffer);
@@ -2686,10 +2635,7 @@ namespace PH
 					// invalidate old ea
 					// unlock index
 
-					if (ll.log_num%2 == 0)
-						old_ea.loc = HOT_LOG;
-					else
-						old_ea.loc == WARM_LOG;
+					old_ea.loc = HOT_LOG;
 					old_ea.file_num = ll.log_num;
 					old_ea.offset = ll.offset%dl->my_size;
 
@@ -2773,10 +2719,7 @@ namespace PH
 				header = (EntryHeader*)addr;
 				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 
-				if (ll.log_num%2 == 0)
-					src_addr.loc = HOT_LOG;
-				else
-					src_addr.loc = WARM_LOG;
+				src_addr.loc = HOT_LOG;
 
 				src_addr.file_num = ll.log_num;
 				src_addr.offset = ll.offset%dl->my_size; // dobuleloglist log num my size
@@ -2953,10 +2896,7 @@ namespace PH
 
 			if (false /*&& header.prev_loc == 3*/)
 			{
-				if (dl->log_num%2 == 0)
-					old_ea.loc = HOT_LOG;
-				else
-					old_ea.loc = WARM_LOG;
+				old_ea.loc = HOT_LOG;
 				old_ea.file_num = dl->log_num;
 				old_ea.offset = dl->tail_sum%dl->my_size;
 				kvp.value = old_ea.value;
@@ -3198,8 +3138,6 @@ namespace PH
 			for (i=0;i<log_cnt;i++)
 			{
 				if (evict_log(log_list[i]))
-					done = 0;
-				if (evict_log(warm_log_list[i]))
 					done = 0;
 			}
 			if (done)

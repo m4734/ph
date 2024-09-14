@@ -114,10 +114,6 @@ class DoubleLog
 	std::atomic<uint8_t> evict_alloc=0;
 
 	size_t block_cnt;
-
-	DoubleLog* warm_log = NULL;
-	size_t warm_per_hot=0;
-	size_t last_warm_head=0;
 };
 
 extern DoubleLog* doubleLogList;

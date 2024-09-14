@@ -22,7 +22,6 @@ int log_max;
 DoubleLog* doubleLogList; // should be private
 
 //DoubleLog* WDLL;
-size_t warm_log_size;
 
 size_t HARD_EVICT_SPACE;
 size_t SOFT_EVICT_SPACE;
@@ -36,14 +35,11 @@ void init_log(int num_pmem, int num_log)
 
 	printf("init log\n");
 
-	log_max = num_pmem*num_log*2;
+	log_max = num_pmem*num_log;
 	doubleLogList = new DoubleLog[log_max];
-//	WDLL = new DoubleLog[log_max];
-
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
-	warm_log_size = log_size/5;
 #if 0
 	if (log_size < 1024*1024*1024) // minimum
 		log_size = 1024*1024*1024;
@@ -72,7 +68,6 @@ void init_log(int num_pmem, int num_log)
 	}
 #endif
 	printf("LOG NUM %d LOG SIZE %lfGB SUM %lfGB\n",num_log,double(log_size)/1024/1024/1024,double(log_size)*num_log*num_pmem/1024/1024/1024);
-	printf("WL NUM %d WL SIZE %lfGB SUM %lfGB\n",num_log,double(warm_log_size)/1024/1024/1024,double(warm_log_size)*num_log*num_pmem/1024/1024/1024);
 
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)
@@ -90,19 +85,6 @@ void init_log(int num_pmem, int num_log)
 			path[len] = 0;
 			doubleLogList[cnt].log_num = cnt;
 			doubleLogList[cnt++].init(path,log_size,HARD_EVICT_SPACE,SOFT_EVICT_SPACE);
-
-#ifdef INTERLEAVE
-			sprintf(path,"/mnt/pmem0/warm_log%d",cnt);
-#else
-			sprintf(path,"/mnt/pmem%d/warm_log%d",j+1,i+1); // 1~
-#endif
-
-			len = strlen(path);
-			path[len] = 0;
-			doubleLogList[cnt].log_num = cnt;
-			doubleLogList[cnt++].init(path,warm_log_size,warm_log_size/10,warm_log_size);
-
-			doubleLogList[cnt-2].warm_log = &doubleLogList[cnt-1];
 		}
 	}
 }
@@ -283,14 +265,7 @@ void DoubleLog::ready_log()//(size_t len)
 //	check_turn(head_sum,ble_len);
 	size_t offset = head_sum % my_size;
 	if (offset+ENTRY_SIZE >= my_size) // check the space
-	{
 		head_sum+=(my_size-offset);
-		if (warm_log)
-		{
-			warm_per_hot = warm_log->head_sum-last_warm_head;
-			last_warm_head = warm_log->head_sum;
-		}
-	}
 #if 0
 	if (min_tail_sum + my_size < head_sum + ENTRY_SIZE)
 		min_tail_sum = get_min_tail(log_num);
@@ -304,8 +279,8 @@ void DoubleLog::ready_log()//(size_t len)
 		min_tail_sum = get_min_tail(log_num);
 	}
 #endif
-	if (tail_sum + my_size < head_sum + ENTRY_SIZE)
-		block_cnt++;
+//	if (tail_sum + my_size < head_sum + ENTRY_SIZE)
+//		block_cnt++;
 #if 0
 	while(tail_sum + my_size < head_sum + ENTRY_SIZE);
 #else
