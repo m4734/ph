@@ -5,6 +5,7 @@
 //#define USE_WARM_LOG // batch eff is good but throughput
 //#define KVP_VER
 #define ADDR_CACHE
+//#define HOT_KEY_LIST
 
 namespace PH
 {

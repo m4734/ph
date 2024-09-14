@@ -1491,7 +1491,6 @@ namespace PH
 		}
 		else // to log
 		{
-
 			dst_log->ready_log();
 
 			pmem_head_p = dst_log->pmemLogAddr + dst_log->head_sum % dst_log->my_size;
@@ -1506,8 +1505,51 @@ namespace PH
 			//--------------------------------------------------- make version
 			//if (kvp_p)
 
+#ifdef HOT_KEY_LIST
+			if (ex == 0 || old_ea.loc != HOT_LOG)
+			{
+				/*
+				if (ex == 0)
+					kvp.value = 0;
+				else
+					kvp = *kvp_p;
+					*/
+				SkiplistNode* node;
+				while(true)
+				{
+					if (ex)
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+					else
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
+					if (try_at_lock2(node->lock) == false)
+						continue;
+					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
+					{
+						at_unlock2(node->lock);
+						continue;
+					}
+					if (may_split_warm_node(node))
+						continue;
+					break;
+				}
+	
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock); // prevent htw evict
+				old_ea.value = kvp_p->value;
+
+				if (old_ea.loc != HOT_LOG)
+					node->key_list[node->key_list_size++] = key;
+				at_unlock2(node->lock);//here we have entry lock
+			}
+			else
+			{
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				old_ea.value = kvp_p->value;
+			}
+#else
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			old_ea.value = kvp_p->value;
+#endif
+
 #ifdef KVP_VER
 
 #else
@@ -1582,34 +1624,10 @@ namespace PH
 				//				return 0;
 			}
 			//			hash_index->unlock_entry2(seg_lock,read_lock);
-			if (ex)
+			if (ex) // violation!! // no entry lock
 				invalidate_entry(old_ea);
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
-#ifdef HOT_KEY_LIST
-			if (ex == 0 || old_ea.loc != HOT_LOG)
-			{
-				kvp = *kvp_p;
-				SkiplistNode* node;
-				while(true)
-				{
-					node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
-					if (try_at_lock2(node->lock) == false)
-						continue;
-					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
-					{
-						at_unlock2(node->lock);
-						continue;
-					}
-					if (may_split_warm_node(node))
-						continue;
-					break;
-				}
-
-				node->key_list[node->key_list_size++] = key;
-				at_unlock2(node->lock);
-			}
-#endif
 		}
 		//	if (kvp_p)
 		// 5 add to key list if new key
