@@ -1506,6 +1506,8 @@ namespace PH
 			//if (kvp_p)
 
 #ifdef HOT_KEY_LIST
+			while(1)
+			{
 			if (ex == 0 || old_ea.loc != HOT_LOG)
 			{
 				/*
@@ -1515,6 +1517,7 @@ namespace PH
 					kvp = *kvp_p;
 					*/
 				SkiplistNode* node;
+				SkiplistNode* next_node;
 				while(true)
 				{
 					if (ex)
@@ -1523,13 +1526,25 @@ namespace PH
 						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
 					if (try_at_lock2(node->lock) == false)
 						continue;
-					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
+					next_node = skiplist->sa_to_node(node->next[0]);
+					if (next_node->key <= key || node->key > key) // may split
 					{
 						at_unlock2(node->lock);
 						continue;
 					}
-					if (may_split_warm_node(node))
+					/*
+					if (next_node != skiplist->sa_to_node(node->next[0]))
+					{
+						at_unlock2(node->lock);
 						continue;
+					}
+					*/
+
+					if (may_split_warm_node(node))
+					{
+						at_unlock2(node->lock);
+						continue;
+					}
 					break;
 				}
 	
@@ -1537,13 +1552,25 @@ namespace PH
 				old_ea.value = kvp_p->value;
 
 				if (old_ea.loc != HOT_LOG)
+				{
+					if (node->key_list_size >= WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT)
+						debug_error("over\n");
 					node->key_list[node->key_list_size++] = key;
+				}
+//				_mm_sfence();
 				at_unlock2(node->lock);//here we have entry lock
 			}
 			else
 			{
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				old_ea.value = kvp_p->value;
+				if (old_ea.loc != HOT_LOG)
+				{
+					hash_index->unlock_entry2(seg_lock,read_lock);
+					continue;
+				}
+			}
+			break;
 			}
 #else
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -2198,6 +2225,7 @@ namespace PH
 		child2_sl_node->key = half_key;
 		child2_sl_node->my_listNode = old_skipListNode->half_listNode;
 
+#ifdef HOT_KEY_LIST
 		// key list split
 		int i;
 		for (i=0;i<old_skipListNode->key_list_size;i++)
@@ -2206,6 +2234,7 @@ namespace PH
 				child1_sl_node->key_list[child1_sl_node->key_list_size++] = old_skipListNode->key_list[i];
 			else
 				child2_sl_node->key_list[child2_sl_node->key_list_size++] = old_skipListNode->key_list[i];
+#endif
 
 		}
 
@@ -2264,12 +2293,27 @@ namespace PH
 		{
 			// flush all
 			flush_warm_node(node);
+
+
+			SkiplistNode *next_node;
+			while(1)
+			{
+				next_node = skiplist->sa_to_node(node->next[0]);
+				at_lock2(next_node->lock);
+				if (next_node == skiplist->sa_to_node(node->next[0]))
+					break;
+				at_unlock2(next_node->lock);
+			}
+
+
 			{
 				//				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//				at_lock2(nodeMeta->rw_lock);
 				//				hot_to_warm(node,true); // flush all
 				split_empty_warm_node(node);
 				//				at_unlock2(nodeMeta->rw_lock);
+
+				at_unlock2(next_node->lock);
 			}
 			return 1;
 		}
@@ -2778,6 +2822,10 @@ namespace PH
 						node->key_list[j] = temp2;
 						temp2 = temp1;
 					}
+
+					if (j < 0)
+						debug_error("key not found\n");
+
 					node->key_list_size--;
 #endif
 				}

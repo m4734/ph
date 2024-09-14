@@ -106,7 +106,7 @@ class SkiplistNode
 	int next_size;
 
 	std::vector<uint64_t> key_list;
-	uint8_t key_list_size;
+	/*volatile*/ uint8_t key_list_size;
 
 	std::vector<LogLoc> entry_list;
 //	std::queue<LogLoc> entry_list;

@@ -284,6 +284,9 @@ SkiplistNode* Skiplist::alloc_sl_node()
 		node->myAddr.node_offset = node_pool_cnt;
 //		node->next = NULL;
 //		node->next_size = 0;
+
+		node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
+
 		node_pool_cnt++;
 	}
 	node->lock = 0;
@@ -300,7 +303,6 @@ SkiplistNode* Skiplist::alloc_sl_node()
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
 	node->key_list_size = 0;
-	node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
 
 	node->ver = node_counter.fetch_add(1);
 	node->my_sa.ver = node->ver;

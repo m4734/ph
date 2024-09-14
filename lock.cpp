@@ -29,7 +29,7 @@ void at_lock2(std::atomic<uint8_t> &lock)
 	_mm_mfence();
 }
 
-//#define UNLOCK_TEST
+#define UNLOCK_TEST
 
 void at_unlock2(std::atomic<uint8_t> &lock)
 {
