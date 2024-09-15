@@ -2665,10 +2665,7 @@ namespace PH
 
 					write_cnt++;
 
-					if (ll.log_num%2 == 0)
-						hot_to_warm_cnt++;
-					else
-						warm_to_warm_cnt++;
+					hot_to_warm_cnt++;
 				}
 			}
 			i_dst = i;
