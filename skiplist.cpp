@@ -2,6 +2,7 @@
 #include <atomic>
 #include <stdlib.h> // rand
 #include <stdio.h>
+#include <x86intrin.h> //fence
 
 #include "skiplist.h"
 #include "lock.h"
@@ -129,6 +130,7 @@ SkiplistNode* Skiplist::allocate_node()
 	{
 		nodeMeta = append_group(nodeMeta);
 		node->data_node_addr[i] = nodeMeta->my_offset;
+		nodeMeta->list_addr = node->myAddr;
 	}
 
 	return node;
@@ -734,9 +736,11 @@ ListNode* PH_List::alloc_list_node()
 		ListNode* rv = node_free_head;
 		node_free_head = node_free_head->next;
 
-		rv->lock = 0;
 		rv->next = NULL;
 		rv->prev = NULL;
+		rv->block_cnt = 0;
+		_mm_sfence();
+		rv->lock = 0;
 
 		at_unlock2(node_alloc_lock);
 		return rv;
@@ -754,12 +758,15 @@ ListNode* PH_List::alloc_list_node()
 	}
 
 	ListNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+	node->myAddr.pool_num = node_pool_list_cnt;
+	node->myAddr.node_offset = node_pool_cnt;
 	node->block_cnt = 0;
-	node->lock = 0;
 	node->next = NULL;
 	node->prev = NULL;
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
+	_mm_sfence();
+	node->lock = 0;
 //	if (node_pool_cnt < NODE_POOL_SIZE)
 	{
 		node_pool_cnt++;

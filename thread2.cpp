@@ -567,11 +567,19 @@ namespace PH
 		NodeAddr new_nodeAddr2[MAX_NODE_GROUP];
 		NodeMeta* new_nodeMeta2[MAX_NODE_GROUP];
 
+		// do not change listNode just link new nodemeta
+		ListNode* new_listNode;
+		new_listNode = list->alloc_list_node();
+
+		listNode->warm_cache = skiplistNode->myAddr;
+		new_listNode->warm_cache = skiplistNode->myAddr;
+
 		for (i=0;i<=group1_idx;i++)
 		{
 			new_nodeAddr1[i] = nodeAllocator->alloc_node();
 			new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
 			new_nodeMeta1[i]->group_cnt = i+1;
+			new_nodeMeta1[i]->list_addr = listNode->myAddr;
 			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<=group2_idx;i++)
@@ -579,6 +587,7 @@ namespace PH
 			new_nodeAddr2[i] = nodeAllocator->alloc_node();
 			new_nodeMeta2[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[i]);
 			new_nodeMeta2[i]->group_cnt = i+1;
+			new_nodeMeta2[i]->list_addr = new_listNode->myAddr;
 			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 
@@ -722,10 +731,6 @@ namespace PH
 
 		// link the list
 		// link pmem first then dram...
-
-		// do not change listNode just link new nodemeta
-		ListNode* new_listNode;
-		new_listNode = list->alloc_list_node();
 
 		// don't alloc new node...
 		listNode->data_node_addr = new_nodeMeta1[0]->my_offset;
@@ -1225,7 +1230,8 @@ namespace PH
 				{
 					list_node->block_cnt++;
 					//	ListNode* new_listNode = list->alloc_list_node();
-					append_group(list_nodeMeta);
+					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
+					append_nodeMeta->list_addr = list_node->myAddr;
 					at_unlock2(list_nodeMeta->rw_lock);
 				}
 				else
@@ -2469,7 +2475,8 @@ namespace PH
 				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
 				{
 					listNode->block_cnt++;
-					append_group(list_nodeMeta);
+					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
+					append_nodeMeta->list_addr = listNode->myAddr;
 					at_unlock2(list_nodeMeta->rw_lock);
 				}
 				else // split

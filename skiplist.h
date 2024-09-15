@@ -50,6 +50,8 @@ class ListNode
 	ListNode* volatile next; // pointer should be voaltile
 	ListNode* volatile prev;
 
+	NodeAddr myAddr;
+
 //	NodeMeta* my_node;
 	NodeAddr warm_cache;
 	NodeAddr data_node_addr;
