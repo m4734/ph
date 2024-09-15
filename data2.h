@@ -189,9 +189,18 @@ struct NodeOffset
 };
 */
 
+/*
 const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
-const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
+*/
+const size_t POOL_MAX = 64*1024;
+const size_t POOL_SIZE = 64*1024*4096;
+//const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
+const size_t POOL_NODE_MAX = 64*1024;
+
+//POOL[POOL_MAX][POOL_NODE_MAX]*4096
+
+// may 2^16 * 2^16 = 64*1024 * 64*1024 = 2^32 == 4GB * 4KB = 16TB
 
 //const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
@@ -201,6 +210,9 @@ struct NodeMeta
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
+
+	NodeAddr list_addr;
+
 	NodeAddr next_addr;
 	NodeAddr next_addr_in_group;
 

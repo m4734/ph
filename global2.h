@@ -27,6 +27,7 @@ namespace PH
 	extern size_t KEY_RANGE;
 	//size_t TOTAL_OPS;
 	extern size_t ENTRY_SIZE;
+	extern size_t LOG_ENTRY_SIZE;
 	extern size_t TOTAL_DATA_SIZE;
 
 	const int COUNTER_MAX = 1024;

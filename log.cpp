@@ -264,7 +264,7 @@ void DoubleLog::ready_log()//(size_t len)
 {
 //	check_turn(head_sum,ble_len);
 	size_t offset = head_sum % my_size;
-	if (offset+ENTRY_SIZE >= my_size) // check the space
+	if (offset+LOG_ENTRY_SIZE >= my_size) // check the space
 		head_sum+=(my_size-offset);
 #if 0
 	if (min_tail_sum + my_size < head_sum + ENTRY_SIZE)
@@ -284,7 +284,7 @@ void DoubleLog::ready_log()//(size_t len)
 #if 0
 	while(tail_sum + my_size < head_sum + ENTRY_SIZE);
 #else
-	while(tail_sum + my_size < head_sum + ENTRY_SIZE)
+	while(tail_sum + my_size < head_sum + LOG_ENTRY_SIZE)
 	{
 //		printf("log %d full\n",log_num);
 //		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
@@ -353,6 +353,26 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *va
 	memcpy(head_p,&version,ENTRY_HEADER_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE0);
+
+//	_mm_clwb();
+//	clwb(head_p,ENTRY_SIZE);
+	_mm_sfence();
+}
+
+void DoubleLog::insert_dram_log(uint64_t version, uint64_t key,unsigned char *value,NodeAddr* warm_cache)
+{
+	//fixed size;
+
+	// use checksum or write twice
+
+	// 1 write kv
+	//baseLogEntry->dver = 0;
+	//memcpy(head_p+header_size ,src+header_size ,ble_len-header_size);
+	unsigned char* head_p = dramLogAddr + head_sum%my_size;
+	memcpy(head_p,&version,ENTRY_HEADER_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, value, VALUE_SIZE0);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+VALUE_SIZE0,warm_cache,sizeof(NodeAddr));
 
 //	_mm_clwb();
 //	clwb(head_p,ENTRY_SIZE);

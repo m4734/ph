@@ -26,8 +26,8 @@ extern CCEH* hash_index;
 //const size_t NODE_POOL_LIST_SIZE = 1024*1024; // 4GB?
 //const size_t NODE_POOL_SIZE = 1024; //4MB?
 
-const size_t NODE_POOL_LIST_SIZE = 1024*32;
-const size_t NODE_POOL_SIZE = 1024*32;
+const size_t NODE_POOL_LIST_SIZE = 1024*64; // 16bit
+const size_t NODE_POOL_SIZE = 1024*64;
 
 //size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 //4MB * 1024 * 4 * 3 = 4GB * 12GB
@@ -443,7 +443,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	//-------------------------------
 	return node;
 }
-
+#if 1
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, KVP &kvp) // what if max
 {
 #ifdef ADDR_CACHE
@@ -481,6 +481,45 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 
 	return node;
 }
+#endif
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, NodeAddr &warm_cache) // what if max
+{
+#ifdef WARM_CACHE
+
+#else
+	return find_node(key,prev,next);
+#endif
+	SkiplistNode* node;// = start_node;
+	SkiplistNode* next_node;
+	SkipAddr next_sa;
+	if (warm_cache != emptyNodeAddr)
+	{
+		node = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];	
+	//	node = sa_to_node(sa);
+		next_sa = node->next[0];
+		next_node = sa_to_node(next_sa);
+		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
+		{
+#ifdef STAT
+			addr2_hit++;
+#endif
+			return node;
+		}
+#ifdef STAT
+		else
+			addr2_miss++;
+#endif
+	}
+#ifdef STAT
+	else
+		addr2_no++;
+#endif
+//addr2
+	node = find_node(key,prev,next);
+
+	return node;
+}
+
 
 void Skiplist::setLimit(size_t size)
 {

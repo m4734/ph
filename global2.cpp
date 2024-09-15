@@ -32,6 +32,7 @@ size_t VALUE_SIZE0;
 size_t KEY_RANGE;
 //size_t TOTAL_OPS;
 size_t ENTRY_SIZE;
+size_t LOG_ENTRY_SIZE;
 size_t TOTAL_DATA_SIZE;
 
 
@@ -165,6 +166,11 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 	KEY_RANGE = KR;
 //	ENTRY_SIZE = 8 + 8 + VS;
 	ENTRY_SIZE = 8 + 8 + VS + (8 - VS%8);
+#ifdef WARM_CACHE
+	LOG_ENTRY_SIZE = ENTRY_SIZE + sizeof(uint64_t);
+#else
+	LOG_ENTRY_SIZE = ENTRY_SIZE;
+#endif
 	TOTAL_DATA_SIZE = ENTRY_SIZE*KEY_RANGE;
 
 	num_query_thread = n_t;

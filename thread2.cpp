@@ -1299,6 +1299,7 @@ namespace PH
 			return 0;
 		}
 #endif
+		NodeAddr warm_cache;
 		EntryAddr new_ea;
 		EntryAddr old_ea;
 		unsigned char* pmem_head_p;// = my_log->get_pmem_head_p();
@@ -1574,13 +1575,17 @@ namespace PH
 			// 4 add dram list
 #ifdef USE_DRAM_CACHE
 			//	new_addr = dram_head_p;
+#ifdef WARM_CACHE
+			dst_log->insert_dram_log(new_version.value,key,value,&warm_cache);
+#else
 			dst_log->insert_dram_log(new_version.value,key,value);
+#endif
 #else
 			new_addr = pmem_head_p; // PMEM
 #endif
 
 			prev_head_sum = dst_log->head_sum;
-			dst_log->head_sum+=ENTRY_SIZE;
+			dst_log->head_sum+=LOG_ENTRY_SIZE;
 
 			//check
 			log_write_cnt++;
@@ -2842,15 +2847,15 @@ namespace PH
 		int rv=0;
 
 		//pass invalid
-		while(dl->tail_sum+ENTRY_SIZE <= dl->head_sum)
+		while(dl->tail_sum+LOG_ENTRY_SIZE <= dl->head_sum)
 		{
 			addr = dl->dramLogAddr+(dl->tail_sum%dl->my_size);
 			header.value = *(uint64_t*)addr;
 
 			if (is_valid(header))
 				break;
-			dl->tail_sum+=ENTRY_SIZE;
-			if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
+			dl->tail_sum+=LOG_ENTRY_SIZE;
+			if (dl->tail_sum%dl->my_size + LOG_ENTRY_SIZE > dl->my_size)
 				dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 			rv = 1;
 		}
@@ -2885,8 +2890,8 @@ namespace PH
 
 			if (is_valid(header) == false)
 			{
-				dl->tail_sum+=ENTRY_SIZE;
-				if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
+				dl->tail_sum+=LOG_ENTRY_SIZE;
+				if (dl->tail_sum%dl->my_size + LOG_ENTRY_SIZE > dl->my_size)
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 				continue;
 			}
@@ -2910,8 +2915,8 @@ namespace PH
 					hot_to_cold_cnt++;
 				}
 
-				dl->tail_sum+=ENTRY_SIZE;
-				if (dl->tail_sum%dl->my_size + ENTRY_SIZE > dl->my_size)
+				dl->tail_sum+=LOG_ENTRY_SIZE;
+				if (dl->tail_sum%dl->my_size + LOG_ENTRY_SIZE > dl->my_size)
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 				rv = 1;
 			}
@@ -2999,7 +3004,7 @@ namespace PH
 		if (dl->soft_adv_offset < dl->tail_sum) // jump if passed
 			dl->soft_adv_offset = dl->tail_sum;
 
-		while(dl->soft_adv_offset + ENTRY_SIZE + dl->my_size <= dl->head_sum + dl->soft_evict_space)//SOFT_EVICT_SPACE)
+		while(dl->soft_adv_offset + LOG_ENTRY_SIZE + dl->my_size <= dl->head_sum + dl->soft_evict_space)//SOFT_EVICT_SPACE)
 		{
 			addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
 			header.value = *(uint64_t*)addr;
@@ -3086,8 +3091,8 @@ namespace PH
 				}
 			}
 
-			dl->soft_adv_offset+=ENTRY_SIZE;
-			if ((dl->soft_adv_offset)%dl->my_size  + ENTRY_SIZE > dl->my_size)
+			dl->soft_adv_offset+=LOG_ENTRY_SIZE;
+			if ((dl->soft_adv_offset)%dl->my_size  + LOG_ENTRY_SIZE > dl->my_size)
 				dl->soft_adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
 			//		dl->check_turn(tail_sum,ble_len);
 

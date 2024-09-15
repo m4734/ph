@@ -5,10 +5,10 @@
 //#define KVP_VER
 #define ADDR_CACHE
 #define HOT_KEY_LIST
+#define WARM_CACHE
 
 namespace PH
 {
-
 	const size_t NODE_HEADER_SIZE = 16; //8 + 8
 	const size_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
 	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
@@ -23,8 +23,19 @@ namespace PH
 		//	size_t pool_num : 10;
 		//	size_t offset : 52;
 		uint32_t pool_num;
-		uint32_t node_offset; // need * NODE_SIZE
-	};
+		uint32_t node_offset;
+//		uint16_t pool_num;
+//		uint16_t node_offset; // need * NODE_SIZE
+		bool operator==(const NodeAddr &na)
+		{
+			return (pool_num == na.pool_num && node_offset == na.node_offset);
+		}
+		bool operator!=(const NodeAddr &na)
+		{
+			return (pool_num != na.pool_num || node_offset != na.node_offset);
+		}
+
+	}; // may 16
 
 	const NodeAddr emptyNodeAddr = (NodeAddr) {0,0};
 
@@ -73,14 +84,11 @@ namespace PH
 		}
 	};
 
-
-
 	struct DataNode
 	{
 		NodeAddr next_offset;
 		NodeAddr next_offset_in_group;
 		unsigned char buffer[NODE_BUFFER_SIZE];
-
 	};
 
 }

@@ -13,6 +13,8 @@ namespace PH
 
 #define USE_DRAM_CACHE
 
+struct NodeAddr;
+
 //#define LOG_SIZE_PER_PMEM (12*1024*1024*1024) // 128GB / 10% / threads
 //const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
 //const size_t DRAM_LIST_UNIT = 1024*1024;
@@ -92,6 +94,8 @@ class DoubleLog
 //	void insert_log(struct BaseLogEntry *baseLogEntry_p);
 	void insert_pmem_log(uint64_t key,unsigned char* value);
 	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value);
+	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value,NodeAddr* warm_cache);
+
 	void write_version(uint64_t version);
 
 //	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }
