@@ -36,6 +36,7 @@ const size_t header_size = sizeof(uint64_t);
 
 void init_log(int num_pmem,int num_log);
 void clean_log();
+void recover_log();
 
 class PH_Thread;
 
@@ -97,6 +98,8 @@ class DoubleLog
 	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value,NodeAddr* warm_cache);
 
 	void write_version(uint64_t version);
+
+	void recover();
 
 //	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }
 //	inline unsigned char* get_dram_head_p() { return dramLogAddr+head_offset; }

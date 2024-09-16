@@ -66,7 +66,7 @@ size_t NODE_SLOT_MAX;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
 //		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
-		pmem_persist(&pmem_node->next_offset,NODE_HEADER_SIZE);
+		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));//NODE_HEADER_SIZE);
 		_mm_sfence();
 //		nm->size = sizeof(NodeAddr);
 	}
@@ -118,6 +118,14 @@ size_t NODE_SLOT_MAX;
 		printf("node cnt %ld sum %ld size %lfGB\n",alloc_cnt.load(),sum,double(sum)*NODE_SIZE/1024/1024/1024);
 	}
 
+	void NodeAllocator::check_expand(NodeAddr nodeAddr)
+	{
+		while (nodeAddr.pool_num > pool_cnt)
+			alloc_pool();
+		if (nodeAddr.node_offset > node_cnt[nodeAddr.pool_num])
+			node_cnt[nodeAddr.pool_num] = nodeAddr.node_offset;
+	}
+
 	void NodeAllocator::alloc_pool()
 	{
 		if (pool_cnt + num_pmem > POOL_MAX)
@@ -144,6 +152,57 @@ size_t NODE_SLOT_MAX;
 		}
 		pool_cnt += num_pmem;
 	}
+#if 0
+	NodeAddr NodeAllocator::expand_node()
+	{
+		NodeMeta *nm;
+
+			size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+			if (node_cnt[pool_num] >= POOL_NODE_MAX)
+			{
+				alloc_pool();
+				pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+			}
+
+			nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
+			nm->my_offset.pool_num = pool_num;
+			nm->my_offset.node_offset = node_cnt[pool_num];
+			++node_cnt[pool_num];
+			++alloc_cnt;
+
+			nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+
+//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
+//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
+//		nm->written_size = 0;
+//		nm->slot_cnt = 0;
+		/*
+		int i;
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nm->valid[i] = false;
+			\*/
+//		nm->valid.resize(NODE_SLOT_MAX);
+		int i;
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nm->valid[i] = false;
+		nm->valid_cnt = 0; // init
+		nm->rw_lock = 0;
+
+		nm->group_cnt = 1;
+
+		nm->next_p = NULL;
+		nm->next_node_in_group = NULL;
+
+		//pmem memset
+//		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
+//		memset(dataNode,0,NODE_SIZE);
+//		pmem_persist(dataNode,NODE_SIZE);
+//		_mm_sfence();
+
+//		nm->test = 0; // test
+		return nm->my_offset;
+	}
+#endif
 
 	NodeAddr NodeAllocator::alloc_node()
 	{

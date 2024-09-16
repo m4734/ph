@@ -86,6 +86,9 @@ class PH_List
 	void insert_node(ListNode* prev,ListNode* node);
 	void delete_node(ListNode* node);
 
+	void recover();
+	void recover_init();
+
 };
 
 
@@ -176,6 +179,9 @@ class Skiplist
 	public:
 	void init(size_t size);
 	void clean();
+
+	void recover();
+	void recover_init(size_t size);
 
 	void setLimit(size_t size);
 	

@@ -30,6 +30,15 @@ extern thread_local PH_Thread* my_thread;
 
 //#define INTERLEAVE
 
+void recover_log()
+{
+	int i;
+	for (i=0;i<log_max;i++)
+	{
+		doubleLogList[i].recover();
+	}
+}
+
 void init_log(int num_pmem, int num_log)
 {
 
@@ -235,6 +244,21 @@ void DoubleLog::init(char* filePath, size_t req_size,size_t hes,size_t ses)
 	soft_evict_space = ses;
 
 	block_cnt = 0;
+}
+
+void DoubleLog::recover() // should be last...
+{
+	memcpy(dramLogAddr,pmemLogAddr,my_size);
+
+	size_t offset;
+	while(offset < my_size)
+	{
+//do 
+		offset += LOG_ENTRY_SIZE;
+	}
+
+	head_sum = my_size-(my_size%LOG_ENTRY_SIZE);
+	tail_sum = 0;
 }
 
 void DoubleLog::clean()

@@ -47,6 +47,11 @@ int num_evict_thread;
 extern int log_max;
 
 	std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
+	inline void recover_counter(uint64_t key,uint64_t value) // single thread
+	{
+		if (global_seq_num[key%COUNTER_MAX] < value)
+			global_seq_num[key%COUNTER_MAX] = value;
+	}
 
 	//check
 	std::atomic<uint64_t> warm_to_warm_sum;
@@ -154,7 +159,7 @@ void PH_Interface::clean_evict_thread()
 	my_thread = NULL;
 }
 
-void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
+void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int recover)
 {
 	printf("global init VS %lu thread %d pmem %d evict %d\n",VS,n_t,n_p,n_e);
 
@@ -196,10 +201,25 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e)
 // alloc 2 skiplist start
 // alloc 3 skiplist end
 	list = new PH_List;
-	list->init();
+	if (recover)
+		list->recover_init();
+	else
+		list->init();
 	skiplist = new Skiplist;
-	skiplist->init(TOTAL_DATA_SIZE/1); // test
+	if (recover)
+		skiplist->recover_init(TOTAL_DATA_SIZE);
+	else
+		skiplist->init(TOTAL_DATA_SIZE/1); // test
 //	skiplist->init(TOTAL_DATA_SIZE/10); // warm 1/10...
+
+	if (recover)
+	{
+		printf("recover\n");
+		list->recover();
+		skiplist->recover();
+		recover_log();
+		printf("recover end\n");
+	}
 
 	//check
 	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;

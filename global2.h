@@ -34,6 +34,8 @@ namespace PH
 
 	void debug_error(const char* msg);
 
+	inline void recover_counter(uint64_t key,uint64_t value);
+
 	class PH_Interface
 	{
 
@@ -62,7 +64,7 @@ namespace PH
 			//void *run_evict(void* p);
 
 		public:
-			void global_init(size_t VS,size_t KR,int num_thread,int num_pmem,int num_evict);
+			void global_init(size_t VS,size_t KR,int num_thread,int num_pmem,int num_evict, int recover);
 			void global_clean();
 
 			//--------------------------------------------------------------

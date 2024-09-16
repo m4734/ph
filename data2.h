@@ -262,6 +262,8 @@ class NodeAllocator
 	NodeAddr alloc_node();
 	void free_node(NodeMeta* nm);
 
+	void check_expand(NodeAddr nodeAddr);
+
 //	private:
 	public:
 

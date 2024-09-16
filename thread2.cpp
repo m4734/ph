@@ -613,7 +613,7 @@ namespace PH
 
 		//		new_nodeMeta1[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
 		new_nodeMeta2[0]->next_p = old_nodeMeta[0]->next_p;
-		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->my_offset;
+		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->next_addr;
 		new_nodeMeta1[0]->next_p = new_nodeMeta2[0];
 		new_nodeMeta1[0]->next_addr = new_nodeMeta2[0]->my_offset;
 
@@ -765,6 +765,26 @@ namespace PH
 		listNode->next = new_listNode;
 
 		_mm_sfence();
+#if 0
+		ListNode* prev;
+		while(1)
+		{
+			prev = listNode->prev;
+			at_lock2(prev->lock);
+			if (prev->next != listNode)
+			{
+				at_unlock2(prev->lock);
+				continue;
+			}
+			break;
+		}
+
+		NodeMeta* prev_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(prev->data_node_addr);
+		nodeAllocator->linkNext(prev_nodeMeta,new_nodeMeta1[0]);
+
+		at_unlock2(prev->lock);
+		_mm_sfence();
+#endif
 #if 0
 		// listNode is never deleted just split
 		SkiplistNode* next_skiplistNode;
@@ -2617,6 +2637,15 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		if (old_skipListNode->half_listNode == NULL)
 			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
 		half_key = old_skipListNode->half_listNode->key; // need skiplist node lock to access half listNode
+	
+		uint64_t test_hk = half_key;
+		uint64_t test_osn = old_skipListNode->key;
+
+		ListNode* test_listNode = old_skipListNode->my_listNode;
+		NodeMeta* test_nm1 = (nodeAllocator->nodeAddr_to_nodeMeta(test_listNode->data_node_addr));
+		NodeMeta tnm1;
+		memcpy(&tnm1,test_nm1,sizeof(NodeMeta));
+#if 0 // fix this bug fd
 		if (old_skipListNode->key >= half_key)
 		{
 			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
@@ -2636,7 +2665,22 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		{
 			debug_error("half error\n");
 		}
-
+#else
+		while (old_skipListNode->key >= half_key)
+		{
+			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
+			/*
+			   uint64_t half1,half2; // overflow
+			   half1 = (old_skipListNode->key)/2; // approx
+			   half2 = (skiplist->sa_to_node(old_skipListNode->next[0])->key)/2; // approx
+			   half_key = half1 + half2;
+			   if (half_key <= old_skipListNode->key)
+			   debug_error("half error\n");
+			 */
+			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
+			half_key = old_skipListNode->half_listNode->key; 
+		}
+#endif
 
 		child1_sl_node = skiplist->allocate_node();
 		child2_sl_node = skiplist->allocate_node();
@@ -2686,7 +2730,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		nodeAllocator->linkNext(child1_meta,child2_meta);
 		//		nodeAllocator->linkNext(child2_meta,skiplist->sa_to_node(old_skipListNode->next[0]));
-		nodeAllocator->linkNext(child1_meta,next_meta);
+		nodeAllocator->linkNext(child2_meta,next_meta);
 
 		_mm_sfence();
 
