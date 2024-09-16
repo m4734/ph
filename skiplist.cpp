@@ -366,6 +366,45 @@ return node;
 return node_pool_list[sa.pool_num][sa.offset];
 }
 	 */
+
+SkiplistNode* Skiplist::find_next_node(SkiplistNode* start_node) // what if max
+{
+	SkiplistNode* node;// = start_node;
+	SkiplistNode* next_node;
+	node = start_node;
+	int j;
+	SkipAddr sa;
+	uint64_t v;
+		while(true)
+		{
+			sa.value = node->next[0].value.load();
+			//			next_node = sa_to_node(sa);
+			next_node = &node_pool_list[sa.pool_num][sa.offset];
+			if (next_node->ver != sa.ver)
+			{
+				if (next_node->ver == 0)
+				{
+					v = sa.value;
+					if (node->next[0].value.compare_exchange_strong(v,next_node->next[0].value.load()))
+					{
+						next_node->dst_cnt--; // passed cas
+						if (next_node->dst_cnt == 0)
+						{
+							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
+								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
+							free_sl_node(next_node);
+						}
+					}
+				}
+				continue;
+			}
+			break;
+		}
+	return next_node;
+}
+
+
+
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // what if max
 {
 	SkiplistNode* node;// = start_node;

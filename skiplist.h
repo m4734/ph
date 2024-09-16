@@ -186,7 +186,8 @@ class Skiplist
 //	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock);
 //	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock,KVP &kvp);
 	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,NodeAddr &warm_cache);
-	
+	SkiplistNode* find_next_node(SkiplistNode* start_node); // what if max
+
 
 	bool delete_node_with_fail(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
 	void delete_node(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);

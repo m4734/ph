@@ -106,6 +106,7 @@ class PH_Thread
 class Scan_Result // signle thread
 {
 	public:
+#if 1
 	std::vector<DataNode*> listNode_dataNodeList; 
 	std::vector<DataNode*> skiplistNode_dataNodeList; 
 	std::vector<int> listNode_group_cnt;
@@ -113,6 +114,16 @@ class Scan_Result // signle thread
 
 	std::vector<unsigned char*> key_list_list;
 	std::vector<int> key_list_cnt;
+#else
+	std::vector<unsigned char*> listNode_entryList; 
+	std::vector<unsigned char*> skiplistNode_entryList; 
+	std::vector<int> listNode_entry_cnt;
+	std::vector<int> skiplistNode_entry_cnt;
+
+	std::vector<unsigned char*> key_list_list;
+	std::vector<int> key_list_cnt;
+
+#endif
 
 	void reserve_list(int size);
 	void reserve_skiplist(int size);

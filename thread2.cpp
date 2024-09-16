@@ -1663,7 +1663,7 @@ namespace PH
 				//				return 0;
 			}
 			//			hash_index->unlock_entry2(seg_lock,read_lock);
-			if (ex) // violation!! // no entry lock
+			if (ex) //  no entry lock
 				invalidate_entry(old_ea);
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1885,14 +1885,14 @@ namespace PH
 				else
 					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//		at_unlock2(nm->lock);
-
+#ifdef KEY_CHECK
 				uint64_t test_key;
 
 				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 
 				if (test_key != key)
 					debug_error("key test failed\n");
-
+#endif
 				_mm_sfence();
 
 #if 0
@@ -2008,12 +2008,15 @@ namespace PH
 		int i;
 		int key_list_index;
 		unsigned char* addr;
+		std::atomic<uint8_t> *seg_lock;
+		
 
 		while(scan_count < length && skiplistNode != skiplist->end_node)
 		{
 			while(1)
 			{
-				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+//				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+				next_skiplistNode = skiplist->find_next_node(skiplistNode);
 				next_key = next_skiplistNode->key;
 
 				_mm_sfence();
@@ -2042,6 +2045,7 @@ namespace PH
 						{
 #if 1
 							debug_error("scan exception"); // inserted during scan
+							KVP* kvp_p = hash_index->insert(skiplistNode->key_list[i],&seg_lock,read_lock);
 #endif
 							ex = 0;
 							break;
@@ -2104,7 +2108,8 @@ namespace PH
 
 			while(1) // may need delete lock
 			{
-				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+//				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+				next_skiplistNode = skiplist->find_next_node(skiplistNode);
 
 				if (try_at_lock2(next_skiplistNode->lock) == false)
 					continue;
@@ -2117,6 +2122,13 @@ namespace PH
 			}
 
 			at_unlock2(skiplistNode->lock);
+
+#if 0
+			if (skiplist_cnt == 1)
+			{
+			}
+#endif
+
 			skiplistNode = next_skiplistNode;
 		}
 		at_unlock2(skiplistNode->lock);
