@@ -310,9 +310,9 @@ namespace PH
 		soft_htw_cnt = hard_htw_cnt=0;
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
-
+#ifdef SCAN_TIME
 		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = t25_sum = 0;
-
+#endif
 		seed_for_dtc = thread_id;
 		//		printf("sfd %u\n",seed_for_dtc);
 	}
@@ -360,8 +360,9 @@ namespace PH
 		wtc_cnt_sum+=wtc_cnt;
 
 		dtc_time_sum+=dtc_time;
-
+#ifdef SCAN_TIME
 		printf("%lu %lu %lu %lu %lu %lu\n",main_time_sum,first_time_sum,second_time_sum,t25_sum,third_time_sum,etc_time_sum);
+#endif
 	}	
 
 	/*
@@ -1974,7 +1975,6 @@ void Scan_Result::resize(uint64_t length)
 	result = new unsigned char[ENTRY_SIZE*length];
 	resultSize = length;
 }
-#define SCAN_TIME
 
 	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
@@ -2046,7 +2046,7 @@ _mm_sfence();
 //		DataNode dram_dataNode;
 
 		size_t offset;
-#if SCAN_SORT
+#ifdef SCAN_SORT
 		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> skiplist_key_list;
 		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> list_key_list;
 #else
@@ -2402,8 +2402,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		hard_htw_cnt = soft_htw_cnt=0;
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
-
+#ifdef SCAN_TIME
 		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = 0;
+#endif
 	}
 
 	void PH_Evict_Thread::clean()

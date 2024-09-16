@@ -86,14 +86,14 @@ class PH_Thread
 
 	uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
 	uint64_t dtc_time;
-
+#ifdef SCAN_TIME
 	size_t main_time_sum;
 	size_t first_time_sum;
 	size_t second_time_sum;
 	size_t third_time_sum;
 	size_t t25_sum;
 	size_t etc_time_sum;
-
+#endif
 	void reset_test();
 
 	protected:
