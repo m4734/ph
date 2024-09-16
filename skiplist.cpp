@@ -225,6 +225,10 @@ void Skiplist::clean()
 #ifdef STAT
 	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 #endif
+#ifdef WARM_STAT
+	printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
+#endif
+
 
 	int i,j;
 	for (i=0;i<=node_pool_list_cnt;i++)
@@ -383,7 +387,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock) // what if max
 {
-#ifdef ADDR_CACHE
+#ifdef WARM_CACHE
 
 #else
 	return find_node(key,prev,next);
@@ -502,17 +506,17 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 		next_node = sa_to_node(next_sa);
 		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
 		{
-#ifdef STAT
+#ifdef WARM_STAT
 			addr2_hit++;
 #endif
 			return node;
 		}
-#ifdef STAT
+#ifdef WARM_STAT
 		else
 			addr2_miss++;
 #endif
 	}
-#ifdef STAT
+#ifdef WARM_STAT
 	else
 		addr2_no++;
 #endif
@@ -658,20 +662,28 @@ void PH_List::init()
 
 	node_alloc_lock = 0;
 
+	NodeMeta* dataNodeMeta;
+
 	empty_node = alloc_list_node();
 	empty_node->key = KEY_MIN;
 	empty_node->data_node_addr = nodeAllocator->alloc_node();
 	empty_node->block_cnt=1;
+	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	dataNodeMeta->list_addr = empty_node->myAddr;
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
 	start_node->data_node_addr = nodeAllocator->alloc_node();
 	start_node->block_cnt=1;
+	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
 	end_node->block_cnt=1;
+	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
+	dataNodeMeta->list_addr = end_node->myAddr;
 
 //	List_Node* node = alloc_list_node();
 	empty_node->next = start_node;
@@ -763,6 +775,7 @@ ListNode* PH_List::alloc_list_node()
 	node->block_cnt = 0;
 	node->next = NULL;
 	node->prev = NULL;
+	node->warm_cache = emptyNodeAddr;
 //	node->data_node_addr = nodeAllocator->alloc_node();
 
 	_mm_sfence();

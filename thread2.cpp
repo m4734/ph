@@ -1082,6 +1082,28 @@ namespace PH
 		//2-1-3 deadlock
 	}
 
+	NodeAddr get_warm_cache(EntryAddr ea)
+	{
+		NodeAddr wc;
+		if (ea.loc == HOT_LOG)
+		{
+			wc = *(NodeAddr*)(doubleLogList[ea.file_num].dramLogAddr + ea.offset + ENTRY_HEADER_SIZE + KEY_SIZE + VALUE_SIZE0);
+		}
+		else if (ea.loc == WARM_LIST)
+		{
+			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			wc = nm->list_addr;
+		}
+		else
+		{
+			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.pool_num][nm->list_addr.node_offset];
+			wc = listNode->warm_cache;
+		}
+
+		return wc;
+	}
+
 	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
 	{
 		//		printf("not now\n");
@@ -1116,9 +1138,18 @@ namespace PH
 				skiplist_node = skiplist_from_warm;
 			else
 			{
+#ifdef WARM_CACHE
 				if (new_update) // use kvp
-					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+				{
+//					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+					EntryAddr old_ea;
+					old_ea.value = kvp.value;
+					NodeAddr warm_cache = get_warm_cache(old_ea);
+					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+
+				}
 				else // from evict can't use kvp
+#endif
 					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
 				if (try_at_lock2(skiplist_node->lock) == false)
 					continue;
@@ -1283,7 +1314,6 @@ namespace PH
 		skiplistNode->list_tail = dst+1;
 
 	}
-
 
 #define INDEX
 
@@ -1483,9 +1513,18 @@ namespace PH
 				SkiplistNode* next_node;
 				while(true)
 				{
+#ifdef WARM_CACHE
 					if (ex)
-						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+					{
+						
+						warm_cache = get_warm_cache(old_ea);
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+						
+//						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
+
+					}
 					else
+#endif
 						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
 					if (try_at_lock2(node->lock) == false)
 						continue;
@@ -1582,6 +1621,11 @@ namespace PH
 #ifdef USE_DRAM_CACHE
 			//	new_addr = dram_head_p;
 #ifdef WARM_CACHE
+			if (ex)
+				warm_cache = get_warm_cache(old_ea);
+			else
+				warm_cache = emptyNodeAddr;
+
 			dst_log->insert_dram_log(new_version.value,key,value,&warm_cache);
 #else
 			dst_log->insert_dram_log(new_version.value,key,value);
@@ -2881,6 +2925,8 @@ namespace PH
 		EntryAddr old_ea;
 		std::atomic<uint8_t>* seg_lock;
 
+		NodeAddr warm_cache;
+
 		//check
 		//	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
 		//	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
@@ -2929,9 +2975,11 @@ namespace PH
 			}
 			else
 			{
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+VALUE_SIZE0);
+
 				SkiplistNode* node;
-#ifdef ADDR2
-				node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
+#ifdef WARM_CACHE
+				node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
 #else
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
@@ -3000,6 +3048,7 @@ namespace PH
 		SkiplistNode* node;
 		NodeMeta* nodeMeta;
 		LogLoc ll;
+		NodeAddr warm_cache;
 
 		//	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
 		//		return rv;
@@ -3020,11 +3069,12 @@ namespace PH
 			if (is_valid(header))// && header.prev_loc != 3)// && is_checked(header) == false)
 			{
 				rv = 1;
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+VALUE_SIZE0);
 				// regist the log num and size_t
 				while(true) // the log allocated to this evict thread
 				{
-#ifdef ADDR2
-					node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
+#ifdef WARM_CACHE 
+					node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
 #else
 					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif

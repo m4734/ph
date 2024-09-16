@@ -1,9 +1,8 @@
 #pragma once
 
-//#define STAT
+#define WARM_STAT
 //#define NO_READ // bad effect
 //#define KVP_VER
-#define ADDR_CACHE
 #define HOT_KEY_LIST
 #define WARM_CACHE
 

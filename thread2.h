@@ -38,6 +38,7 @@ class PH_Thread
 	int may_split_warm_node(SkiplistNode* node);
 	void flush_warm_node(SkiplistNode* node);
 	void try_cold_split(ListNode* listNode,NodeMeta* list_nodeMeta,SkiplistNode* node);
+//	NodeAddr get_warm_cache(EntryAddr ea);
 
 	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 
