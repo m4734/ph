@@ -87,6 +87,13 @@ class PH_Thread
 	uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
 	uint64_t dtc_time;
 
+	size_t main_time_sum;
+	size_t first_time_sum;
+	size_t second_time_sum;
+	size_t third_time_sum;
+	size_t t25_sum;
+	size_t etc_time_sum;
+
 	void reset_test();
 
 	protected:
@@ -106,6 +113,7 @@ class PH_Thread
 class Scan_Result // signle thread
 {
 	public:
+	Scan_Result() : result(NULL) {}
 #if 0
 	std::vector<DataNode*> listNode_dataNodeList; 
 	std::vector<DataNode*> skiplistNode_dataNodeList; 
@@ -128,15 +136,21 @@ class Scan_Result // signle thread
 	std::vector<unsigned char*> key_list_list;
 	std::vector<int> key_list_cnt;
 */
-	std::vector<unsigned char*> result;
+	void resize(uint64_t length);
+//	std::vector<unsigned char*> result;
+	unsigned char* result;
+	void insert(unsigned char* p);
 
 #endif
-/*
-	void reserve_list(int size);
-	void reserve_skiplist(int size);
 
+//	void reserve_list(int size);
+//	void reserve_skiplist(int size);
+	void empty();
 	void clean();
-	*/
+
+	private:
+	int resultSize;
+	int resultCnt;
 };
 
 class PH_Query_Thread : public PH_Thread

@@ -311,6 +311,8 @@ namespace PH
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
+		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = t25_sum = 0;
+
 		seed_for_dtc = thread_id;
 		//		printf("sfd %u\n",seed_for_dtc);
 	}
@@ -358,6 +360,8 @@ namespace PH
 		wtc_cnt_sum+=wtc_cnt;
 
 		dtc_time_sum+=dtc_time;
+
+		printf("%lu %lu %lu %lu %lu %lu\n",main_time_sum,first_time_sum,second_time_sum,t25_sum,third_time_sum,etc_time_sum);
 	}	
 
 	/*
@@ -1945,20 +1949,46 @@ namespace PH
 			key_list_list.push_back(new unsigned char[WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT * ENTRY_SIZE]);
 		}
 	}
+	*/
 	void Scan_Result::clean()
 	{
-		int i;
-		for (i=0;i<listNode_dataNodeList.size();i++)
-			delete listNode_dataNodeList[i];
-		for (i=0;i<skiplistNode_dataNodeList.size();i++)
-			delete skiplistNode_dataNodeList[i];
-
+		delete result;
 	}
-*/
+	void Scan_Result::insert(unsigned char* p)
+	{
+		if (resultCnt >= resultSize)
+			return;
+		memcpy(result+resultCnt*ENTRY_SIZE,p,ENTRY_SIZE);
+		resultCnt++;
+	}
+	void Scan_Result::empty()
+	{
+		resultCnt = 0;
+	}
+
+void Scan_Result::resize(uint64_t length)
+{
+	if (resultSize >= length)
+		return;
+	delete result;
+	result = new unsigned char[ENTRY_SIZE*length];
+	resultSize = length;
+}
+#define SCAN_TIME
+
 	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
 		//	update_free_cnt();
 		op_check();
+
+#ifdef SCAN_TIME
+struct timespec ts1,ts2;
+struct timespec ts3,ts4;
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts1);
+_mm_sfence();
+
+#endif
 
 		volatile uint8_t *seg_depth_p;
 		uint8_t seg_depth;
@@ -1976,11 +2006,11 @@ namespace PH
 		uint64_t next_key;
 		uint64_t scan_count=0;
 
-		int skiplist_cnt=0;
-		int list_cnt=0;
 		int group_idx;
+		int size;
 
-		scan_result.result.resize(length);
+		scan_result.resize(length);
+		scan_result.empty();
 
 		while(1) // find first
 		{
@@ -2011,14 +2041,27 @@ namespace PH
 //		int key_list_index;
 		unsigned char* addr;
 		std::atomic<uint8_t> *seg_lock;
-		uint64_t key;
+		uint64_t key,key1,key2;
 
 //		DataNode dram_dataNode;
 
 		size_t offset;
+#if SCAN_SORT
 		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> skiplist_key_list;
 		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> list_key_list;
+#else
+		std::queue<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
+		std::queue<std::pair<uint64_t,unsigned char*>> list_key_list;
 
+#endif
+
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts2);
+etc_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+clock_gettime(CLOCK_MONOTONIC,&ts1);
+_mm_sfence();
+#endif
 
 		while(scan_count < length && skiplistNode != skiplist->end_node)
 		{
@@ -2037,7 +2080,7 @@ namespace PH
 			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplistNode->data_node_addr[0]);
 			group_idx = 0;
 
-			skiplist_cnt++;
+//			skiplist_cnt++;
 //			scan_result.reserve_skiplist(skiplist_cnt);
 
 			// hot key copy
@@ -2045,6 +2088,11 @@ namespace PH
 				debug_error("list not empty\n");
 
 //			key_list_index = 0;
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts3);
+_mm_sfence();
+#endif
 			for (i=0;i<skiplistNode->key_list_size;i++)
 			{
 				key = skiplistNode->key_list[i];
@@ -2080,6 +2128,14 @@ namespace PH
 			}
 //			scan_count+=key_list_index;
 
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts4);
+first_time_sum+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+clock_gettime(CLOCK_MONOTONIC,&ts3);
+_mm_sfence();
+#endif
+
 			while(nodeMeta) // skiplist node group copy
 			{
 				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
@@ -2097,17 +2153,18 @@ namespace PH
 				{
 					addr = (unsigned char*)&sorted_buffer1[group_idx] + WARM_BATCH_MAX_SIZE*i + NODE_HEADER_SIZE;
 					offset = 0;
-					j = 0;
-					while(offset+ENTRY_SIZE <= WARM_BATCH_MAX_SIZE)
+//					j = 0;
+					for (j=0;j<WARM_BATCH_ENTRY_CNT;j++)
+//					while(offset+ENTRY_SIZE <= WARM_BATCH_MAX_SIZE)
 					{
 						if (nodeMeta->valid[j])
 						{
 							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
-							if (key > start_key)
+							if (key >= start_key)
 								skiplist_key_list.push(std::make_pair(key,addr+offset));
 						}
 						offset+=ENTRY_SIZE;
-						j++;
+//						j++;
 					}
 				}
 //				scan_count+=nodeMeta->valid_cnt;
@@ -2115,6 +2172,13 @@ namespace PH
 				group_idx++;
 			}
 			scan_count+=skiplist_key_list.size();
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts4);
+second_time_sum+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+clock_gettime(CLOCK_MONOTONIC,&ts3);
+_mm_sfence();
+#endif
 
 
 			// list
@@ -2124,12 +2188,12 @@ namespace PH
 			while (listNode->next->key < start_key)
 				listNode = listNode->next;
 
-			while (listNode->key < next_key) // scan skiplist
+			while (listNode->key < next_key && scan_count < length) // scan skiplist
 			{
 				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 				group_idx = 0;
 
-				list_cnt++;
+//				list_cnt++;
 //				scan_result.reserve_list(list_cnt);
 				while(nodeMeta) // scan listnode
 				{
@@ -2148,7 +2212,7 @@ namespace PH
 						if (nodeMeta->valid[i])
 						{
 							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
-							if (key > start_key)
+							if (key >= start_key)
 								list_key_list.push(std::make_pair(key,addr+offset));
 						}
 						offset+=ENTRY_SIZE;
@@ -2162,9 +2226,79 @@ namespace PH
 					nodeMeta = nodeMeta->next_node_in_group;
 					group_idx++;
 				}
+
+				scan_count+=list_key_list.size();
+
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts4);
+t25_sum+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+clock_gettime(CLOCK_MONOTONIC,&ts3);
+_mm_sfence();
+#endif
+
+				//pop
+#ifdef SCAN_SORT
+				if (skiplist_key_list.size() && list_key_list.size())
+				{
+					key1 = skiplist_key_list.top().first;
+					key2 = list_key_list.top().first;
+					while (1)
+					{
+					if (key1 < key2)
+					{
+						scan_result.insert(skiplist_key_list.top().second);
+						skiplist_key_list.pop();
+						if (skiplist_key_list.size() == 0)
+							break;
+						key1 = skiplist_key_list.top().first;
+					}
+					else
+					{
+						scan_result.insert(list_key_list.top().second);
+						list_key_list.pop();
+						if (list_key_list.size() == 0)
+							break;
+						key2 = list_key_list.top().first;
+					}
+					}
+				}
+				size = list_key_list.size();
+				for (i=0;i<size;i++)
+				{
+					scan_result.insert(list_key_list.top().second);
+					list_key_list.pop();
+				}
+#else
+				size = list_key_list.size();
+				for (i=0;i<size;i++)
+				{
+					scan_result.insert(list_key_list.front().second);
+					list_key_list.pop();
+				}
+#endif
+
+#ifdef SCAN_TIME
+_mm_sfence();
+clock_gettime(CLOCK_MONOTONIC,&ts4);
+third_time_sum+=(ts4.tv_sec-ts3.tv_sec)*1000000000+ts4.tv_nsec-ts3.tv_nsec;
+clock_gettime(CLOCK_MONOTONIC,&ts3);
+_mm_sfence();
+#endif
+
 				listNode = listNode->next;
 			}
-			scan_count+=list_key_list.size();
+			size = skiplist_key_list.size();
+			for (i=0;i<size;i++)
+			{
+#ifdef SCAN_SORT
+				scan_result.insert(skiplist_key_list.top().second);
+				skiplist_key_list.pop();
+#else
+				scan_result.insert(skiplist_key_list.front().second);
+				skiplist_key_list.pop();
+#endif
+			}
 
 			while(1) // may need delete lock
 			{
@@ -2192,6 +2326,12 @@ namespace PH
 			skiplistNode = next_skiplistNode;
 		}
 		at_unlock2(skiplistNode->lock);
+
+#ifdef SCAN_TIME
+_mm_mfence();
+clock_gettime(CLOCK_MONOTONIC,&ts2);
+main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+#endif
 
 		return scan_count;
 	}
@@ -2263,6 +2403,7 @@ namespace PH
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
+		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = 0;
 	}
 
 	void PH_Evict_Thread::clean()
