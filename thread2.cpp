@@ -1107,7 +1107,7 @@ namespace PH
 	}
 
 	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
-	{
+	{ // ALWAYS NEW
 		//		printf("not now\n");
 		//NO UNLOCK IN HERE!
 
@@ -1192,6 +1192,7 @@ namespace PH
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock); //index lock before write
 			if (new_update == 0 && kvp.value != kvp_p->value) // changed before move
 			{
+				printf("impossible old\n");
 				kvp.value = kvp_p->value; // return recent kvp
 				new_ea.value = 0;
 				hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1205,13 +1206,14 @@ namespace PH
 				dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 				return new_ea;
 			}
-			kvp = *kvp_p; // return old kvp
 
 			new_ea = insert_entry_to_slot(list_nodeMeta,entry);
 
 
 			if (new_ea.value != 0) // good
 			{
+
+			kvp = *kvp_p; // return old kvp
 				//				uint64_t new_version = kvp_p->version+1;
 				EntryAddr old_ea;
 				old_ea.value = kvp_p->value;
@@ -1246,11 +1248,20 @@ namespace PH
 
 				at_unlock2(list_nodeMeta->rw_lock);
 				at_unlock2(list_node->lock);
+
+#ifdef HOT_KEY_LIST // impossible?
+				if (old_ea.loc == HOT_LOG)
+				{
+//					printf("impossible\n"); // probability
+//					debug_error("imposs\n");
+					skiplist_node->remove_key_from_list(key);
+				}
+#endif
 				if (skiplist_from_warm == NULL)
 					at_unlock2(skiplist_node->lock);
 
 				//check
-				//				direct_to_cold_cnt++;
+//				direct_to_cold_cnt++;
 
 				break;
 			}
@@ -1404,18 +1415,7 @@ namespace PH
 		volatile uint8_t *seg_depth_p;
 		uint8_t seg_depth;
 		int ex;
-#ifdef NO_READ
-		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-		kvp = *kvp_p;
-		if (kvp.key == key)
-			ex = 1;
-		else
-			ex = 0;
-		hash_index->unlock_entry2(seg_lock,read_lock);
-#else
 		ex = hash_index->read(key,&kvp,&kvp_p,seg_depth,seg_depth_p);
-#endif
-
 
 		//		uint64_t old_version,new_version;
 		EntryHeader new_version;
@@ -1435,7 +1435,8 @@ namespace PH
 		}
 		else
 		{
-			old_ea.value = kvp_p->value;
+//			old_ea.value = kvp_p->value;
+			old_ea.value = kvp.value;
 			//			old_version = kvp_p->version;
 			/*
 			   new_version = old_version+1;
@@ -1474,6 +1475,7 @@ namespace PH
 			dst_loc = COLD_LIST;
 			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			//			kvp.value = 0;
+			KVP test_kvp = kvp;
 			new_ea = direct_to_cold(key,value,kvp,seg_lock,NULL,true); // kvp becomes old one
 			old_ea.value = kvp.value;
 
@@ -2846,7 +2848,7 @@ namespace PH
 		//------------------------------------------------------------- calc cnt and make space
 
 		unsigned char* dst_node;
-		int i,j;
+		int i;
 		unsigned char* addr;
 		EntryHeader* header;
 		DoubleLog* dl;
@@ -3019,24 +3021,7 @@ namespace PH
 					_mm_sfence();
 					set_invalid(header); // invalidate
 #ifdef HOT_KEY_LIST	
-					//remove the key from key list	
-					uint64_t temp1,temp2=0;	
-					for (j=node->key_list_size-1;j>=0;j--)
-					{
-						if (node->key_list[j] == key)
-						{
-							node->key_list[j] = temp2;
-							break;
-						}
-						temp1 = node->key_list[j];
-						node->key_list[j] = temp2;
-						temp2 = temp1;
-					}
-
-					if (j < 0)
-						debug_error("key is not found\n");
-
-					node->key_list_size--;
+					node->remove_key_from_list(key);
 #endif
 				}
 #if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
