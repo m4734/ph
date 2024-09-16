@@ -340,15 +340,16 @@ int PH_Interface::delete_op(uint64_t key)
 		new_query_thread();
 	return my_query_thread->delete_op(key);
 }
-int PH_Interface::scan_op(uint64_t start_key,uint64_t end_key)
+//int PH_Interface::scan_op(uint64_t start_key,uint64_t end_key)
+int PH_Interface::scan_op(uint64_t start_key,uint64_t length)
 {
-		if (my_query_thread == NULL)
+	if (my_query_thread == NULL)
 		new_query_thread();
-	return my_query_thread->scan_op(start_key,end_key);
+	return my_query_thread->scan_op(start_key,length);
 }
 int PH_Interface::next_op(unsigned char* buf)
 {
-		if (my_query_thread == NULL)
+	if (my_query_thread == NULL)
 		new_query_thread();
 	return my_query_thread->next_op(buf);
 }

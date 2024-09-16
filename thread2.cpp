@@ -327,7 +327,6 @@ namespace PH
 
 		//		hash_index->thread_local_clean();
 		//		free(temp_seg);
-		hash_index->remove_ts(temp_seg);
 		run = 0;
 		read_lock = 0;
 
@@ -336,6 +335,9 @@ namespace PH
 		query_thread_list[thread_id].exit = 0;
 
 		//	delete recent_log_tails;
+
+		hash_index->remove_ts(temp_seg);
+		scan_result.clean();
 
 		//check
 		warm_to_warm_sum+=warm_to_warm_cnt;
@@ -1905,12 +1907,189 @@ namespace PH
 
 		return 0;
 	}
-	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t end_key)
+
+	void Scan_Result::reserve_list(int size)
+	{
+		listNode_dataNodeList.reserve(size);
+		listNode_group_cnt.resize(size);
+		while (size > listNode_dataNodeList.size())
+			listNode_dataNodeList.push_back(new DataNode[MAX_NODE_GROUP]);
+	}
+
+	void Scan_Result::reserve_skiplist(int size)
+	{
+		skiplistNode_dataNodeList.reserve(size);
+		skiplistNode_group_cnt.resize(size);
+		key_list_cnt.resize(size);
+		while (size > skiplistNode_dataNodeList.size()) // what if ...
+		{
+			skiplistNode_dataNodeList.push_back(new DataNode[WARM_MAX_NODE_GROUP]);
+			key_list_list.push_back(new unsigned char[WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT * ENTRY_SIZE]);
+		}
+	}
+	void Scan_Result::clean()
+	{
+		int i;
+		for (i=0;i<listNode_dataNodeList.size();i++)
+			delete listNode_dataNodeList[i];
+		for (i=0;i<skiplistNode_dataNodeList.size();i++)
+			delete skiplistNode_dataNodeList[i];
+
+	}
+
+	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
 		//	update_free_cnt();
 		op_check();
 
-		return 0;
+		volatile uint8_t *seg_depth_p;
+		uint8_t seg_depth;
+		KVP* kvp_p;
+		KVP kvp;
+		int ex;
+		NodeAddr warm_cache;
+		EntryAddr ea;
+		SkiplistNode* skiplistNode;
+		SkiplistNode* next_skiplistNode;
+		ListNode* listNode;
+		NodeMeta* nodeMeta;
+		DataNode* dataNode;
+
+		uint64_t next_key;
+		uint64_t scan_count=0;
+
+		int skiplist_cnt=0;
+		int list_cnt=0;
+		int group_idx;
+
+		while(1) // find first
+		{
+			ex = hash_index->read(start_key,&kvp,&kvp_p,seg_depth,seg_depth_p);
+#ifdef WARM_CACHE
+			if (ex)
+			{
+				ea.value = kvp.value;
+				warm_cache = get_warm_cache(ea);
+			}
+			else
+#endif
+				warm_cache = emptyNodeAddr;
+
+			skiplistNode = skiplist->find_node(start_key,prev_sa_list,next_sa_list,warm_cache);
+			if (try_at_lock2(skiplistNode->lock) == false)
+				continue;
+			if (start_key < skiplistNode->key)
+			{
+				at_unlock2(skiplistNode->lock);
+				continue;
+			}
+
+		}
+		// locked 
+
+		int i;
+		int key_list_index;
+		unsigned char* addr;
+
+		while(scan_count < length && skiplistNode != skiplist->end_node)
+		{
+			while(1)
+			{
+				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+				next_key = next_skiplistNode->key;
+
+				_mm_sfence();
+				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+					continue;
+				break;
+			}
+
+			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplistNode->data_node_addr[0]);
+			group_idx = 0;
+
+			skiplist_cnt++;
+			scan_result.reserve_skiplist(skiplist_cnt);
+
+			// hot key copy
+			key_list_index = 0;
+			for (i=0;i<skiplistNode->key_list_size;i++)
+			{
+				while(true)
+				{
+					ex = hash_index->read(skiplistNode->key_list[i],&kvp,&kvp_p,seg_depth,seg_depth_p);
+					if (ex)
+					{
+						ea.value = kvp.value;
+						addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
+						if (seg_depth_p != NULL && seg_depth != *seg_depth_p)
+							continue;
+						if (is_valid((EntryHeader*)addr) == false)
+							continue;
+					}
+					else
+						break;
+				}
+				key_list_index++;
+			}
+
+			while(nodeMeta) // skiplist node group copy
+			{
+				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+
+				at_lock2(nodeMeta->rw_lock);
+					
+				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+				at_unlock2(nodeMeta->rw_lock);
+
+				nodeMeta = nodeMeta->next_node_in_group;
+				group_idx++;
+			}
+
+
+			listNode = skiplistNode->my_listNode; // do we need listNode lock?? we already locked skiplist...
+			while (listNode->key < next_key) // scan skiplist
+			{
+				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
+				group_idx = 0;
+
+				list_cnt++;
+				scan_result.reserve_list(list_cnt);
+				while(nodeMeta) // scan listnode
+				{
+					dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+
+					at_lock2(nodeMeta->rw_lock);
+					
+					memcpy(&scan_result.listNode_dataNodeList[list_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+					at_unlock2(nodeMeta->rw_lock);
+
+					nodeMeta = nodeMeta->next_node_in_group;
+					group_idx++;
+				}
+				listNode = listNode->next;
+			}
+
+			while(1) // may need delete lock
+			{
+				next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+
+				if (try_at_lock2(next_skiplistNode->lock) == false)
+					continue;
+				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+				{
+					at_unlock2(next_skiplistNode->lock);
+					continue;
+				}
+				break;
+			}
+
+			at_unlock2(skiplistNode->lock);
+			skiplistNode = next_skiplistNode;
+		}
+		at_unlock2(skiplistNode->lock);
+
+		return scan_count;
 	}
 	int PH_Query_Thread::next_op(unsigned char* buf)
 	{
@@ -1986,11 +2165,12 @@ namespace PH
 	{
 		//		hash_index->thread_local_clean();
 		//		free(temp_seg); // ERROR!
-		hash_index->remove_ts(temp_seg);
 
 		run = 0;
 		read_lock = 0;
 		delete[] log_list; // remove pointers....
+
+		hash_index->remove_ts(temp_seg);
 
 		free(evict_buffer);
 		free(key_list_buffer);
@@ -2001,6 +2181,7 @@ namespace PH
 
 		evict_thread_list[thread_id].lock = 0;
 		evict_thread_list[thread_id].exit = 0;
+
 
 
 		//check

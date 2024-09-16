@@ -4,6 +4,7 @@
 //#define KVP_VER
 #define HOT_KEY_LIST
 #define WARM_CACHE
+#define SCAN_SORT
 
 namespace PH
 {

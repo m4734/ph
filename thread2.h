@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <atomic>
 #include <string>
+#include <vector>
 
 //#include "skiplist.h"
 #include "shared.h"
@@ -102,11 +103,30 @@ class PH_Thread
 	int reset_test_cnt = 0;
 };
 
+class Scan_Result // signle thread
+{
+	public:
+	std::vector<DataNode*> listNode_dataNodeList; 
+	std::vector<DataNode*> skiplistNode_dataNodeList; 
+	std::vector<int> listNode_group_cnt;
+	std::vector<int> skiplistNode_group_cnt;
+
+	std::vector<unsigned char*> key_list_list;
+	std::vector<int> key_list_cnt;
+
+	void reserve_list(int size);
+	void reserve_skiplist(int size);
+
+	void clean();
+};
+
 class PH_Query_Thread : public PH_Thread
 {
 	private:
 	DoubleLog* my_log;
 	DoubleLog* my_warm_log;
+
+	Scan_Result scan_result;
 
 
 	public:

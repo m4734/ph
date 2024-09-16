@@ -157,9 +157,6 @@ class SkiplistNode
 class Skiplist
 {
 	private:
-	SkiplistNode* empty_node;
-	SkiplistNode* start_node;
-	SkiplistNode* end_node;
 
 	SkiplistNode** node_pool_list;
 //	std::vector<SkiplistNode*> node_pool_list;
@@ -204,6 +201,10 @@ class Skiplist
 	}
 
 	SkiplistNode* allocate_node();
+
+	SkiplistNode* empty_node;
+	SkiplistNode* start_node;
+	SkiplistNode* end_node;
 
 //check
 	std::atomic<uint64_t> addr2_hit;
