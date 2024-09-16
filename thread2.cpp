@@ -337,7 +337,7 @@ namespace PH
 		//	delete recent_log_tails;
 
 		hash_index->remove_ts(temp_seg);
-		scan_result.clean();
+//		scan_result.clean();
 
 		//check
 		warm_to_warm_sum+=warm_to_warm_cnt;
@@ -1925,7 +1925,7 @@ namespace PH
 
 		return 0;
 	}
-
+/*
 	void Scan_Result::reserve_list(int size)
 	{
 		listNode_dataNodeList.reserve(size);
@@ -1954,7 +1954,7 @@ namespace PH
 			delete skiplistNode_dataNodeList[i];
 
 	}
-
+*/
 	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
 		//	update_free_cnt();
@@ -1979,6 +1979,8 @@ namespace PH
 		int skiplist_cnt=0;
 		int list_cnt=0;
 		int group_idx;
+
+		scan_result.result.resize(length);
 
 		while(1) // find first
 		{
@@ -2005,11 +2007,18 @@ namespace PH
 		}
 		// locked 
 
-		int i;
-		int key_list_index;
+		int i,j;
+//		int key_list_index;
 		unsigned char* addr;
 		std::atomic<uint8_t> *seg_lock;
-		
+		uint64_t key;
+
+//		DataNode dram_dataNode;
+
+		size_t offset;
+		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> skiplist_key_list;
+		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> list_key_list;
+
 
 		while(scan_count < length && skiplistNode != skiplist->end_node)
 		{
@@ -2029,12 +2038,19 @@ namespace PH
 			group_idx = 0;
 
 			skiplist_cnt++;
-			scan_result.reserve_skiplist(skiplist_cnt);
+//			scan_result.reserve_skiplist(skiplist_cnt);
 
 			// hot key copy
-			key_list_index = 0;
+			if (skiplist_key_list.size())
+				debug_error("list not empty\n");
+
+//			key_list_index = 0;
 			for (i=0;i<skiplistNode->key_list_size;i++)
 			{
+				key = skiplistNode->key_list[i];
+				if (key < start_key)
+					continue;
+				
 				while(true)
 				{
 					ex = hash_index->read(skiplistNode->key_list[i],&kvp,&kvp_p,seg_depth,seg_depth_p);
@@ -2045,24 +2061,24 @@ namespace PH
 						{
 #if 1
 							debug_error("scan exception"); // inserted during scan
-							KVP* kvp_p = hash_index->insert(skiplistNode->key_list[i],&seg_lock,read_lock);
 #endif
 							ex = 0;
 							break;
 						}
 						addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
+//						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
 						if (seg_depth_p != NULL && seg_depth != *seg_depth_p)
 							continue;
 						if (is_valid((EntryHeader*)addr) == false)
 							continue;
+						skiplist_key_list.push(std::make_pair(key,addr));
 					}
 					break;
 				}
-				if (ex)
-					key_list_index++;
+//				if (ex)
+//					key_list_index++;
 			}
-			scan_count+=key_list_index;
+//			scan_count+=key_list_index;
 
 			while(nodeMeta) // skiplist node group copy
 			{
@@ -2070,15 +2086,40 @@ namespace PH
 
 //				at_lock2(nodeMeta->rw_lock); // don't need this only read thread can ...
 					
-				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+//				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+
+				sorted_buffer1[group_idx] = *dataNode; // is not sorted
+//				memcpy(dram_dataNode,dataNode,NODE_SIZE);
 //				at_unlock2(nodeMeta->rw_lock);
 
-				scan_count+=nodeMeta->valid_cnt;
+				addr = (unsigned char*)&sorted_buffer1[group_idx];
+				for (i=0;i<WARM_BATCH_CNT;i++)
+				{
+					addr = (unsigned char*)&sorted_buffer1[group_idx] + WARM_BATCH_MAX_SIZE*i + NODE_HEADER_SIZE;
+					offset = 0;
+					j = 0;
+					while(offset+ENTRY_SIZE <= WARM_BATCH_MAX_SIZE)
+					{
+						if (nodeMeta->valid[j])
+						{
+							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
+							if (key > start_key)
+								skiplist_key_list.push(std::make_pair(key,addr+offset));
+						}
+						offset+=ENTRY_SIZE;
+						j++;
+					}
+				}
+//				scan_count+=nodeMeta->valid_cnt;
 				nodeMeta = nodeMeta->next_node_in_group;
 				group_idx++;
 			}
+			scan_count+=skiplist_key_list.size();
 
 
+			// list
+			if (list_key_list.size())
+				debug_error("list somegint\n");
 			listNode = skiplistNode->my_listNode; // do we need listNode lock?? we already locked skiplist...
 			while (listNode->next->key < start_key)
 				listNode = listNode->next;
@@ -2089,22 +2130,41 @@ namespace PH
 				group_idx = 0;
 
 				list_cnt++;
-				scan_result.reserve_list(list_cnt);
+//				scan_result.reserve_list(list_cnt);
 				while(nodeMeta) // scan listnode
 				{
 					dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 
 //					at_lock2(nodeMeta->rw_lock);
 					
-					memcpy(&scan_result.listNode_dataNodeList[list_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+//					memcpy(&scan_result.listNode_dataNodeList[list_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+					sorted_buffer2[group_idx] = *dataNode; // the name is
+					addr = sorted_buffer2[group_idx].buffer;
+					offset = 0;
+
+					i = 0;
+					while(offset+ENTRY_SIZE <= NODE_BUFFER_SIZE)
+					{
+						if (nodeMeta->valid[i])
+						{
+							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
+							if (key > start_key)
+								list_key_list.push(std::make_pair(key,addr+offset));
+						}
+						offset+=ENTRY_SIZE;
+						i++;
+					}
+
 //					at_unlock2(nodeMeta->rw_lock);
 
-					scan_count+=nodeMeta->valid_cnt;
+//					scan_count+=nodeMeta->valid_cnt;
+//					scan_count+=list_sort_list.size();
 					nodeMeta = nodeMeta->next_node_in_group;
 					group_idx++;
 				}
 				listNode = listNode->next;
 			}
+			scan_count+=list_key_list.size();
 
 			while(1) // may need delete lock
 			{

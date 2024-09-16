@@ -106,7 +106,7 @@ class PH_Thread
 class Scan_Result // signle thread
 {
 	public:
-#if 1
+#if 0
 	std::vector<DataNode*> listNode_dataNodeList; 
 	std::vector<DataNode*> skiplistNode_dataNodeList; 
 	std::vector<int> listNode_group_cnt;
@@ -115,6 +115,11 @@ class Scan_Result // signle thread
 	std::vector<unsigned char*> key_list_list;
 	std::vector<int> key_list_cnt;
 #else
+//1 data to mem
+//2 node to sort list insert and remove
+//3 to node res1
+//4 merge and res2
+/*
 	std::vector<unsigned char*> listNode_entryList; 
 	std::vector<unsigned char*> skiplistNode_entryList; 
 	std::vector<int> listNode_entry_cnt;
@@ -122,13 +127,16 @@ class Scan_Result // signle thread
 
 	std::vector<unsigned char*> key_list_list;
 	std::vector<int> key_list_cnt;
+*/
+	std::vector<unsigned char*> result;
 
 #endif
-
+/*
 	void reserve_list(int size);
 	void reserve_skiplist(int size);
 
 	void clean();
+	*/
 };
 
 class PH_Query_Thread : public PH_Thread

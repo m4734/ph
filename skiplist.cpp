@@ -247,7 +247,7 @@ namespace PH
 		   printf("warm node cnt %d = %lfGB?\n",cnt,(double)cnt*NODE_SIZE/1024/1024/1024);
 		 */
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
-		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
+		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*NODE_SIZE/1024/1024/1024);
 #ifdef STAT
 		printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 #endif
