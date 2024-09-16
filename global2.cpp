@@ -306,7 +306,8 @@ printf("ccc\n");
 
 	printf("soft htw %lu hard htw %lu\n",soft_htw_sum.load(),hard_htw_sum.load());
 
-	printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
+	if (soft_htw_sum + hard_htw_sum > 0)
+		printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
 
 	if (htw_cnt_sum > 0 && wtc_cnt_sum > 0)
 		printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);

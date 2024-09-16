@@ -1737,6 +1737,8 @@ namespace PH
 		// no nm rw lock but need hash entry lock...
 	}
 
+#define KEY_CHECK
+
 	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf,std::string *value)
 	{
 		//	update_free_cnt();
@@ -1810,7 +1812,15 @@ namespace PH
 				else
 					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#if 0
+#ifdef KEY_CHECK
+				uint64_t test_key;
+
+				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				if (test_key != key)
+					debug_error("key test failed\n");
+#endif
+#if 0 
 				uint64_t test_key;
 				uint64_t test_value;
 
@@ -1874,6 +1884,12 @@ namespace PH
 					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//		at_unlock2(nm->lock);
 
+				uint64_t test_key;
+
+				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				if (test_key != key)
+					debug_error("key test failed\n");
 
 				_mm_sfence();
 
@@ -1983,7 +1999,7 @@ namespace PH
 				at_unlock2(skiplistNode->lock);
 				continue;
 			}
-
+			break;
 		}
 		// locked 
 
@@ -2020,6 +2036,14 @@ namespace PH
 					if (ex)
 					{
 						ea.value = kvp.value;
+						if (ea.loc != HOT_LOG)
+						{
+#if 1
+							debug_error("scan exception"); // inserted during scan
+#endif
+							ex = 0;
+							break;
+						}
 						addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
 						if (seg_depth_p != NULL && seg_depth != *seg_depth_p)
@@ -2027,27 +2051,32 @@ namespace PH
 						if (is_valid((EntryHeader*)addr) == false)
 							continue;
 					}
-					else
-						break;
+					break;
 				}
-				key_list_index++;
+				if (ex)
+					key_list_index++;
 			}
+			scan_count+=key_list_index;
 
 			while(nodeMeta) // skiplist node group copy
 			{
 				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 
-				at_lock2(nodeMeta->rw_lock);
+//				at_lock2(nodeMeta->rw_lock); // don't need this only read thread can ...
 					
-				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
-				at_unlock2(nodeMeta->rw_lock);
+				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
+//				at_unlock2(nodeMeta->rw_lock);
 
+				scan_count+=nodeMeta->valid_cnt;
 				nodeMeta = nodeMeta->next_node_in_group;
 				group_idx++;
 			}
 
 
 			listNode = skiplistNode->my_listNode; // do we need listNode lock?? we already locked skiplist...
+			while (listNode->next->key < start_key)
+				listNode = listNode->next;
+
 			while (listNode->key < next_key) // scan skiplist
 			{
 				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
@@ -2059,11 +2088,12 @@ namespace PH
 				{
 					dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 
-					at_lock2(nodeMeta->rw_lock);
+//					at_lock2(nodeMeta->rw_lock);
 					
 					memcpy(&scan_result.listNode_dataNodeList[list_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
-					at_unlock2(nodeMeta->rw_lock);
+//					at_unlock2(nodeMeta->rw_lock);
 
+					scan_count+=nodeMeta->valid_cnt;
 					nodeMeta = nodeMeta->next_node_in_group;
 					group_idx++;
 				}
@@ -3004,7 +3034,7 @@ namespace PH
 					}
 
 					if (j < 0)
-						debug_error("key not found\n");
+						debug_error("key is not found\n");
 
 					node->key_list_size--;
 #endif
