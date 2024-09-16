@@ -1145,12 +1145,12 @@ namespace PH
 					EntryAddr old_ea;
 					old_ea.value = kvp.value;
 					NodeAddr warm_cache = get_warm_cache(old_ea);
-					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
 
 				}
 				else // from evict can't use kvp
 #endif
-					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
+					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 				if (try_at_lock2(skiplist_node->lock) == false)
 					continue;
 				if (skiplist_node->key > key || (skiplist->sa_to_node(skiplist_node->next[0]))->key < key)
@@ -1518,14 +1518,14 @@ namespace PH
 					{
 						
 						warm_cache = get_warm_cache(old_ea);
-						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
 						
 //						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
 
 					}
 					else
 #endif
-						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock);
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					if (try_at_lock2(node->lock) == false)
 						continue;
 					next_node = skiplist->sa_to_node(node->next[0]);
@@ -1641,7 +1641,7 @@ namespace PH
 			log_write_cnt++;
 
 			kvp_p->value = new_ea.value;
-			kvp_p->version = new_version.value;
+//			kvp_p->version = new_version.value;
 			_mm_sfence(); // value first!
 
 			// 6 update index
@@ -2491,12 +2491,15 @@ namespace PH
 			//			if (new_ea != emptyEntryAddr)
 			if (new_ea.value != 0)
 			{
+				/*
 				EntryHeader eh;
 				eh.value = kvp_p->version;
 				//				eh.prev_loc = 2;
 				kvp_p->version = eh.value; // warm to cold ...
+				*/
 				kvp_p->value = new_ea.value;
 				_mm_sfence();
+				
 
 				//				if (nodeMeta->valid[i] == false)
 				//					debug_error("valid2\n");
@@ -2979,7 +2982,7 @@ namespace PH
 
 				SkiplistNode* node;
 #ifdef WARM_CACHE
-				node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+				node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
 #else
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
@@ -3074,7 +3077,7 @@ namespace PH
 				while(true) // the log allocated to this evict thread
 				{
 #ifdef WARM_CACHE 
-					node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,warm_cache);
+					node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
 #else
 					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif

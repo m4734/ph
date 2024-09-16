@@ -12,13 +12,21 @@
 
 //fixed
 //#define KVP_PER_CL 4 // 16 * 4 = 64
+/*
 #define KVP_PER_CL 2 // 32 * 2 = 64
 #define CL_SIZE 64
+#define LINEAR_MULTI 8
+*/
 
+
+
+const uint32_t KVP_SIZE = 16;//sizeof(KVP);
+const uint32_t CL_SIZE = 64;
+const uint32_t KVP_PER_CL = CL_SIZE/KVP_SIZE;
+const uint32_t LINEAR_MULTI = 4;
 
 #define CL_BIT 4
 #define CL_PER_SEG (1 << CL_BIT) // = 16 = 1024/64?
-#define LINEAR_MULTI 4
 
 #define SPLIT_MASK (1 << 6) // I mean split bit
 
@@ -83,10 +91,10 @@ struct KVP // key value version pad pair
 	volatile uint64_t key;
 	volatile uint64_t value; //addr
 //	volatile unsigned char* addr;
-	volatile uint64_t version; // Delete / Version
+//	volatile uint64_t version; // Delete / Version
 //	std::atomic<uint64_t> version;
-	volatile uint64_t padding;
-}; // 32Bytes
+//	volatile uint64_t padding;
+}; // 32Bytes // 16
 /*
 struct KVP_vk
 {
@@ -193,6 +201,7 @@ class CCEH
 
 	KVP zero_entry;
 	std::atomic<uint8_t> zero_lock;
+//	volatile uint8_t zero_del;
 	volatile uint8_t zero_depth;
 
 	std::atomic<uint8_t> remove_ts_lock;

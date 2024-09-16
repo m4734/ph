@@ -184,9 +184,9 @@ class Skiplist
 	void free_sl_node(SkiplistNode* node);
 
 	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next);
-	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock);
-	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock,KVP &kvp);
-	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock,NodeAddr &warm_cache);
+//	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock);
+//	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock,KVP &kvp);
+	SkiplistNode* find_node(size_t key,SkipAddr* prev,SkipAddr* next,NodeAddr &warm_cache);
 	
 
 	bool delete_node_with_fail(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);

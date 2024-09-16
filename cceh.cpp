@@ -475,7 +475,7 @@ printf("NO READ NOW\n");
 			split_cnt_ret = zero_depth;
 			split_cnt_p = &zero_depth;
 			sf = true;
-			if (zero_entry.version & (VER_DELETE))
+			if (zero_entry.key == INV0)
 				return 0;
 			else
 				return 1;
@@ -1250,7 +1250,7 @@ retry:
 
 		if (zero_check(key))	
 		{
-			printf("zero\n");
+//			printf("zero\n");
 			at_lock2(zero_lock);
 			*unlock_p = &zero_lock;
 			return &zero_entry;
@@ -1366,17 +1366,22 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			return &inv0_value;
 		}
 #endif
+		int invl = 0;
 		for (i=0;i<KVP_PER_CL * LINEAR_MULTI;i++)
 		{
 #ifdef ctt
 			//		bc++;
 #endif
 			l%=KVP_PER_SEG;
-			//		if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
-			//			break;
-#if 1
-			if (kvp_p[l].key == INV0 || kvp_p[l].key == key) // insert new // or update
+#if 0
+			if (kvp_p[l].key == INV0 || kvp_p[l].key == key)
 			{
+#else
+			if (!invl && kvp_p[l].key == INV0)
+				invl = l+1;
+			if (kvp_p[l].key == key) // insert new // or update
+			{
+#endif
 				//			kvvpp_p[l].key = key;
 				//			kvvpp_p[l].value
 				//			kvvpp_p[l].version = 0;
@@ -1395,7 +1400,12 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 			}
 			l++;
 		}
-#endif
+
+		if (invl)
+		{
+			*unlock_p = &seg->lock;
+			return /*(ValueEntry_u*)&*/&kvp_p[invl-1];
+		}
 #if 0
 		if (i < KVP_PER_CL*LINEAR_MULTI)
 		{

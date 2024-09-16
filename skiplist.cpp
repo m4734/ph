@@ -384,14 +384,12 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 	}
 	return node;
 }
-
+#if 0
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock) // what if max
 {
-#ifdef WARM_CACHE
-
-#else
+	printf("ff2\n");
 	return find_node(key,prev,next);
-#endif
+#if 0
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
 // addr2
@@ -448,8 +446,12 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	hash_index->unlock_entry2(seg_lock,read_lock);
 	//-------------------------------
 	return node;
+#endif
 }
-#if 1
+#endif
+
+
+#if 0
 SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, KVP &kvp) // what if max
 {
 #ifdef ADDR_CACHE
@@ -488,7 +490,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	return node;
 }
 #endif
-SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volatile uint8_t &read_lock, NodeAddr &warm_cache) // what if max
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, NodeAddr &warm_cache) // what if max
 {
 #ifdef WARM_CACHE
 
