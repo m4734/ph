@@ -784,6 +784,13 @@ namespace PH
 
 		at_unlock2(prev->lock);
 		_mm_sfence();
+#else
+		ListNode* prev = listNode->prev;
+		NodeMeta* prev_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(prev->data_node_addr);
+		nodeAllocator->linkNext(prev_nodeMeta,new_nodeMeta1[0]);
+
+		_mm_sfence();
+
 #endif
 #if 0
 		// listNode is never deleted just split
@@ -1065,8 +1072,8 @@ namespace PH
 		return ((threshold)-(empty_space-min_threshold))*100/(threshold);
 	}
 
-	void PH_Thread::try_cold_split(ListNode *listNode,NodeMeta* list_nodeMeta,SkiplistNode* node)
-	{
+	void PH_Thread::try_cold_split(ListNode *listNode,SkiplistNode* node)
+	{ // unlock the rws
 		//split cold here
 		//find half
 
@@ -1099,7 +1106,7 @@ namespace PH
 			break;
 		}
 
-		at_unlock2(list_nodeMeta->rw_lock); // what?
+//		at_unlock2(list_nodeMeta->rw_lock); // what?
 
 		split_listNode_group(listNode,node); // we have the lock
 						     //at_unlock2(next_listNode->lock);
@@ -1294,6 +1301,8 @@ namespace PH
 			{
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
+				at_unlock2(list_nodeMeta->rw_lock);
+
 				// try append first
 				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP)
 				{
@@ -1301,11 +1310,10 @@ namespace PH
 					//	ListNode* new_listNode = list->alloc_list_node();
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
 					append_nodeMeta->list_addr = list_node->myAddr;
-					at_unlock2(list_nodeMeta->rw_lock);
 				}
 				else
 				{
-					try_cold_split(list_node,list_nodeMeta,skiplist_node);
+					try_cold_split(list_node,skiplist_node);
 					cold_split_cnt++;
 				}
 			}
@@ -2637,7 +2645,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		if (old_skipListNode->half_listNode == NULL)
 			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
 		half_key = old_skipListNode->half_listNode->key; // need skiplist node lock to access half listNode
-	
+	/*
 		uint64_t test_hk = half_key;
 		uint64_t test_osn = old_skipListNode->key;
 
@@ -2645,10 +2653,11 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		NodeMeta* test_nm1 = (nodeAllocator->nodeAddr_to_nodeMeta(test_listNode->data_node_addr));
 		NodeMeta tnm1;
 		memcpy(&tnm1,test_nm1,sizeof(NodeMeta));
+		*/
 #if 0 // fix this bug fd
 		if (old_skipListNode->key >= half_key)
 		{
-			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
+			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode); // use try cold
 			/*
 			   uint64_t half1,half2; // overflow
 			   half1 = (old_skipListNode->key)/2; // approx
@@ -2668,7 +2677,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #else
 		while (old_skipListNode->key >= half_key)
 		{
-			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
+//			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
+			try_cold_split(old_skipListNode->half_listNode,old_skipListNode);
 			/*
 			   uint64_t half1,half2; // overflow
 			   half1 = (old_skipListNode->key)/2; // approx
@@ -2989,17 +2999,17 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			else // cold split
 			{
 				hash_index->unlock_entry2(seg_lock,read_lock);
+				at_unlock2(list_nodeMeta->rw_lock);
 
 				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
 				{
 					listNode->block_cnt++;
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
 					append_nodeMeta->list_addr = listNode->myAddr;
-					at_unlock2(list_nodeMeta->rw_lock);
 				}
 				else // split
 				{
-					try_cold_split(listNode,list_nodeMeta,node);
+					try_cold_split(listNode,node);
 					cold_split_cnt++;
 				}
 			}
