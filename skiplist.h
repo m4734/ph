@@ -1,3 +1,5 @@
+#pragma once
+
 #include<vector>
 #include<atomic>
 //#include<queue>
@@ -133,7 +135,7 @@ class SkiplistNode
 	int built;
 	std::atomic<ListNode*> my_listNode;
 //	NodeMeta* my_node;
-	NodeAddr myAddr; // nodeMeta addr
+	NodeAddr myAddr; // nodeMeta addr // skiplist addr?
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 
 	std::atomic<uint8_t> lock;

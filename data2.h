@@ -7,6 +7,9 @@
 
 namespace PH
 {
+
+class SkiplistNode;
+
 	void forced_sync(NodeAddr nodeAddr);
 
 extern size_t NODE_SLOT_MAX;
@@ -263,7 +266,7 @@ class NodeAllocator
 	void free_node(NodeMeta* nm);
 
 	void expand(NodeAddr nodeAddr);
-	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_cnt);
+	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_cnt,SkiplistNode* skiplistNode);
 
 //	private:
 	public:

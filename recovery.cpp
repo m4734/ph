@@ -184,5 +184,85 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 
 	}
 
+	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, SkiplistNode* skiplistNode)
+	{
+		group_idx = 0;
+		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
+		NodeMeta* fn = nodeMeta;
+//		int group_idx=0;
+
+		// first
+
+		if (skiplistNode)
+			skiplistNode->data_node_addr[group_idx] = nodeAddr;
+
+		nodeMeta->next_addr = dataNode->next_offset;
+		nodeAllocator->expand(dataNode->next_offset);
+		nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
+
+		nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
+		nodeAllocator->expand(dataNode->next_offset_in_group);
+		nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+
+		nodeMeta->group_cnt = ++group_idx;
+		nodeMeta->my_offset = nodeAddr;
+		nodeMeta->rw_lock = 0;
+
+		uint64_t rv,min;
+		min = KEY_MAX;
+
+		if (loc == WARM_LIST)
+		{
+			rv = recover_warm_kv(nodeAddr);
+		}
+		else
+		{
+			rv = recover_cold_kv(nodeAddr);
+		}
+
+		if (rv < min)
+			min = rv;
+
+		nodeAddr = nodeMeta->next_addr_in_group;
+		nodeMeta = nodeMeta->next_node_in_group;
+
+
+		while(nodeAddr != emptyNodeAddr)
+		{
+
+			if (skiplistNode)
+				skiplistNode->data_node_addr[group_idx] = nodeAddr;
+
+			nodeMeta->next_addr = emptyNodeAddr;
+			nodeMeta->next_p = NULL;
+
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
+			nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
+			nodeAllocator->expand(dataNode->next_offset_in_group);
+			nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+
+			nodeMeta->group_cnt = ++group_idx;
+			nodeMeta->my_offset = nodeAddr;
+			nodeMeta->rw_lock = 0;
+
+			if (loc == WARM_LIST)
+			{
+				rv = recover_warm_kv(nodeAddr);
+			}
+			else
+			{
+				rv = recover_cold_kv(nodeAddr);
+			}
+
+			if (rv < min)
+				min = rv;
+
+			nodeAddr = nodeMeta->next_addr_in_group;
+			nodeMeta = nodeMeta->next_node_in_group;
+
+		}
+		return min;
+	}
 
 }

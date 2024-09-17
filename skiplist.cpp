@@ -9,6 +9,7 @@
 #include "lock.h"
 #include "data2.h"
 #include "cceh.h"
+#include "recovery.h"
 
 namespace PH
 {
@@ -190,18 +191,22 @@ namespace PH
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
 		empty_node->my_listNode = list->empty_node;
+		empty_node->data_node_addr[0] = {3,0};
+
 
 //		start_node = allocate_node();
 		start_node = alloc_sl_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
 		start_node->my_listNode = list->start_node;
+		start_node->data_node_addr[1] = {1,1};
 
 //		end_node = allocate_node();
 		end_node = alloc_sl_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
 		end_node->my_listNode = list->end_node;
+		end_node->data_node_addr[0] = {3,1};
 
 
 		for (i=0;i<=MAX_LEVEL;i++)
@@ -806,9 +811,9 @@ void Skiplist::recover()
 		sa_array[i] = &skiplistNode->next[i];
 
 //start node
-	skiplistNode->key = nodeAllocator->recover_node(dataAddr,WARM_LIST,i); // don care
+	skiplistNode->key = recover_node(skiplistNode->data_node_addr[0],WARM_LIST,i,skiplistNode); // don care
 //	skiplist_node->my_listNode = listNode; // not now
-
+	dataNode = nodeAllocator->nodeAddr_to_node(skiplistNode->data_node_addr[0]);
 	dataAddr = dataNode->next_offset;
 
 	while(dataAddr != end_node->data_node_addr[0])
@@ -827,6 +832,9 @@ void Skiplist::recover()
 
 		i = 0;
 		i_dataAddr = dataAddr;
+
+//		nodeAllocator->recover_node(i_dataAddr,WARM_LIST,i,skiplistNode);
+	/*	
 		while(i_dataAddr != emptyNodeAddr)
 		{
 			skiplistNode->data_node_addr[i++] = i_dataAddr;
@@ -837,10 +845,11 @@ void Skiplist::recover()
 
 			i_dataAddr = dataNode->next_offset_in_group;
 		}
+	*/	
 
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-		nodeMeta->list_addr = dataAddr;
-		skiplistNode->key = nodeAllocator->recover_node(dataAddr,WARM_LIST,i); // don care
+		nodeMeta->list_addr = skiplistNode->myAddr;
+		skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
 
 //------------- next
 		dataAddr = dataNode->next_offset;
@@ -855,7 +864,7 @@ void Skiplist::recover()
 	delete sa_array;
 
 // need my_node and warm cache
-
+debug_error("stop here\n");
 }
 //---------------------------------------------- list
 
@@ -887,7 +896,7 @@ void PH_List::recover()
 
 	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 	nodeMeta->list_addr = listNode->myAddr;
-	listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 
 //------------- next
 	dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
@@ -917,7 +926,7 @@ int noting;
 
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 		nodeMeta->list_addr = listNode->myAddr;
-		listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+		listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 #if 0
 		if (listNode->key < old_key)
 		{
@@ -947,7 +956,7 @@ int noting;
 	}
 	debug_error("end of end\n");
 #endif
-	debug_error("stop here\n");
+//	debug_error("stop here\n");
 
 }
 void PH_List::recover_init()
