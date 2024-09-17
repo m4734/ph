@@ -213,9 +213,15 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 	if (recover)
 	{
 		printf("recover\n");
+
+		new_query_thread();
+
 		list->recover();
 		skiplist->recover();
 		recover_log();
+
+		clean_query_thread();
+
 		printf("recover end\n");
 	}
 

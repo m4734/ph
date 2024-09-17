@@ -894,14 +894,16 @@ void PH_List::recover()
 	dataAddr = dataNode->next_offset;
 
 //---
-#if 0
+#if 1
+/*
 int cnt=0;
 size_t old_key = 0;
 size_t test_key;
 int noting;
+*/
 	while(dataAddr != end_node->data_node_addr)
 	{
-		cnt++;
+//		cnt++;
 		nodeAllocator->expand(dataAddr);
 
 		listNode = alloc_list_node(); // myAddr lock
@@ -916,7 +918,7 @@ int noting;
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 		nodeMeta->list_addr = listNode->myAddr;
 		listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
-#if 1
+#if 0
 		if (listNode->key < old_key)
 		{
 			debug_error("key key\n");
@@ -945,6 +947,7 @@ int noting;
 	}
 	debug_error("end of end\n");
 #endif
+	debug_error("stop here\n");
 
 }
 void PH_List::recover_init()
@@ -974,14 +977,14 @@ void PH_List::recover_init()
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
-	start_node->data_node_addr = {0,1};//nodeAllocator->expand_node();
+	start_node->data_node_addr = {1,0};//nodeAllocator->expand_node();
 	start_node->block_cnt=1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
-	end_node->data_node_addr = {0,2};//nodeAllocator->expand_node();
+	end_node->data_node_addr = {2,0};//nodeAllocator->expand_node();
 	end_node->block_cnt=1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 	dataNodeMeta->list_addr = end_node->myAddr;
