@@ -34,7 +34,6 @@ namespace PH
 
 	void debug_error(const char* msg);
 
-	inline void recover_counter(uint64_t key,uint64_t value);
 
 	class PH_Interface
 	{

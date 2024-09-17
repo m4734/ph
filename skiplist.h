@@ -46,6 +46,7 @@ class ListNode
 {
 	public:
 	ListNode() : key(0), next(NULL), prev(NULL), lock(0),block_cnt(0) {};
+
 	size_t key;
 	ListNode* volatile next; // pointer should be voaltile
 	ListNode* volatile prev;

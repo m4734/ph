@@ -34,9 +34,6 @@ namespace PH
 	//size_t SKIPLIST_NODE_POOL_LIMIT = 1024 * 4*3;//DATA_SIZE/10/(NODE_SIZE*NODE_POOL_SIZE);
 	//4MB * 1024 * 4 * 3 = 4GB * 12GB
 
-	const size_t KEY_MIN = 0x0000000000000000;
-	const size_t KEY_MAX = 0xffffffffffffffff;
-
 	//const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
 	//const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
@@ -188,17 +185,20 @@ namespace PH
 		NodeMeta* nodeMeta;
 		int i;
 
-		empty_node = allocate_node();
+//		empty_node = allocate_node();
+		empty_node = alloc_sl_node();
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
 		empty_node->my_listNode = list->empty_node;
 
-		start_node = allocate_node();
+//		start_node = allocate_node();
+		start_node = alloc_sl_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
 		start_node->my_listNode = list->start_node;
 
-		end_node = allocate_node();
+//		end_node = allocate_node();
+		end_node = alloc_sl_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
 		end_node->my_listNode = list->end_node;
@@ -784,10 +784,120 @@ void Skiplist::insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next)
 }
 void Skiplist::recover()
 {
+	NodeMeta* nodeMeta;
+	SkiplistNode* skiplistNode;
+	DataNode* dataNode;
+	NodeAddr dataAddr;
+	NodeAddr i_dataAddr;
+
+	dataNode = nodeAllocator->nodeAddr_to_node(empty_node->data_node_addr[0]); // TODO empty 0 1
+
+	start_node->data_node_addr[0] = dataNode->next_offset;
+
+	skiplistNode = start_node;
+
+	int i;
+
+	ListNode* listNode = list->start_node;
+
+	SkipAddr **sa_array;
+	sa_array = new SkipAddr*[MAX_LEVEL+1];
+	for (i=0;i<=MAX_LEVEL;i++)
+		sa_array[i] = &skiplistNode->next[i];
+
+//start node
+	skiplistNode->key = nodeAllocator->recover_node(dataAddr,WARM_LIST,i); // don care
+//	skiplist_node->my_listNode = listNode; // not now
+
+	dataAddr = dataNode->next_offset;
+
+	while(dataAddr != end_node->data_node_addr[0])
+	{
+		nodeAllocator->expand(dataAddr);
+
+		skiplistNode = alloc_sl_node();
+		for (i=0;i<=skiplistNode->level;i++)
+		{
+			*sa_array[i] = skiplistNode->my_sa;
+			sa_array[i] = &skiplistNode->next[i];
+		}
+		skiplistNode->built = skiplistNode->level;
+
+		listNode->data_node_addr = dataAddr;
+
+		i = 0;
+		i_dataAddr = dataAddr;
+		while(i_dataAddr != emptyNodeAddr)
+		{
+			skiplistNode->data_node_addr[i++] = i_dataAddr;
+			dataNode = nodeAllocator->nodeAddr_to_node(i_dataAddr);
+
+			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(i_dataAddr);
+			nodeMeta->list_addr = skiplistNode->myAddr;
+
+			i_dataAddr = dataNode->next_offset_in_group;
+		}
+
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		nodeMeta->list_addr = dataAddr;
+		skiplistNode->key = nodeAllocator->recover_node(dataAddr,WARM_LIST,i); // don care
+
+//------------- next
+		dataAddr = dataNode->next_offset;
+//		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
+	}
+
+	//end node
+	for (i=0;i<=MAX_LEVEL;i++)
+		*sa_array[i] = end_node->my_sa;
+
+
+	delete sa_array;
+
+// need my_node and warm cache
+
 }
 //---------------------------------------------- list
+
 void PH_List::recover()
 {
+	NodeMeta* nodeMeta;
+	ListNode* listNode;
+	DataNode* dataNode;
+	NodeAddr dataAddr;
+
+	dataNode = nodeAllocator->nodeAddr_to_node(empty_node->data_node_addr);
+
+	start_node->data_node_addr = dataNode->next_offset;
+
+	listNode = start_node;
+
+	ListNode* prev=NULL;
+
+	while(dataAddr != end_node->data_node_addr)
+	{
+		nodeAllocator->expand(dataAddr);
+
+		listNode = alloc_list_node(); // myAddr lock
+		
+		listNode->prev = prev;
+		if (prev)
+			prev->next = listNode;
+		prev = listNode;
+
+		listNode->data_node_addr = dataAddr;
+
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		nodeMeta->list_addr = listNode->myAddr;
+		listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+
+//------------- next
+		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
+		dataAddr = dataNode->next_offset;
+//		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
+	}
+	listNode->next = NULL;
+
 }
 void PH_List::recover_init()
 {

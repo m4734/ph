@@ -262,7 +262,8 @@ class NodeAllocator
 	NodeAddr alloc_node();
 	void free_node(NodeMeta* nm);
 
-	void check_expand(NodeAddr nodeAddr);
+	void expand(NodeAddr nodeAddr);
+	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_cnt);
 
 //	private:
 	public:

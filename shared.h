@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <atomic>
+
 //#define WARM_STAT
 //#define KVP_VER
 #define HOT_KEY_LIST
@@ -9,6 +13,10 @@
 
 namespace PH
 {
+
+	const size_t KEY_MIN = 0x0000000000000000;
+	const size_t KEY_MAX = 0xffffffffffffffff;
+
 	const size_t NODE_HEADER_SIZE = 16; //8 + 8
 	const size_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
 	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable

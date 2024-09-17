@@ -2654,7 +2654,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		NodeMeta tnm1;
 		memcpy(&tnm1,test_nm1,sizeof(NodeMeta));
 		*/
-#if 0 // fix this bug fd
+#if 0 // fix this bug fd TODO fix this
 		if (old_skipListNode->key >= half_key)
 		{
 			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode); // use try cold

@@ -8,11 +8,12 @@
 #include "lock.h"
 #include "data2.h"
 #include "global2.h"
+#include "recovery.h"
 
 namespace PH
 {
 
-size_t NODE_SLOT_MAX;
+	size_t NODE_SLOT_MAX;
 
 	NodeAllocator* nodeAllocator;
 
@@ -55,7 +56,7 @@ size_t NODE_SLOT_MAX;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));
 		_mm_sfence();
 		printf("xxxxx\n");
-//		nm->size = sizeof(NodeAddr);
+		//		nm->size = sizeof(NodeAddr);
 
 	}
 #endif
@@ -64,11 +65,11 @@ size_t NODE_SLOT_MAX;
 		nm1->next_p = nm2;
 		nm1->next_addr = nm2->my_offset;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
-//		memset(pmem_node,0,NODE_SIZE);
+		//		memset(pmem_node,0,NODE_SIZE);
 		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));//NODE_HEADER_SIZE);
 		_mm_sfence();
-//		nm->size = sizeof(NodeAddr);
+		//		nm->size = sizeof(NodeAddr);
 	}
 
 	void NodeAllocator::init()
@@ -84,16 +85,16 @@ size_t NODE_SLOT_MAX;
 		free_head_p = NULL;
 		alloc_cnt = 0;
 
-//		free_head = 0;
-//		free_tail = 0;
+		//		free_head = 0;
+		//		free_tail = 0;
 
 		alloc_pool();
 
-//		start_node = alloc_node();
-//		end_node = alloc_node();
+		//		start_node = alloc_node();
+		//		end_node = alloc_node();
 
-//		start_node->next_p = end_node;
-//		linkNext(start_node);
+		//		start_node->next_p = end_node;
+		//		linkNext(start_node);
 
 	}
 	void NodeAllocator::clean()
@@ -118,12 +119,70 @@ size_t NODE_SLOT_MAX;
 		printf("node cnt %ld sum %ld size %lfGB\n",alloc_cnt.load(),sum,double(sum)*NODE_SIZE/1024/1024/1024);
 	}
 
-	void NodeAllocator::check_expand(NodeAddr nodeAddr)
+	void NodeAllocator::expand(NodeAddr nodeAddr)
 	{
 		while (nodeAddr.pool_num > pool_cnt)
 			alloc_pool();
 		if (nodeAddr.node_offset > node_cnt[nodeAddr.pool_num])
 			node_cnt[nodeAddr.pool_num] = nodeAddr.node_offset;
+	}
+
+	uint64_t NodeAllocator::recover_node(NodeAddr nodeAddr,int loc,int &group_idx)
+	{
+		NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(nodeAddr);
+		DataNode* dataNode = nodeAddr_to_node(nodeAddr);
+		NodeMeta* fn = nodeMeta;
+//		int group_idx=0;
+
+		// first
+		nodeMeta->next_addr = dataNode->next_offset;
+		expand(dataNode->next_offset);
+		nodeMeta->next_p = nodeAddr_to_nodeMeta(nodeMeta->next_addr);
+
+		nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
+		expand(dataNode->next_offset_in_group);
+		nodeMeta->next_node_in_group = nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+
+		nodeMeta->group_cnt = ++group_idx;
+		nodeMeta->my_offset = nodeAddr;
+		nodeMeta->rw_lock = 0;
+
+		nodeAddr = nodeMeta->next_addr_in_group;
+		nodeMeta = nodeMeta->next_node_in_group;
+
+		uint64_t rv,min;
+		min = KEY_MAX;
+
+		while(nodeMeta)
+		{
+			nodeMeta->my_offset = nodeAddr;
+
+			nodeMeta->next_addr = emptyNodeAddr;
+			nodeMeta->next_p = NULL;
+
+			nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
+			expand(dataNode->next_offset_in_group);
+			nodeMeta->next_node_in_group = nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+
+			nodeMeta->group_cnt = ++group_idx;
+
+			if (loc == WARM_LIST)
+			{
+				rv = recover_warm_kv(nodeAddr);
+			}
+			else
+			{
+				rv = recover_cold_kv(nodeAddr);
+			}
+
+			if (rv < min)
+				min = rv;
+
+			nodeAddr = nodeMeta->next_addr_in_group;
+			nodeMeta = nodeMeta->next_node_in_group;
+
+		}
+		return min;
 	}
 
 	void NodeAllocator::alloc_pool()
@@ -138,7 +197,7 @@ size_t NODE_SLOT_MAX;
 		for(i=0;i<num_pmem;i++)
 		{
 			sprintf(path,"/mnt/pmem%d/data%d",i+1,pool_cnt+i); // 1~
-			nodeMetaPoolList[pool_cnt + i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0); 
+			nodeMetaPoolList[pool_cnt + i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);  // for free recoever...
 			if (!nodeMetaPoolList[pool_cnt + i])
 				printf("alloc_pool error1----------------------------------------------\n");
 			nodePoolList[pool_cnt + i] = (unsigned char*)pmem_map_file(path,POOL_SIZE,PMEM_FILE_CREATE,0777,&my_size,&is_pmem);
@@ -157,31 +216,31 @@ size_t NODE_SLOT_MAX;
 	{
 		NodeMeta *nm;
 
-			size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
-			if (node_cnt[pool_num] >= POOL_NODE_MAX)
-			{
-				alloc_pool();
-				pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
-			}
+		size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+		if (node_cnt[pool_num] >= POOL_NODE_MAX)
+		{
+			alloc_pool();
+			pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
+		}
 
-			nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
-			nm->my_offset.pool_num = pool_num;
-			nm->my_offset.node_offset = node_cnt[pool_num];
-			++node_cnt[pool_num];
-			++alloc_cnt;
+		nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
+		nm->my_offset.pool_num = pool_num;
+		nm->my_offset.node_offset = node_cnt[pool_num];
+		++node_cnt[pool_num];
+		++alloc_cnt;
 
-			nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+		nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
 
-//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
-//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-//		nm->written_size = 0;
-//		nm->slot_cnt = 0;
+		//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
+		//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
+		//		nm->written_size = 0;
+		//		nm->slot_cnt = 0;
 		/*
-		int i;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			nm->valid[i] = false;
-			\*/
-//		nm->valid.resize(NODE_SLOT_MAX);
+		   int i;
+		   for (i=0;i<NODE_SLOT_MAX;i++)
+		   nm->valid[i] = false;
+		   \*/
+		//		nm->valid.resize(NODE_SLOT_MAX);
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
@@ -194,12 +253,12 @@ size_t NODE_SLOT_MAX;
 		nm->next_node_in_group = NULL;
 
 		//pmem memset
-//		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
-//		memset(dataNode,0,NODE_SIZE);
-//		pmem_persist(dataNode,NODE_SIZE);
-//		_mm_sfence();
+		//		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
+		//		memset(dataNode,0,NODE_SIZE);
+		//		pmem_persist(dataNode,NODE_SIZE);
+		//		_mm_sfence();
 
-//		nm->test = 0; // test
+		//		nm->test = 0; // test
 		return nm->my_offset;
 	}
 #endif
@@ -234,16 +293,16 @@ size_t NODE_SLOT_MAX;
 
 			at_unlock2(lock);
 		}
-//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
-//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-//		nm->written_size = 0;
-//		nm->slot_cnt = 0;
+		//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
+		//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
+		//		nm->written_size = 0;
+		//		nm->slot_cnt = 0;
 		/*
-		int i;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			nm->valid[i] = false;
-			\*/
-//		nm->valid.resize(NODE_SLOT_MAX);
+		   int i;
+		   for (i=0;i<NODE_SLOT_MAX;i++)
+		   nm->valid[i] = false;
+		   \*/
+		//		nm->valid.resize(NODE_SLOT_MAX);
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
@@ -261,7 +320,7 @@ size_t NODE_SLOT_MAX;
 		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
 
-//		nm->test = 0; // test
+		//		nm->test = 0; // test
 		return nm->my_offset;
 	}
 
@@ -298,8 +357,8 @@ size_t NODE_SLOT_MAX;
 			keys[j] = new_key;
 			cnt++;
 		}
-//		if (cnt == 0)
-//			printf("can not find half\n");
+		//		if (cnt == 0)
+		//			printf("can not find half\n");
 		return keys[cnt/2];
 	}
 
