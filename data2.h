@@ -31,17 +31,6 @@ const size_t KEY_SIZE = 8;
 //const size_t VALUE_SIZE = 100;
 //const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
 
-union EntryHeader
-{
-	struct
-	{
-//		size_t prev_loc : 2;
-		size_t valid : 1;
-		size_t version : 63;
-	};
-	uint64_t value;
-};
-
 const size_t VER_DRAM_VALID = (size_t(1)<<63);
 const size_t VER_DELETE = (size_t(1)<<62);
 const size_t VER_CL_LOC1 = (size_t(1)<<61);

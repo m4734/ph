@@ -9,11 +9,20 @@
 #include "data2.h"
 #include "thread2.h"
 #include "global2.h"
+#include "cceh.h"
+#include "skiplist.h"
+#include "recovery.h"
+
 //#include "hash.h"
 
 //using namespace PH;
 namespace PH
 {
+
+extern void recover_counter(uint64_t key,uint64_t version);
+
+extern CCEH* hash_index;
+extern Skiplist* skiplist;
 
 //const size_t ble_len = sizeof(BaseLogEntry);
 
@@ -251,9 +260,75 @@ void DoubleLog::recover() // should be last...
 	memcpy(dramLogAddr,pmemLogAddr,my_size);
 
 	size_t offset;
+	uint64_t key,v1,v2;
+	EntryHeader* header1;
+	EntryHeader* header2;
+	offset = 0;
+	unsigned char* addr = dramLogAddr;
+
+	KVP* kvp_p;
+	std::atomic<uint8_t> *seg_lock;
+	volatile uint8_t read_lock;
+	EntryAddr ea1,ea2;
+
+	ea1.loc = HOT_LOG;
+	ea1.file_num = log_num;
+
+	int ow;
+
+	SkiplistNode* skiplistNode;
+	SkipAddr prev_sa_list[MAX_LEVEL+1];
+	SkipAddr next_sa_list[MAX_LEVEL+1];
+
 	while(offset < my_size)
 	{
 //do 
+		header1 = (EntryHeader*)addr;
+
+		if (header1->version > 0)
+		{
+			ow = 1;
+
+			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+
+			ea2.value = kvp_p->value;
+
+			v1 = header1->version;
+
+			if (kvp_p->key == key)
+			{
+				header2 = (EntryHeader*)get_entry(ea2);
+				v2 = header2->version;
+				if (v1 < v2)
+				{
+					ow = 0;
+					header1->valid = false;
+				}
+				else
+					invalidate_entry(ea2);
+			}
+
+			if (ow)
+			{
+				recover_counter(key,v1);
+				kvp_p->key = key;
+				ea1.offset = offset;
+				kvp_p->value = ea1.value;
+				if (ea2.loc != HOT_LOG)
+				{
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					skiplistNode->key_list[skiplistNode->key_list_size++] = key;
+				}
+
+			}
+
+			hash_index->unlock_entry2(seg_lock,read_lock);
+
+		}
+
+
+		addr += LOG_ENTRY_SIZE;
 		offset += LOG_ENTRY_SIZE;
 	}
 

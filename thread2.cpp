@@ -1736,7 +1736,7 @@ namespace PH
 
 		return 0;
 	}
-
+#if 1
 	void PH_Thread::invalidate_entry(EntryAddr &ea) // need kv lock
 	{
 		unsigned char* addr;
@@ -1788,6 +1788,7 @@ namespace PH
 
 		// no nm rw lock but need hash entry lock...
 	}
+#endif
 
 #define KEY_CHECK
 

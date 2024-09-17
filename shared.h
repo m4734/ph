@@ -45,6 +45,16 @@ namespace PH
 
 	}; // may 16
 
+union EntryHeader
+{
+	struct
+	{
+		size_t valid : 1;
+		size_t version : 63;
+	};
+	uint64_t value;
+};
+
 	const NodeAddr emptyNodeAddr = (NodeAddr) {0,0};
 
 	enum Loc
@@ -98,5 +108,7 @@ namespace PH
 		NodeAddr next_offset_in_group;
 		unsigned char buffer[NODE_BUFFER_SIZE];
 	};
+
+	void invalidate_entry(EntryAddr &ea);
 
 }

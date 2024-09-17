@@ -864,7 +864,29 @@ void Skiplist::recover()
 	delete sa_array;
 
 // need my_node and warm cache
-debug_error("stop here\n");
+//debug_error("stop here\n");
+
+//	ListNode* listNode;
+//	SkiplistNode* skiplistNode;
+
+	listNode = list->start_node;
+	skiplistNode = skiplist->start_node;
+
+	while(listNode != list->end_node)
+	{
+		if (skiplistNode->key <= listNode->key)
+		{
+			skiplistNode->my_listNode = listNode;
+			skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+		}
+		else
+		{
+			listNode->warm_cache = skiplistNode->myAddr;
+			listNode = listNode->next;
+		}
+	}
+
+
 }
 //---------------------------------------------- list
 

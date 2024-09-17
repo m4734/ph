@@ -67,11 +67,11 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 				ow = 1;
 				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				v1 = header->version;
 				if (kvp_p->key == key)
 				{
 					ea2.value = kvp_p->value;
 					header2 = (EntryHeader*)get_entry(ea2);
-					v1 = header->version;
 					v2 = header2->version;
 					if (v1 < v2)
 					{
@@ -79,11 +79,12 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 						ow = 0;
 					}
 					else
-						recover_counter(key,v1);
+						invalidate_entry(ea2);
 				}
 
 				if (ow)
 				{
+					recover_counter(key,v1);
 					kvp_p->key = key;
 					ea.offset = nodeAddr.node_offset*NODE_SIZE+NODE_HEADER_SIZE+i*ENTRY_SIZE;
 					kvp_p->value = ea.value;
@@ -146,11 +147,11 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 					ow = 1;
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					v1 = header->version;
 					if (kvp_p->key == key)
 					{
 						ea2.value = kvp_p->value;
 						header2 = (EntryHeader*)get_entry(ea2);
-						v1 = header->version;
 						v2 = header2->version;
 						if (v1 < v2)
 						{
@@ -158,12 +159,12 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 							nodeMeta->valid[cnt] = false;
 						}
 						else
-							recover_counter(key,v1);
-
+							invalidate_entry(ea2);
 					}
 					
 					if (ow)
 					{
+						recover_counter(key,v1);
 						kvp_p->key = key;
 						ea.offset = nodeAddr.node_offset*NODE_SIZE+NODE_HEADER_SIZE+i*ENTRY_SIZE;
 						kvp_p->value = ea.value;
