@@ -158,6 +158,9 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 {
 	printf("global init VS %lu thread %d pmem %d evict %d\n",VS,n_t,n_p,n_e);
 
+	if (recover)
+		printf("recover\n");
+
 	int i;
 	for (i=0;i<COUNTER_MAX;i++)
 		global_seq_num[i] = 0; // NOT RECOVER

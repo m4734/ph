@@ -40,7 +40,9 @@ namespace PH
 
 		}
 		else
+		{
 			new_nodeMeta->group_cnt = 1;
+		}
 		return new_nodeMeta;
 	}
 
@@ -121,14 +123,28 @@ namespace PH
 
 	void NodeAllocator::expand(NodeAddr nodeAddr)
 	{
+#if 0
+		int i;
+		if (nodeAddr.pool_num > pool_cnt)
+		{
+			for (i=node_cnt[pool_cnt];i<POOL_NODE_MAX;i++)
+			{
+
+			}
+			node_cnt[pool_cnt] = POOL_NODE_MAX;
+		}
+#endif
 		while (nodeAddr.pool_num > pool_cnt)
+		{
 			alloc_pool();
+		}
 		if (nodeAddr.node_offset > node_cnt[nodeAddr.pool_num])
 			node_cnt[nodeAddr.pool_num] = nodeAddr.node_offset;
 	}
 
 	uint64_t NodeAllocator::recover_node(NodeAddr nodeAddr,int loc,int &group_idx)
 	{
+		group_idx = 0;
 		NodeMeta* nodeMeta = nodeAddr_to_nodeMeta(nodeAddr);
 		DataNode* dataNode = nodeAddr_to_node(nodeAddr);
 		NodeMeta* fn = nodeMeta;
@@ -147,24 +163,39 @@ namespace PH
 		nodeMeta->my_offset = nodeAddr;
 		nodeMeta->rw_lock = 0;
 
-		nodeAddr = nodeMeta->next_addr_in_group;
-		nodeMeta = nodeMeta->next_node_in_group;
-
 		uint64_t rv,min;
 		min = KEY_MAX;
 
-		while(nodeMeta)
+		if (loc == WARM_LIST)
 		{
-			nodeMeta->my_offset = nodeAddr;
+			rv = recover_warm_kv(nodeAddr);
+		}
+		else
+		{
+			rv = recover_cold_kv(nodeAddr);
+		}
+
+		if (rv < min)
+			min = rv;
+
+		nodeAddr = nodeMeta->next_addr_in_group;
+		nodeMeta = nodeMeta->next_node_in_group;
+
+
+		while(nodeAddr != emptyNodeAddr)
+		{
 
 			nodeMeta->next_addr = emptyNodeAddr;
 			nodeMeta->next_p = NULL;
 
+			dataNode = nodeAddr_to_node(nodeAddr);
 			nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
 			expand(dataNode->next_offset_in_group);
 			nodeMeta->next_node_in_group = nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
 
 			nodeMeta->group_cnt = ++group_idx;
+			nodeMeta->my_offset = nodeAddr;
+			nodeMeta->rw_lock = 0;
 
 			if (loc == WARM_LIST)
 			{

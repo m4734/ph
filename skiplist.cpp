@@ -213,13 +213,13 @@ namespace PH
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
 		empty_node->built = MAX_LEVEL;
 		//	empty_node->dataNodeHeader = empty_node->data_node_addr[0];
-
+/*
 		NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr[0]);
 		NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr[0]);
 		NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr[0]);
-
-		nodeAllocator->linkNext(nm_empty,nm_start);
-		nodeAllocator->linkNext(nm_start,nm_end);
+*/
+//		nodeAllocator->linkNext(nm_empty,nm_start);
+//		nodeAllocator->linkNext(nm_start,nm_end);
 
 		//	nodeAllocator->linkNext(empty_node->data_node_addr);
 		//	nodeAllocator->linkNext(start_node->data_node_addr);
@@ -291,8 +291,8 @@ namespace PH
 		nodeAllocator->linkNext(nm_empty,nm_start);
 		nodeAllocator->linkNext(nm_start,nm_end);
 
-		//	nodeAllocator->linkNext(empty_node->data_node_addr);
-		//	nodeAllocator->linkNext(start_node->data_node_addr);
+		//nodeAllocator->linkNext(empty_node->data_node_addr);
+		//nodeAllocator->linkNext(start_node->data_node_addr);
 
 		//check
 		addr2_hit = 0;
@@ -872,10 +872,36 @@ void PH_List::recover()
 
 	listNode = start_node;
 
-	ListNode* prev=NULL;
+	ListNode* prev=empty_node;
 
+//--
+	dataAddr = dataNode->next_offset; // empty to start
+	nodeAllocator->expand(dataAddr);
+
+	listNode->prev = prev;
+	if (prev)
+		prev->next = listNode;
+	prev = listNode;
+
+	listNode->data_node_addr = dataAddr;
+
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+	nodeMeta->list_addr = listNode->myAddr;
+	listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+
+//------------- next
+	dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
+	dataAddr = dataNode->next_offset;
+
+//---
+#if 0
+int cnt=0;
+size_t old_key = 0;
+size_t test_key;
+int noting;
 	while(dataAddr != end_node->data_node_addr)
 	{
+		cnt++;
 		nodeAllocator->expand(dataAddr);
 
 		listNode = alloc_list_node(); // myAddr lock
@@ -890,6 +916,16 @@ void PH_List::recover()
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 		nodeMeta->list_addr = listNode->myAddr;
 		listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+#if 1
+		if (listNode->key < old_key)
+		{
+			debug_error("key key\n");
+			test_key = nodeAllocator->recover_node(prev->prev->data_node_addr,COLD_LIST,noting);
+		}
+		old_key = listNode->key;
+		if (old_key == 18446744073709551615UL)
+			listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+#endif
 
 //------------- next
 		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
@@ -897,6 +933,18 @@ void PH_List::recover()
 //		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
 	listNode->next = NULL;
+#else
+	int cnt = 0;
+	while(dataAddr != end_node->data_node_addr)
+	{
+		cnt++;
+		nodeAllocator->expand(dataAddr);
+
+		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
+		dataAddr = dataNode->next_offset;
+	}
+	debug_error("end of end\n");
+#endif
 
 }
 void PH_List::recover_init()

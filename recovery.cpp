@@ -32,6 +32,12 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 	uint64_t recover_cold_kv(NodeAddr &nodeAddr)
 	{
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+
+		// have to be first
+		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX); // TODO CHECK DUP OF start empty end
+		nodeMeta->valid_cnt = 0;
+
+
 		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 		DataNode dram_dataNode = *dataNode;
 		int offset = 0;
@@ -84,10 +90,13 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 					nodeMeta->valid[i] = true;
 					nodeMeta->valid_cnt++;
 
-					if (rv < key)
+					if (rv > key)
 						rv = key;
 				}
+//				else
+//					nodeMeta->valid[i] = false;
 
+				hash_index->unlock_entry2(seg_lock,read_lock);
 
 			}
 
@@ -101,6 +110,10 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
 		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 		DataNode dram_dataNode = *dataNode;
+
+		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+		nodeMeta->valid_cnt = 0;
+
 		int offset = 0;
 		int i,j;
 		unsigned char* addr;
@@ -157,9 +170,11 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 						nodeMeta->valid[cnt] = true;
 						nodeMeta->valid_cnt++;
 
-						if (rv < key)
+						if (rv > key)
 							rv = key;
 					}
+
+					hash_index->unlock_entry2(seg_lock,read_lock);
 				}
 				cnt++;
 				addr+=ENTRY_SIZE;
