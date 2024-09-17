@@ -19,10 +19,28 @@ namespace PH
 
 	extern int num_pmem;
 
+	void forced_sync(NodeAddr nodeAddr)
+	{
+		_mm_sfence();
+		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
+
+		if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)
+			debug_error("fieee\n");
+
+		dataNode->next_offset = nodeMeta->next_addr;
+		dataNode->next_offset_in_group = nodeMeta->next_addr_in_group;
+		_mm_sfence();
+	}
+
 	void pmem_next_in_group_write(DataNode* dst_node,NodeAddr nodeAddr)
 	{
+#if 0
+		pmem_memcpy_persist(&dst_node->next_offset_in_group,&nodeAddr,sizeof(NodeAddr));
+#else
 		dst_node->next_offset_in_group = nodeAddr;
 		pmem_persist(dst_node,NODE_HEADER_SIZE);
+#endif
 		_mm_sfence();
 	}
 
@@ -64,6 +82,8 @@ namespace PH
 #endif
 	void NodeAllocator::linkNext(NodeMeta* nm1,NodeMeta* nm2)
 	{
+//		forced_sync(nm1->my_offset);
+
 		nm1->next_p = nm2;
 		nm1->next_addr = nm2->my_offset;
 		DataNode* pmem_node = nodeAddr_to_node(nm1->my_offset);
@@ -71,6 +91,7 @@ namespace PH
 		pmem_node->next_offset = nm2->my_offset;
 		pmem_persist(&pmem_node->next_offset,sizeof(NodeAddr));//NODE_HEADER_SIZE);
 		_mm_sfence();
+//		forced_sync(nm1->my_offset);
 		//		nm->size = sizeof(NodeAddr);
 	}
 
@@ -345,11 +366,15 @@ namespace PH
 		nm->next_p = NULL;
 		nm->next_node_in_group = NULL;
 
+		nm->next_addr = nm->next_addr_in_group = emptyNodeAddr;
+
 		//pmem memset
 		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
 		memset(dataNode,0,NODE_SIZE);
 		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
+
+//		forced_sync(nm->my_offset);
 
 		//		nm->test = 0; // test
 		return nm->my_offset;

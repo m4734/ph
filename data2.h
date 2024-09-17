@@ -7,6 +7,7 @@
 
 namespace PH
 {
+	void forced_sync(NodeAddr nodeAddr);
 
 extern size_t NODE_SLOT_MAX;
 
@@ -210,11 +211,10 @@ struct NodeMeta
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
 //	volatile NodeMeta* next_p;
-
-	NodeAddr list_addr;
-
 	NodeAddr next_addr;
 	NodeAddr next_addr_in_group;
+
+	NodeAddr list_addr;
 
 	NodeMeta* next_p;
 	NodeMeta* next_node_in_group;

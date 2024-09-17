@@ -601,15 +601,24 @@ namespace PH
 		for (i=0;i<group1_idx;i++) // connect
 		{
 			new_nodeMeta1[i]->next_node_in_group = new_nodeMeta1[i+1];
+			new_nodeMeta1[i]->next_addr_in_group = new_nodeMeta1[i+1]->my_offset;
 			sorted_buffer1[i].next_offset = emptyNodeAddr;
 			sorted_buffer1[i].next_offset_in_group = new_nodeMeta1[i+1]->my_offset;
 		}
 		for (i=0;i<group2_idx;i++) // connect
 		{
 			new_nodeMeta2[i]->next_node_in_group = new_nodeMeta2[i+1];
+			new_nodeMeta2[i]->next_addr_in_group = new_nodeMeta2[i+1]->my_offset;
 			sorted_buffer2[i].next_offset = emptyNodeAddr;
 			sorted_buffer2[i].next_offset_in_group = new_nodeMeta2[i+1]->my_offset;
 		}
+
+//maybe bug
+#if 1
+		sorted_buffer1[group1_idx].next_offset_in_group = emptyNodeAddr;
+		sorted_buffer2[group2_idx].next_offset_in_group = emptyNodeAddr;
+#endif
+
 
 		//		new_nodeMeta1[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
 		new_nodeMeta2[0]->next_p = old_nodeMeta[0]->next_p;
@@ -791,6 +800,8 @@ namespace PH
 
 		_mm_sfence();
 
+//		forced_sync(prev->data_node_addr);
+
 #endif
 #if 0
 		// listNode is never deleted just split
@@ -812,6 +823,12 @@ namespace PH
 		at_unlock2(next_skiplistNode->lock);
 #endif
 		// unlock
+/*
+		for (i=0;i<=group1_idx;i++)
+			forced_sync(new_nodeMeta1[i]->my_offset);
+		for (i=0;i<=group2_idx;i++)
+			forced_sync(new_nodeMeta2[i]->my_offset);		
+*/
 		for (i=0;i<=group1_idx;i++)
 			at_unlock2(new_nodeMeta1[i]->rw_lock);		
 		for (i=0;i<=group2_idx;i++)
@@ -2738,9 +2755,11 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		child2_meta = nodeAllocator->nodeAddr_to_nodeMeta(child2_sl_node->data_node_addr[0]);
 		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->sa_to_node(old_skipListNode->next[0])->data_node_addr[0]);
 
+
+		nodeAllocator->linkNext(child2_meta,next_meta);
+		_mm_sfence();
 		nodeAllocator->linkNext(child1_meta,child2_meta);
 		//		nodeAllocator->linkNext(child2_meta,skiplist->sa_to_node(old_skipListNode->next[0]));
-		nodeAllocator->linkNext(child2_meta,next_meta);
 
 		_mm_sfence();
 

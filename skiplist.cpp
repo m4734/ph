@@ -1052,7 +1052,6 @@ void PH_List::init()
 	nodeAllocator->linkNext(nm_empty,nm_start);
 	nodeAllocator->linkNext(nm_start,nm_end);
 }
-
 void PH_List::clean()
 {
 
@@ -1066,6 +1065,11 @@ void PH_List::clean()
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 		while (nodeMeta)
 		{
+#ifdef PER_TEST
+DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)
+	debug_error("failed\n");
+#endif
 			bc++;
 			max+=34;
 			use+=nodeMeta->valid_cnt;
