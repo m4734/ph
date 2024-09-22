@@ -19,7 +19,7 @@
 namespace PH
 {
 
-extern void recover_counter(uint64_t key,uint64_t version);
+//extern void recover_counter(uint64_t key,uint64_t version);
 
 extern CCEH* hash_index;
 extern Skiplist* skiplist;

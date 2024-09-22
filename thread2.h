@@ -147,6 +147,7 @@ class Scan_Result // signle thread
 //	void reserve_skiplist(int size);
 	void empty();
 	void clean();
+	int getCnt();
 
 	private:
 	int resultSize;

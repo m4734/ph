@@ -633,7 +633,7 @@ namespace PH
 
 		// link!?
 		//		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyNodeAddr;
-		sorted_buffer2[0].next_offset = old_nodeMeta[0]->next_p->my_offset;
+		sorted_buffer2[0].next_offset = old_nodeMeta[0]->next_p->my_offset; // thread bug here old_nodeMeta[0]->next is null // TODO fix this
 		sorted_buffer1[0].next_offset = new_nodeMeta2[0]->my_offset;
 
 		// fill new nodes
@@ -1865,14 +1865,6 @@ namespace PH
 				else
 					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//				_mm_sfence();
-#ifdef KEY_CHECK
-				uint64_t test_key;
-
-				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
-				if (test_key != key)
-					debug_error("key test failed\n");
-#endif
 #if 0 
 				uint64_t test_key;
 				uint64_t test_value;
@@ -1894,6 +1886,7 @@ namespace PH
 				diff = doubleLogList[ea.file_num].tail_sum-old_tail_sum;
 				if (logical_tail+diff > logical_offset) // entry may be overwritten // try again
 					continue;
+
 			}
 			else // warm cold
 			{
@@ -1936,14 +1929,6 @@ namespace PH
 				else
 					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
 				//		at_unlock2(nm->lock);
-#ifdef KEY_CHECK
-				uint64_t test_key;
-
-				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
-				if (test_key != key)
-					debug_error("key test failed\n");
-#endif
 				_mm_sfence();
 
 #if 0
@@ -1964,7 +1949,18 @@ namespace PH
 
 			// need fence?
 			if (seg_depth_p == NULL || seg_depth == *seg_depth_p)// && ret == *ret_p)
+			{
+#ifdef KEY_CHECK
+				uint64_t test_key;
+
+				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				if (test_key != key)
+					debug_error("key test failed\n"); // TODO 20 thread
+#endif
+
 				break;
+			}
 		}
 
 		return 0;
@@ -2021,6 +2017,10 @@ void Scan_Result::resize(uint64_t length)
 	result = new unsigned char[ENTRY_SIZE*length];
 	resultSize = length;
 }
+int Scan_Result::getCnt()
+{
+	return resultCnt;
+}
 
 	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
@@ -2050,7 +2050,7 @@ _mm_sfence();
 		DataNode* dataNode;
 
 		uint64_t next_key;
-		uint64_t scan_count=0;
+//		uint64_t scan_count=0;
 
 		int group_idx;
 		int size;
@@ -2109,7 +2109,7 @@ clock_gettime(CLOCK_MONOTONIC,&ts1);
 _mm_sfence();
 #endif
 
-		while(scan_count < length && skiplistNode != skiplist->end_node)
+		while(scan_result.getCnt() < length && skiplistNode != skiplist->end_node)
 		{
 			while(1)
 			{
@@ -2217,7 +2217,7 @@ _mm_sfence();
 				nodeMeta = nodeMeta->next_node_in_group;
 				group_idx++;
 			}
-			scan_count+=skiplist_key_list.size();
+//			scan_count+=skiplist_key_list.size();
 #ifdef SCAN_TIME
 _mm_sfence();
 clock_gettime(CLOCK_MONOTONIC,&ts4);
@@ -2234,7 +2234,7 @@ _mm_sfence();
 			while (listNode->next->key < start_key)
 				listNode = listNode->next;
 
-			while (listNode->key < next_key && scan_count < length) // scan skiplist
+			while (listNode->key < next_key && scan_result.getCnt() < length) // scan skiplist
 			{
 				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 				group_idx = 0;
@@ -2273,7 +2273,7 @@ _mm_sfence();
 					group_idx++;
 				}
 
-				scan_count+=list_key_list.size();
+//				scan_count+=list_key_list.size();
 
 #ifdef SCAN_TIME
 _mm_sfence();
@@ -2289,7 +2289,7 @@ _mm_sfence();
 				{
 					key1 = skiplist_key_list.top().first;
 					key2 = list_key_list.top().first;
-					while (1)
+					while (scan_result.getCnt() < length)
 					{
 					if (key1 < key2)
 					{
@@ -2309,18 +2309,24 @@ _mm_sfence();
 					}
 					}
 				}
-				size = list_key_list.size();
-				for (i=0;i<size;i++)
+				if (scan_result.getCnt() < length)
 				{
-					scan_result.insert(list_key_list.top().second);
-					list_key_list.pop();
+					size = list_key_list.size();
+					for (i=0;i<size;i++)
+					{
+						scan_result.insert(list_key_list.top().second);
+						list_key_list.pop();
+					}
 				}
 #else
-				size = list_key_list.size();
-				for (i=0;i<size;i++)
+				if (scan_result_getCnt() < length)
 				{
-					scan_result.insert(list_key_list.front().second);
-					list_key_list.pop();
+					size = list_key_list.size();
+					for (i=0;i<size;i++)
+					{
+						scan_result.insert(list_key_list.front().second);
+						list_key_list.pop();
+					}
 				}
 #endif
 
@@ -2334,17 +2340,21 @@ _mm_sfence();
 
 				listNode = listNode->next;
 			}
-			size = skiplist_key_list.size();
-			for (i=0;i<size;i++)
+			if (scan_result.getCnt() < length)
 			{
+				size = skiplist_key_list.size();
+				for (i=0;i<size;i++)
+				{
 #ifdef SCAN_SORT
-				scan_result.insert(skiplist_key_list.top().second);
-				skiplist_key_list.pop();
+					scan_result.insert(skiplist_key_list.top().second);
+					skiplist_key_list.pop();
 #else
-				scan_result.insert(skiplist_key_list.front().second);
-				skiplist_key_list.pop();
+					scan_result.insert(skiplist_key_list.front().second);
+					skiplist_key_list.pop();
 #endif
+				}
 			}
+//			scan_count+=size;
 
 			while(1) // may need delete lock
 			{
@@ -2379,7 +2389,7 @@ clock_gettime(CLOCK_MONOTONIC,&ts2);
 main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #endif
 
-		return scan_count;
+		return scan_result.getCnt();
 	}
 	int PH_Query_Thread::next_op(unsigned char* buf)
 	{

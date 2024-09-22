@@ -15,11 +15,6 @@ extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 extern size_t WARM_BATCH_CNT;
 extern size_t WARM_BATCH_ENTRY_CNT;
 
-	inline void recover_counter(uint64_t key,uint64_t value) // single thread
-	{
-		if (global_seq_num[key%COUNTER_MAX] < value)
-			global_seq_num[key%COUNTER_MAX] = value;
-	}
 
 	unsigned char* get_entry(EntryAddr &ea)
 	{

@@ -19,6 +19,7 @@ namespace PH
 #define ENTRY_SIZE (8+8+VALUE_SIZE)
 #define TOTAL_DATA_SIZE (ENTRY_SIZE*KEY_RANGE)
 	 */
+	void recover_counter(uint64_t key,uint64_t version);
 
 	extern size_t VALUE_SIZE0;
 

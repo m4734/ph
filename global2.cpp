@@ -48,6 +48,12 @@ extern int log_max;
 
 	std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 
+	void recover_counter(uint64_t key,uint64_t value) // single thread
+	{
+		if (global_seq_num[key%COUNTER_MAX] < value)
+			global_seq_num[key%COUNTER_MAX] = value;
+	}
+
 	//check
 	std::atomic<uint64_t> warm_to_warm_sum;
 	std::atomic<uint64_t> warm_log_write_sum;
