@@ -168,8 +168,6 @@ class Skiplist
 
 	SkiplistNode** node_pool_list;
 //	std::vector<SkiplistNode*> node_pool_list;
-	size_t node_pool_cnt;
-	size_t node_pool_list_cnt;
 
 	std::atomic<uint8_t> node_alloc_lock; // lock?
 	SkiplistNode* node_free_head;
@@ -213,6 +211,9 @@ class Skiplist
 	}
 
 	SkiplistNode* allocate_node();
+
+	size_t node_pool_cnt;
+	size_t node_pool_list_cnt;
 
 	SkiplistNode* empty_node;
 	SkiplistNode* start_node;

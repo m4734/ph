@@ -239,9 +239,9 @@ namespace PH
 
 	void Skiplist::init(size_t size)
 	{
-		WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
-		WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
-		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+		WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE); // 4096/1024??
+		WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE; // 1024-16 / 120 = 8-9
+		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4 = 32
 		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
 										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
 
@@ -323,9 +323,6 @@ namespace PH
 		 */
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
 		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*NODE_SIZE/1024/1024/1024);
-#ifdef STAT
-		printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
-#endif
 #ifdef WARM_STAT
 		printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
 #endif
@@ -413,6 +410,8 @@ namespace PH
 
 		node->cold_block_sum = 0;
 		node->half_listNode = NULL;
+
+		_mm_sfence();
 
 		node->lock = 0;
 		node->rw_lock = 0;
@@ -676,6 +675,10 @@ void Skiplist::setLimit(size_t size)
 
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
+	/*
+	if (node->key == 3458764513820540926UL)
+		debug_error("dele node\n");
+		*/
 	node->ver = 0;
 	//		printf("not now\n");
 #if 0
@@ -1148,35 +1151,40 @@ ListNode* PH_List::alloc_list_node()
 	while(node_alloc_lock);
 	at_lock2(node_alloc_lock);
 
+	ListNode* node;
+
 	if (node_free_head)
 	{
-		ListNode* rv = node_free_head;
+		node = node_free_head;
 		node_free_head = node_free_head->next;
-
+/*
 		rv->next = NULL;
 		rv->prev = NULL;
 		rv->block_cnt = 0;
 		_mm_sfence();
 		rv->lock = 0;
-
+*/
 		at_unlock2(node_alloc_lock);
-		return rv;
+//		return rv;
 	}
-
-
-	if (node_pool_cnt >= NODE_POOL_SIZE)
+	else // alloc new
 	{
-		if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
-			printf("no space for node2!\n");
-		++node_pool_list_cnt;
-		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
-										  //		node_pool_list.push_back(new ListNode[NODE_POOL_SIZE]);
-		node_pool_cnt = 0;
+		if (node_pool_cnt >= NODE_POOL_SIZE)
+		{
+			if (node_pool_list_cnt >= NODE_POOL_LIST_SIZE)
+				printf("no space for node2!\n");
+			++node_pool_list_cnt;
+			node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];//(SkiplistNode*)malloc(sizeof(SkiplistNode) * NODE_POOL_SIZE);
+											  //		node_pool_list.push_back(new ListNode[NODE_POOL_SIZE]);
+			node_pool_cnt = 0;
+		}
+		node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
+		node->myAddr.pool_num = node_pool_list_cnt;
+		node->myAddr.node_offset = node_pool_cnt;
+		node_pool_cnt++;
+		at_unlock2(node_alloc_lock);
 	}
 
-	ListNode* node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
-	node->myAddr.pool_num = node_pool_list_cnt;
-	node->myAddr.node_offset = node_pool_cnt;
 	node->block_cnt = 0;
 	node->next = NULL;
 	node->prev = NULL;
@@ -1187,8 +1195,6 @@ ListNode* PH_List::alloc_list_node()
 	node->lock = 0;
 	//	if (node_pool_cnt < NODE_POOL_SIZE)
 	{
-		node_pool_cnt++;
-		at_unlock2(node_alloc_lock);
 		return node;
 	}
 }

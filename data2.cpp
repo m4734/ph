@@ -248,6 +248,10 @@ namespace PH
 		if (free_head_p)
 		{
 			nm = (NodeMeta*)free_head_p;
+#if 0
+			if (nm->rw_lock != 2)
+				debug_error("free lock error\n");
+#endif
 			free_head_p = free_head_p->next_p;
 			at_unlock2(lock);
 		}
@@ -285,7 +289,6 @@ namespace PH
 		for (i=0;i<NODE_SLOT_MAX;i++)
 			nm->valid[i] = false;
 		nm->valid_cnt = 0; // init
-		nm->rw_lock = 0;
 
 		nm->group_cnt = 1;
 
@@ -299,7 +302,7 @@ namespace PH
 		memset(dataNode,0,NODE_SIZE);
 		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
-
+		nm->rw_lock = 0;
 //		forced_sync(nm->my_offset);
 
 		//		nm->test = 0; // test
@@ -308,7 +311,12 @@ namespace PH
 
 	void NodeAllocator::free_node(NodeMeta* nm)
 	{
+#if 0
+		if (nm->my_offset.pool_num == 0 && nm->my_offset.node_offset == 4805344/4096)
+			debug_error("free the node\n");
+#endif
 		at_lock2(lock);
+		nm->rw_lock = 2;
 		nm->next_p = free_head_p;
 		free_head_p = nm;
 		at_unlock2(lock);
