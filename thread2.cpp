@@ -1335,20 +1335,15 @@ group0_idx = 0;
 
 
 			if (new_ea.value != 0) // good
-			{
+			{ // write version here
 
 			kvp = *kvp_p; // return old kvp
 				//				uint64_t new_version = kvp_p->version+1;
 				EntryAddr old_ea;
 				old_ea.value = kvp_p->value;
 				EntryHeader new_version;
-#ifdef KVP_VER
-				new_version.value = kvp_p->version;
-				if (new_update)
-					new_version.version++;
-#else					
+
 				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-#endif
 				//				new_version.prev_loc = old_ea.loc; // will be 3
 				set_valid(new_version);
 
@@ -1363,10 +1358,6 @@ group0_idx = 0;
 
 				_mm_sfence();
 				//write version after key value
-#ifdef KVP_VER
-				kvp_p->version = new_version.value; //???
-				_mm_sfence();
-#endif
 
 				//				hash_index->unlock_entry2(seg_lock,read_lock); // unlock outer
 
@@ -1708,38 +1699,17 @@ group0_idx = 0;
 			old_ea.value = kvp_p->value;
 #endif
 
-#ifdef KVP_VER
-
-#else
 			uint64_t new_ver;
 			new_ver = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-#endif
+			new_version.version = new_ver;
+			set_valid(new_version);
+
+
+
 			if (kvp_p->key != key) // new key...
-			{
-				//				new_version.prev_loc = 0;
-				//				new_version.prev_loc = HOT_LOG;
-				//				new_version = 1;
-#ifdef KVP_VER
-				new_version.version = 1;
-#else
-				new_version.version = new_ver;
-#endif
-				set_valid(new_version);
 				ex = 0;
-			}
 			else
-			{
-#ifdef KVP_VER
-				new_version.value = kvp_p->version;
-				//				new_version.prev_loc = old_ea.loc;
-				new_version.version++;
-#else
-				//				new_version.prev_loc = old_ea.loc;
-				new_version.version = new_ver;
-#endif
-				set_valid(new_version);
 				ex = 1;
-			}
 
 			// update version
 			dst_log->write_version(new_version.value); // has fence
@@ -1864,8 +1834,6 @@ group0_idx = 0;
 		// no nm rw lock but need hash entry lock...
 	}
 #endif
-
-//#define KEY_CHECK
 
 	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf,std::string *value)
 	{
@@ -2510,7 +2478,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		}
 
 		if (log_cnt == 0)
-			printf("can not find log\n");
+			printf("evict thread can not find log\n");
 
 		for (i=log_cnt;i<ln;i++)
 			log_list[i] = NULL;

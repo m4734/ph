@@ -184,7 +184,10 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 
 	num_query_thread = n_t;
 	num_pmem = n_p;
-	num_log = (n_t-1)/n_p+1; // num_log per pmem
+
+//	num_log = (n_t-1)/n_p+1; // num_log per pmem
+	num_log = n_t;
+
 	num_evict_thread = n_e;
 	num_thread = num_query_thread + num_evict_thread;
 

@@ -5,11 +5,17 @@
 #include <atomic>
 
 //#define WARM_STAT
-//#define KVP_VER
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
 //#define SCAN_TIME
+
+#define CC // cor check
+#ifdef CC
+
+#define KEY_CHECK
+
+#endif
 
 namespace PH
 {
@@ -17,13 +23,22 @@ namespace PH
 	const size_t KEY_MIN = 0x0000000000000000;
 	const size_t KEY_MAX = 0xffffffffffffffff;
 
-	const size_t NODE_HEADER_SIZE = 16; //8 + 8
+#if 1 // big
 	const size_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
-	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
-	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 
-	const size_t WARM_MAX_NODE_GROUP = 1;
+	const size_t WARM_MAX_NODE_GROUP = 2;
+	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
+#else // small
+	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
+
+	const size_t WARM_MAX_NODE_GROUP = 2;
+	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
+#endif
+
 	const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
+
+	const size_t NODE_HEADER_SIZE = 16; //8 + 8
+	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
 
 	struct NodeAddr
 	{

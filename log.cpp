@@ -53,11 +53,13 @@ void init_log(int num_pmem, int num_log)
 
 	printf("init log\n");
 
-	log_max = num_pmem*num_log;
+//	log_max = num_pmem*num_log;
+	log_max = num_log;
+
 	doubleLogList = new DoubleLog[log_max];
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
-	log_size = TOTAL_DATA_SIZE/10/(num_pmem*num_log); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
+	log_size = TOTAL_DATA_SIZE/10/(log_max); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
 #if 0
 	if (log_size < 1024*1024*1024) // minimum
 		log_size = 1024*1024*1024;
@@ -85,13 +87,14 @@ void init_log(int num_pmem, int num_log)
 
 	}
 #endif
-	printf("LOG NUM %d LOG SIZE %lfGB SUM %lfGB\n",num_log,double(log_size)/1024/1024/1024,double(log_size)*num_log*num_pmem/1024/1024/1024);
+//	printf("LOG NUM %d LOG SIZE %lfGB SUM %lfGB\n",num_log,double(log_size)/1024/1024/1024,double(log_size)*num_log*num_pmem/1024/1024/1024);
 
 	int i,j,cnt=0;
 	for (i=0;i<num_log;i++)
 	{
-		for (j=0;j<num_pmem;j++) // inner loop pmem
+//		for (j=0;j<num_pmem;j++) // inner loop pmem
 		{
+			j = i % num_pmem;
 			char path[100];
 			int len;
 #ifdef INTERLEAVE
@@ -111,6 +114,7 @@ void clean_log()
 {
 
 	printf("clean log\n");
+	printf("LOG MAX %d LOG SIZE %lfGB SUM %lfGB\n",log_max,double(log_size)/1024/1024/1024,double(log_size)*log_max/1024/1024/1024);
 
 	int i;
 	for (i=0;i<log_max;i++)
