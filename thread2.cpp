@@ -1573,7 +1573,7 @@ group0_idx = 0;
 
 		dtc = 0;
 
-		if (ex == 1 && old_ea.loc == COLD_LIST && false) // NO DTC
+		if (ex == 1 && old_ea.loc == COLD_LIST) // NO DTC
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition

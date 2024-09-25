@@ -10,7 +10,7 @@
 #define SCAN_SORT
 //#define SCAN_TIME
 
-#define CC // cor check
+//#define CC // cor check
 #ifdef CC
 
 #define KEY_CHECK
