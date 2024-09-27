@@ -106,7 +106,14 @@ namespace PH
 		return min;
 	}
 #endif
-
+/*
+	PH_Thread()
+	{
+	}
+	~PH_Thread()
+	{
+	}
+*/
 	void EA_test(uint64_t key, EntryAddr ea)
 	{
 		printf("not now\n");
@@ -586,9 +593,9 @@ namespace PH
 		NodeAddr new_nodeAddr2[MAX_NODE_GROUP];
 		NodeMeta* new_nodeMeta2[MAX_NODE_GROUP];
 
-		NodeAddr test_addr1,test_addr2; // for test
+//		NodeAddr test_addr1,test_addr2; // for test
 
-		test_addr1  = old_nodeMeta[0]->my_offset;
+//		test_addr1  = old_nodeMeta[0]->my_offset;
 
 		// do not change listNode just link new nodemeta
 		ListNode* new_listNode;
@@ -614,7 +621,7 @@ namespace PH
 			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 
-		test_addr2 = new_nodeAddr1[0];
+//		test_addr2 = new_nodeAddr1[0];
 
 		for (i=0;i<group1_idx;i++) // connect
 		{
@@ -1138,10 +1145,17 @@ group0_idx = 0;
 	{
 		//		const size_t threshold = HARD_EVICT_SPACE;
 		//				const size_t threshold = SOFT_EVICT_SPACE; // query thread is too busy 
-
+#if 1
 		const size_t min_threshold = dl->hard_evict_space/2;//HARD_EVICT_SPACE/2;
 								    //		const size_t max_threshold = SOFT_EVICT_SPACE/2;
 		const size_t max_threshold = dl->hard_evict_space;//HARD_EVICT_SPACE;
+#else
+		const size_t min_threshold = dl->hard_evict_space*1/4;//HARD_EVICT_SPACE/2;
+								    //		const size_t max_threshold = SOFT_EVICT_SPACE/2;
+		const size_t max_threshold = dl->hard_evict_space*2/4;//3/4;//HARD_EVICT_SPACE;
+
+#endif
+
 		const size_t threshold = max_threshold-min_threshold;
 
 		//HARD 0 ~ SOFT 100
@@ -1573,7 +1587,7 @@ group0_idx = 0;
 
 		dtc = 0;
 
-		if (ex == 1 && old_ea.loc == COLD_LIST) // NO DTC
+		if (ex == 1 && old_ea.loc == COLD_LIST)// && false) // NO DTC
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
@@ -2235,8 +2249,8 @@ _mm_sfence();
 					
 //				memcpy(&scan_result.skiplistNode_dataNodeList[skiplist_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
 
-				sorted_buffer1[group_idx] = *dataNode; // is not sorted
-//				memcpy(dram_dataNode,dataNode,NODE_SIZE);
+//				sorted_buffer1[group_idx] = *dataNode; // is not sorted
+				memcpy(&sorted_buffer1[group_idx],dataNode,NODE_SIZE);
 //				at_unlock2(nodeMeta->rw_lock);
 
 				addr = (unsigned char*)&sorted_buffer1[group_idx];
@@ -2293,7 +2307,9 @@ _mm_sfence();
 //					at_lock2(nodeMeta->rw_lock);
 					
 //					memcpy(&scan_result.listNode_dataNodeList[list_cnt-1][group_idx],dataNode,sizeof(NODE_SIZE)); // pmem to dram
-					sorted_buffer2[group_idx] = *dataNode; // the name is
+//					sorted_buffer2[group_idx] = *dataNode; // the name is
+					memcpy(&sorted_buffer2[group_idx],dataNode,NODE_SIZE);
+
 					addr = sorted_buffer2[group_idx].buffer;
 					offset = 0;
 
@@ -2417,12 +2433,6 @@ _mm_sfence();
 			}
 
 			at_unlock2(skiplistNode->lock);
-
-#if 0
-			if (skiplist_cnt == 1)
-			{
-			}
-#endif
 
 			skiplistNode = next_skiplistNode;
 		}
@@ -3648,6 +3658,10 @@ EA_test(key,ta);
 
 		while(dl->soft_adv_offset + LOG_ENTRY_SIZE + dl->my_size <= dl->head_sum + dl->soft_evict_space)//SOFT_EVICT_SPACE)
 		{
+//		if (dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space && dl->head_sum + dl->hard_evict_space < dl->soft_adv_offset + dl->my_size)//HARD_EVICT_SPACE)
+//			break;
+
+
 			addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
 			header.value = *(uint64_t*)addr;
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
@@ -3701,6 +3715,7 @@ EA_test(key,ta);
 					//	printf("warm node full!!\n");
 					//	else
 					//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
+//					if (node->list_head - node->list_tail < WARM_NODE_ENTRY_CNT)//WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
 					if (node->list_head - node->list_tail < WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
 					{
 						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
@@ -3709,15 +3724,16 @@ EA_test(key,ta);
 						node->list_head++; // lock...
 
 						at_unlock2(node->lock);
-						break;
+						break; // in the list // 
 					}
-					list_gc(node);
 
 					//					set_checked((uint64_t*)addr);
 
 					// need to try flush
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
+					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
+						list_gc(node);
 					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
 					{
 						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
