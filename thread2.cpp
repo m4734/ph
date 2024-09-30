@@ -5,6 +5,7 @@
 #include <libpmem.h> 
 #include <queue>
 #include <utility>
+#include <algorithm>
 
 #include "thread2.h"
 #include "log.h"
@@ -382,6 +383,30 @@ namespace PH
 	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len)
 	{
 		pmem_memcpy(dst_addr,src_addr,len,PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+	}
+
+	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
+	{
+		int offset;
+		offset = len-256;
+		while(offset >= 0)
+		{
+			pmem_memcpy(dst_addr+offset,src_addr+offset,256,PMEM_F_MEM_NONTEMPORAL);
+			offset-=256;
+		}
+		_mm_sfence();
+	}
+
+	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
+	{
+		int offset;
+		offset = len-256;
+		while(offset >= 0)
+		{
+			memcpy(dst_addr+offset,src_addr+offset,256);
+			offset-=256;
+		}
 		_mm_sfence();
 	}
 
@@ -2151,14 +2176,13 @@ _mm_sfence();
 //		DataNode dram_dataNode;
 
 		size_t offset;
-#ifdef SCAN_SORT
-		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> skiplist_key_list;
-		std::priority_queue<std::pair<uint64_t,unsigned char*>,std::vector<std::pair<uint64_t,unsigned char*>>,std::greater<std::pair<uint64_t,unsigned char*>>> list_key_list;
-#else
-		std::queue<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
-		std::queue<std::pair<uint64_t,unsigned char*>> list_key_list;
-
+#if 1
+		std::vector<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
+		std::vector<std::pair<uint64_t,unsigned char*>> list_key_list;
+		int sklt;
+		int lklt;
 #endif
+
 
 #ifdef SCAN_TIME
 _mm_sfence();
@@ -2198,6 +2222,7 @@ _mm_sfence();
 clock_gettime(CLOCK_MONOTONIC,&ts3);
 _mm_sfence();
 #endif
+			sklt = 0;
 			for (i=0;i<skiplistNode->key_list_size;i++)
 			{
 				key = skiplistNode->key_list[i];
@@ -2224,7 +2249,7 @@ _mm_sfence();
 							continue;
 						if (is_valid((EntryHeader*)addr) == false)
 							continue;
-						skiplist_key_list.push(std::make_pair(key,addr));
+						skiplist_key_list.push_back(std::make_pair(key,addr));
 					}
 					break;
 				}
@@ -2266,7 +2291,7 @@ _mm_sfence();
 						{
 							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 							if (key >= start_key)
-								skiplist_key_list.push(std::make_pair(key,addr+offset));
+								skiplist_key_list.push_back(std::make_pair(key,addr+offset));
 						}
 						offset+=ENTRY_SIZE;
 //						j++;
@@ -2277,6 +2302,10 @@ _mm_sfence();
 				group_idx++;
 			}
 //			scan_count+=skiplist_key_list.size();
+#ifdef SCAN_SORT
+			std::sort(skiplist_key_list.begin(),skiplist_key_list.end());
+#endif
+
 #ifdef SCAN_TIME
 _mm_sfence();
 clock_gettime(CLOCK_MONOTONIC,&ts4);
@@ -2300,6 +2329,7 @@ _mm_sfence();
 
 //				list_cnt++;
 //				scan_result.reserve_list(list_cnt);
+				lklt = 0;
 				while(nodeMeta) // scan listnode
 				{
 					dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
@@ -2320,7 +2350,7 @@ _mm_sfence();
 						{
 							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 							if (key >= start_key)
-								list_key_list.push(std::make_pair(key,addr+offset));
+								list_key_list.push_back(std::make_pair(key,addr+offset));
 						}
 						offset+=ENTRY_SIZE;
 						i++;
@@ -2335,6 +2365,9 @@ _mm_sfence();
 				}
 
 //				scan_count+=list_key_list.size();
+#ifdef SCAN_SORT
+				std::sort(list_key_list.begin(),list_key_list.end());
+#endif
 
 #ifdef SCAN_TIME
 _mm_sfence();
@@ -2345,50 +2378,41 @@ _mm_sfence();
 #endif
 
 				//pop
-#ifdef SCAN_SORT
+#if 1
 				if (skiplist_key_list.size() && list_key_list.size())
 				{
-					key1 = skiplist_key_list.top().first;
-					key2 = list_key_list.top().first;
+					key1 = skiplist_key_list[sklt].first;
+					key2 = list_key_list[lklt].first;
 					while (scan_result.getCnt() < length)
 					{
 					if (key1 < key2)
 					{
-						scan_result.insert(skiplist_key_list.top().second);
-						skiplist_key_list.pop();
-						if (skiplist_key_list.size() == 0)
+						scan_result.insert(skiplist_key_list[sklt].second);
+						sklt++;
+						if (skiplist_key_list.size() == sklt)
 							break;
-						key1 = skiplist_key_list.top().first;
+						key1 = skiplist_key_list[sklt].first;
 					}
 					else
 					{
-						scan_result.insert(list_key_list.top().second);
-						list_key_list.pop();
-						if (list_key_list.size() == 0)
+						scan_result.insert(list_key_list[lklt].second);
+						lklt++;
+						if (list_key_list.size() == lklt)
 							break;
-						key2 = list_key_list.top().first;
+						key2 = list_key_list[lklt].first;
 					}
 					}
 				}
 				if (scan_result.getCnt() < length)
 				{
 					size = list_key_list.size();
-					for (i=0;i<size;i++)
+					for (i=lklt;i<size;i++)
 					{
-						scan_result.insert(list_key_list.top().second);
-						list_key_list.pop();
+						scan_result.insert(list_key_list[lklt].second);
+						lklt++;
 					}
 				}
-#else
-				if (scan_result_getCnt() < length)
-				{
-					size = list_key_list.size();
-					for (i=0;i<size;i++)
-					{
-						scan_result.insert(list_key_list.front().second);
-						list_key_list.pop();
-					}
-				}
+				list_key_list.clear();
 #endif
 
 #ifdef SCAN_TIME
@@ -2404,17 +2428,15 @@ _mm_sfence();
 			if (scan_result.getCnt() < length)
 			{
 				size = skiplist_key_list.size();
-				for (i=0;i<size;i++)
+				for (i=sklt;i<size;i++)
 				{
-#ifdef SCAN_SORT
-					scan_result.insert(skiplist_key_list.top().second);
-					skiplist_key_list.pop();
-#else
-					scan_result.insert(skiplist_key_list.front().second);
-					skiplist_key_list.pop();
+#if 1
+					scan_result.insert(skiplist_key_list[sklt].second);
+					sklt++;
 #endif
 				}
 			}
+			skiplist_key_list.clear();
 //			scan_count+=size;
 
 			while(1) // may need delete lock
@@ -2963,8 +2985,11 @@ uint64_t old_key=0;
 			end_slot = batch_num*WARM_BATCH_ENTRY_CNT + WARM_BATCH_ENTRY_CNT;
 
 //		printf("%d %d\n",start_slot,end_slot);
-
+#if 0
 		memcpy(evict_buffer,(unsigned char*)dataNode + batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
+#else
+		reverse_memcpy(evict_buffer,(unsigned char*)dataNode + batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
+#endif
 
 		//		src_offset = batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE; // in batch...
 //		src_offset = NODE_HEADER_SIZE; // temp buffer size is changed // in evict buffer...
@@ -3348,7 +3373,12 @@ uint64_t old_key=0;
 					memcpy(evict_buffer,&nodeMeta->next_addr,sizeof(NodeAddr)); // warm node must be fixed
 					memcpy(evict_buffer+sizeof(NodeAddr),&nodeMeta->next_addr_in_group,sizeof(NodeAddr)); // warm node must be fixed
 				}
+#if 0
 				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
+#else
+				pmem_reverse_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
+		
+#endif
 			}
 
 			//------------------------------- pmem write
