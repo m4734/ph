@@ -2381,7 +2381,7 @@ _mm_sfence();
 
 				//pop
 #if 1
-				if (skiplist_key_list.size() && list_key_list.size())
+				if (skiplist_key_list.size() > sklt && list_key_list.size() > lklt)
 				{
 					key1 = skiplist_key_list[sklt].first;
 					key2 = list_key_list[lklt].first;
