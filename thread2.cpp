@@ -486,7 +486,7 @@ namespace PH
 		bool operator==(const SecondOfPair &sop) const
 		{
 			return addr == sop.addr;
-		}
+		}/
 	};
 
 	void PH_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode) // MAKE MANY BUGS
@@ -503,7 +503,8 @@ namespace PH
 		//scan all keys
 		//		std::vector<KA_Pair> key_list;
 		//		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
-		std::priority_queue<std::pair<uint64_t,SecondOfPair>,std::vector<std::pair<uint64_t,SecondOfPair>>,std::greater<std::pair<uint64_t,SecondOfPair>>> key_list;
+//		std::priority_queue<std::pair<uint64_t,SecondOfPair>,std::vector<std::pair<uint64_t,SecondOfPair>>,std::greater<std::pair<uint64_t,SecondOfPair>>> key_list;
+		std::vector<std::pair<uint64_t,SecondOfPair>> key_list;
 		NodeMeta *list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 		//		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
@@ -545,7 +546,7 @@ namespace PH
 					key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 					second.addr = addr+offset;
 					second.ea = ea;
-					key_list.push(std::make_pair(key,second)); // addr in temp dram
+					key_list.push_back(std::make_pair(key,second)); // addr in temp dram
 
 #if 0
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -568,6 +569,7 @@ namespace PH
 		}
 
 		//sort them //pass
+		std::sort(key_list.begin(),key_list.end());
 		//relocate
 		// fixed size here
 
@@ -587,10 +589,10 @@ namespace PH
 				addr = sorted_buffer1[group1_idx].buffer;
 				offset = 0;
 			}
-			memcpy(addr+offset,key_list.top().second.addr,ENTRY_SIZE);
-			key_list_buffer[i] = (key_list.top().first);
-			old_ea_list_buffer[i] = (key_list.top().second.ea);
-			key_list.pop();
+			memcpy(addr+offset,key_list[i].second.addr,ENTRY_SIZE);
+			key_list_buffer[i] = (key_list[i].first);
+			old_ea_list_buffer[i] = (key_list[i].second.ea);
+//			key_list.pop();
 			offset+=ENTRY_SIZE;
 		}
 
@@ -605,10 +607,10 @@ namespace PH
 				addr = sorted_buffer2[group2_idx].buffer;
 				offset = 0;
 			}
-			memcpy(addr+offset,key_list.top().second.addr,ENTRY_SIZE);
-			key_list_buffer[i] = (key_list.top().first);
-			old_ea_list_buffer[i] = (key_list.top().second.ea);
-			key_list.pop();
+			memcpy(addr+offset,key_list[i].second.addr,ENTRY_SIZE);
+			key_list_buffer[i] = (key_list[i].first);
+			old_ea_list_buffer[i] = (key_list[i].second.ea);
+//			key_list.pop();
 			offset+=ENTRY_SIZE;
 		}
 
