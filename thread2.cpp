@@ -2179,8 +2179,10 @@ _mm_sfence();
 
 		size_t offset;
 #if 1
-		std::vector<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
-		std::vector<std::pair<uint64_t,unsigned char*>> list_key_list;
+//		std::vector<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
+//		std::vector<std::pair<uint64_t,unsigned char*>> list_key_list;
+		skiplist_key_list.clear();
+		list_key_list.clear();
 		int sklt;
 		int lklt;
 #endif
@@ -3836,6 +3838,7 @@ EA_test(key,ta);
 			if (done)
 			{
 				usleep(1);
+//				asm("nop");
 			}
 #if 0
 			if (done)

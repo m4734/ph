@@ -395,7 +395,8 @@ void DoubleLog::ready_log()//(size_t len)
 //		printf("haed %lu\ntail %lu\nmint %lu\n",head_sum,tail_sum,min_tail_sum);
 		usleep(1);// sleep
 //		my_thread->update_tail_sum();
-		my_thread->sync_thread();
+//		my_thread->sync_thread();
+//		asm("nop");
 	}
 #endif
 

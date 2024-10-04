@@ -182,6 +182,9 @@ class PH_Query_Thread : public PH_Thread
 
 	Scan_Result scan_result;
 
+	std::vector<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
+	std::vector<std::pair<uint64_t,unsigned char*>> list_key_list;
+
 
 	public:
 	void init();
