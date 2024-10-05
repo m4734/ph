@@ -7,13 +7,13 @@
 namespace PH
 {
 
-extern CCEH* hash_index;
-extern NodeAllocator* nodeAllocator;
-extern DoubleLog* doubleLogList;
-extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
+	extern CCEH* hash_index;
+	extern NodeAllocator* nodeAllocator;
+	extern DoubleLog* doubleLogList;
+	extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 
-extern size_t WARM_BATCH_CNT;
-extern size_t WARM_BATCH_ENTRY_CNT;
+	extern size_t WARM_BATCH_CNT;
+	extern size_t WARM_BATCH_ENTRY_CNT;
 
 
 	unsigned char* get_entry(EntryAddr &ea)
@@ -31,7 +31,6 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 		// have to be first
 		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX); // TODO CHECK DUP OF start empty end
 		nodeMeta->valid_cnt = 0;
-
 
 		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 		DataNode dram_dataNode = *dataNode;
@@ -89,8 +88,8 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 					if (rv > key)
 						rv = key;
 				}
-//				else
-//					nodeMeta->valid[i] = false;
+				//				else
+				//					nodeMeta->valid[i] = false;
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -156,7 +155,7 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 						else
 							invalidate_entry(ea2);
 					}
-					
+
 					if (ow)
 					{
 						recover_counter(key,v1);
@@ -186,7 +185,7 @@ extern size_t WARM_BATCH_ENTRY_CNT;
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
 		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 		NodeMeta* fn = nodeMeta;
-//		int group_idx=0;
+		//		int group_idx=0;
 
 		// first
 

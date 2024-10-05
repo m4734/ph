@@ -247,7 +247,8 @@ namespace PH
 		ListNode* listNode;
 
 		current_key = node->key;
-		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+		next_key = skiplist->find_next_node(node)->key;
 		listNode = node->my_listNode;
 		half_listNode = node->my_listNode;
 		int cnt = 0;
@@ -1320,7 +1321,9 @@ group0_idx = 0;
 					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 				if (try_at_lock2(skiplist_node->lock) == false)
 					continue;
-				if (skiplist_node->key > key || (skiplist->sa_to_node(skiplist_node->next[0]))->key < key)
+//				if (skiplist_node->key > key || (skiplist->sa_to_node(skiplist_node->next[0]))->key < key)
+				if (skiplist_node->key > key || skiplist->find_next_node(skiplist_node)->key < key)
+
 				{
 					at_unlock2(skiplist_node->lock);
 					continue;
@@ -1689,7 +1692,8 @@ group0_idx = 0;
 						node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					if (try_at_lock2(node->lock) == false)
 						continue;
-					next_node = skiplist->sa_to_node(node->next[0]);
+//					next_node = skiplist->sa_to_node(node->next[0]);
+					next_node = skiplist->find_next_node(node);
 					if (next_node->key <= key || node->key > key) // may split
 					{
 						at_unlock2(node->lock);
@@ -2205,7 +2209,8 @@ _mm_sfence();
 				next_key = next_skiplistNode->key;
 
 				_mm_sfence();
-				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+//				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+				if (next_skiplistNode != skiplist->find_next_node(skiplistNode))
 					continue;
 				break;
 			}
@@ -2450,7 +2455,8 @@ _mm_sfence();
 
 				if (try_at_lock2(next_skiplistNode->lock) == false)
 					continue;
-				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+//				if (next_skiplistNode != skiplist->sa_to_node(skiplistNode->next[0]))
+				if (next_skiplistNode != skiplist->find_next_node(skiplistNode))
 				{
 					at_unlock2(next_skiplistNode->lock);
 					continue;
@@ -2748,7 +2754,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		}
 	}
 
-	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skipListNode) // old node is deleted
+	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skiplistNode) // old node is deleted
 	{
 		/*
 		if (old_skipListNode->key == 3458764513820540926UL)
@@ -2760,9 +2766,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		SkiplistNode* child1_sl_node;
 		SkiplistNode* child2_sl_node;
 
-		if (old_skipListNode->half_listNode == NULL)
-			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
-		half_key = old_skipListNode->half_listNode->key; // need skiplist node lock to access half listNode
+		if (old_skiplistNode->half_listNode == NULL)
+			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 	/*
 		uint64_t test_hk = half_key;
 		uint64_t test_osn = old_skipListNode->key;
@@ -2793,7 +2799,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			debug_error("half error\n");
 		}
 #else
-		while (old_skipListNode->key >= half_key)
+		while (old_skiplistNode->key >= half_key)
 		{
 //			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
 /*
@@ -2805,7 +2811,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				break;
 			}
 			*/
-			try_cold_split(old_skipListNode->half_listNode,old_skipListNode);
+			try_cold_split(old_skiplistNode->half_listNode,old_skiplistNode);
 			/*
 			   uint64_t half1,half2; // overflow
 			   half1 = (old_skipListNode->key)/2; // approx
@@ -2814,8 +2820,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			   if (half_key <= old_skipListNode->key)
 			   debug_error("half error\n");
 			 */
-			old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
-			half_key = old_skipListNode->half_listNode->key; 
+			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+			half_key = old_skiplistNode->half_listNode->key; 
 		}
 #endif
 
@@ -2831,23 +2837,22 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		at_lock2(child1_sl_node->lock);
 		at_lock2(child2_sl_node->lock);
 
-		child1_sl_node->key = old_skipListNode->key;
-		child1_sl_node->my_listNode = old_skipListNode->my_listNode.load();
+		child1_sl_node->key = old_skiplistNode->key;
+		child1_sl_node->my_listNode = old_skiplistNode->my_listNode.load();
 
 		child2_sl_node->key = half_key;
-		child2_sl_node->my_listNode = old_skipListNode->half_listNode;
+		child2_sl_node->my_listNode = old_skiplistNode->half_listNode;
 
 #ifdef HOT_KEY_LIST
 		// key list split
 		int i;
-		for (i=0;i<old_skipListNode->key_list_size;i++)
+		for (i=0;i<old_skiplistNode->key_list_size;i++)
 		{
-			if (old_skipListNode->key_list[i] < half_key)
-				child1_sl_node->key_list[child1_sl_node->key_list_size++] = old_skipListNode->key_list[i];
+			if (old_skiplistNode->key_list[i] < half_key)
+				child1_sl_node->key_list[child1_sl_node->key_list_size++] = old_skiplistNode->key_list[i];
 			else
-				child2_sl_node->key_list[child2_sl_node->key_list_size++] = old_skipListNode->key_list[i];
+				child2_sl_node->key_list[child2_sl_node->key_list_size++] = old_skiplistNode->key_list[i];
 #endif
-
 		}
 
 		NodeMeta* nodeMeta;
@@ -2863,14 +2868,25 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		child1_meta = nodeAllocator->nodeAddr_to_nodeMeta(child1_sl_node->data_node_addr[0]);
 		child2_meta = nodeAllocator->nodeAddr_to_nodeMeta(child2_sl_node->data_node_addr[0]);
-		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->sa_to_node(old_skipListNode->next[0])->data_node_addr[0]);
+//		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->sa_to_node(old_skiplistNode->next[0])->data_node_addr[0]);
+		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->find_next_node(old_skiplistNode)->data_node_addr[0]);
 
 
 		nodeAllocator->linkNext(child2_meta,next_meta);
-		_mm_sfence();
 		nodeAllocator->linkNext(child1_meta,child2_meta);
 		//		nodeAllocator->linkNext(child2_meta,skiplist->sa_to_node(old_skipListNode->next[0]));
 
+		SkiplistNode* prev_skiplistNode = old_skiplistNode->prev;
+//		SkiplistNode* next_skiplistNode = skiplist->sa_to_node(old_skiplistNode->next[0]);
+		SkiplistNode* next_skiplistNode = skiplist->find_next_node(old_skiplistNode);
+		NodeMeta* prev_meta = nodeAllocator->nodeAddr_to_nodeMeta(prev_skiplistNode->data_node_addr[0]);
+
+		child1_sl_node->prev = prev_skiplistNode;
+		child2_sl_node->prev = child1_sl_node;
+		next_skiplistNode->prev = child2_sl_node;
+
+		_mm_sfence();
+		nodeAllocator->linkNext(prev_meta,child1_meta);		//persiste htere------
 		_mm_sfence();
 
 		skiplist->insert_node(child1_sl_node,prev_sa_list,next_sa_list);
@@ -2897,7 +2913,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		//delete old here...
 
-		skiplist->delete_node(old_skipListNode); // delete duringn find node
+		skiplist->delete_node(old_skiplistNode); // delete duringn find node
 
 	}
 
@@ -2905,37 +2921,27 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 	{
 		if (node->cold_block_sum > WARM_COLD_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
 		{
-			/*
-uint64_t old_key=0;
-
-		if (node->key == 3458764513820540926UL)
-			debug_error("split here first\n");
-			else
-				old_key = node->key;
-*/
 
 			// flush all
 			flush_warm_node(node);
 
-
 			SkiplistNode *next_node;
-			while(1)
+			while(1) // blocking next also blocks prev split // we can modify prev tooo
 			{
-				next_node = skiplist->sa_to_node(node->next[0]);
+//				next_node = skiplist->sa_to_node(node->next[0]);
+				next_node = skiplist->find_next_node(node);
 				at_lock2(next_node->lock);
-				if (next_node == skiplist->sa_to_node(node->next[0]))
+//				if (next_node == skiplist->sa_to_node(node->next[0]))
+				if (next_node == skiplist->find_next_node(node))
 					break;
 				at_unlock2(next_node->lock);
 			}
-
-
 			{
 				//				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//				at_lock2(nodeMeta->rw_lock);
 				//				hot_to_warm(node,true); // flush all
 				split_empty_warm_node(node);
 				//				at_unlock2(nodeMeta->rw_lock);
-
 				at_unlock2(next_node->lock);
 			}
 			return 1;
@@ -3615,7 +3621,8 @@ EA_test(key,ta);
 #endif
 				if (try_at_lock2(node->lock) == false)
 					continue;
-				if ((skiplist->sa_to_node(node->next[0]))->key < key)
+//				if ((skiplist->sa_to_node(node->next[0]))->key < key)
+				if (skiplist->find_next_node(node)->key < key)
 				{
 					at_unlock2(node->lock);
 					continue;
@@ -3719,7 +3726,9 @@ EA_test(key,ta);
 						continue;
 					}
 
-					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
+//					if ((skiplist->sa_to_node(node->next[0]))->key <= key || node->key > key) // may split
+					if (skiplist->find_next_node(node)->key <= key || node->key > key) // may split
+
 					{
 						at_unlock2(node->lock);
 						continue;

@@ -155,7 +155,7 @@ namespace PH
 			node_cnt[pool_cnt] = POOL_NODE_MAX;
 		}
 #endif
-		while (nodeAddr.pool_num > pool_cnt)
+		while (nodeAddr.pool_num >= pool_cnt)
 		{
 			alloc_pool();
 		}

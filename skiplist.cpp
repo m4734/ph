@@ -218,6 +218,9 @@ namespace PH
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
 		empty_node->built = MAX_LEVEL;
 		//	empty_node->dataNodeHeader = empty_node->data_node_addr[0];
+
+		empty_node->prev = NULL;
+//		start_node->prev = empty_node;// 
 /*
 		NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr[0]);
 		NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr[0]);
@@ -284,6 +287,11 @@ namespace PH
 			empty_node->next[i] = start_node->my_sa;
 			start_node->next[i] = end_node->my_sa;
 		}
+
+		empty_node->prev = NULL;
+		start_node->prev = empty_node;
+		end_node->prev = start_node;
+
 		start_node->built = MAX_LEVEL;
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
 		empty_node->built = MAX_LEVEL;
@@ -310,17 +318,30 @@ namespace PH
 	void Skiplist::clean()
 	{
 		//	printf("skiplist cnt %ld\n",node_pool_list_cnt);
-		/*
-		   int cnt=0;
+#if 0 // traverse test
+		   int cnt0=0;
 		   SkiplistNode* node;
-		   node = start_node;
+		   NodeAddr dataNode_addr;
+		   NodeAddr next_dataNode_addr;
+		   node = empty_node;
+
+		dataNode_addr = node->data_node_addr[0];
+		next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
+
 		   while(node != end_node)
 		   {
-		   node = skiplist->sa_to_node(node->next[0]);
-		   cnt++;
+//		   node = skiplist->sa_to_node(node->next[0]);
+			node = find_next_node(node);
+		   cnt0++;
+
+			dataNode_addr = node->data_node_addr[0];
+			if (dataNode_addr != next_dataNode_addr)
+				debug_error("link brok\n");
+			next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
+
 		   }
-		   printf("warm node cnt %d = %lfGB?\n",cnt,(double)cnt*NODE_SIZE/1024/1024/1024);
-		 */
+		   printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*NODE_SIZE/1024/1024/1024);
+#endif
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
 		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*NODE_SIZE/1024/1024/1024);
 #ifdef WARM_STAT
@@ -441,11 +462,11 @@ return node_pool_list[sa.pool_num][sa.offset];
 }
 	 */
 
-SkiplistNode* Skiplist::find_next_node(SkiplistNode* start_node) // what if max
+SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 {
-	SkiplistNode* node;// = start_node;
+//	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
-	node = start_node;
+//	node = start_node;
 	int j;
 	SkipAddr sa;
 	uint64_t v;
@@ -792,8 +813,26 @@ void Skiplist::insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next)
 }
 void Skiplist::recover()
 {
+
+//--------------test
+	{
+		DataNode* dn;
+		NodeAddr dna;
+		dna = empty_node->data_node_addr[0];
+		dn = nodeAllocator->nodeAddr_to_node(dna);
+		while (dna != end_node->data_node_addr[0])
+		{
+			dna = dn->next_offset;
+			dn = nodeAllocator->nodeAddr_to_node(dna);
+		}
+
+
+	}
+
+
 	NodeMeta* nodeMeta;
 	SkiplistNode* skiplistNode;
+	SkiplistNode* prev_skiplistNode;
 	DataNode* dataNode;
 	NodeAddr dataAddr;
 	NodeAddr i_dataAddr;
@@ -822,7 +861,7 @@ void Skiplist::recover()
 	while(dataAddr != end_node->data_node_addr[0])
 	{
 		nodeAllocator->expand(dataAddr);
-
+		prev_skiplistNode = skiplistNode;
 		skiplistNode = alloc_sl_node();
 		for (i=0;i<=skiplistNode->level;i++)
 		{
@@ -831,10 +870,12 @@ void Skiplist::recover()
 		}
 		skiplistNode->built = skiplistNode->level;
 
-		listNode->data_node_addr = dataAddr;
+		skiplistNode->prev = prev_skiplistNode;
 
-		i = 0;
-		i_dataAddr = dataAddr;
+		skiplistNode->data_node_addr[0] = dataAddr;
+
+//		i = 0;
+//		i_dataAddr = dataAddr;
 
 //		nodeAllocator->recover_node(i_dataAddr,WARM_LIST,i,skiplistNode);
 	/*	
@@ -856,15 +897,15 @@ void Skiplist::recover()
 
 //------------- next
 		dataAddr = dataNode->next_offset;
-//		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
+		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
 
 	//end node
 	for (i=0;i<=MAX_LEVEL;i++)
 		*sa_array[i] = end_node->my_sa;
-
-
 	delete sa_array;
+
+//	skiplistNode = end_node;	
 
 // need my_node and warm cache
 //debug_error("stop here\n");
@@ -877,6 +918,8 @@ void Skiplist::recover()
 
 	while(listNode != list->end_node)
 	{
+		if (listNode->next == NULL)
+			debug_error("recovvvv\n");
 		if (skiplistNode->key <= listNode->key)
 		{
 			skiplistNode->my_listNode = listNode;
@@ -913,7 +956,7 @@ void PH_List::recover()
 	nodeAllocator->expand(dataAddr);
 
 	listNode->prev = prev;
-	if (prev)
+//	if (prev)
 		prev->next = listNode;
 	prev = listNode;
 
@@ -936,6 +979,7 @@ size_t test_key;
 int noting;
 */
 	while(dataAddr != end_node->data_node_addr)
+//	while(dataAddr != emptyNodeAddr)
 	{
 //		cnt++;
 		nodeAllocator->expand(dataAddr);
@@ -943,7 +987,7 @@ int noting;
 		listNode = alloc_list_node(); // myAddr lock
 		
 		listNode->prev = prev;
-		if (prev)
+//		if (prev)
 			prev->next = listNode;
 		prev = listNode;
 
@@ -958,9 +1002,6 @@ int noting;
 			debug_error("key key\n");
 			test_key = nodeAllocator->recover_node(prev->prev->data_node_addr,COLD_LIST,noting);
 		}
-		old_key = listNode->key;
-		if (old_key == 18446744073709551615UL)
-			listNode->key = nodeAllocator->recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 #endif
 
 //------------- next
@@ -968,7 +1009,23 @@ int noting;
 		dataAddr = dataNode->next_offset;
 //		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
+
+	//last node
+//	nodeAllocator->expand(dataAddr);
+
+	listNode = end_node;
+	listNode->prev = prev;
+//		if (prev)
+	prev->next = listNode;
 	listNode->next = NULL;
+
+	listNode->data_node_addr = dataAddr;
+
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+	nodeMeta->list_addr = listNode->myAddr;
+//	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+
+//	debug_error("xxx\n");
 #else
 	int cnt = 0;
 	while(dataAddr != end_node->data_node_addr)

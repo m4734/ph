@@ -228,9 +228,11 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 		list->recover();
 		printf("re1\n");
 		skiplist->recover();
+		printf("re2\n");
 		recover_log();
+		printf("re3\n");
 
-		clean_query_thread();
+		clean_query_thread(); // clean recover thread
 
 		printf("recover end\n");
 	}
