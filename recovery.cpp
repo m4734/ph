@@ -183,19 +183,26 @@ namespace PH
 	{
 		group_idx = 0;
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-		NodeMeta* fn = nodeMeta;
-		//		int group_idx=0;
+		DataNode* dataNode;// = nodeAllocator->nodeAddr_to_node(nodeAddr);
+		NodeAddr first_nodeAddr = nodeAddr;
+
+		uint64_t rv,min;
+		min = KEY_MAX;
+
 
 		// first
 
-		if (skiplistNode)
-			skiplistNode->data_node_addr[group_idx] = nodeAddr;
-
+/*
 		nodeMeta->next_addr = dataNode->next_offset;
 		nodeAllocator->expand(dataNode->next_offset);
 		nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
+*/
 
+/*
+		if (skiplistNode)
+			skiplistNode->data_node_addr[group_idx] = nodeAddr;
+
+		dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 		nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
 		nodeAllocator->expand(dataNode->next_offset_in_group);
 		nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
@@ -204,8 +211,6 @@ namespace PH
 		nodeMeta->my_offset = nodeAddr;
 		nodeMeta->rw_lock = 0;
 
-		uint64_t rv,min;
-		min = KEY_MAX;
 
 		if (loc == WARM_LIST)
 		{
@@ -221,7 +226,7 @@ namespace PH
 
 		nodeAddr = nodeMeta->next_addr_in_group;
 		nodeMeta = nodeMeta->next_node_in_group;
-
+*/
 
 		while(nodeAddr != emptyNodeAddr)
 		{
@@ -257,6 +262,14 @@ namespace PH
 			nodeMeta = nodeMeta->next_node_in_group;
 
 		}
+
+		// first node
+		dataNode = nodeAllocator->nodeAddr_to_node(first_nodeAddr);
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(first_nodeAddr);
+		nodeMeta->next_addr = dataNode->next_offset;
+		nodeAllocator->expand(dataNode->next_offset);
+		nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
+
 		return min;
 	}
 
