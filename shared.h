@@ -65,7 +65,8 @@ union EntryHeader
 	struct
 	{
 		size_t valid : 1;
-		size_t version : 63;
+		size_t delete_bit : 1;
+		size_t version : 62;
 	};
 	uint64_t value;
 };
@@ -126,4 +127,12 @@ union EntryHeader
 
 	void invalidate_entry(EntryAddr &ea);
 
+//	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len);
+	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len);
+	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
+	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len);
+	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
+
+	unsigned char* get_entry(EntryAddr &ea);
 }

@@ -1,15 +1,126 @@
+#include <libpmem.h> 
+#include <x86intrin.h> // fence
+#include <string.h> // memcpy
+
 #include "shared.h"
 #include "log.h"
 #include "data2.h"
+#include "skiplist.h"
 
 namespace PH
 {
-#if 1
 	extern DoubleLog* doubleLogList;
 	extern NodeAllocator* nodeAllocator;
 	extern size_t WARM_BATCH_ENTRY_CNT;
 	extern size_t ENTRY_SIZE;
+	extern PH_List* list;
 
+	unsigned char* get_entry(EntryAddr &ea)
+	{
+		if (ea.loc == HOT_LOG)
+			return  doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+		else
+			return (unsigned char*)nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
+	}
+
+
+	/*
+	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
+	   {
+	   pmem_memcpy((unsigned char*)dst_node+offset,(unsigned char*)src_node+offset,len,PMEM_F_MEM_NONTEMPORAL);
+	   _mm_sfence();
+	   }
+	 */
+	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len)
+	{
+		pmem_memcpy(dst_addr,src_addr,len,PMEM_F_MEM_NONTEMPORAL);
+		_mm_sfence();
+	}
+	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
+	{
+		int offset;
+		offset = len-256;
+		while(offset >= 0)
+		{
+			pmem_memcpy(dst_addr+offset,src_addr+offset,256,PMEM_F_MEM_NONTEMPORAL);
+			offset-=256;
+		}
+		_mm_sfence();
+	}
+	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
+	{
+		int offset;
+		offset = len-256;
+		while(offset >= 0)
+		{
+			memcpy(dst_addr+offset,src_addr+offset,256);
+			offset-=256;
+		}
+		_mm_sfence();
+	}
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
+	{
+		// need version clean - kv write - version write ...
+		memcpy(dst,src,len);
+		pmem_persist(dst,len);
+		_mm_sfence();
+	}
+	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
+	{
+		dst_node->next_offset = nodeAddr;
+		pmem_persist(dst_node,NODE_HEADER_SIZE);
+		_mm_sfence();
+	}
+
+#if 1
+#if 0
+	void try_reduce_group(ListNode* listNode)
+	{
+		if (try_at_lock2(listNode->lock) == false)
+			return;
+		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+		{
+			NodeAddr nodeAddr;
+			nodeAddr = listNode->data_node_addr;
+			NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
+			nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+			int i;
+			for (i=0;i<listNode->block_cnt;i++)
+			{
+				at_lock2(nodeMeta_list[i]->rw_lock);
+				nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
+			}
+
+			target_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
+
+//			int entry_num = nodeMeta->valid_cnt;
+
+			DataNode* dataNode;
+			unsigned char* addr;
+			uint64_t key;
+			std::atomic<uint8_t> *seg_lock;
+
+			dataNode = nodeAllocator->nodeAddr_to_node(target_nodeMeta->my_offset);
+
+			reverse_memcpy(reduce_buffer,dataNode,NODE_SIZE);
+			addr = dataNode+NODE_HEADER_SIZE;
+
+			for (i=0;i<NODE_SLOT_MAX;i++)
+			{
+				if (target_nodeMeta->valid[i])
+				{
+					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				}
+				addr+=ENTRY_SIZE;
+			}
+			for (i=0;i<listNode->block_cnt-1;i++)
+				at_unlock2(nodeMeta_list[i]->rw_lock);
+
+		}
+		at_unlock2(listNode->lock);
+	}
+#endif
 	void invalidate_entry(EntryAddr &ea) // need kv lock
 	{
 		unsigned char* addr;
@@ -38,9 +149,28 @@ namespace PH
 				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
 				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
 				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
+				nm->valid[cnt] = false; // invalidate
+				--nm->valid_cnt;
+
 			}
 			else
+			{
 				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+
+				nm->valid[cnt] = false; // invalidate
+				--nm->valid_cnt;
+
+				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
+				listNode->valid_cnt--;
+
+				if (listNode->valid_cnt * 2 < NODE_SLOT_MAX) // try destory list node // must not be head
+				{
+				}
+				else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+				{
+					try_reduce_group(listNode);
+				}
+			}
 #else
 			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
 #endif
@@ -53,8 +183,8 @@ namespace PH
 			else
 				debug_error("impossible\n");
 #else
-			nm->valid[cnt] = false; // invalidate
-			--nm->valid_cnt;
+//			nm->valid[cnt] = false; // invalidate
+//			--nm->valid_cnt;
 #endif
 			//			at_unlock2(nm->rw_lock);
 		}

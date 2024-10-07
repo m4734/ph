@@ -30,6 +30,9 @@ struct KVP;
 class PH_Thread
 {
 	protected:
+	void buffer_init();
+	void buffer_clean();
+
 	void hot_to_warm(SkiplistNode* node,bool force);
 	void warm_to_cold(SkiplistNode* node);
 //	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
@@ -39,6 +42,11 @@ class PH_Thread
 	int may_split_warm_node(SkiplistNode* node);
 	void flush_warm_node(SkiplistNode* node);
 	void try_cold_split(ListNode* listNode,SkiplistNode* node);
+//	void try_reduce_group(ListNode* listNode);
+
+//	void invalidate_entry(EntryAddr &ea);
+
+	void check_end();
 //	NodeAddr get_warm_cache(EntryAddr ea);
 
 	unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
@@ -48,7 +56,6 @@ class PH_Thread
 	DataNode sorted_buffer2[MAX_NODE_GROUP];
 	*/
 
-	DataNode* split_buffer;
 	DataNode* sorted_buffer1;
 	DataNode* sorted_buffer2;
 
@@ -56,22 +63,42 @@ class PH_Thread
 	EntryAddr* old_ea_list_buffer;
 
 	public:
+	PH_Thread();
+	~PH_Thread();
+
+
+	DataNode* split_buffer;
+#if 0
 	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0)
 	{
+		if (posix_memalign((void**)&evict_buffer,NODE_SIZE,WARM_BATCH_MAX_SIZE) != 0)
+			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&split_buffer,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
 			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&sorted_buffer1,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
 			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
 			printf("thread buffer alloc fail\n");
+
+
+		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+
+
+		reset_test();
 	}
 	~PH_Thread()
 	{
+		free(evict_buffer);
+
 		free(split_buffer);
 		free(sorted_buffer1);
 		free(sorted_buffer2);
-	}
 
+		free(key_list_buffer);
+		free(old_ea_list_buffer);
+	}
+#endif
 	void update_free_cnt();
 	void update_tail_sum();
 	void op_check();
@@ -106,6 +133,9 @@ class PH_Thread
 
 	uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
 	uint64_t dtc_time;
+
+	uint64_t reduce_group_cnt;
+
 #ifdef SCAN_TIME
 	size_t main_time_sum;
 	size_t first_time_sum;
@@ -120,7 +150,7 @@ class PH_Thread
 	void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
 	EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update);
-	void invalidate_entry(EntryAddr &ea);
+//	void invalidate_entry(EntryAddr &ea);
 
 	unsigned int seed_for_dtc;
 

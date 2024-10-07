@@ -61,6 +61,8 @@ namespace PH
 
 	extern std::atomic<uint64_t> dtc_time_sum;
 
+	extern std::atomic<uint64_t> reduce_group_sum;
+
 	//	extern const size_t WARM_BATCH_MAX_SIZE;
 	//	extern size_t WARM_BATCH_MAX_SIZE;
 	extern size_t WARM_BATCH_ENTRY_CNT;
@@ -177,6 +179,8 @@ namespace PH
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
 
+		reduce_group_cnt = 0;
+
 		reset_test_cnt++;
 	}
 
@@ -202,42 +206,242 @@ namespace PH
 		for (i=0;i<log_max;i++)
 			recent_log_tails[i] = doubleLogList[i].tail_sum;
 	}
-#if 0
-	void PH_Thread::update_free_cnt()
+
+//-------------------------------------------------------------------------------
+
+	PH_Thread::PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0),evict_buffer(NULL),split_buffer(NULL),sorted_buffer1(NULL),sorted_buffer2(NULL),key_list_buffer(NULL),old_ea_list_buffer(NULL)
 	{
-		local_seg_free_head = seg_free_head;
-#ifdef wait_for_slow
-		int min = min_seg_free_cnt();
-		if (min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
-		{
-			printf("in2\n");
-			while(min + FREE_SEG_LEN/2 < my_thread->local_seg_free_cnt)
-			{
-				update_idle();
-				min = min_seg_free_cnt();
-			}
-			printf("out2\n");
-		}
-#endif
+		reset_test();
+	}
+	PH_Thread::~PH_Thread()
+	{
+	}
+
+	void PH_Thread::buffer_init()
+	{
+		if (posix_memalign((void**)&evict_buffer,NODE_SIZE,WARM_BATCH_MAX_SIZE) != 0)
+			printf("thread buffer alloc fail\n");
+		if (posix_memalign((void**)&split_buffer,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+			printf("thread buffer alloc fail\n");
+		if (posix_memalign((void**)&sorted_buffer1,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+			printf("thread buffer alloc fail\n");
+		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+			printf("thread buffer alloc fail\n");
+
+		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+	}
+	void PH_Thread::buffer_clean()
+	{
+		free(evict_buffer);
+
+		free(split_buffer);
+		free(sorted_buffer1);
+		free(sorted_buffer2);
+
+		free(key_list_buffer);
+		free(old_ea_list_buffer);
+	}
+
+
+//---------------------------------------------------------------------------------
 #if 0
-		int i;
-		pthread_t pt;
-
-		pt = pthread_self();
-		for (i=0;i<num_of_thread;i++)
+	void PH_Thread::try_reduce_group(ListNode* listNode)
+	{
+		if (try_at_lock2(listNode->lock) == false)
+			return;
+		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
 		{
-			if (pthread_equal(thread_list[i].tid,pt))
-			{
-				thread_list[i].free_cnt = free_cnt;
-				thread_list[i].seg_free_cnt = seg_free_cnt;
-				return;
-			}
-		}
-		new_thread();
-#endif
+			reduce_group_cnt++;
 
+			NodeAddr nodeAddr;
+			nodeAddr = listNode->data_node_addr;
+			NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
+			NodeMeta* src_nodeMeta;
+			int dst_i,dst_j;
+			nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+			int i;
+			for (i=0;i<listNode->block_cnt;i++)
+			{
+				at_lock2(nodeMeta_list[i]->rw_lock);
+				nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
+			}
+
+			src_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
+
+//			int entry_num = nodeMeta->valid_cnt;
+
+			DataNode* dataNode;
+			DataNode* dst_dataNode;
+			unsigned char* src_addr;
+			unsigned char* dst_addr;
+			uint64_t key;
+			std::atomic<uint8_t> *seg_lock;
+			KVP* kvp_p;
+			EntryAddr src_ea,dst_ea;
+
+			dataNode = nodeAllocator->nodeAddr_to_node(src_nodeMeta->my_offset);
+
+			reverse_memcpy(split_buffer,dataNode,NODE_SIZE);
+			src_addr = split_buffer+NODE_HEADER_SIZE;
+
+			dst_i = 0;
+			dst_j = 0;
+			dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
+
+			src_ea.loc = COLD_LIST;
+			src_ea.file_num = src_nodeMeta->my_offset.pool_num;
+			src_ea.offset = src_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+			dst_ea.loc = COLD_LIST;
+			dst_ea.file_num = nodeMeta_list[0]->my_offset.pool_num;
+			dst_ea.offset = nodeMeta_list[0]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+			for (i=0;i<NODE_SLOT_MAX;i++)
+			{
+				if (src_nodeMeta->valid[i])
+				{
+					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+					if (kvp_p->value == src_ea.value)
+					{
+						while(dst_i<listNode->block_cnt)
+						{
+							while(dst_j<NODE_SLOT_MAX)
+							{
+								if (nodeMeta_list[dst_i]->valid[dst_j] == false)
+									break;
+								++dst_j;
+								dst_ea.offset+=ENTRY_SIZE;
+							}
+							if (dst_j<NODE_SLOT_MAX)
+								break;
+							dst_i++;
+							dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
+							dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
+							dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+						}
+
+						dst_addr = dst_dataNode+NODE_HEADER_SIZE+ENTRY_SIZE*dst_j;
+						// copy - valid - index???
+
+						memcpy(dst_addr,src_addr,ENTRY_SIZE);// copy src to dst // mem to pmem
+//						_mm_sfence(); // no fence until link
+
+						nodeMeta_list[dst_i]->valid[dst_j] = true;
+						nodeMeta_list[dst_i]->valid_cnt++;
+
+						kvp_p->value = dst_ea.value;
+					}
+
+				}
+				src_ea.offset+=ENTRY_SIZE;
+				addr+=ENTRY_SIZE;
+			}
+
+			//flush
+			for (i=0;i<listNode->block_cnt-1;i++)
+			{
+				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[i]->my_offset);
+				pmem_persist(dataNode,NODE_SIZE);
+			}
+			_mm_sfence();
+
+			//link
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1]->my_offset);
+#if 0
+			dataNode->next_offset_in_group = emptyNodeAddr;
+			pmem_persist(&dataNode->next_offset_in_group,sizeof(NodeAddr));
+#else
+			pmem_next_in_group_write(dataNode,emptyNodeAddr);
+#endif
+			_mm_sfence();
+
+			for (i=0;i<listNode->block_cnt-1;i++)
+				at_unlock2(nodeMeta_list[i]->rw_lock);
+
+			//free
+			liistNode->block_cnt--;
+			nodeAllocator->free_node(target_nodeMeta);
+
+		}
+		at_unlock2(listNode->lock);
 	}
 #endif
+#if 0
+	void invalidate_entry(EntryAddr &ea) // need kv lock
+	{
+		unsigned char* addr;
+		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
+		{
+			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+			set_invalid((EntryHeader*)addr); // invalidate
+//			hot_to_hot_cnt++; // log to hot
+		}
+		else // warm or cold
+		{
+			size_t offset_in_node;
+			NodeMeta* nm;
+			int cnt;
+			int node_cnt;
+
+			offset_in_node = ea.offset % NODE_SIZE;
+			node_cnt = ea.offset/NODE_SIZE;
+			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
+			//			at_lock2(nm->rw_lock);
+			// it doesn't change value just invalidate with meta
+#if 1 // we don't need batch... // no i need the batch
+			if (ea.loc == 2)
+			{
+				int batch_num,offset_in_batch;
+				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
+				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
+				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
+				nm->valid[cnt] = false; // invalidate
+				--nm->valid_cnt;
+
+			}
+			else
+			{
+				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+
+				nm->valid[cnt] = false; // invalidate
+				--nm->valid_cnt;
+
+				ListNode* listNode = list->addr_to_listnode(nm->list_addr);
+				listNode->valid_cnt--;
+
+				if (listNode->valid_cnt * 2 < NODE_SLOT_MAX) // try destory list node // must not be head
+				{
+				}
+				else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+				{
+					try_reduce_group(listNode);
+				}
+			}
+#else
+			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+#endif
+#if 0
+			if (nm->valid[cnt])
+			{
+				nm->valid[cnt] = false; // invalidate
+				--nm->valid_cnt;
+			}
+			else
+				debug_error("impossible\n");
+#else
+//			nm->valid[cnt] = false; // invalidate
+//			--nm->valid_cnt;
+#endif
+			//			at_unlock2(nm->rw_lock);
+		}
+
+		// no nm rw lock but need hash entry lock...
+	}
+#endif
+
+
 	//-------------------------------------------------
 	ListNode* find_halfNode(SkiplistNode* node) // do we have lock?
 	{
@@ -267,11 +471,12 @@ namespace PH
 
 	void PH_Query_Thread::init()
 	{
+		buffer_init();
 
-		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
+//		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
 
-		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+//		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+//		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
 
 		int i;
 
@@ -312,6 +517,7 @@ namespace PH
 		run = 1;
 
 		//check
+		/*
 		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		warm_to_warm_cnt = 0;
 		direct_to_cold_cnt = 0;
@@ -322,34 +528,13 @@ namespace PH
 #ifdef SCAN_TIME
 		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = t25_sum = 0;
 #endif
+		*/
 		seed_for_dtc = thread_id;
 		//		printf("sfd %u\n",seed_for_dtc);
 	}
 
-	void PH_Query_Thread::clean()
+	void PH_Thread::check_end()
 	{
-		delete evict_buffer;
-
-		delete key_list_buffer;
-		delete old_ea_list_buffer;
-
-		my_log->use = 0;
-		my_log = NULL;
-
-		//		hash_index->thread_local_clean();
-		//		free(temp_seg);
-		run = 0;
-		read_lock = 0;
-
-		query_thread_list[thread_id].lock = 0;
-		//		printf("query thread list %d end\n",thread_id);
-		query_thread_list[thread_id].exit = 0;
-
-		//	delete recent_log_tails;
-
-		hash_index->remove_ts(temp_seg);
-//		scan_result.clean();
-
 		//check
 		warm_to_warm_sum+=warm_to_warm_cnt;
 		warm_log_write_sum+=warm_log_write_cnt;
@@ -372,70 +557,48 @@ namespace PH
 #ifdef SCAN_TIME
 		printf("%lu %lu %lu %lu %lu %lu\n",main_time_sum,first_time_sum,second_time_sum,t25_sum,third_time_sum,etc_time_sum);
 #endif
+
+		reduce_group_sum+=reduce_group_cnt;
+	}
+
+	void PH_Query_Thread::clean()
+	{
+		buffer_clean();
+//		delete evict_buffer;
+
+//		delete key_list_buffer;
+//		delete old_ea_list_buffer;
+
+		my_log->use = 0;
+		my_log = NULL;
+
+		//		hash_index->thread_local_clean();
+		//		free(temp_seg);
+		run = 0;
+		read_lock = 0;
+
+		query_thread_list[thread_id].lock = 0;
+		//		printf("query thread list %d end\n",thread_id);
+		query_thread_list[thread_id].exit = 0;
+
+		//	delete recent_log_tails;
+
+		hash_index->remove_ts(temp_seg);
+//		scan_result.clean();
+
+		check_end();
 	}	
 
-	/*
-	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len)
-	   {
-	   pmem_memcpy((unsigned char*)dst_node+offset,(unsigned char*)src_node+offset,len,PMEM_F_MEM_NONTEMPORAL);
-	   _mm_sfence();
-	   }
-	 */
-	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len)
-	{
-		pmem_memcpy(dst_addr,src_addr,len,PMEM_F_MEM_NONTEMPORAL);
-		_mm_sfence();
-	}
-
-	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
-	{
-		int offset;
-		offset = len-256;
-		while(offset >= 0)
-		{
-			pmem_memcpy(dst_addr+offset,src_addr+offset,256,PMEM_F_MEM_NONTEMPORAL);
-			offset-=256;
-		}
-		_mm_sfence();
-	}
-
-	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len) //need len align
-	{
-		int offset;
-		offset = len-256;
-		while(offset >= 0)
-		{
-			memcpy(dst_addr+offset,src_addr+offset,256);
-			offset-=256;
-		}
-		_mm_sfence();
-	}
-
-
-	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
-	{
-		// need version clean - kv write - version write ...
-		memcpy(dst,src,len);
-		pmem_persist(dst,len);
-		_mm_sfence();
-	}
-	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
-	{
-		dst_node->next_offset = nodeAddr;
-		pmem_persist(dst_node,NODE_HEADER_SIZE);
-		_mm_sfence();
-	}
-
-	EntryAddr insert_entry_to_slot(NodeMeta* list_nodeMeta,unsigned char* src_addr) // need lock from outside
+	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr) // need lock from outside
 	{
 		int slot_idx;
 		EntryAddr new_ea;
 
-		if (list_nodeMeta->valid_cnt < NODE_SLOT_MAX)
+		if (nodeMeta->valid_cnt < NODE_SLOT_MAX)
 		{
 			for (slot_idx=0;slot_idx<NODE_SLOT_MAX;slot_idx++)
 			{
-				if (list_nodeMeta->valid[slot_idx] == false)
+				if (nodeMeta->valid[slot_idx] == false)
 					break;
 			}
 		}
@@ -443,16 +606,19 @@ namespace PH
 			return emptyEntryAddr;
 
 		new_ea.loc = 3; // cold
-		new_ea.file_num = list_nodeMeta->my_offset.pool_num;
+		new_ea.file_num = nodeMeta->my_offset.pool_num;
 		if (slot_idx < NODE_SLOT_MAX)
 		{
 			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
-			new_ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+			new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
-			DataNode* list_dataNode = nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset);
-			pmem_entry_write(list_dataNode->buffer + ENTRY_SIZE*slot_idx , src_addr, ENTRY_SIZE);
-			list_nodeMeta->valid[slot_idx] = true; // validate
-			++list_nodeMeta->valid_cnt;
+			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+			pmem_entry_write(dataNode->buffer + ENTRY_SIZE*slot_idx , src_addr, ENTRY_SIZE);
+			nodeMeta->valid[slot_idx] = true; // validate
+			++nodeMeta->valid_cnt;
+
+			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+			listNode->valid_cnt++;
 
 			// modify hash index here
 			//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -880,6 +1046,13 @@ namespace PH
 		for (i=0;i<=group2_idx;i++)
 			forced_sync(new_nodeMeta2[i]->my_offset);		
 */
+		listNode->valid_cnt = 0;
+		for (i=0;i<=group1_idx;i++)
+			listNode->valid_cnt+=new_nodeMeta1[i]->valid_cnt;
+		new_listNode->valid_cnt = 0;
+		for (i=0;i<=group2_idx;i++)
+			new_listNode->valid_cnt+=new_nodeMeta2[i]->valid_cnt;
+
 		for (i=0;i<=group1_idx;i++)
 			at_unlock2(new_nodeMeta1[i]->rw_lock);		
 		for (i=0;i<=group2_idx;i++)
@@ -1250,7 +1423,7 @@ group0_idx = 0;
 		else if (ea.loc == WARM_LIST)
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
-			if (nm->list_addr.pool_num > skiplist->node_pool_list_cnt || (nm->list_addr.pool_num == skiplist->node_pool_list_cnt && nm->list_addr.node_offset > skiplist->node_pool_cnt))
+			if (nm->list_addr.pool_num > skiplist->node_pool_list_cnt || (nm->list_addr.pool_num == skiplist->node_pool_list_cnt && nm->list_addr.node_offset > skiplist->node_pool_cnt)) // prevent access
 				wc = emptyNodeAddr;
 			else
 			{
@@ -1804,7 +1977,11 @@ group0_idx = 0;
 			}
 			//			hash_index->unlock_entry2(seg_lock,read_lock);
 			if (ex) //  no entry lock
+			{
+				if (old_ea.loc == HOT_LOG)
+					hot_to_hot_cnt++; // need warm to hot?
 				invalidate_entry(old_ea);
+			}
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
 		}
@@ -1826,59 +2003,6 @@ group0_idx = 0;
 
 		return 0;
 	}
-#if 1
-	void PH_Thread::invalidate_entry(EntryAddr &ea) // need kv lock
-	{
-		unsigned char* addr;
-		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
-		{
-			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-			set_invalid((EntryHeader*)addr); // invalidate
-			hot_to_hot_cnt++; // log to hot
-		}
-		else // warm or cold
-		{
-			size_t offset_in_node;
-			NodeMeta* nm;
-			int cnt;
-			int node_cnt;
-
-			offset_in_node = ea.offset % NODE_SIZE;
-			node_cnt = ea.offset/NODE_SIZE;
-			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
-			//			at_lock2(nm->rw_lock);
-			// it doesn't change value just invalidate with meta
-#if 1 // we don't need batch... // no i need the batch
-			if (ea.loc == 2)
-			{
-				int batch_num,offset_in_batch;
-				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
-				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
-				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
-			}
-			else
-				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-#else
-			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-#endif
-#if 0
-			if (nm->valid[cnt])
-			{
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-			}
-			else
-				debug_error("impossible\n");
-#else
-			nm->valid[cnt] = false; // invalidate
-			--nm->valid_cnt;
-#endif
-			//			at_unlock2(nm->rw_lock);
-		}
-
-		// no nm rw lock but need hash entry lock...
-	}
-#endif
 
 	int PH_Query_Thread::read_op(uint64_t key,unsigned char* buf,std::string *value)
 	{
@@ -2490,6 +2614,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 	void PH_Evict_Thread::init()
 	{
+		buffer_init();
 
 		sleep_time = 1000;
 
@@ -2528,9 +2653,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		child1_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
 		child2_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
 
-		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
-		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+//		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
+//		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
+//		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
 
 		//		hash_index->thread_local_init();
 		temp_seg = hash_index->ret_seg();
@@ -2538,6 +2663,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		run = 1;
 
 		//check
+		/*
 		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		warm_to_warm_cnt = 0;
 		direct_to_cold_cnt = 0;
@@ -2545,6 +2671,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		hard_htw_cnt = soft_htw_cnt=0;
 		dtc_time = htw_time = wtc_time = 0;
 		htw_cnt = wtc_cnt = 0;
+		*/
 #ifdef SCAN_TIME
 		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = 0;
 #endif
@@ -2561,10 +2688,12 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		hash_index->remove_ts(temp_seg);
 
+		buffer_clean();
+/*
 		free(evict_buffer);
 		free(key_list_buffer);
 		free(old_ea_list_buffer);
-
+*/
 		free(child1_path);
 		free(child2_path);
 
@@ -2572,7 +2701,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		evict_thread_list[thread_id].exit = 0;
 
 
-
+/*
 		//check
 		warm_to_warm_sum+=warm_to_warm_cnt;
 		warm_log_write_sum+=warm_log_write_cnt;
@@ -2592,6 +2721,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		wtc_cnt_sum+=wtc_cnt;
 
 		dtc_time_sum+=dtc_time;
+		*/
+		check_end();
 	}
 
 #if 0

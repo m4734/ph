@@ -60,6 +60,7 @@ class ListNode
 	NodeAddr data_node_addr;
 	int block_cnt;
 
+	std::atomic<uint8_t> valid_cnt; // 256 ...
 	std::atomic<uint8_t> lock;
 };
 
@@ -92,8 +93,14 @@ class PH_List
 	void recover();
 	void recover_init();
 
+	inline ListNode* addr_to_listNode(NodeAddr list_addr)
+	{
+		return (ListNode*)&node_pool_list[list_addr.pool_num][list_addr.node_offset];
+	}
+
 };
 
+void try_reduce_group(ListNode* listNode);
 
 //struct SkiplistNode
 

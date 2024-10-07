@@ -15,15 +15,6 @@ namespace PH
 	extern size_t WARM_BATCH_CNT;
 	extern size_t WARM_BATCH_ENTRY_CNT;
 
-
-	unsigned char* get_entry(EntryAddr &ea)
-	{
-		if (ea.loc == HOT_LOG)
-			return  doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-		else
-			return (unsigned char*)nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
-	}
-
 	uint64_t recover_cold_kv(NodeAddr &nodeAddr)
 	{
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
@@ -273,4 +264,16 @@ namespace PH
 		return min;
 	}
 
+	void PH_Recovery_Thread::init()
+	{
+		read_lock = 0;
+		temp_seg = hash_index->ret_seg();
+		buffer_init();
+	}
+	void PH_Recovery_Thread::clean()
+	{
+		read_lock = 0;
+		hash_index->remove_ts(temp_seg);
+		buffer_clean();
+	}
 }

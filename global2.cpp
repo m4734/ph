@@ -75,6 +75,8 @@ extern int log_max;
 
 	std::atomic<uint64_t> dtc_time_sum;
 
+	std::atomic<uint64_t> reduce_group_sum;
+
 void debug_error(const char* msg)
 {
 	printf("error----------------------------------------\n");
@@ -96,6 +98,8 @@ void PH_Interface::reset_test()
 	soft_htw_sum = hard_htw_sum = 0;
 	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
+
+	reduce_group_sum = 0;
 
 	skiplist->addr2_hit = skiplist->addr2_miss = skiplist->addr2_no = 0;
 }
@@ -237,6 +241,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 		printf("recover end\n");
 	}
 
+/*
 	//check
 	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
@@ -246,6 +251,8 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 
 	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
+	*/
+	reset_test();
 
 	init_threads();
 
@@ -350,6 +357,7 @@ printf("ccc\n");
 	if (direct_to_cold_sum > 0)
 		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
 
+	printf("reducd group sum %lu\n",reduce_group_sum.load());
 }
 
 int PH_Interface::insert_op(uint64_t key,unsigned char* value)
