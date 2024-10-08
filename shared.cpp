@@ -93,7 +93,7 @@ namespace PH
 
 			target_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
 
-//			int entry_num = nodeMeta->valid_cnt;
+			//			int entry_num = nodeMeta->valid_cnt;
 
 			DataNode* dataNode;
 			unsigned char* addr;
@@ -128,7 +128,7 @@ namespace PH
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
 			set_invalid((EntryHeader*)addr); // invalidate
-//			hot_to_hot_cnt++; // log to hot
+							 //			hot_to_hot_cnt++; // log to hot
 		}
 		else // warm or cold
 		{
@@ -163,12 +163,25 @@ namespace PH
 				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 				listNode->valid_cnt--;
 
-				if (listNode->valid_cnt * 2 < NODE_SLOT_MAX) // try destory list node // must not be head
+				if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head
 				{
+					ListNode* prev_listNode = listNode->prev;
+					if (listNode->hold == 0 && prev_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
+					{
+						try_merge_listNode(prev_listNode,listNode);
+					}
+					else // else??
+					{
+						ListNode* next_listNode = listNode->next;
+						if (next_listNode->hold == 0 && next_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
+						{
+							try_merge_listNode(listNode,next_listNode); // need more test
+						}
+					}
 				}
 				else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
 				{
-					try_reduce_group(listNode);
+					try_reduce_group(listNode);// need more test
 				}
 			}
 #else
@@ -183,8 +196,8 @@ namespace PH
 			else
 				debug_error("impossible\n");
 #else
-//			nm->valid[cnt] = false; // invalidate
-//			--nm->valid_cnt;
+			//			nm->valid[cnt] = false; // invalidate
+			//			--nm->valid_cnt;
 #endif
 			//			at_unlock2(nm->rw_lock);
 		}

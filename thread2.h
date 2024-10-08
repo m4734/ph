@@ -135,6 +135,7 @@ class PH_Thread
 	uint64_t dtc_time;
 
 	uint64_t reduce_group_cnt;
+	uint64_t list_merge_cnt;
 
 #ifdef SCAN_TIME
 	size_t main_time_sum;

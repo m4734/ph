@@ -439,7 +439,7 @@ namespace PH
 		_mm_sfence();
 
 		node->lock = 0;
-		node->rw_lock = 0;
+//		node->rw_lock = 0;
 
 		return node;
 	}
@@ -468,9 +468,7 @@ return node_pool_list[sa.pool_num][sa.offset];
 
 SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 {
-//	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
-//	node = start_node;
 	int j;
 	SkipAddr sa;
 	uint64_t v;
@@ -1077,6 +1075,7 @@ void PH_List::recover_init()
 	empty_node->key = KEY_MIN;
 	empty_node->data_node_addr = {0,0};//nodeAllocator->expand_node();
 	empty_node->block_cnt=1;
+	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	dataNodeMeta->list_addr = empty_node->myAddr;
 
@@ -1084,6 +1083,7 @@ void PH_List::recover_init()
 	start_node->key = KEY_MIN;
 	start_node->data_node_addr = {1,0};//nodeAllocator->expand_node();
 	start_node->block_cnt=1;
+	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	dataNodeMeta->list_addr = start_node->myAddr;
 
@@ -1091,6 +1091,7 @@ void PH_List::recover_init()
 	end_node->key = KEY_MAX;
 	end_node->data_node_addr = {2,0};//nodeAllocator->expand_node();
 	end_node->block_cnt=1;
+	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 	dataNodeMeta->list_addr = end_node->myAddr;
 
@@ -1130,6 +1131,7 @@ void PH_List::init()
 	empty_node->key = KEY_MIN;
 	empty_node->data_node_addr = nodeAllocator->alloc_node();
 	empty_node->block_cnt=1;
+	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	dataNodeMeta->list_addr = empty_node->myAddr;
 
@@ -1137,6 +1139,7 @@ void PH_List::init()
 	start_node->key = KEY_MIN;
 	start_node->data_node_addr = nodeAllocator->alloc_node();
 	start_node->block_cnt=1;
+	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	dataNodeMeta->list_addr = start_node->myAddr;
 
@@ -1144,6 +1147,7 @@ void PH_List::init()
 	end_node->key = KEY_MAX;
 	end_node->data_node_addr = nodeAllocator->alloc_node();
 	end_node->block_cnt=1;
+	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 	dataNodeMeta->list_addr = end_node->myAddr;
 
@@ -1263,6 +1267,7 @@ ListNode* PH_List::alloc_list_node()
 	node->valid_cnt = 0;
 	node->next = NULL;
 	node->prev = NULL;
+	node->hold = 0;
 	node->warm_cache = emptyNodeAddr;
 	//	node->data_node_addr = nodeAllocator->alloc_node();
 
@@ -1329,7 +1334,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 }
 
 
-	void try_reduce_group(ListNode* listNode)
+	void try_reduce_group(ListNode* listNode) // remove last block
 	{
 		if (try_at_lock2(listNode->lock) == false)
 			return;
@@ -1417,6 +1422,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 
 						kvp_p->value = dst_ea.value;
 					}
+					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
 
 				}
 				src_ea.offset+=ENTRY_SIZE;
@@ -1441,6 +1447,11 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 #endif
 			_mm_sfence();
 
+			nodeMeta_list[listNode->block_cnt-1]->next_addr_in_group = emptyNodeAddr;
+			nodeMeta_list[listNode->block_cnt-1]->next_node_in_group = NULL;
+
+			_mm_sfence(); // need?
+
 			for (i=0;i<listNode->block_cnt-1;i++)
 				at_unlock2(nodeMeta_list[i]->rw_lock);
 
@@ -1452,9 +1463,175 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 		at_unlock2(listNode->lock);
 	}
 
+	void try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
+	{
+		if (try_at_lock2(left_listNode->lock) == false)
+			return;
+		if (try_at_lock2(right_listNode->lock) == false)
+		{
+			at_unlock2(left_listNode->lock);
+			return;
+		}
+		if (right_listNode->hold || left_listNode->valid_cnt + right_listNode->valid_cnt > NODE_SLOT_MAX)
+		{
+			at_unlock2(left_listNode->lock);
+			at_unlock2(right_listNode->lock);
+			return;
+		}
 
+		// OK
+		my_thread->list_merge_cnt++;
 
+		NodeMeta* left_nodeMeta_list[MAX_NODE_GROUP+1];
+		NodeMeta* right_nodeMeta_list[MAX_NODE_GROUP+1];
 
+		int i;
+
+		left_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(left_listNode->data_node_addr);
+		for (i=0;i<left_listNode->block_cnt;i++)
+		{
+			at_lock2(left_nodeMeta_list[i]->rw_lock);
+			left_nodeMeta_list[i+1] = left_nodeMeta_list[i]->next_node_in_group;
+		}
+
+		right_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(right_listNode->data_node_addr);
+		for (i=0;i<right_listNode->block_cnt;i++)
+		{
+			at_lock2(right_nodeMeta_list[i]->rw_lock);
+			right_nodeMeta_list[i+1] = right_nodeMeta_list[i]->next_node_in_group;
+		}
+
+		EntryAddr src_ea,dst_ea;
+		KVP* kvp_p;
+		std::atomic<uint8_t> *seg_lock;
+		uint64_t key;
+		DataNode* dataNode;
+		int j;
+		unsigned char* src_addr;
+		unsigned char* dst_addr;
+		NodeMeta* dst_nodeMeta = left_nodeMeta_list[0];
+		int dst_i = 0;
+//		dst_addr = (unsigned char*)my_thread->sorted_buffer[0]+NODE_HEADER_SIZE;
+		dst_addr = (unsigned char*)nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset) + NODE_HEADER_SIZE;
+
+		src_ea.loc = COLD_LIST;
+
+		dst_ea.loc = COLD_LIST;
+		dst_ea.file_num = dst_nodeMeta->my_offset.pool_num;
+		dst_ea.offset = dst_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+		//use direct copy without dram ...
+
+		NodeMeta* nodeMeta;
+
+		//left first
+		for (i=1;i<left_listNode->block_cnt;i++)
+		{
+			nodeMeta = left_nodeMeta_list[i];
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+//			my_thread->split_buffer[i] = *dataNode;
+//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
+			src_addr = (unsigned char*)dataNode+NODE_HEADER_SIZE;
+
+			src_ea.file_num = nodeMeta->my_offset.pool_num;
+			src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+			for (j=0;j<NODE_SLOT_MAX;j++)
+			{
+				if (nodeMeta->valid[j])
+				{
+					key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
+					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+					if (kvp_p->value == src_ea.value)
+					{
+						while (dst_nodeMeta->valid[dst_i]) // check dst
+						{
+							dst_i++;
+							dst_addr+=ENTRY_SIZE;
+							dst_ea.offset+=ENTRY_SIZE;
+						}
+
+						// copy valid index
+						memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
+
+						dst_nodeMeta->valid[dst_i] = true;
+						dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
+						kvp_p->value = dst_ea.value;
+					}
+					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+				}
+				src_addr+=ENTRY_SIZE;
+				src_ea.offset+=ENTRY_SIZE;
+			}
+		}
+
+		//right second // duplicateddd
+		for (i=0;i<right_listNode->block_cnt;i++)
+		{
+			nodeMeta = right_nodeMeta_list[i];
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+//			my_thread->split_buffer[i] = *dataNode;
+//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
+			src_addr = (unsigned char*)dataNode + NODE_HEADER_SIZE;
+
+			src_ea.file_num = nodeMeta->my_offset.pool_num;
+			src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+			for (j=0;j<NODE_SLOT_MAX;j++)
+			{
+				if (nodeMeta->valid[j])
+				{
+					key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
+					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+					if (kvp_p->value == src_ea.value)
+					{
+						while (dst_nodeMeta->valid[dst_i]) // check dst
+						{
+							dst_i++;
+							dst_addr+=ENTRY_SIZE;
+							dst_ea.offset+=ENTRY_SIZE;
+						}
+
+						// copy valid index
+						memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
+
+						dst_nodeMeta->valid[dst_i] = true;
+						dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
+						kvp_p->value = dst_ea.value;
+					}
+					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+				}
+				src_addr+=ENTRY_SIZE;
+				src_ea.offset+=ENTRY_SIZE;
+			}
+		}
+
+		dataNode = nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset);
+		pmem_persist(dataNode,NODE_SIZE);
+		_mm_sfence();
+
+		dataNode->next_offset = right_nodeMeta_list[0]->next_addr;
+		dataNode->next_offset_in_group = emptyNodeAddr;
+		pmem_persist(dataNode,NODE_HEADER_SIZE);
+		_mm_sfence();
+
+		dst_nodeMeta->next_addr = right_nodeMeta_list[0]->next_addr;
+		dst_nodeMeta->next_addr_in_group = emptyNodeAddr;
+		dst_nodeMeta->next_p = right_nodeMeta_list[0]->next_p;
+		dst_nodeMeta->next_node_in_group = NULL;
+
+		for (i=1;i<left_listNode->block_cnt;i++)
+			nodeAllocator->free_node(left_nodeMeta_list[i]);
+		for (i=0;i<right_listNode->block_cnt;i++)
+			nodeAllocator->free_node(right_nodeMeta_list[i]);
+
+// cold split // cold merge ...
+		left_listNode->next = right_listNode->next;
+		left_listNode->next->prev = left_listNode;
+		list->free_list_node(right_listNode);
+
+		at_unlock2(left_listNode->lock);
+	}
 
 
 }

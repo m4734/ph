@@ -62,6 +62,7 @@ namespace PH
 	extern std::atomic<uint64_t> dtc_time_sum;
 
 	extern std::atomic<uint64_t> reduce_group_sum;
+	extern std::atomic<uint64_t> list_merge_sum;
 
 	//	extern const size_t WARM_BATCH_MAX_SIZE;
 	//	extern size_t WARM_BATCH_MAX_SIZE;
@@ -180,6 +181,7 @@ namespace PH
 		htw_cnt = wtc_cnt = 0;
 
 		reduce_group_cnt = 0;
+		list_merge_cnt = 0;
 
 		reset_test_cnt++;
 	}
@@ -559,6 +561,7 @@ namespace PH
 #endif
 
 		reduce_group_sum+=reduce_group_cnt;
+		list_merge_sum+=list_merge_cnt;
 	}
 
 	void PH_Query_Thread::clean()
@@ -2953,6 +2956,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			 */
 			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
 			half_key = old_skiplistNode->half_listNode->key; 
+			old_skiplistNode->half_listNode->hold = 1;
 		}
 #endif
 

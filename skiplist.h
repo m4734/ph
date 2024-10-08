@@ -59,6 +59,7 @@ class ListNode
 	NodeAddr warm_cache;
 	NodeAddr data_node_addr;
 	int block_cnt;
+	int hold;
 
 	std::atomic<uint8_t> valid_cnt; // 256 ...
 	std::atomic<uint8_t> lock;
@@ -101,6 +102,7 @@ class PH_List
 };
 
 void try_reduce_group(ListNode* listNode);
+void try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
 
 //struct SkiplistNode
 
@@ -147,7 +149,7 @@ class SkiplistNode
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 
 	std::atomic<uint8_t> lock;
-	std::atomic<uint8_t> rw_lock; // ???
+//	std::atomic<uint8_t> rw_lock; // ???
 
 	void setLevel();
 	void setLevel(size_t l);

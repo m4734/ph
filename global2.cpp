@@ -76,6 +76,7 @@ extern int log_max;
 	std::atomic<uint64_t> dtc_time_sum;
 
 	std::atomic<uint64_t> reduce_group_sum;
+	std::atomic<uint64_t> list_merge_sum;
 
 void debug_error(const char* msg)
 {
@@ -100,6 +101,7 @@ void PH_Interface::reset_test()
 	htw_cnt_sum = wtc_cnt_sum = 0;
 
 	reduce_group_sum = 0;
+	list_merge_sum = 0;
 
 	skiplist->addr2_hit = skiplist->addr2_miss = skiplist->addr2_no = 0;
 }
@@ -358,6 +360,8 @@ printf("ccc\n");
 		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
 
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
+	printf("list merge sum %lu\n",list_merge_sum.load());
+
 }
 
 int PH_Interface::insert_op(uint64_t key,unsigned char* value)
