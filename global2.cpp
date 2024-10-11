@@ -78,6 +78,13 @@ extern int log_max;
 	std::atomic<uint64_t> reduce_group_sum;
 	std::atomic<uint64_t> list_merge_sum;
 
+#ifdef WARM_STAT
+	std::atomic<uint64_t> warm_hit_sum;
+	std::atomic<uint64_t> warm_miss_sum;
+	std::atomic<uint64_t> warm_no_sum;
+#endif
+
+
 void PH_Interface::reset_test()
 {
 	int i;
@@ -97,7 +104,10 @@ void PH_Interface::reset_test()
 	reduce_group_sum = 0;
 	list_merge_sum = 0;
 
-	skiplist->addr2_hit = skiplist->addr2_miss = skiplist->addr2_no = 0;
+#ifdef WARM_STAT
+	warm_hit_sum = warm_miss_sum = warm_no_sum = 0;
+#endif
+
 }
 
 void PH_Interface::new_query_thread()
@@ -336,6 +346,10 @@ printf("ccc\n");
 	clean_log();
 
 	//check
+
+#ifdef WARM_STAT
+	printf("addr2 hit %ld miss %ld no %ld\n",warm_hit_sum.load(),warm_miss_sum.load(),warm_no_sum.load());
+#endif
 
 	printf("log_write %lu warm_log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),warm_log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
 	printf("warm_to_warm %lu\n",warm_to_warm_sum.load());

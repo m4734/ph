@@ -35,14 +35,7 @@ struct LogLoc
 {
 	int log_num;
 	size_t offset;
-/*
-	//test
-	uint64_t test_key1;
-	uint64_t test_key2;
-	void* test_ptr;
-*/	
 };
-
 
 class ListNode
 {
@@ -177,9 +170,6 @@ class SkiplistNode
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];
 
 //	inline unsigned char* get_entry(int index);
-	std::atomic<uint8_t> freed; // for test
-	std::atomic<uint8_t> freed1; // for test
-	std::atomic<uint8_t> freed2; // for test
 };
 
 class Skiplist
@@ -240,14 +230,8 @@ class Skiplist
 	SkiplistNode* start_node;
 	SkiplistNode* end_node;
 
-//check
-	std::atomic<uint64_t> addr2_hit;
-	std::atomic<uint64_t> addr2_miss;
-	std::atomic<uint64_t> addr2_no;
-
-//	void split(
 };
 
-void test_before_free(ListNode* listNode);
+//void test_before_free(ListNode* listNode);
 
 }

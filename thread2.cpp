@@ -64,6 +64,12 @@ namespace PH
 	extern std::atomic<uint64_t> reduce_group_sum;
 	extern std::atomic<uint64_t> list_merge_sum;
 
+#ifdef WARM_STAT
+	extern std::atomic<uint64_t> warm_hit_sum;
+	extern std::atomic<uint64_t> warm_miss_sum;
+	extern std::atomic<uint64_t> warm_no_sum;
+#endif
+
 	//	extern const size_t WARM_BATCH_MAX_SIZE;
 	//	extern size_t WARM_BATCH_MAX_SIZE;
 	extern size_t WARM_BATCH_ENTRY_CNT;
@@ -182,7 +188,9 @@ namespace PH
 
 		reduce_group_cnt = 0;
 		list_merge_cnt = 0;
-
+#ifdef WARM_STAT
+		warm_hit_cnt = warm_miss_cnt = warm_no_cnt = 0;
+#endif
 		reset_test_cnt++;
 	}
 
@@ -358,6 +366,12 @@ namespace PH
 		wtc_cnt_sum+=wtc_cnt;
 
 		dtc_time_sum+=dtc_time;
+#ifdef WARM_STAT
+		warm_hit_sum += warm_hit_cnt;
+		warm_miss_sum += warm_miss_cnt;
+		warm_no_sum += warm_no_cnt;
+#endif
+
 #ifdef SCAN_TIME
 		printf("%lu %lu %lu %lu %lu %lu\n",main_time_sum,first_time_sum,second_time_sum,t25_sum,third_time_sum,etc_time_sum);
 #endif
@@ -482,8 +496,8 @@ namespace PH
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
 		NodeMeta *old_nodeMeta[MAX_NODE_GROUP];
 
-		if (list_nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
-			debug_error("cold block bug\n");
+//		if (list_nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
+//			debug_error("cold block bug\n");
 
 		unsigned char* addr;
 		int offset;
@@ -599,10 +613,6 @@ namespace PH
 		NodeAddr new_nodeAddr2[MAX_NODE_GROUP];
 		NodeMeta* new_nodeMeta2[MAX_NODE_GROUP];
 
-//		NodeAddr test_addr1,test_addr2; // for test
-
-//		test_addr1  = old_nodeMeta[0]->my_offset;
-
 		// do not change listNode just link new nodemeta
 		ListNode* new_listNode;
 		new_listNode = list->alloc_list_node();
@@ -616,7 +626,7 @@ namespace PH
 			new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
 			new_nodeMeta1[i]->group_cnt = i+1;
 			new_nodeMeta1[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
-			at_lock2_test(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
+			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<=group2_idx;i++)
 		{
@@ -624,10 +634,8 @@ namespace PH
 			new_nodeMeta2[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[i]);
 			new_nodeMeta2[i]->group_cnt = i+1;
 			new_nodeMeta2[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,new_listNode->myAddr).value;
-			at_lock2_test(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
+			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
-
-//		test_addr2 = new_nodeAddr1[0];
 
 		for (i=0;i<group1_idx;i++) // connect
 		{
@@ -644,14 +652,9 @@ namespace PH
 			sorted_buffer2[i].next_offset_in_group = new_nodeMeta2[i+1]->my_offset;
 		}
 
-//maybe bug
-#if 1
 		sorted_buffer1[group1_idx].next_offset_in_group = emptyNodeAddr;
 		sorted_buffer2[group2_idx].next_offset_in_group = emptyNodeAddr;
-#endif
 
-
-		//		new_nodeMeta1[MAX_NODE_GROUP/2-1]->next_node_in_group = NULL;
 		new_nodeMeta2[0]->next_p = old_nodeMeta[0]->next_p;
 		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->next_addr;
 		new_nodeMeta1[0]->next_p = new_nodeMeta2[0];
@@ -664,7 +667,7 @@ namespace PH
 
 		// link!?
 		//		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyNodeAddr;
-		sorted_buffer2[0].next_offset = old_nodeMeta[0]->next_p->my_offset; // thread bug here old_nodeMeta[0]->next is null // TODO fix this
+		sorted_buffer2[0].next_offset = old_nodeMeta[0]->next_p->my_offset; // thread bug here old_nodeMeta[0]->next is null // TODO fix this // may fixed..
 		sorted_buffer1[0].next_offset = new_nodeMeta2[0]->my_offset;
 
 		// fill new nodes
@@ -778,7 +781,6 @@ namespace PH
 		// link pmem first then dram...
 
 // free the nodes...
-		test_before_free(listNode);
 		for (i=0;i<group0_idx;i++)
 			nodeAllocator->free_node(old_nodeMeta[i]);
 
@@ -834,8 +836,6 @@ namespace PH
 
 		_mm_sfence();
 
-//		forced_sync(prev->data_node_addr);
-
 #endif
 #if 0
 		// listNode is never deleted just split
@@ -857,13 +857,8 @@ namespace PH
 		at_unlock2(next_skiplistNode->lock);
 #endif
 		// unlock
-/*
-		for (i=0;i<=group1_idx;i++)
-			forced_sync(new_nodeMeta1[i]->my_offset);
-		for (i=0;i<=group2_idx;i++)
-			forced_sync(new_nodeMeta2[i]->my_offset);		
-*/
-		listNode->valid_cnt = 0;
+
+listNode->valid_cnt = 0;
 		for (i=0;i<=group1_idx;i++)
 			listNode->valid_cnt+=new_nodeMeta1[i]->valid_cnt;
 		new_listNode->valid_cnt = 0;
@@ -871,9 +866,9 @@ namespace PH
 			new_listNode->valid_cnt+=new_nodeMeta2[i]->valid_cnt;
 
 		for (i=0;i<=group1_idx;i++)
-			at_unlock2_test(new_nodeMeta1[i]->rw_lock);		
+			at_unlock2(new_nodeMeta1[i]->rw_lock);		
 		for (i=0;i<=group2_idx;i++)
-			at_unlock2_test(new_nodeMeta2[i]->rw_lock);		
+			at_unlock2(new_nodeMeta2[i]->rw_lock);		
 
 #if 0 // test old
 
@@ -1431,8 +1426,6 @@ group0_idx = 0;
 					//	ListNode* new_listNode = list->alloc_list_node();
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
 					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,list_node->myAddr).value;
-					if (append_nodeMeta->list_addr.loc == 0)
-						debug_error("loc0\n");
 				}
 				else
 				{
@@ -1992,9 +1985,7 @@ group0_idx = 0;
 			{
 #ifdef KEY_CHECK
 				uint64_t test_key;
-
 				test_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
 				if (test_key != key)
 					debug_error("key test failed\n"); // TODO 20 thread
 #endif
@@ -2786,7 +2777,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 
 			if (old_skiplistNode->key >= half_key)
-				debug_error("again\n");
+				debug_error("half again\n");
 		}
 #endif
 		half_listNode = old_skiplistNode->half_listNode;
@@ -3135,8 +3126,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 					listNode->block_cnt++;
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
 					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
-					if (append_nodeMeta->list_addr.loc == 0)
-						debug_error("loc1\n");
+//					if (append_nodeMeta->list_addr.loc == 0)
+//						debug_error("loc1\n");
 				}
 				else // split
 				{

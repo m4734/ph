@@ -240,12 +240,6 @@ namespace PH
 		//	nodeAllocator->linkNext(empty_node->data_node_addr);
 		//	nodeAllocator->linkNext(start_node->data_node_addr);
 
-		//check
-		addr2_hit = 0;
-		addr2_miss = 0;
-		addr2_no = 0;
-
-
 	}
 
 	void Skiplist::init(size_t size)
@@ -314,12 +308,6 @@ namespace PH
 
 		//nodeAllocator->linkNext(empty_node->data_node_addr);
 		//nodeAllocator->linkNext(start_node->data_node_addr);
-
-		//check
-		addr2_hit = 0;
-		addr2_miss = 0;
-		addr2_no = 0;
-
 
 	}
 
@@ -431,10 +419,6 @@ if (k2 == KEY_MAX)
 #endif
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
 		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*NODE_SIZE/1024/1024/1024);
-#ifdef WARM_STAT
-		printf("addr2 hit %ld miss %ld no %ld\n",addr2_hit.load(),addr2_miss.load(),addr2_no.load());
-#endif
-
 
 		int i,j;
 		for (i=0;i<=node_pool_list_cnt;i++)
@@ -496,10 +480,6 @@ if (k2 == KEY_MAX)
 			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
 
 			node->entry_list.resize(NODE_SLOT_MAX);
-
-			node->freed = 0;
-			node->freed1=0;
-			node->freed2=0;
 
 			node_pool_cnt++;
 
@@ -576,14 +556,12 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
-							next_node->freed1++;
 							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
 							{
-								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-									debug_error("free888\n");
-								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]),next_node);
+//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
+//									debug_error("free888\n");
+								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 							}
-							next_node->freed2++;
 							free_sl_node(next_node);
 						}
 					}
@@ -624,14 +602,12 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 0)
 						{
-							next_node->freed1++;
 							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
 							{
-								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-									debug_error("free333\n");
-								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]),next_node);
+//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
+//									debug_error("free333\n");
+								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 							}
-							next_node->freed2++;
 							free_sl_node(next_node);
 						}
 					}
@@ -773,18 +749,21 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
 		{
 #ifdef WARM_STAT
-			addr2_hit++;
+//			addr2_hit++;
+			my_thread->warm_hit_cnt++;
 #endif
 			return node;
 		}
 #ifdef WARM_STAT
 		else
-			addr2_miss++;
+//			addr2_miss++;
+			my_thread->warm_miss_cnt++;
 #endif
 	}
 #ifdef WARM_STAT
 	else
-		addr2_no++;
+//		addr2_no++;
+		my_thread->warm_no_cnt++;
 #endif
 	//addr2
 	node = find_node(key,prev,next);
@@ -895,9 +874,6 @@ bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkipAddr* prev_sa_list,
 		node->next[i].value = next_sa_list[i].value.load();
 
 		new_sa.value = node->my_sa.value.load();
-
-		if (new_sa.pool_num >= 65535) // test
-			printf("insert error\n");
 
 		if (pnn->next[i].value.compare_exchange_strong(pnn_next,new_sa.value) == false)
 			return false;
@@ -1156,9 +1132,7 @@ int noting;
 		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
 		dataAddr = dataNode->next_offset;
 	}
-	debug_error("end of end\n");
 #endif
-//	debug_error("stop here\n");
 
 }
 void PH_List::recover_init()
@@ -1746,7 +1720,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 
 		at_unlock2(left_listNode->lock);
 	}
-
+#if 0
 	void test_before_free(ListNode* listNode)
 	{
 		NodeAddr nodeAddr;
@@ -1764,4 +1738,5 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 			nodeAddr = nodeMeta->next_addr_in_group;
 		}
 	}
+#endif
 }

@@ -19,20 +19,6 @@ namespace PH
 
 	extern int num_pmem;
 
-	void forced_sync(NodeAddr nodeAddr)
-	{
-		_mm_sfence();
-		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-
-		if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)
-			debug_error("fieee\n");
-
-		dataNode->next_offset = nodeMeta->next_addr;
-		dataNode->next_offset_in_group = nodeMeta->next_addr_in_group;
-		_mm_sfence();
-	}
-
 	void pmem_next_in_group_write(DataNode* dst_node,NodeAddr nodeAddr)
 	{
 #if 0
@@ -249,12 +235,6 @@ namespace PH
 		if (free_head_p)
 		{
 			nm = (NodeMeta*)free_head_p;
-#if 1
-			if (nm->rw_lock != 4)
-				debug_error("free lock error\n");
-#endif
-				if (free_head_p == free_head_p->next_p)
-					debug_error("free head\n");
 			free_head_p = free_head_p->next_p;
 			at_unlock2(lock);
 		}
@@ -277,7 +257,7 @@ namespace PH
 			nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
 
 			at_unlock2(lock);
-			nm->alloc_cnt_for_test = 0;
+//			nm->alloc_cnt_for_test = 0;
 		}
 		//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
 		//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
@@ -301,9 +281,6 @@ namespace PH
 		memset(dataNode,0,NODE_SIZE);
 		pmem_persist(dataNode,NODE_SIZE);
 
-		if (nm->alloc_cnt_for_test > 0)
-			debug_error("alloc bug\n");
-		nm->alloc_cnt_for_test++;
 		_mm_sfence();
 		nm->rw_lock = 0;
 //		forced_sync(nm->my_offset);
@@ -316,9 +293,10 @@ namespace PH
 	extern Skiplist* skiplist; // fot test
 	extern PH_List* list;
 
-	void NodeAllocator::free_node(NodeMeta* nm,SkiplistNode* sln)
+	void NodeAllocator::free_node(NodeMeta* nm)
 	{
 		at_lock2(lock);
+#if 0
 		{
 			if (nm->list_addr.loc == WARM_LIST)
 			{
@@ -350,16 +328,9 @@ namespace PH
 
 			}
 		}
-		if (free_head_p == nm)
-			debug_error("free errorr1\n");
+#endif
 		nm->next_p = free_head_p;
 		free_head_p = nm;
-		if (free_head_p == free_head_p->next_p)
-			debug_error("free errre2\n");
-		if (nm->alloc_cnt_for_test == 0)
-			debug_error("free cnt fail\n");
-		nm->alloc_cnt_for_test--;
-		nm->rw_lock = 4;
 		at_unlock2(lock);
 	}
 

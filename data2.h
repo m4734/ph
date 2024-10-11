@@ -213,7 +213,7 @@ struct NodeMeta
 	NodeMeta* next_node_in_group;
 	int group_cnt;
 
-	int alloc_cnt_for_test;
+//	int alloc_cnt_for_test;
 
 //	size_t written_size;
 //	size_t pool_num;
@@ -255,8 +255,8 @@ class NodeAllocator
 //	Node* get_node(NodeMeta* nm);
 	//NodeMeta* alloc_node();
 	NodeAddr alloc_node();
-//	void free_node(NodeMeta* nm);
-	void free_node(NodeMeta* nm,SkiplistNode* sln = NULL);
+	void free_node(NodeMeta* nm);
+//	void free_node(NodeMeta* nm,SkiplistNode* sln = NULL);
 
 	void expand(NodeAddr nodeAddr);
 	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_cnt,SkiplistNode* skiplistNode);

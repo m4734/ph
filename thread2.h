@@ -107,6 +107,12 @@ class PH_Thread
 	uint64_t reduce_group_cnt;
 	uint64_t list_merge_cnt;
 
+#ifdef WARM_STAT
+	uint64_t warm_hit_cnt;
+	uint64_t warm_miss_cnt;
+	uint64_t warm_no_cnt;
+#endif
+
 #ifdef SCAN_TIME
 	size_t main_time_sum;
 	size_t first_time_sum;
