@@ -206,8 +206,8 @@ struct NodeMeta
 	NodeAddr next_addr;
 	NodeAddr next_addr_in_group;
 
-	/*volatile*/ NodeAddr list_addr;
-//	/*volatile*/ EntryAddr list_addr;
+//	/*volatile*/ NodeAddr list_addr;
+	/*volatile*/ EntryAddr list_addr;
 
 	NodeMeta* next_p;
 	NodeMeta* next_node_in_group;

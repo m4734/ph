@@ -178,7 +178,7 @@ union EntryHeader
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
 	unsigned char* get_entry(EntryAddr &ea);
-/*
+
 	inline EntryAddr nodeAddr_to_listAddr(Loc loc, NodeAddr &nodeAddr)
 	{
 		EntryAddr ea;
@@ -187,5 +187,5 @@ union EntryHeader
 		ea.offset = nodeAddr.node_offset;
 		return ea;
 	}
-	*/
+	
 }
