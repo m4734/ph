@@ -51,9 +51,9 @@ class ListNode
 //	NodeMeta* my_node;
 	/*volatile*/ NodeAddr warm_cache;
 
-//	NodeAddr data_node_addr; // changed by split
+	NodeAddr data_node_addr; // changed by split // in lock
 //	std::atomic<NodeAddr> data_node_addr;
-	/*volatile*/ uint64_t data_node_addr;
+//	/*volatile*/ uint64_t data_node_addr;
 
 	int block_cnt;
 	int hold;
@@ -145,8 +145,8 @@ class SkiplistNode
 	NodeAddr myAddr; // nodeMeta addr // skiplist addr?
 //	NodeAddr prev;
 	SkiplistNode* volatile prev;
-//	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
-	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
+	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
+//	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
 	std::atomic<uint8_t> lock;
 //	std::atomic<uint8_t> rw_lock; // ???

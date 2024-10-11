@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <atomic>
 
-#define WARM_STAT
+//#define WARM_STAT
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
@@ -48,7 +48,7 @@ namespace PH
 
 	const size_t NODE_HEADER_SIZE = 16; //8 + 8
 	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
-#if 0
+#if 1
 	struct NodeAddr
 	{
 		//	size_t loc : 2;

@@ -223,7 +223,7 @@ namespace PH
 		{
 
 			if (skiplistNode)
-				skiplistNode->data_node_addr[group_idx] = nodeAddr.value;
+				skiplistNode->data_node_addr[group_idx] = nodeAddr;
 
 			nodeMeta->next_addr = emptyNodeAddr;
 			nodeMeta->next_p = NULL;

@@ -268,23 +268,27 @@ class NodeAllocator
 	{
 		return (DataNode*)(nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
 	}
+	/*
 	inline DataNode* nodeAddr_to_node(uint64_t value)
 	{
 		NodeAddr nodeAddr;
 		nodeAddr.value = value;
 		return (DataNode*)(nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
 	}
+	*/
 
 	inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr &nodeAddr)
 	{
 		return (NodeMeta*)(nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
 	}
+	/*
 	inline NodeMeta* nodeAddr_to_nodeMeta(uint64_t value)
 	{
 		NodeAddr nodeAddr;
 		nodeAddr.value = value;
 		return (NodeMeta*)(nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
 	}
+	*/
 
 
 	void linkNext(NodeMeta* nm1,NodeMeta* nm2);

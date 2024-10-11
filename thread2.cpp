@@ -785,8 +785,8 @@ namespace PH
 			nodeAllocator->free_node(old_nodeMeta[i]);
 
 		// don't alloc new node...
-		listNode->data_node_addr = new_nodeMeta1[0]->my_offset.value;
-		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset.value;
+		listNode->data_node_addr = new_nodeMeta1[0]->my_offset;
+		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset;
 
 		if (size > 1)
 			new_listNode->key = key_list_buffer[(size+1)/2];
@@ -2702,7 +2702,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		}
 	}
 
-	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skiplistNode) // old node is deleted
+#define SPLIT_WITH_LIST_LOCK
+
+	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skiplistNode) // old node is deleted // split need lock....
 	{
 		/*
 		if (old_skipListNode->key == 3458764513820540926UL)
@@ -2719,7 +2721,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 /*
 		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
 		*/
-
+#ifdef SPLIT_WITH_LIST_LOCK // LIST LOCK
 		while(1)
 		{
 			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
@@ -2728,6 +2730,11 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			break;
 		}
 		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
+#else // NO LOCK
+		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
+
+#endif
 #if 0 // fix this bug fd TODO fix this
 		if (old_skipListNode->key >= half_key)
 		{
@@ -2755,8 +2762,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 //			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
 			
 			try_cold_split(old_skiplistNode->half_listNode,old_skiplistNode);
+#ifdef SPLIT_WITH_LIST_LOCK
 			at_unlock2(old_skiplistNode->half_listNode->lock);
-
+#endif
 			/*
 			   uint64_t half1,half2; // overflow
 			   half1 = (old_skipListNode->key)/2; // approx
@@ -2767,6 +2775,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			 */
 //			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
 //			half_key = old_skiplistNode->half_listNode->key; 
+#ifdef SPLIT_WITH_LIST_LOCK
 			while(1)
 			{
 				old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
@@ -2775,6 +2784,11 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				break;
 			}
 			half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
+#else
+		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
+
+#endif
 
 			if (old_skiplistNode->key >= half_key)
 				debug_error("half again\n");
@@ -2873,8 +2887,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		//delete old here...
 
 		skiplist->delete_node(old_skiplistNode); // delete duringn find node
-
+#ifdef SPLIT_WITH_LIST_LOCK
 		at_unlock2(half_listNode->lock);
+#endif
 	}
 
 	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
@@ -2932,15 +2947,15 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		int i;
 		int slot_idx;
 		int cold_split_cnt = 0;
-		NodeAddr dna;
-		dna.value = node->data_node_addr[node_num];
+//		NodeAddr dna;
+//		dna = node->data_node_addr[node_num];
 
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
 
 		old_ea.loc = 2; // warm
-//		old_ea.file_num = node->data_node_addr[node_num].pool_num;
-		old_ea.file_num = dna.pool_num;
+		old_ea.file_num = node->data_node_addr[node_num].pool_num;
+//		old_ea.file_num = dna.pool_num;
 		//		old_ea.offset = node->data_node_addr.offset*NODE_SIZE + sizeof(NodeAddr);
 
 		//		new_ea.loc = 3; // cold
@@ -2977,8 +2992,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				src_offset+=ENTRY_SIZE;
 				continue;
 			}
-//			old_ea.offset = node->data_node_addr[node_num].node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
-			old_ea.offset = dna.node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
+			old_ea.offset = node->data_node_addr[node_num].node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
+//			old_ea.offset = dna.node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
 
 			key = *(uint64_t*)(evict_buffer+src_offset+ENTRY_HEADER_SIZE);
 #if 0
