@@ -68,37 +68,7 @@ class PH_Thread
 
 
 	DataNode* split_buffer;
-#if 0
-	PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0)
-	{
-		if (posix_memalign((void**)&evict_buffer,NODE_SIZE,WARM_BATCH_MAX_SIZE) != 0)
-			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&split_buffer,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
-			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&sorted_buffer1,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
-			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
-			printf("thread buffer alloc fail\n");
 
-
-		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-
-
-		reset_test();
-	}
-	~PH_Thread()
-	{
-		free(evict_buffer);
-
-		free(split_buffer);
-		free(sorted_buffer1);
-		free(sorted_buffer2);
-
-		free(key_list_buffer);
-		free(old_ea_list_buffer);
-	}
-#endif
 	void update_free_cnt();
 	void update_tail_sum();
 	void op_check();

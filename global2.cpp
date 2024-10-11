@@ -78,12 +78,6 @@ extern int log_max;
 	std::atomic<uint64_t> reduce_group_sum;
 	std::atomic<uint64_t> list_merge_sum;
 
-void debug_error(const char* msg)
-{
-	printf("error----------------------------------------\n");
-	printf("%s\n",msg);
-}
-
 void PH_Interface::reset_test()
 {
 	int i;

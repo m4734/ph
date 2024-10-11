@@ -206,11 +206,14 @@ struct NodeMeta
 	NodeAddr next_addr;
 	NodeAddr next_addr_in_group;
 
-	NodeAddr list_addr;
+//	/*volatile*/ NodeAddr list_addr;
+	/*volatile*/ EntryAddr list_addr;
 
 	NodeMeta* next_p;
 	NodeMeta* next_node_in_group;
 	int group_cnt;
+
+	int alloc_cnt_for_test;
 
 //	size_t written_size;
 //	size_t pool_num;
@@ -252,7 +255,8 @@ class NodeAllocator
 //	Node* get_node(NodeMeta* nm);
 	//NodeMeta* alloc_node();
 	NodeAddr alloc_node();
-	void free_node(NodeMeta* nm);
+//	void free_node(NodeMeta* nm);
+	void free_node(NodeMeta* nm,SkiplistNode* sln = NULL);
 
 	void expand(NodeAddr nodeAddr);
 	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_cnt,SkiplistNode* skiplistNode);
@@ -260,14 +264,28 @@ class NodeAllocator
 //	private:
 	public:
 
-	inline DataNode* nodeAddr_to_node(NodeAddr nodeAddr)
+	inline DataNode* nodeAddr_to_node(NodeAddr &nodeAddr)
 	{
 		return (DataNode*)(nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
 	}
-	inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr nodeAddr)
+	inline DataNode* nodeAddr_to_node(uint64_t value)
+	{
+		NodeAddr nodeAddr;
+		nodeAddr.value = value;
+		return (DataNode*)(nodePoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(DataNode));
+	}
+
+	inline NodeMeta* nodeAddr_to_nodeMeta(NodeAddr &nodeAddr)
 	{
 		return (NodeMeta*)(nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
 	}
+	inline NodeMeta* nodeAddr_to_nodeMeta(uint64_t value)
+	{
+		NodeAddr nodeAddr;
+		nodeAddr.value = value;
+		return (NodeMeta*)(nodeMetaPoolList[nodeAddr.pool_num] + nodeAddr.node_offset*sizeof(NodeMeta));
+	}
+
 
 	void linkNext(NodeMeta* nm1,NodeMeta* nm2);
 //	void linkNext(NodeAddr nodeAddr);
@@ -290,7 +308,7 @@ class NodeAllocator
 //	size_t free_head;
 //	size_t free_tail;
 //	volatile NodeMeta* free_head_p=NULL;
-	NodeMeta* free_head_p;
+	NodeMeta* /*volatile*/ free_head_p;
 
 	
 	std::atomic<uint8_t> lock=0;

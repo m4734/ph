@@ -1,6 +1,7 @@
 #include <libpmem.h> 
 #include <x86intrin.h> // fence
 #include <string.h> // memcpy
+#include <stdio.h>
 
 #include "shared.h"
 #include "log.h"
@@ -14,6 +15,12 @@ namespace PH
 	extern size_t WARM_BATCH_ENTRY_CNT;
 	extern size_t ENTRY_SIZE;
 	extern PH_List* list;
+
+void debug_error(const char* msg)
+{
+	printf("error----------------------------------------\n");
+	printf("%s\n",msg);
+}
 
 	unsigned char* get_entry(EntryAddr &ea)
 	{
@@ -149,6 +156,11 @@ namespace PH
 				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
 				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
 				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
+#ifdef VALID_CHECK
+				if (nm->valid[cnt] == false)
+					debug_error("false false\n");
+#endif
+
 				nm->valid[cnt] = false; // invalidate
 				--nm->valid_cnt;
 
@@ -157,10 +169,15 @@ namespace PH
 			{
 				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
 
+#ifdef VALID_CHECK
+				if (nm->valid[cnt] == false)
+					debug_error("false false\n");
+#endif
+
 				nm->valid[cnt] = false; // invalidate
 				--nm->valid_cnt;
 
-				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
+				ListNode* listNode = list->addr_to_listNode(nm->list_addr.value);
 				listNode->valid_cnt--;
 
 				if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head

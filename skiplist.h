@@ -56,8 +56,12 @@ class ListNode
 	NodeAddr myAddr;
 
 //	NodeMeta* my_node;
-	NodeAddr warm_cache;
-	NodeAddr data_node_addr;
+	/*volatile*/ NodeAddr warm_cache;
+
+//	NodeAddr data_node_addr; // changed by split
+//	std::atomic<NodeAddr> data_node_addr;
+	/*volatile*/ uint64_t data_node_addr;
+
 	int block_cnt;
 	int hold;
 
@@ -94,9 +98,11 @@ class PH_List
 	void recover();
 	void recover_init();
 
-	inline ListNode* addr_to_listNode(NodeAddr list_addr)
+	inline ListNode* addr_to_listNode(uint64_t value) // have to be loc 3
 	{
-		return (ListNode*)&node_pool_list[list_addr.pool_num][list_addr.node_offset];
+		EntryAddr list_addr;
+		list_addr.value = value;
+		return (ListNode*)&node_pool_list[list_addr.file_num][list_addr.offset];
 	}
 
 };
@@ -146,7 +152,8 @@ class SkiplistNode
 	NodeAddr myAddr; // nodeMeta addr // skiplist addr?
 //	NodeAddr prev;
 	SkiplistNode* volatile prev;
-	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
+//	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
+	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
 	std::atomic<uint8_t> lock;
 //	std::atomic<uint8_t> rw_lock; // ???
@@ -170,13 +177,17 @@ class SkiplistNode
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];
 
 //	inline unsigned char* get_entry(int index);
+	std::atomic<uint8_t> freed; // for test
+	std::atomic<uint8_t> freed1; // for test
+	std::atomic<uint8_t> freed2; // for test
 };
 
 class Skiplist
 {
 	private:
-
+	public: // test
 	SkiplistNode** node_pool_list;
+	private:
 //	std::vector<SkiplistNode*> node_pool_list;
 
 	std::atomic<uint8_t> node_alloc_lock; // lock?
@@ -236,5 +247,7 @@ class Skiplist
 
 //	void split(
 };
+
+void test_before_free(ListNode* listNode);
 
 }

@@ -33,9 +33,6 @@ namespace PH
 
 	const int COUNTER_MAX = 1024;
 
-	void debug_error(const char* msg);
-
-
 	class PH_Interface
 	{
 

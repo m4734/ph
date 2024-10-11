@@ -9,16 +9,25 @@
 #define WARM_CACHE
 #define SCAN_SORT
 //#define SCAN_TIME
+#define USE_DTC
 
-//#define CC // cor check
+#define CC // cor check
+
 #ifdef CC
 
 #define KEY_CHECK
+#define HTW_KEY_CHECK
+#define SKIPLIST_TRAVERSE_TEST
+#define LIST_TRAVERSE_TEST
+#define VALID_CHECK
+#define UNLOCK_TEST
 
 #endif
 
 namespace PH
 {
+
+	void debug_error(const char* msg);
 
 	const size_t KEY_MIN = 0x0000000000000000;
 	const size_t KEY_MAX = 0xffffffffffffffff;
@@ -39,7 +48,7 @@ namespace PH
 
 	const size_t NODE_HEADER_SIZE = 16; //8 + 8
 	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
-
+#if 0
 	struct NodeAddr
 	{
 		//	size_t loc : 2;
@@ -57,8 +66,33 @@ namespace PH
 		{
 			return (pool_num != na.pool_num || node_offset != na.node_offset);
 		}
-
+		NodeAddr operator=(const NodeAddr &na)
+		{
+			pool_num = na.pool_num;
+			node_offset = na.node_offset;
+			return *this;
+		}
 	}; // may 16
+#else
+	union NodeAddr
+	{
+		struct
+		{
+			uint32_t pool_num;
+			uint32_t node_offset;
+		};
+		uint64_t value;
+
+		bool operator==(const NodeAddr &na)
+		{
+			return value == na.value;
+		}
+		bool operator!=(const NodeAddr &na)
+		{
+			return value != na.value;
+		}
+	};
+#endif
 
 union EntryHeader
 {
@@ -91,6 +125,13 @@ union EntryHeader
 			size_t offset : 48; 
 		};
 		uint64_t value;
+	/*	
+		EntryAddr operator=(const EntryAddr &ea)
+		{
+			value = ea.value;
+			return *this;
+		}
+		*/
 	};
 
 	const EntryAddr emptyEntryAddr = (EntryAddr) {.value = 0};
@@ -135,4 +176,13 @@ union EntryHeader
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
 	unsigned char* get_entry(EntryAddr &ea);
+
+	inline EntryAddr nodeAddr_to_listAddr(Loc loc, NodeAddr &nodeAddr)
+	{
+		EntryAddr ea;
+		ea.loc = loc;
+		ea.file_num = nodeAddr.pool_num;
+		ea.offset = nodeAddr.node_offset;
+		return ea;
+	}
 }

@@ -246,204 +246,6 @@ namespace PH
 	}
 
 
-//---------------------------------------------------------------------------------
-#if 0
-	void PH_Thread::try_reduce_group(ListNode* listNode)
-	{
-		if (try_at_lock2(listNode->lock) == false)
-			return;
-		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
-		{
-			reduce_group_cnt++;
-
-			NodeAddr nodeAddr;
-			nodeAddr = listNode->data_node_addr;
-			NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
-			NodeMeta* src_nodeMeta;
-			int dst_i,dst_j;
-			nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-			int i;
-			for (i=0;i<listNode->block_cnt;i++)
-			{
-				at_lock2(nodeMeta_list[i]->rw_lock);
-				nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
-			}
-
-			src_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
-
-//			int entry_num = nodeMeta->valid_cnt;
-
-			DataNode* dataNode;
-			DataNode* dst_dataNode;
-			unsigned char* src_addr;
-			unsigned char* dst_addr;
-			uint64_t key;
-			std::atomic<uint8_t> *seg_lock;
-			KVP* kvp_p;
-			EntryAddr src_ea,dst_ea;
-
-			dataNode = nodeAllocator->nodeAddr_to_node(src_nodeMeta->my_offset);
-
-			reverse_memcpy(split_buffer,dataNode,NODE_SIZE);
-			src_addr = split_buffer+NODE_HEADER_SIZE;
-
-			dst_i = 0;
-			dst_j = 0;
-			dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
-
-			src_ea.loc = COLD_LIST;
-			src_ea.file_num = src_nodeMeta->my_offset.pool_num;
-			src_ea.offset = src_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			dst_ea.loc = COLD_LIST;
-			dst_ea.file_num = nodeMeta_list[0]->my_offset.pool_num;
-			dst_ea.offset = nodeMeta_list[0]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			for (i=0;i<NODE_SLOT_MAX;i++)
-			{
-				if (src_nodeMeta->valid[i])
-				{
-					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-					if (kvp_p->value == src_ea.value)
-					{
-						while(dst_i<listNode->block_cnt)
-						{
-							while(dst_j<NODE_SLOT_MAX)
-							{
-								if (nodeMeta_list[dst_i]->valid[dst_j] == false)
-									break;
-								++dst_j;
-								dst_ea.offset+=ENTRY_SIZE;
-							}
-							if (dst_j<NODE_SLOT_MAX)
-								break;
-							dst_i++;
-							dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
-							dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
-							dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-						}
-
-						dst_addr = dst_dataNode+NODE_HEADER_SIZE+ENTRY_SIZE*dst_j;
-						// copy - valid - index???
-
-						memcpy(dst_addr,src_addr,ENTRY_SIZE);// copy src to dst // mem to pmem
-//						_mm_sfence(); // no fence until link
-
-						nodeMeta_list[dst_i]->valid[dst_j] = true;
-						nodeMeta_list[dst_i]->valid_cnt++;
-
-						kvp_p->value = dst_ea.value;
-					}
-
-				}
-				src_ea.offset+=ENTRY_SIZE;
-				addr+=ENTRY_SIZE;
-			}
-
-			//flush
-			for (i=0;i<listNode->block_cnt-1;i++)
-			{
-				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[i]->my_offset);
-				pmem_persist(dataNode,NODE_SIZE);
-			}
-			_mm_sfence();
-
-			//link
-			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1]->my_offset);
-#if 0
-			dataNode->next_offset_in_group = emptyNodeAddr;
-			pmem_persist(&dataNode->next_offset_in_group,sizeof(NodeAddr));
-#else
-			pmem_next_in_group_write(dataNode,emptyNodeAddr);
-#endif
-			_mm_sfence();
-
-			for (i=0;i<listNode->block_cnt-1;i++)
-				at_unlock2(nodeMeta_list[i]->rw_lock);
-
-			//free
-			liistNode->block_cnt--;
-			nodeAllocator->free_node(target_nodeMeta);
-
-		}
-		at_unlock2(listNode->lock);
-	}
-#endif
-#if 0
-	void invalidate_entry(EntryAddr &ea) // need kv lock
-	{
-		unsigned char* addr;
-		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
-		{
-			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-			set_invalid((EntryHeader*)addr); // invalidate
-//			hot_to_hot_cnt++; // log to hot
-		}
-		else // warm or cold
-		{
-			size_t offset_in_node;
-			NodeMeta* nm;
-			int cnt;
-			int node_cnt;
-
-			offset_in_node = ea.offset % NODE_SIZE;
-			node_cnt = ea.offset/NODE_SIZE;
-			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
-			//			at_lock2(nm->rw_lock);
-			// it doesn't change value just invalidate with meta
-#if 1 // we don't need batch... // no i need the batch
-			if (ea.loc == 2)
-			{
-				int batch_num,offset_in_batch;
-				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
-				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
-				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-
-			}
-			else
-			{
-				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-
-				ListNode* listNode = list->addr_to_listnode(nm->list_addr);
-				listNode->valid_cnt--;
-
-				if (listNode->valid_cnt * 2 < NODE_SLOT_MAX) // try destory list node // must not be head
-				{
-				}
-				else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
-				{
-					try_reduce_group(listNode);
-				}
-			}
-#else
-			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-#endif
-#if 0
-			if (nm->valid[cnt])
-			{
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-			}
-			else
-				debug_error("impossible\n");
-#else
-//			nm->valid[cnt] = false; // invalidate
-//			--nm->valid_cnt;
-#endif
-			//			at_unlock2(nm->rw_lock);
-		}
-
-		// no nm rw lock but need hash entry lock...
-	}
-#endif
-
-
 	//-------------------------------------------------
 	ListNode* find_halfNode(SkiplistNode* node) // do we have lock?
 	{
@@ -620,7 +422,7 @@ namespace PH
 			nodeMeta->valid[slot_idx] = true; // validate
 			++nodeMeta->valid_cnt;
 
-			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr.value);
 			listNode->valid_cnt++;
 
 			// modify hash index here
@@ -679,6 +481,9 @@ namespace PH
 		//		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
 		NodeMeta *old_nodeMeta[MAX_NODE_GROUP];
+
+		if (list_nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
+			debug_error("cold block bug\n");
 
 		unsigned char* addr;
 		int offset;
@@ -749,6 +554,7 @@ namespace PH
 
 		int size = key_list.size();
 		int group1_idx = 0;
+		memset(&sorted_buffer1[0],0,NODE_SIZE);
 		addr = sorted_buffer1[0].buffer;
 		offset = 0;
 		for (i=0;i<(size+1)/2;i++)
@@ -756,6 +562,7 @@ namespace PH
 			if (offset+ENTRY_SIZE > NODE_BUFFER_SIZE)
 			{
 				group1_idx++;
+				memset(&sorted_buffer1[group1_idx],0,NODE_SIZE);
 				addr = sorted_buffer1[group1_idx].buffer;
 				offset = 0;
 			}
@@ -767,6 +574,7 @@ namespace PH
 		}
 
 		int group2_idx = 0;
+		memset(&sorted_buffer2[0],0,NODE_SIZE);
 		addr = sorted_buffer2[0].buffer;
 		offset = 0;
 		for (;i<size;i++)
@@ -774,6 +582,7 @@ namespace PH
 			if (offset+ENTRY_SIZE > NODE_BUFFER_SIZE)
 			{
 				group2_idx++;
+				memset(&sorted_buffer2[group2_idx],0,NODE_SIZE);
 				addr = sorted_buffer2[group2_idx].buffer;
 				offset = 0;
 			}
@@ -806,16 +615,16 @@ namespace PH
 			new_nodeAddr1[i] = nodeAllocator->alloc_node();
 			new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
 			new_nodeMeta1[i]->group_cnt = i+1;
-			new_nodeMeta1[i]->list_addr = listNode->myAddr;
-			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
+			new_nodeMeta1[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+			at_lock2_test(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<=group2_idx;i++)
 		{
 			new_nodeAddr2[i] = nodeAllocator->alloc_node();
 			new_nodeMeta2[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[i]);
 			new_nodeMeta2[i]->group_cnt = i+1;
-			new_nodeMeta2[i]->list_addr = new_listNode->myAddr;
-			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
+			new_nodeMeta2[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,new_listNode->myAddr).value;
+			at_lock2_test(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 
 //		test_addr2 = new_nodeAddr1[0];
@@ -968,9 +777,14 @@ namespace PH
 		// link the list
 		// link pmem first then dram...
 
+// free the nodes...
+		test_before_free(listNode);
+		for (i=0;i<group0_idx;i++)
+			nodeAllocator->free_node(old_nodeMeta[i]);
+
 		// don't alloc new node...
-		listNode->data_node_addr = new_nodeMeta1[0]->my_offset;
-		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset;
+		listNode->data_node_addr = new_nodeMeta1[0]->my_offset.value;
+		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset.value;
 
 		if (size > 1)
 			new_listNode->key = key_list_buffer[(size+1)/2];
@@ -1057,9 +871,9 @@ namespace PH
 			new_listNode->valid_cnt+=new_nodeMeta2[i]->valid_cnt;
 
 		for (i=0;i<=group1_idx;i++)
-			at_unlock2(new_nodeMeta1[i]->rw_lock);		
+			at_unlock2_test(new_nodeMeta1[i]->rw_lock);		
 		for (i=0;i<=group2_idx;i++)
-			at_unlock2(new_nodeMeta2[i]->rw_lock);		
+			at_unlock2_test(new_nodeMeta2[i]->rw_lock);		
 
 #if 0 // test old
 
@@ -1109,10 +923,6 @@ group0_idx = 0;
 
 
 #endif
-
-// free the nodes...
-		for (i=0;i<group0_idx;i++)
-			nodeAllocator->free_node(old_nodeMeta[i]);
 
 	}
 #if 0
@@ -1372,7 +1182,7 @@ group0_idx = 0;
 		return ((threshold)-(empty_space-min_threshold))*100/(threshold);
 	}
 
-	void PH_Thread::try_cold_split(ListNode *listNode,SkiplistNode* node)
+	void PH_Thread::try_cold_split(ListNode *listNode,SkiplistNode* node) // have cold but may warm lock or not
 	{ // unlock the rws
 		//split cold here
 		//find half
@@ -1426,16 +1236,23 @@ group0_idx = 0;
 		else if (ea.loc == WARM_LIST)
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			wc.pool_num = nm->list_addr.file_num;
+			wc.node_offset = nm->list_addr.offset;
+			/*
 			if (nm->list_addr.pool_num > skiplist->node_pool_list_cnt || (nm->list_addr.pool_num == skiplist->node_pool_list_cnt && nm->list_addr.node_offset > skiplist->node_pool_cnt)) // prevent access
 				wc = emptyNodeAddr;
 			else
 			{
 				wc = nm->list_addr;
 			}
+			*/
 		}
 		else
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
+			wc = listNode->warm_cache;
+			/*
 			if (nm->list_addr.pool_num > list->node_pool_list_cnt || (nm->list_addr.pool_num == list->node_pool_list_cnt && nm->list_addr.node_offset > list->node_pool_cnt))
 				wc = emptyNodeAddr;
 			else
@@ -1443,6 +1260,7 @@ group0_idx = 0;
 				ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.pool_num][nm->list_addr.node_offset];
 				wc = listNode->warm_cache;
 			}
+			*/
 		}
 
 		return wc;
@@ -1612,7 +1430,9 @@ group0_idx = 0;
 					list_node->block_cnt++;
 					//	ListNode* new_listNode = list->alloc_list_node();
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
-					append_nodeMeta->list_addr = list_node->myAddr;
+					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,list_node->myAddr).value;
+					if (append_nodeMeta->list_addr.loc == 0)
+						debug_error("loc0\n");
 				}
 				else
 				{
@@ -1792,8 +1612,11 @@ group0_idx = 0;
 		size_t prev_head_sum;
 
 		dtc = 0;
-
+#ifdef USE_DTC
 		if (ex == 1 && old_ea.loc == COLD_LIST)// && false) // NO DTC
+#else
+		if (false)
+#endif
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
@@ -2899,19 +2722,21 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		uint64_t half_key;
 		SkiplistNode* child1_sl_node;
 		SkiplistNode* child2_sl_node;
+		ListNode* half_listNode;
 
-		if (old_skiplistNode->half_listNode == NULL)
-			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
-		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
-	/*
-		uint64_t test_hk = half_key;
-		uint64_t test_osn = old_skipListNode->key;
-
-		ListNode* test_listNode = old_skipListNode->my_listNode;
-		NodeMeta* test_nm1 = (nodeAllocator->nodeAddr_to_nodeMeta(test_listNode->data_node_addr));
-		NodeMeta tnm1;
-		memcpy(&tnm1,test_nm1,sizeof(NodeMeta));
+//		if (old_skiplistNode->half_listNode == NULL)
+/*
+		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
 		*/
+
+		while(1)
+		{
+			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+			if (try_at_lock2(old_skiplistNode->half_listNode->lock) == false)
+				continue;
+			break;
+		}
+		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 #if 0 // fix this bug fd TODO fix this
 		if (old_skipListNode->key >= half_key)
 		{
@@ -2933,19 +2758,14 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			debug_error("half error\n");
 		}
 #else
-		while (old_skiplistNode->key >= half_key)
+		while (old_skiplistNode->key >= half_key) // have to be once
 		{
+//			uint64_t old_half_key = half_key;
 //			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
-/*
-			while(1)
-			{
-				old_skipListNode->half_listNode = find_halfNode(old_skipListNode);
-				if (try_at_lock2(old_skipListNode->half_listNode->lock) == false)
-					continue;
-				break;
-			}
-			*/
+			
 			try_cold_split(old_skiplistNode->half_listNode,old_skiplistNode);
+			at_unlock2(old_skiplistNode->half_listNode->lock);
+
 			/*
 			   uint64_t half1,half2; // overflow
 			   half1 = (old_skipListNode->key)/2; // approx
@@ -2954,11 +2774,22 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			   if (half_key <= old_skipListNode->key)
 			   debug_error("half error\n");
 			 */
-			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
-			half_key = old_skiplistNode->half_listNode->key; 
-			old_skiplistNode->half_listNode->hold = 1;
+//			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+//			half_key = old_skiplistNode->half_listNode->key; 
+			while(1)
+			{
+				old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+				if (try_at_lock2(old_skiplistNode->half_listNode->lock) == false)
+					continue;
+				break;
+			}
+			half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
+
+			if (old_skiplistNode->key >= half_key)
+				debug_error("again\n");
 		}
 #endif
+		half_listNode = old_skiplistNode->half_listNode;
 
 		child1_sl_node = skiplist->allocate_node();
 		child2_sl_node = skiplist->allocate_node();
@@ -2971,6 +2802,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		at_lock2(child1_sl_node->lock);
 		at_lock2(child2_sl_node->lock);
+
+		old_skiplistNode->half_listNode->hold = 1;
 
 		child1_sl_node->key = old_skiplistNode->key;
 		child1_sl_node->my_listNode = old_skiplistNode->my_listNode.load();
@@ -3050,6 +2883,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		skiplist->delete_node(old_skiplistNode); // delete duringn find node
 
+		at_unlock2(half_listNode->lock);
 	}
 
 	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
@@ -3107,12 +2941,15 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		int i;
 		int slot_idx;
 		int cold_split_cnt = 0;
+		NodeAddr dna;
+		dna.value = node->data_node_addr[node_num];
 
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
 
 		old_ea.loc = 2; // warm
-		old_ea.file_num = node->data_node_addr[node_num].pool_num;
+//		old_ea.file_num = node->data_node_addr[node_num].pool_num;
+		old_ea.file_num = dna.pool_num;
 		//		old_ea.offset = node->data_node_addr.offset*NODE_SIZE + sizeof(NodeAddr);
 
 		//		new_ea.loc = 3; // cold
@@ -3129,7 +2966,6 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		else
 			end_slot = batch_num*WARM_BATCH_ENTRY_CNT + WARM_BATCH_ENTRY_CNT;
 
-//		printf("%d %d\n",start_slot,end_slot);
 #if 0
 		memcpy(evict_buffer,(unsigned char*)dataNode + batch_num*WARM_BATCH_MAX_SIZE,WARM_BATCH_MAX_SIZE);
 #else
@@ -3150,7 +2986,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				src_offset+=ENTRY_SIZE;
 				continue;
 			}
-			old_ea.offset = node->data_node_addr[node_num].node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
+//			old_ea.offset = node->data_node_addr[node_num].node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
+			old_ea.offset = dna.node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
 
 			key = *(uint64_t*)(evict_buffer+src_offset+ENTRY_HEADER_SIZE);
 #if 0
@@ -3297,7 +3134,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				{
 					listNode->block_cnt++;
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
-					append_nodeMeta->list_addr = listNode->myAddr;
+					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+					if (append_nodeMeta->list_addr.loc == 0)
+						debug_error("loc1\n");
 				}
 				else // split
 				{
@@ -3390,6 +3229,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		wtc_cnt++;
 	}
 
+
 	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	void PH_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
@@ -3432,6 +3272,12 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		int batch_num;
 		int i_dst;
 
+#ifdef HTW_KEY_CHECK
+	uint64_t wk1,wk2;
+	wk1 = node->key;
+	wk2 = skiplist->find_next_node(node)->key;
+#endif
+
 		do
 		{
 			if (WARM_GROUP_ENTRY_CNT - (node->data_head-node->data_tail) < WARM_BATCH_ENTRY_CNT) // if no space
@@ -3441,6 +3287,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
 
 			start_offset = NODE_HEADER_SIZE + (node->data_head % WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE; // always HEADER!
+			memset(evict_buffer,0,WARM_BATCH_MAX_SIZE);
 			buffer_start = evict_buffer+start_offset;
 			batch_num = (node->data_head%WARM_NODE_ENTRY_CNT)/WARM_BATCH_ENTRY_CNT;
 
@@ -3472,7 +3319,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 					old_ea.offset = ll.offset%dl->my_size;
 
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-					//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
+
+//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 					kvp.value = old_ea.value;
 
 					new_ea = direct_to_cold(key,addr + ENTRY_HEADER_SIZE + KEY_SIZE,kvp,seg_lock,node,false);
@@ -3560,6 +3408,13 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				if (kvp_p->value == src_addr.value)
 				{
+
+#ifdef HTW_KEY_CHECK
+					if (key < wk1 || key >= wk2)
+						debug_error("HTW_KEY_CHECK FAIL\n");
+#endif
+
+
 					/*
 					   EntryHeader eh;
 					   eh.value = kvp_p->version;

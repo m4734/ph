@@ -13,7 +13,8 @@ namespace PH
 
 #define USE_DRAM_CACHE
 
-struct NodeAddr;
+//struct NodeAddr;
+union NodeAddr;
 
 //#define LOG_SIZE_PER_PMEM (12*1024*1024*1024) // 128GB / 10% / threads
 //const size_t LOG_SIZE_PER_PMEM = (size_t(12)*1024*1024*1024);
