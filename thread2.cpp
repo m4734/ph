@@ -2791,9 +2791,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #else
 		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
 		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
-
 #endif
-
 			if (old_skiplistNode->key >= half_key)
 				debug_error("half again\n");
 		}

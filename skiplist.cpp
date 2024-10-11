@@ -447,7 +447,8 @@ if (k2 == KEY_MAX)
 		if (node_free_head) // no pmem alloc...
 		{
 			node = node_free_head;
-			node_free_head = sa_to_node(node_free_head->next[0]);
+//			node_free_head = sa_to_node(node_free_head->next[0]);
+			node_free_head = node->prev;
 			at_unlock2(node_alloc_lock);
 		}
 		else
@@ -512,11 +513,9 @@ if (k2 == KEY_MAX)
 
 	void Skiplist::free_sl_node(SkiplistNode* node)
 	{
-//		node->freed++;
-		return; // do nothing
+//		return; // do nothing
 		at_lock2(node_alloc_lock);
-		if (node_free_head)
-			node->next[0] = node_free_head->my_sa;
+		node->prev = node_free_head;
 		node_free_head = node;
 		at_unlock2(node_alloc_lock);
 	}
