@@ -66,12 +66,14 @@ namespace PH
 		{
 			return (pool_num != na.pool_num || node_offset != na.node_offset);
 		}
+		/*
 		NodeAddr operator=(const NodeAddr &na)
 		{
 			pool_num = na.pool_num;
 			node_offset = na.node_offset;
 			return *this;
 		}
+		*/
 	}; // may 16
 #else
 	union NodeAddr
@@ -176,7 +178,7 @@ union EntryHeader
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
 	unsigned char* get_entry(EntryAddr &ea);
-
+/*
 	inline EntryAddr nodeAddr_to_listAddr(Loc loc, NodeAddr &nodeAddr)
 	{
 		EntryAddr ea;
@@ -185,4 +187,5 @@ union EntryHeader
 		ea.offset = nodeAddr.node_offset;
 		return ea;
 	}
+	*/
 }

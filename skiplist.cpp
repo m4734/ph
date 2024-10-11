@@ -158,7 +158,8 @@ namespace PH
 		{
 			nodeMeta = append_group(nodeMeta);
 			node->data_node_addr[i] = nodeMeta->my_offset;
-			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
+//			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
+			nodeMeta->list_addr = node->myAddr;
 		}
 
 		return node;
@@ -598,7 +599,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 					{
 //						next_node->dst_cnt--; // passed cas
 						int rv = next_node->dst_cnt.fetch_sub(1);
-						if (rv == 0)
+						if (rv == 1)
 						{
 							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
 							{
@@ -983,7 +984,8 @@ void Skiplist::recover()
 	*/	
 
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-		nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
+//		nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
+		nodeMeta->list_addr = skiplistNode->myAddr;
 
 skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
 		if (prev_skiplistNode->key >= skiplistNode->key)
@@ -1057,7 +1059,8 @@ void PH_List::recover()
 	listNode->data_node_addr = dataAddr;
 
 	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+	nodeMeta->list_addr = listNode->myAddr;
 	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 
 //------------- next
@@ -1088,7 +1091,8 @@ int noting;
 		listNode->data_node_addr = dataAddr;
 
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-		nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//		nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+		nodeMeta->list_addr = listNode->myAddr;
 		listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 #if 0
 		if (listNode->key < old_key)
@@ -1116,7 +1120,9 @@ int noting;
 	listNode->data_node_addr = dataAddr;
 
 	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+	nodeMeta->list_addr = listNode->myAddr;
+
 //	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 
 //	debug_error("xxx\n");
@@ -1159,7 +1165,9 @@ void PH_List::recover_init()
 	empty_node->block_cnt=1;
 	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
+	dataNodeMeta->list_addr = empty_node->myAddr;
+
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
@@ -1168,7 +1176,8 @@ void PH_List::recover_init()
 	start_node->block_cnt=1;
 	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
+	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
@@ -1177,7 +1186,8 @@ void PH_List::recover_init()
 	end_node->block_cnt=1;
 	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
+	dataNodeMeta->list_addr = end_node->myAddr;
 
 	//	List_Node* node = alloc_list_node();
 	/*
@@ -1217,7 +1227,8 @@ void PH_List::init()
 	empty_node->block_cnt=1;
 	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
+	dataNodeMeta->list_addr = empty_node->myAddr;
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
@@ -1225,7 +1236,8 @@ void PH_List::init()
 	start_node->block_cnt=1;
 	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
+	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
@@ -1233,7 +1245,9 @@ void PH_List::init()
 	end_node->block_cnt=1;
 	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
-	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
+//	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
+	dataNodeMeta->list_addr = end_node->myAddr;
+
 
 	//	List_Node* node = alloc_list_node();
 	empty_node->next = start_node;
@@ -1262,8 +1276,8 @@ void PH_List::clean()
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 		while (nodeMeta)
 		{
-			if (nodeMeta->list_addr != nodeAddr_to_listAddr(COLD_LIST,node->myAddr))
-				debug_error("node-list error\n");
+//			if (nodeMeta->list_addr != nodeAddr_to_listAddr(COLD_LIST,node->myAddr))
+//				debug_error("node-list error\n");
 #ifdef PER_TEST
 DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)

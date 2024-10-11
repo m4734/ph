@@ -177,7 +177,8 @@ void debug_error(const char* msg)
 				nm->valid[cnt] = false; // invalidate
 				--nm->valid_cnt;
 
-				ListNode* listNode = list->addr_to_listNode(nm->list_addr.value);
+//				ListNode* listNode = list->addr_to_listNode(nm->list_addr.value);
+				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 				listNode->valid_cnt--;
 
 				if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head

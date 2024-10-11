@@ -436,7 +436,8 @@ namespace PH
 			nodeMeta->valid[slot_idx] = true; // validate
 			++nodeMeta->valid_cnt;
 
-			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr.value);
+//			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr.value);
+			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
 			listNode->valid_cnt++;
 
 			// modify hash index here
@@ -625,7 +626,8 @@ namespace PH
 			new_nodeAddr1[i] = nodeAllocator->alloc_node();
 			new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
 			new_nodeMeta1[i]->group_cnt = i+1;
-			new_nodeMeta1[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+//			new_nodeMeta1[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+			new_nodeMeta1[i]->list_addr = listNode->myAddr;
 			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		for (i=0;i<=group2_idx;i++)
@@ -633,7 +635,8 @@ namespace PH
 			new_nodeAddr2[i] = nodeAllocator->alloc_node();
 			new_nodeMeta2[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[i]);
 			new_nodeMeta2[i]->group_cnt = i+1;
-			new_nodeMeta2[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,new_listNode->myAddr).value;
+//			new_nodeMeta2[i]->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,new_listNode->myAddr).value;
+			new_nodeMeta2[i]->list_addr = new_listNode->myAddr;
 			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 
@@ -858,7 +861,7 @@ namespace PH
 #endif
 		// unlock
 
-listNode->valid_cnt = 0;
+		listNode->valid_cnt = 0;
 		for (i=0;i<=group1_idx;i++)
 			listNode->valid_cnt+=new_nodeMeta1[i]->valid_cnt;
 		new_listNode->valid_cnt = 0;
@@ -1231,23 +1234,23 @@ group0_idx = 0;
 		else if (ea.loc == WARM_LIST)
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			#if 0
 			wc.pool_num = nm->list_addr.file_num;
 			wc.node_offset = nm->list_addr.offset;
-			/*
+			#else
 			if (nm->list_addr.pool_num > skiplist->node_pool_list_cnt || (nm->list_addr.pool_num == skiplist->node_pool_list_cnt && nm->list_addr.node_offset > skiplist->node_pool_cnt)) // prevent access
 				wc = emptyNodeAddr;
 			else
-			{
 				wc = nm->list_addr;
-			}
-			*/
+			#endif
 		}
 		else
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+#if 0
 			ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
 			wc = listNode->warm_cache;
-			/*
+#else
 			if (nm->list_addr.pool_num > list->node_pool_list_cnt || (nm->list_addr.pool_num == list->node_pool_list_cnt && nm->list_addr.node_offset > list->node_pool_cnt))
 				wc = emptyNodeAddr;
 			else
@@ -1255,7 +1258,7 @@ group0_idx = 0;
 				ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.pool_num][nm->list_addr.node_offset];
 				wc = listNode->warm_cache;
 			}
-			*/
+#endif
 		}
 
 		return wc;
@@ -1425,7 +1428,8 @@ group0_idx = 0;
 					list_node->block_cnt++;
 					//	ListNode* new_listNode = list->alloc_list_node();
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
-					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,list_node->myAddr).value;
+//					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,list_node->myAddr).value;
+					append_nodeMeta->list_addr = list_node->myAddr;
 				}
 				else
 				{
@@ -3140,7 +3144,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				{
 					listNode->block_cnt++;
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta);
-					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+//					append_nodeMeta->list_addr.value = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value;
+					append_nodeMeta->list_addr = listNode->myAddr;
 //					if (append_nodeMeta->list_addr.loc == 0)
 //						debug_error("loc1\n");
 				}

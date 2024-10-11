@@ -91,12 +91,19 @@ class PH_List
 	void recover();
 	void recover_init();
 
+	inline ListNode* addr_to_listNode(NodeAddr &list_addr) // have to be loc 3
+	{
+		return (ListNode*)&node_pool_list[list_addr.pool_num][list_addr.node_offset];
+	}
+
+/*
 	inline ListNode* addr_to_listNode(uint64_t value) // have to be loc 3
 	{
 		EntryAddr list_addr;
 		list_addr.value = value;
 		return (ListNode*)&node_pool_list[list_addr.file_num][list_addr.offset];
 	}
+	*/
 
 };
 
