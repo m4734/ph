@@ -7,6 +7,8 @@
 namespace PH
 {
 
+	extern thread_local PH_Thread* my_thread;
+
 	extern CCEH* hash_index;
 	extern NodeAllocator* nodeAllocator;
 	extern DoubleLog* doubleLogList;
@@ -15,159 +17,135 @@ namespace PH
 	extern size_t WARM_BATCH_CNT;
 	extern size_t WARM_BATCH_ENTRY_CNT;
 
-	uint64_t recover_cold_kv(NodeAddr &nodeAddr)
+	extern PH_List* list;
+
+	uint64_t recover_block(int loc, NodeAddr &nodeAddr)
 	{
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
+		DataNode dram_dataNode = *dataNode; // pmem to dram
 
-		// have to be first
+		// have to be first access
 		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX); // TODO CHECK DUP OF start empty end
-		nodeMeta->valid_cnt = 0;
-
-		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-		DataNode dram_dataNode = *dataNode;
-		int offset = 0;
-		int i;
-		unsigned char* addr;
-		EntryHeader* header;
-		EntryHeader* header2;
-		EntryAddr ea,ea2;
-		uint64_t key,v1,v2;
-		addr = dram_dataNode.buffer;
-
-		KVP* kvp_p;
-		std::atomic<uint8_t> *seg_lock;
-		volatile uint8_t read_lock;
-		int ow;
-
-		ea.loc = COLD_LIST;
-		ea.file_num = nodeAddr.pool_num;
-
-		uint64_t rv = KEY_MAX;
-
-		for (i=0;i<NODE_SLOT_MAX;i++)
-		{
-			header = (EntryHeader*)addr;
-			if (header->version > 0)
-			{
-				ow = 1;
-				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-				v1 = header->version;
-				if (kvp_p->key == key)
-				{
-					ea2.value = kvp_p->value;
-					header2 = (EntryHeader*)get_entry(ea2);
-					v2 = header2->version;
-					if (v1 < v2)
-					{
-						nodeMeta->valid[i] = false;
-						ow = 0;
-					}
-					else
-						invalidate_entry(ea2);
-				}
-
-				if (ow)
-				{
-					recover_counter(key,v1);
-					kvp_p->key = key;
-					ea.offset = nodeAddr.node_offset*NODE_SIZE+NODE_HEADER_SIZE+i*ENTRY_SIZE;
-					kvp_p->value = ea.value;
-					nodeMeta->valid[i] = true;
-					nodeMeta->valid_cnt++;
-
-					if (rv > key)
-						rv = key;
-				}
-				//				else
-				//					nodeMeta->valid[i] = false;
-
-				hash_index->unlock_entry2(seg_lock,read_lock);
-
-			}
-
-			addr+=ENTRY_SIZE;
-		}
-		return rv;
-	}
-
-	uint64_t recover_warm_kv(NodeAddr &nodeAddr)
-	{
-		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-		DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-		DataNode dram_dataNode = *dataNode;
-
-		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
 		nodeMeta->valid_cnt = 0;
 
 		int offset = 0;
 		int i,j;
 		unsigned char* addr;
 		EntryHeader* header;
-		EntryHeader* header2;
-		EntryAddr ea,ea2;
-		uint64_t key,v1,v2;
-		addr = dram_dataNode.buffer;
+		EntryHeader* old_header;
+		EntryAddr ea,old_ea;
+		uint64_t key,version,old_version;
 
 		KVP* kvp_p;
 		std::atomic<uint8_t> *seg_lock;
-		volatile uint8_t read_lock;
+		bool update;
 
-		int cnt=0;
-		int ow;
+		for (i=0;i<NODE_SLOT_MAX;i++)
+			nodeMeta->valid[i] = false;
 
-		ea.loc = WARM_LIST;
+		ea.loc = loc;
 		ea.file_num = nodeAddr.pool_num;
 
 		uint64_t rv = KEY_MAX;
 
-		for (i=0;i<WARM_BATCH_CNT;i++)
+		if (loc == COLD_LIST) // DUPLICATED CODE...
 		{
-			addr = (unsigned char*)&dram_dataNode + i*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE;
-			for (j=0;j<WARM_BATCH_ENTRY_CNT;j++)
+			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+			addr = dram_dataNode.buffer;
+
+			for (i=0;i<NODE_SLOT_MAX;i++)
 			{
 				header = (EntryHeader*)addr;
 				if (header->version > 0)
 				{
-					ow = 1;
+					update = true;
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-					v1 = header->version;
+					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+					version = header->version;
 					if (kvp_p->key == key)
 					{
-						ea2.value = kvp_p->value;
-						header2 = (EntryHeader*)get_entry(ea2);
-						v2 = header2->version;
-						if (v1 < v2)
+						old_ea.value = kvp_p->value;
+						old_header = (EntryHeader*)get_entry(old_ea);
+						old_version = old_header->version;
+						if (version < old_version)
 						{
-							ow = 0;
-							nodeMeta->valid[cnt] = false;
+//							nodeMeta->valid[i] = false;
+							update = false;
 						}
 						else
-							invalidate_entry(ea2);
+							invalidate_entry(old_ea,false);
 					}
 
-					if (ow)
+					if (update)
 					{
-						recover_counter(key,v1);
+						recover_counter(key,version);
 						kvp_p->key = key;
 						ea.offset = nodeAddr.node_offset*NODE_SIZE+NODE_HEADER_SIZE+i*ENTRY_SIZE;
 						kvp_p->value = ea.value;
-						nodeMeta->valid[cnt] = true;
+						nodeMeta->valid[i] = true;
 						nodeMeta->valid_cnt++;
+
+						listNode->valid_cnt++;
 
 						if (rv > key)
 							rv = key;
 					}
-
-					hash_index->unlock_entry2(seg_lock,read_lock);
+					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
 				}
-				cnt++;
 				addr+=ENTRY_SIZE;
 			}
 		}
-		return rv;
+		else // if WARM_LIST
+		{
+			int cnt = 0;
+			for (i=0;i<WARM_BATCH_CNT;i++)
+			{
+				addr = (unsigned char*)&dram_dataNode + i*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE;
+				for (j=0;j<WARM_BATCH_ENTRY_CNT;j++)
+				{
+					header = (EntryHeader*)addr;
+					if (header->version > 0)
+					{
+						update = true;
+						key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+						kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+						version = header->version;
+						if (kvp_p->key == key)
+						{
+							old_ea.value = kvp_p->value;
+							old_header = (EntryHeader*)get_entry(old_ea);
+							old_version = old_header->version;
+							if (version < old_version)
+							{
+								update = false;
+//								nodeMeta->valid[cnt] = false;
+							}
+							else
+								invalidate_entry(old_ea,false);
+						}
 
+						if (update)
+						{
+							recover_counter(key,version);
+							kvp_p->key = key;
+							ea.offset = nodeAddr.node_offset*NODE_SIZE + i*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE+ j*ENTRY_SIZE;
+							kvp_p->value = ea.value;
+							nodeMeta->valid[cnt] = true;
+							nodeMeta->valid_cnt++;
+
+							if (rv > key)
+								rv = key;
+						}
+						hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+					}
+					cnt++;
+					addr+=ENTRY_SIZE;
+				}
+			}
+
+		}
+		return rv;
 	}
 
 	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, SkiplistNode* skiplistNode)
@@ -183,45 +161,44 @@ namespace PH
 
 		// first
 
-/*
-		nodeMeta->next_addr = dataNode->next_offset;
-		nodeAllocator->expand(dataNode->next_offset);
-		nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
-*/
+		/*
+		   nodeMeta->next_addr = dataNode->next_offset;
+		   nodeAllocator->expand(dataNode->next_offset);
+		   nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
+		 */
 
-/*
-		if (skiplistNode)
-			skiplistNode->data_node_addr[group_idx] = nodeAddr;
+		/*
+		   if (skiplistNode)
+		   skiplistNode->data_node_addr[group_idx] = nodeAddr;
 
-		dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-		nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
-		nodeAllocator->expand(dataNode->next_offset_in_group);
-		nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+		   dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
+		   nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
+		   nodeAllocator->expand(dataNode->next_offset_in_group);
+		   nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
 
-		nodeMeta->group_cnt = ++group_idx;
-		nodeMeta->my_offset = nodeAddr;
-		nodeMeta->rw_lock = 0;
+		   nodeMeta->group_cnt = ++group_idx;
+		   nodeMeta->my_offset = nodeAddr;
+		   nodeMeta->rw_lock = 0;
 
 
-		if (loc == WARM_LIST)
-		{
-			rv = recover_warm_kv(nodeAddr);
-		}
-		else
-		{
-			rv = recover_cold_kv(nodeAddr);
-		}
+		   if (loc == WARM_LIST)
+		   {
+		   rv = recover_warm_kv(nodeAddr);
+		   }
+		   else
+		   {
+		   rv = recover_cold_kv(nodeAddr);
+		   }
 
-		if (rv < min)
-			min = rv;
+		   if (rv < min)
+		   min = rv;
 
-		nodeAddr = nodeMeta->next_addr_in_group;
-		nodeMeta = nodeMeta->next_node_in_group;
-*/
+		   nodeAddr = nodeMeta->next_addr_in_group;
+		   nodeMeta = nodeMeta->next_node_in_group;
+		 */
 
 		while(nodeAddr != emptyNodeAddr)
 		{
-
 			if (skiplistNode)
 				skiplistNode->data_node_addr[group_idx] = nodeAddr;
 
@@ -237,14 +214,7 @@ namespace PH
 			nodeMeta->my_offset = nodeAddr;
 			nodeMeta->rw_lock = 0;
 
-			if (loc == WARM_LIST)
-			{
-				rv = recover_warm_kv(nodeAddr);
-			}
-			else
-			{
-				rv = recover_cold_kv(nodeAddr);
-			}
+			rv = recover_block(loc,nodeAddr);
 
 			if (rv < min)
 				min = rv;

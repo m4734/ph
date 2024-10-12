@@ -179,7 +179,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 
 	int i;
 	for (i=0;i<COUNTER_MAX;i++)
-		global_seq_num[i] = 0; // NOT RECOVER
+		global_seq_num[i] = 0;
 
 	VALUE_SIZE0 = VS;
 	KEY_RANGE = KR;
@@ -247,17 +247,6 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 		printf("recover end\n");
 	}
 
-/*
-	//check
-	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
-	warm_to_warm_sum = 0;
-	direct_to_cold_sum = 0;
-
-	soft_htw_sum = hard_htw_sum = 0;
-
-	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
-	htw_cnt_sum = wtc_cnt_sum = 0;
-	*/
 	reset_test();
 
 	init_threads();

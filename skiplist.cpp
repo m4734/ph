@@ -894,7 +894,7 @@ void Skiplist::recover()
 
 
 
-#if 0
+#if 1
 //--------------traverse test
 	int cnt0=0;
 	{
@@ -936,12 +936,14 @@ void Skiplist::recover()
 
 //start node
 	dataAddr = skiplistNode->data_node_addr[0];
+	nodeAllocator->expand(dataAddr);
 	skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
 	skiplistNode->key = 0; // start node
 //	skiplist_node->my_listNode = listNode; // not now
 //	dataNode = nodeAllocator->nodeAddr_to_node(skiplistNode->data_node_addr[0]);
 
 	// next node
+	dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset); // now start node
 	dataAddr = dataNode->next_offset;
 	dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 
@@ -987,6 +989,7 @@ void Skiplist::recover()
 //		nodeMeta->list_addr = skiplistNode->myAddr;
 
 skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
+		if (skiplistNode->key == KEY_MAX) // no entry
 		if (prev_skiplistNode->key >= skiplistNode->key)
 			debug_error("here\n");
 
@@ -1003,7 +1006,7 @@ skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
 //	skiplistNode = end_node;	
 
 // need my_node and warm cache
-//debug_error("stop here\n");
+debug_error("stop here\n");
 
 	ListNode* listNode;
 //	SkiplistNode* skiplistNode;

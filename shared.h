@@ -168,7 +168,7 @@ union EntryHeader
 		unsigned char buffer[NODE_BUFFER_SIZE];
 	};
 
-	void invalidate_entry(EntryAddr &ea);
+	void invalidate_entry(EntryAddr &ea,bool try_merge = true);
 
 //	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len);
 	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len);

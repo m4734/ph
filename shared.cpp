@@ -128,7 +128,7 @@ void debug_error(const char* msg)
 		at_unlock2(listNode->lock);
 	}
 #endif
-	void invalidate_entry(EntryAddr &ea) // need kv lock
+	void invalidate_entry(EntryAddr &ea,bool try_merge) // need kv lock
 	{
 		unsigned char* addr;
 		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
@@ -181,25 +181,28 @@ void debug_error(const char* msg)
 //				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 				listNode->valid_cnt--;
 
-				if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head
+				if (try_merge)
 				{
-					ListNode* prev_listNode = listNode->prev;
-					if (listNode->hold == 0 && prev_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
+					if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head
 					{
-						try_merge_listNode(prev_listNode,listNode);
-					}
-					else // else??
-					{
-						ListNode* next_listNode = listNode->next;
-						if (next_listNode->hold == 0 && next_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
+						ListNode* prev_listNode = listNode->prev;
+						if (listNode->hold == 0 && prev_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
 						{
-							try_merge_listNode(listNode,next_listNode); // need more test
+							try_merge_listNode(prev_listNode,listNode);
+						}
+						else // else??
+						{
+							ListNode* next_listNode = listNode->next;
+							if (next_listNode->hold == 0 && next_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
+							{
+								try_merge_listNode(listNode,next_listNode); // need more test
+							}
 						}
 					}
-				}
-				else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
-				{
-					try_reduce_group(listNode);// need more test
+					else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+					{
+						try_reduce_group(listNode);// need more test
+					}
 				}
 			}
 #else
