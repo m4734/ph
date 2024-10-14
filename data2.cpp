@@ -154,7 +154,7 @@ namespace PH
 	{
 		if (pool_cnt + num_pmem > POOL_MAX)
 			printf("alloc pool max\n");
-		int i;
+		int i,j;
 		int is_pmem;
 		char path[100];
 		size_t req_size,my_size;
@@ -173,6 +173,8 @@ namespace PH
 				printf("is not pmem\n");
 			if (my_size != req_size)
 				printf("my size is not req size\n");
+			for (j=0;j<POOL_NODE_MAX;j++)
+				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->valid = NULL;
 		}
 		pool_cnt += num_pmem;
 	}

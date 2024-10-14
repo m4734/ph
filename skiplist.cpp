@@ -777,12 +777,7 @@ void Skiplist::setLimit(size_t size)
 
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
-	/*
-	if (node->key == 3458764513820540926UL)
-		debug_error("dele node\n");
-		*/
 	node->ver = 0;
-	//		printf("not now\n");
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);
@@ -803,7 +798,7 @@ void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next
 	}
 #endif
 }
-
+#if 0
 bool Skiplist::delete_node_with_fail(SkiplistNode* node)//, SkipAddr** prev_sa_list,SkipAddr** next_sa_list) // always success?? // need lock
 {
 	//	if (try_at_lock2(node->lock) == 0)
@@ -845,7 +840,7 @@ bool Skiplist::delete_node_with_fail(SkiplistNode* node)//, SkipAddr** prev_sa_l
 	return true;
 
 }
-
+#endif
 bool Skiplist::insert_node_with_fail(SkiplistNode* node, SkipAddr* prev_sa_list, SkipAddr* next_sa_list)// SkiplistNode** prev,SkiplistNode** next)
 {
 	// level already
@@ -889,18 +884,21 @@ void Skiplist::insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next)
 			return;
 	}
 }
-void Skiplist::recover()
+
+void Skiplist::traverse_test()
 {
-
-
-
-#if 1
 //--------------traverse test
+
+	bool sr = true;
+	SkiplistNode* skiplistNode;
+	SkiplistNode* ps;
+	NodeMeta* nodeMeta;
+#if 0
 	int cnt0=0;
 	{
 		DataNode* dn;
 		NodeAddr dna;
-		dna = empty_node->data_node_addr[0];
+		dna = skiplist->empty_node->data_node_addr[0];
 		dn = nodeAllocator->nodeAddr_to_node(dna);
 		while (dna != end_node->data_node_addr[0])
 		{
@@ -911,8 +909,24 @@ void Skiplist::recover()
 	}
 #endif
 
+	if (sr)
+	{
+		skiplistNode = start_node;
+		while(skiplistNode != end_node)
+		{
+			if (skiplistNode->my_listNode == NULL)
+				debug_error("no linked listNode\n");
+			ps = skiplistNode;
+			skiplistNode = find_next_node(skiplistNode);
+		}
+	}
 
-	NodeMeta* nodeMeta;
+}
+
+void Skiplist::recover()
+{
+
+//	NodeMeta* nodeMeta;
 	SkiplistNode* skiplistNode;
 	SkiplistNode* prev_skiplistNode;
 	DataNode* dataNode;
@@ -926,6 +940,7 @@ void Skiplist::recover()
 	skiplistNode = start_node;
 
 	int i;
+	EntryAddr list_addr;
 
 //	ListNode* listNode = list->start_node;
 
@@ -937,7 +952,9 @@ void Skiplist::recover()
 //start node
 	dataAddr = skiplistNode->data_node_addr[0];
 	nodeAllocator->expand(dataAddr);
-	skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
+
+	list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
+	skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,list_addr,skiplistNode); // don care
 	skiplistNode->key = 0; // start node
 //	skiplist_node->my_listNode = listNode; // not now
 //	dataNode = nodeAllocator->nodeAddr_to_node(skiplistNode->data_node_addr[0]);
@@ -947,7 +964,6 @@ void Skiplist::recover()
 	dataAddr = dataNode->next_offset;
 	dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 
-
 	int test_cnt=0;
 	while(dataAddr != end_node->data_node_addr[0])
 	{
@@ -956,6 +972,16 @@ void Skiplist::recover()
 		nodeAllocator->expand(dataAddr);
 		prev_skiplistNode = skiplistNode;
 		skiplistNode = alloc_sl_node();
+		skiplistNode->data_node_addr[0] = dataAddr;
+
+//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
+
+		skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,list_addr,skiplistNode); // don care
+//		if (skiplistNode->key == KEY_MAX) // no entry // delete later
+		if (prev_skiplistNode->key != KEY_MAX && prev_skiplistNode->key >= skiplistNode->key)
+			debug_error("skip recover key error\n");
+
 		for (i=0;i<=skiplistNode->level;i++)
 		{
 			*sa_array[i] = skiplistNode->my_sa;
@@ -964,9 +990,6 @@ void Skiplist::recover()
 		skiplistNode->built = skiplistNode->level;
 
 		skiplistNode->prev = prev_skiplistNode;
-
-		skiplistNode->data_node_addr[0] = dataAddr;
-
 //		i = 0;
 //		i_dataAddr = dataAddr;
 
@@ -984,21 +1007,14 @@ void Skiplist::recover()
 		}
 	*/	
 
-		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-		nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
-//		nodeMeta->list_addr = skiplistNode->myAddr;
-
-skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
-		if (skiplistNode->key == KEY_MAX) // no entry
-		if (prev_skiplistNode->key >= skiplistNode->key)
-			debug_error("here\n");
-
 //------------- next
 		dataAddr = dataNode->next_offset;
 		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
 
 	//end node
+	end_node->prev = skiplistNode;
+
 	for (i=0;i<=MAX_LEVEL;i++)
 		*sa_array[i] = end_node->my_sa;
 	delete sa_array;
@@ -1006,7 +1022,11 @@ skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,skiplistNode); // don care
 //	skiplistNode = end_node;	
 
 // need my_node and warm cache
-debug_error("stop here\n");
+//debug_error("stop here\n");
+
+
+//link warm and cold
+//remove empty warm
 
 	ListNode* listNode;
 //	SkiplistNode* skiplistNode;
@@ -1014,32 +1034,74 @@ debug_error("stop here\n");
 	listNode = list->start_node;
 	skiplistNode = skiplist->start_node;
 
+	SkiplistNode* next_skiplistNode;
+	SkiplistNode* next_next_skiplistNode;
+
+	NodeMeta* prev_meta;
+	NodeMeta* nodeMeta;
+
+	next_skiplistNode = find_next_node(skiplistNode);
+
+	uint64_t next_key;
+	next_key = next_skiplistNode->key;
+
+	uint64_t list_key,list_next_key;
+	list_key = listNode->key;
+
 	while(listNode != list->end_node)
 	{
-		if (listNode->next == NULL)
-			debug_error("recovvvv\n");
-		if (skiplistNode->key <= listNode->key)
+		list_next_key = listNode->next->key;
+//		if (list_key <= next_key && next_key < list_next_key)
+		if (next_key < list_next_key)
 		{
+			skiplistNode = next_skiplistNode;
+			next_skiplistNode = find_next_node(skiplistNode);
+			while(next_skiplistNode->key == KEY_MAX && next_skiplistNode != skiplist->end_node) // empty warm node
+			{
+				prev_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplistNode->data_node_addr[0]);
+				next_next_skiplistNode = find_next_node(skiplistNode);
+				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(next_next_skiplistNode->data_node_addr[0]);
+
+				nodeAllocator->linkNext(prev_meta,nodeMeta); // linked or not persist..
+
+				next_next_skiplistNode->prev = skiplistNode;
+				delete_node(next_skiplistNode);
+				next_skiplistNode = next_next_skiplistNode;
+			}
+			next_key = next_skiplistNode->key;
+
+//			if (skiplistNode->ver == 417)
+//				debug_error("here2\n");
+//			if (listNode == NULL)
+//				debug_error("list null\n");
 			skiplistNode->my_listNode = listNode;
-			skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
+			skiplistNode->key = list_key;
+			listNode->hold = 1;
 		}
-		else
+
 		{
-			listNode->warm_cache = skiplistNode->myAddr;
-			listNode = listNode->next;
+			listNode->warm_cache = skiplistNode->myAddr; // cold_bl..
+			skiplistNode->cold_block_sum+=listNode->block_cnt;
 		}
+
+		list_key = list_next_key;
+		listNode = listNode->next;
 	}
 
+//	traverse_test();
+
+//	debug_error("end of skip recov\n");
 
 }
 //---------------------------------------------- list
 
 void PH_List::recover()
 {
-	NodeMeta* nodeMeta;
+//	NodeMeta* nodeMeta;
 	ListNode* listNode;
 	DataNode* dataNode;
 	NodeAddr dataAddr;
+	EntryAddr list_addr;
 
 	dataNode = nodeAllocator->nodeAddr_to_node(empty_node->data_node_addr);
 
@@ -1060,10 +1122,11 @@ void PH_List::recover()
 
 	listNode->data_node_addr = dataAddr;
 
-	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+	list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
 //	nodeMeta->list_addr = listNode->myAddr;
-	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt,list_addr);
+	listNode->key = 0; // start node
 
 //------------- next
 	dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
@@ -1071,12 +1134,6 @@ void PH_List::recover()
 
 //---
 #if 1
-/*
-int cnt=0;
-size_t old_key = 0;
-size_t test_key;
-int noting;
-*/
 	while(dataAddr != end_node->data_node_addr)
 //	while(dataAddr != emptyNodeAddr)
 	{
@@ -1092,17 +1149,10 @@ int noting;
 
 		listNode->data_node_addr = dataAddr;
 
-		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-		nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
 //		nodeMeta->list_addr = listNode->myAddr;
-		listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
-#if 0
-		if (listNode->key < old_key)
-		{
-			debug_error("key key\n");
-			test_key = nodeAllocator->recover_node(prev->prev->data_node_addr,COLD_LIST,noting);
-		}
-#endif
+		listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt,list_addr);
 
 //------------- next
 		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
@@ -1119,10 +1169,10 @@ int noting;
 	prev->next = listNode;
 	listNode->next = NULL;
 
-	listNode->data_node_addr = dataAddr;
+//	listNode->data_node_addr = dataAddr;
 
-	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+//	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
 //	nodeMeta->list_addr = listNode->myAddr;
 
 //	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);

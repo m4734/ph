@@ -213,7 +213,7 @@ class Skiplist
 	SkiplistNode* find_next_node(SkiplistNode* start_node); // what if max
 
 
-	bool delete_node_with_fail(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
+//	bool delete_node_with_fail(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
 	void delete_node(SkiplistNode* node);//, SkipAddr** prev,SkipAddr** next);
 	bool insert_node_with_fail(SkiplistNode* node, SkipAddr* prev,SkipAddr* next);
 	void insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next);
@@ -235,6 +235,8 @@ class Skiplist
 	SkiplistNode* empty_node;
 	SkiplistNode* start_node;
 	SkiplistNode* end_node;
+
+	void traverse_test();
 
 };
 

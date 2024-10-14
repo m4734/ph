@@ -231,20 +231,35 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 
 	if (recover)
 	{
-		printf("recover\n");
+		printf("recover start\n");
+
+		struct timespec ts1,ts2;
+		_mm_mfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts1);
+		_mm_mfence();
 
 		new_query_thread();
 
 		list->recover();
-		printf("re1\n");
+		printf("cold list\n");
 		skiplist->recover();
-		printf("re2\n");
+		printf("warm list\n");
 		recover_log();
-		printf("re3\n");
+		printf("hot log\n");
 
 		clean_query_thread(); // clean recover thread
 
 		printf("recover end\n");
+
+		_mm_mfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_mfence();
+
+//		skiplist->traverse_test();
+
+		double recover_time;
+		recover_time = (ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
+		printf("recover_time %lf\n",recover_time/1000000000);
 	}
 
 	reset_test();

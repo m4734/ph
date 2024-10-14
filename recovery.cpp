@@ -26,6 +26,8 @@ namespace PH
 		DataNode dram_dataNode = *dataNode; // pmem to dram
 
 		// have to be first access
+		if (nodeMeta->valid != NULL)
+			debug_error("double alloc\n");
 		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX); // TODO CHECK DUP OF start empty end
 		nodeMeta->valid_cnt = 0;
 
@@ -61,6 +63,8 @@ namespace PH
 				{
 					update = true;
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+//					if (key == 980863181398165901)
+//						debug_error("this\n");
 					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 					version = header->version;
 					if (kvp_p->key == key)
@@ -148,7 +152,7 @@ namespace PH
 		return rv;
 	}
 
-	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, SkiplistNode* skiplistNode)
+	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, EntryAddr list_addr,SkiplistNode* skiplistNode)
 	{
 		group_idx = 0;
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
@@ -157,45 +161,6 @@ namespace PH
 
 		uint64_t rv,min;
 		min = KEY_MAX;
-
-
-		// first
-
-		/*
-		   nodeMeta->next_addr = dataNode->next_offset;
-		   nodeAllocator->expand(dataNode->next_offset);
-		   nodeMeta->next_p = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr);
-		 */
-
-		/*
-		   if (skiplistNode)
-		   skiplistNode->data_node_addr[group_idx] = nodeAddr;
-
-		   dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
-		   nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
-		   nodeAllocator->expand(dataNode->next_offset_in_group);
-		   nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
-
-		   nodeMeta->group_cnt = ++group_idx;
-		   nodeMeta->my_offset = nodeAddr;
-		   nodeMeta->rw_lock = 0;
-
-
-		   if (loc == WARM_LIST)
-		   {
-		   rv = recover_warm_kv(nodeAddr);
-		   }
-		   else
-		   {
-		   rv = recover_cold_kv(nodeAddr);
-		   }
-
-		   if (rv < min)
-		   min = rv;
-
-		   nodeAddr = nodeMeta->next_addr_in_group;
-		   nodeMeta = nodeMeta->next_node_in_group;
-		 */
 
 		while(nodeAddr != emptyNodeAddr)
 		{
@@ -208,7 +173,12 @@ namespace PH
 			dataNode = nodeAllocator->nodeAddr_to_node(nodeAddr);
 			nodeMeta->next_addr_in_group = dataNode->next_offset_in_group;
 			nodeAllocator->expand(dataNode->next_offset_in_group);
-			nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+			if (nodeMeta->next_addr_in_group == emptyNodeAddr)
+				nodeMeta->next_node_in_group = NULL;
+			else
+				nodeMeta->next_node_in_group = nodeAllocator->nodeAddr_to_nodeMeta(nodeMeta->next_addr_in_group);
+
+			nodeMeta->list_addr = list_addr;
 
 			nodeMeta->group_cnt = ++group_idx;
 			nodeMeta->my_offset = nodeAddr;
@@ -233,7 +203,7 @@ namespace PH
 
 		return min;
 	}
-
+/*
 	void PH_Recovery_Thread::init()
 	{
 		read_lock = 0;
@@ -246,4 +216,5 @@ namespace PH
 		hash_index->remove_ts(temp_seg);
 		buffer_clean();
 	}
+	*/
 }
