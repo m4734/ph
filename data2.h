@@ -295,6 +295,7 @@ class NodeAllocator
 //	void linkNext(NodeAddr nodeAddr);
 
 	void alloc_pool(bool fill = false);
+	void collect_free_node(); // only for recovdery
 
 	unsigned char** nodeMetaPoolList;
 	unsigned char** nodePoolList;

@@ -11,7 +11,7 @@
 //#define SCAN_TIME
 #define USE_DTC
 
-#define CC // cor check
+//#define CC // cor check
 
 #ifdef CC
 

@@ -247,6 +247,8 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 		recover_log();
 		printf("hot log\n");
 
+		nodeAllocator->collect_free_node();
+
 		clean_query_thread(); // clean recover thread
 
 		printf("recover end\n");

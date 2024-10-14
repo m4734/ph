@@ -182,6 +182,28 @@ namespace PH
 		}
 		pool_cnt += num_pmem;
 	}
+
+	void NodeAllocator::collect_free_node()
+	{
+//		free_head_p = NULL;
+		int i,j;
+		NodeMeta* nodeMeta;
+		for (i=0;i<pool_cnt;i++)
+		{
+			for (j=0;j<POOL_NODE_MAX;j++)
+			{
+				nodeMeta = ((NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j));
+				if (nodeMeta->valid == NULL)
+				{
+					nodeMeta->my_offset.pool_num = i;
+					nodeMeta->my_offset.node_offset = j;
+					nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+					free_node(nodeMeta);
+				}
+			}
+		}
+	}
+
 #if 0
 	NodeAddr NodeAllocator::expand_node()
 	{

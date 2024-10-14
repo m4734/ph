@@ -1508,7 +1508,7 @@ group0_idx = 0;
 		//	update_free_cnt();
 		op_check();
 //#ifdef HASH_TEST
-#if 1
+#if 0
 		// hash test
 
 		{
@@ -2227,7 +2227,7 @@ _mm_sfence();
 						if (ea.loc != HOT_LOG)
 						{
 #if 1
-							debug_error("scan exception"); // inserted during scan
+							debug_error("scan exception"); // inserted during scan // may possible...
 #endif
 							ex = 0;
 							break;

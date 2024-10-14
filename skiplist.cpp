@@ -1491,7 +1491,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
 		{
 			my_thread->reduce_group_cnt++;
-			printf("reduce----------------------------------------\n");
+//			printf("reduce----------------------------------------\n");
 
 			NodeAddr nodeAddr;
 			nodeAddr = listNode->data_node_addr;
@@ -1633,7 +1633,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 
 		// OK
 		my_thread->list_merge_cnt++;
-		printf("mer?-------------------------------------------\n");
+//		printf("mer?-------------------------------------------\n");
 
 		NodeMeta* left_nodeMeta_list[MAX_NODE_GROUP+1];
 		NodeMeta* right_nodeMeta_list[MAX_NODE_GROUP+1];
