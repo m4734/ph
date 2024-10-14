@@ -16,6 +16,7 @@ namespace PH
 
 	extern size_t WARM_BATCH_CNT;
 	extern size_t WARM_BATCH_ENTRY_CNT;
+	extern size_t WARM_GROUP_ENTRY_CNT;
 
 	extern PH_List* list;
 
@@ -94,7 +95,7 @@ namespace PH
 
 						if (rv > key)
 							rv = key;
-					}
+					}		
 					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
 				}
 				addr+=ENTRY_SIZE;
@@ -113,6 +114,7 @@ namespace PH
 					{
 						update = true;
 						key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
 						kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 						version = header->version;
 						if (kvp_p->key == key)
@@ -161,6 +163,12 @@ namespace PH
 
 		uint64_t rv,min;
 		min = KEY_MAX;
+
+		if (skiplistNode)
+		{
+			skiplistNode->data_tail = 0;
+			skiplistNode->data_head = WARM_GROUP_ENTRY_CNT; 
+		}
 
 		while(nodeAddr != emptyNodeAddr)
 		{

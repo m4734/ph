@@ -295,6 +295,10 @@ void DoubleLog::recover() // should be last...
 			update = true;
 
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+//			if (key == 15307025541213771458UL)
+//				debug_error("hot key error here\n");
+
 			kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 			v1 = header1->version;
 			if (kvp_p->key == key)
@@ -310,6 +314,8 @@ void DoubleLog::recover() // should be last...
 				else
 					invalidate_entry(ea2);
 			}
+			else
+				ea2.loc = NONE;
 
 			if (update)
 			{
@@ -322,7 +328,6 @@ void DoubleLog::recover() // should be last...
 					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					skiplistNode->key_list[skiplistNode->key_list_size++] = key;
 				}
-
 			}
 
 			hash_index->unlock_entry2(seg_lock,my_thread->read_lock);

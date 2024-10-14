@@ -187,5 +187,6 @@ union EntryHeader
 		ea.offset = nodeAddr.node_offset;
 		return ea;
 	}
-	
+
+	void EA_test(uint64_t key, EntryAddr ea);
 }

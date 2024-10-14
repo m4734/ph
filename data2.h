@@ -294,7 +294,7 @@ class NodeAllocator
 	void linkNext(NodeMeta* nm1,NodeMeta* nm2);
 //	void linkNext(NodeAddr nodeAddr);
 
-	void alloc_pool();
+	void alloc_pool(bool fill = false);
 
 	unsigned char** nodeMetaPoolList;
 	unsigned char** nodePoolList;

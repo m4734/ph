@@ -116,21 +116,6 @@ namespace PH
 		return min;
 	}
 #endif
-/*
-	PH_Thread()
-	{
-	}
-	~PH_Thread()
-	{
-	}
-*/
-	void EA_test(uint64_t key, EntryAddr ea)
-	{
-		printf("not now\n");
-		if (key != *(uint64_t*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE))
-			debug_error("ea error!\n");
-	}
-
 
 	uint64_t test_the_index(KVP kvp)
 	{
@@ -159,6 +144,41 @@ namespace PH
 			debug_error("kvp eee\n");
 
 		return key;
+	}
+
+	void test_valid(EntryAddr ea)
+	{
+		unsigned char* addr;
+		if (ea.loc == HOT_LOG)
+		{
+			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+			EntryHeader* header;
+			header = (EntryHeader*)addr;
+			if (header->valid == false)
+				debug_error("valid test  fail1\n");
+		}
+		else
+		{
+			size_t offset_in_node;
+			NodeMeta* nm;
+			int cnt;
+			int node_cnt;
+
+			offset_in_node = ea.offset % NODE_SIZE;
+			node_cnt = ea.offset/NODE_SIZE;
+			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
+			if (ea.loc == 2)
+			{
+				int batch_num,offset_in_batch;
+				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
+				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
+				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
+			}
+			else
+				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
+			if (nm->valid[cnt] == false)
+				debug_error("false false\n");
+		}
 	}
 
 	size_t get_min_tail(int log_num)
@@ -1487,18 +1507,33 @@ group0_idx = 0;
 	{
 		//	update_free_cnt();
 		op_check();
-#ifdef HASH_TEST
+//#ifdef HASH_TEST
+#if 1
 		// hash test
 
 		{
 			KVP* kvp_p;
 			std::atomic<uint8_t> *seg_lock;
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			if (kvp_p->key == key)
+			{
+				EntryAddr ea;
+				ea.value = kvp_p->value;
+				unsigned char* addr;
+				addr = get_entry(ea);
+				uint64_t ea_key;
+				ea_key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+				if (ea_key != key)
+					debug_error("key dosne'st match\n");
+				test_valid(ea);
+			}
+			/*
 			kvp_p->key = key;
 			kvp_p->value = *(uint64_t*)value;
+			*/
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
-			return 0;
+//			return 0;
 		}
 #endif
 		NodeAddr warm_cache;
@@ -2688,11 +2723,6 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 	void PH_Thread::flush_warm_node(SkiplistNode* node) // lock from outside
 	{
-		/*
-		if (node->key == 3458764513820540926UL)
-			debug_error("split here third\n");
-			*/
-	
 		while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
 		{
 			if (node->data_tail < node->data_head)

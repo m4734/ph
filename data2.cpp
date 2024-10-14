@@ -144,13 +144,13 @@ namespace PH
 #endif
 		while (nodeAddr.pool_num >= pool_cnt)
 		{
-			alloc_pool();
+			alloc_pool(true);
 		}
-		if (nodeAddr.node_offset > node_cnt[nodeAddr.pool_num])
-			node_cnt[nodeAddr.pool_num] = nodeAddr.node_offset;
+//		if (nodeAddr.node_offset > node_cnt[nodeAddr.pool_num])
+//			node_cnt[nodeAddr.pool_num] = nodeAddr.node_offset;
 	}
 
-	void NodeAllocator::alloc_pool()
+	void NodeAllocator::alloc_pool(bool fill)
 	{
 		if (pool_cnt + num_pmem > POOL_MAX)
 			printf("alloc pool max\n");
@@ -175,6 +175,10 @@ namespace PH
 				printf("my size is not req size\n");
 			for (j=0;j<POOL_NODE_MAX;j++)
 				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->valid = NULL;
+			if (fill)
+				node_cnt[pool_cnt+i] = POOL_NODE_MAX;
+			else
+				node_cnt[pool_cnt+i] = 0;
 		}
 		pool_cnt += num_pmem;
 	}

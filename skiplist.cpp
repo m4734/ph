@@ -1556,6 +1556,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 							}
 							if (dst_j<NODE_SLOT_MAX)
 								break;
+							dst_j = 0;
 							dst_i++;
 							dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
 							dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
