@@ -2509,25 +2509,10 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		child1_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
 		child2_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
 
-//		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
-//		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-//		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-
-		//		hash_index->thread_local_init();
 		temp_seg = hash_index->ret_seg();
 		read_lock = 0;
 		run = 1;
 
-		//check
-		/*
-		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
-		warm_to_warm_cnt = 0;
-		direct_to_cold_cnt = 0;
-
-		hard_htw_cnt = soft_htw_cnt=0;
-		dtc_time = htw_time = wtc_time = 0;
-		htw_cnt = wtc_cnt = 0;
-		*/
 #ifdef SCAN_TIME
 		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = 0;
 #endif
@@ -2545,39 +2530,13 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		hash_index->remove_ts(temp_seg);
 
 		buffer_clean();
-/*
-		free(evict_buffer);
-		free(key_list_buffer);
-		free(old_ea_list_buffer);
-*/
+
 		free(child1_path);
 		free(child2_path);
 
 		evict_thread_list[thread_id].lock = 0;
 		evict_thread_list[thread_id].exit = 0;
 
-
-/*
-		//check
-		warm_to_warm_sum+=warm_to_warm_cnt;
-		warm_log_write_sum+=warm_log_write_cnt;
-		log_write_sum+=log_write_cnt;
-		hot_to_warm_sum+=hot_to_warm_cnt;
-		warm_to_cold_sum+=warm_to_cold_cnt;
-		direct_to_cold_sum+=direct_to_cold_cnt;
-		hot_to_hot_sum+=hot_to_hot_cnt;
-		hot_to_cold_sum+=hot_to_cold_cnt;
-
-		soft_htw_sum+=soft_htw_cnt;
-		hard_htw_sum+=hard_htw_cnt;
-
-		htw_time_sum+=htw_time;
-		wtc_time_sum+=wtc_time;
-		htw_cnt_sum+=htw_cnt;
-		wtc_cnt_sum+=wtc_cnt;
-
-		dtc_time_sum+=dtc_time;
-		*/
 		check_end();
 	}
 

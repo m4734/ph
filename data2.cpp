@@ -193,6 +193,8 @@ namespace PH
 			for (j=0;j<POOL_NODE_MAX;j++)
 			{
 				nodeMeta = ((NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j));
+				if (nodeMeta->rw_lock)
+					debug_error("ssss\n");
 				if (nodeMeta->valid == NULL)
 				{
 					nodeMeta->my_offset.pool_num = i;

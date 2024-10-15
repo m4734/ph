@@ -1545,35 +1545,37 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 					if (kvp_p->value == src_ea.value)
 					{
-						while(dst_i<listNode->block_cnt)
+//						while(dst_i<listNode->block_cnt-1)
+						while(nodeMeta_list[dst_i]->valid[dst_j])
 						{
-							while(dst_j<NODE_SLOT_MAX)
+							++dst_j;
+							dst_ea.offset+=ENTRY_SIZE;
+							if (dst_j >= NODE_SLOT_MAX)
 							{
-								if (nodeMeta_list[dst_i]->valid[dst_j] == false)
-									break;
-								++dst_j;
-								dst_ea.offset+=ENTRY_SIZE;
+								dst_j = 0;
+								dst_i++;
+
+								if (dst_i >= listNode->block_cnt-1)
+									debug_error("block group overflow\n");
+
+								dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
+								dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
+								dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
 							}
-							if (dst_j<NODE_SLOT_MAX)
-								break;
-							dst_j = 0;
-							dst_i++;
-							dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
-							dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
-							dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
 						}
+
 
 						dst_addr = (unsigned char*)dst_dataNode+NODE_HEADER_SIZE+ENTRY_SIZE*dst_j;
 						// copy - valid - index???
 
 						memcpy(dst_addr,src_addr,ENTRY_SIZE);// copy src to dst // mem to pmem
-//						_mm_sfence(); // no fence until link
-
+						_mm_sfence();
 						nodeMeta_list[dst_i]->valid[dst_j] = true;
 						nodeMeta_list[dst_i]->valid_cnt++;
 
 						kvp_p->value = dst_ea.value;
 					}
+					_mm_sfence();
 					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
 
 				}
@@ -1590,7 +1592,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 			_mm_sfence();
 
 			//link
-			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1]->my_offset);
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1-1]->my_offset);
 #if 1
 			dataNode->next_offset_in_group = emptyNodeAddr;
 			pmem_persist(&dataNode->next_offset_in_group,sizeof(NodeAddr));
@@ -1599,8 +1601,8 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 #endif
 			_mm_sfence();
 
-			nodeMeta_list[listNode->block_cnt-1]->next_addr_in_group = emptyNodeAddr;
-			nodeMeta_list[listNode->block_cnt-1]->next_node_in_group = NULL;
+			nodeMeta_list[listNode->block_cnt-1-1]->next_addr_in_group = emptyNodeAddr;
+			nodeMeta_list[listNode->block_cnt-1-1]->next_node_in_group = NULL;
 
 			_mm_sfence(); // need?
 
@@ -1633,7 +1635,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 
 		// OK
 		my_thread->list_merge_cnt++;
-//		printf("mer?-------------------------------------------\n");
+		printf("mer?-------------------------------------------\n");
 
 		NodeMeta* left_nodeMeta_list[MAX_NODE_GROUP+1];
 		NodeMeta* right_nodeMeta_list[MAX_NODE_GROUP+1];

@@ -32,7 +32,7 @@ void debug_error(const char* msg)
 
 	void EA_test(uint64_t key, EntryAddr ea)
 	{
-		printf("not now\n");
+//		printf("not now\n");
 		if (ea.loc == HOT_LOG)
 		{
 			if (key != *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+ea.offset+ENTRY_HEADER_SIZE))

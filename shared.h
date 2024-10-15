@@ -4,12 +4,19 @@
 #include <cstdint>
 #include <atomic>
 
-#define WARM_STAT
+//--------------------------------
+
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
-//#define SCAN_TIME
 #define USE_DTC
+
+//-----------------------------
+
+#define WARM_STAT
+//#define SCAN_TIME
+
+//------------------------------
 
 //#define CC // cor check
 
@@ -23,6 +30,8 @@
 #define UNLOCK_TEST
 
 #endif
+
+//-----------------------------------
 
 namespace PH
 {
