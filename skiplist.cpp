@@ -107,6 +107,50 @@ namespace PH
 
 	}
 
+	void SkiplistNode::find_half_listNode() // do we have lock?
+	{
+		SkiplistNode* node = this;
+		uint64_t current_key,next_key;
+		//		ListNode* listNode;
+		ListNode* hl;
+		ListNode* listNode;
+
+		current_key = node->key;
+//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+		next_key = skiplist->find_next_node(node)->key;
+		listNode = node->my_listNode;
+		hl = node->my_listNode;
+		int cnt = 0;
+		node->cold_block_sum = 0;
+		while (next_key > listNode->key)
+		{
+			node->cold_block_sum+=listNode->block_cnt;
+			listNode = listNode->next;
+			++cnt;
+			if (cnt%2 == 0)
+				hl = hl->next;
+		}
+		half_listNode = hl;
+	}
+
+	void SkiplistNode::update_wc() // do we have lock?
+	{
+		SkiplistNode* node = this;
+		uint64_t current_key,next_key;
+		//		ListNode* listNode;
+		ListNode* listNode;
+
+		current_key = node->key;
+//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+		next_key = skiplist->find_next_node(node)->key;
+		listNode = node->my_listNode;
+		while (next_key > listNode->key)
+		{
+			listNode->warm_cache = node->myAddr;
+			listNode = listNode->next;
+		}
+	}
+
 	void SkiplistNode::setLevel(size_t l)
 	{
 		level = l;

@@ -77,7 +77,7 @@ namespace PH
 			void run_evict_direct();
 			void run_evict_thread();
 
-			void reset_test();
+			void global_reset_test();
 
 			//Skiplist* skiplist;
 			//PH_List* list;

@@ -275,31 +275,6 @@ namespace PH
 
 
 	//-------------------------------------------------
-	ListNode* find_halfNode(SkiplistNode* node) // do we have lock?
-	{
-		uint64_t current_key,next_key;
-		//		ListNode* listNode;
-		ListNode* half_listNode;
-		ListNode* listNode;
-
-		current_key = node->key;
-//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
-		next_key = skiplist->find_next_node(node)->key;
-		listNode = node->my_listNode;
-		half_listNode = node->my_listNode;
-		int cnt = 0;
-		node->cold_block_sum = 0;
-		while (next_key > listNode->key)
-		{
-			node->cold_block_sum+=listNode->block_cnt;
-			listNode = listNode->next;
-			++cnt;
-			if (cnt%2 == 0)
-				half_listNode = half_listNode->next;
-		}
-		return half_listNode;
-	}
-
 
 	void PH_Query_Thread::init()
 	{
@@ -348,19 +323,6 @@ namespace PH
 
 		run = 1;
 
-		//check
-		/*
-		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
-		warm_to_warm_cnt = 0;
-		direct_to_cold_cnt = 0;
-
-		soft_htw_cnt = hard_htw_cnt=0;
-		dtc_time = htw_time = wtc_time = 0;
-		htw_cnt = wtc_cnt = 0;
-#ifdef SCAN_TIME
-		main_time_sum = first_time_sum = second_time_sum = third_time_sum = etc_time_sum = t25_sum = 0;
-#endif
-		*/
 		seed_for_dtc = thread_id;
 		//		printf("sfd %u\n",seed_for_dtc);
 	}
@@ -560,6 +522,8 @@ namespace PH
 
 #if 0
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			if (kvp_p->value != ea.value)
+				debug_error("nm lock may ok\n");
 			EA_test(key,ea);
 			hash_index->unlock_entry2(seg_lock,read_lock);
 #endif
@@ -790,7 +754,10 @@ namespace PH
 //				EA_test(key,dst_ea);
 			}
 			else
+			{
 				new_nodeMeta2[group2_idx]->valid[j] = false;
+//				debug_error("not now\n");
+			}
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
 			j++;
@@ -820,6 +787,9 @@ namespace PH
 			half2 = listNode->next->key/2;
 			new_listNode->key = half1+half2;
 		}
+
+		if (listNode->key == new_listNode->key)
+			debug_error("split key error\n");
 
 		new_listNode->prev = listNode;
 
@@ -1192,7 +1162,9 @@ group0_idx = 0;
 
 		//HARD 0 ~ SOFT 100
 
-		size_t empty_space = (dl->tail_sum+dl->my_size-dl->head_sum)%dl->my_size;
+//		size_t empty_space = (dl->tail_sum+dl->my_size-dl->head_sum)%dl->my_size;
+		size_t empty_space = dl->my_size-(dl->head_sum-dl->tail_sum);
+
 		if (empty_space < min_threshold)
 			return 100; // always cold
 		if (max_threshold < empty_space)
@@ -1319,7 +1291,7 @@ group0_idx = 0;
 			else
 			{
 #ifdef WARM_CACHE
-				if (new_update) // use kvp
+				if (new_update) // use kvp // always new for now...
 				{
 //					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
 					EntryAddr old_ea;
@@ -1333,9 +1305,7 @@ group0_idx = 0;
 					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 				if (try_at_lock2(skiplist_node->lock) == false)
 					continue;
-//				if (skiplist_node->key > key || (skiplist->sa_to_node(skiplist_node->next[0]))->key < key)
 				if (skiplist_node->key > key || skiplist->find_next_node(skiplist_node)->key < key)
-
 				{
 					at_unlock2(skiplist_node->lock);
 					continue;
@@ -1398,7 +1368,7 @@ group0_idx = 0;
 				EntryAddr old_ea;
 				old_ea.value = kvp_p->value;
 				EntryHeader new_version;
-
+// alwys update...
 				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 				//				new_version.prev_loc = old_ea.loc; // will be 3
 				set_valid(new_version);
@@ -1410,7 +1380,10 @@ group0_idx = 0;
 				pmem_persist(addr,ENTRY_HEADER_SIZE);
 				_mm_sfence();
 
+				kvp_p->key = key;
 				kvp_p->value = new_ea.value;
+
+//				EA_test(key,new_ea);
 
 				_mm_sfence();
 				//write version after key value
@@ -1459,12 +1432,13 @@ group0_idx = 0;
 			}
 			// rw lock is unloced
 			at_unlock2(list_node->lock);
+
 			if (skiplist_from_warm == NULL)
 				at_unlock2(skiplist_node->lock);
 		}
 
 		if (cold_split_cnt > 0)
-			skiplist_node->half_listNode = find_halfNode(skiplist_node);
+			skiplist_node->find_half_listNode();
 
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
@@ -1541,53 +1515,12 @@ group0_idx = 0;
 		EntryAddr old_ea;
 		unsigned char* pmem_head_p;// = my_log->get_pmem_head_p();
 
-#if 0 
-		unsigned char* checksum_i = (unsigned char*)&ble;
-		int i,cnt=0;
-		for (i=0;i<8+8+VALUE_SIZE;i++)
-		{
-			if (*checksum_i == 0)
-				cnt++;
-		}
-		if (cnt == -1)
-			printf("xxx\n");
-#endif
 		//fixed size;
 
 		// use checksum or write twice
 
-		//test---------------------------------
-#if 0
-		{
-			unsigned char* dram_head_p;// = my_log->get_dram_head_p();
-			dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
-
-			uint64_t test_old_key;
-			test_old_key = *(uint64_t*)(dram_head_p+HEADER_SIZE);
-
-			int ex;
-			KVP test_kvp;
-			KVP* test_kvp_p;
-			int test_seg_depth;
-			volatile int* test_seg_depth_p;
-			ex = hash_index->read(test_old_key,&test_kvp,&test_kvp_p,&test_seg_depth,&test_seg_depth_p);
-			if (ex)
-			{
-				EntryAddr test_ea;
-				test_ea.value = test_kvp.value;
-				if (dram_head_p == doubleLogList[test_ea.file_num].dramLogAddr + test_ea.offset)
-					printf("fiali43-------------------------------\n");
-			}
-		}
-#endif
 		//	my_log->ready_log();
 		//	head_p = my_log->get_head_p();
-		/*
-		   BaseLogEntry *ble = (BaseLogEntry*)head_p;
-		   ble->key = key;
-		   memcpy(ble->value,value,VALUE_SIZE);
-		 */
-
 
 		//		my_log->ready_log(); // to prevent dead lock ( from entry lock -> ready log ) it should be (ready_log -> entry lock)
 
@@ -1638,47 +1571,75 @@ group0_idx = 0;
 		//	my_log->insert_log(&ble);
 
 		//NEED INDEX LOCK TO PREVENT MOVING
-		int rv,dtc;
+		int rv;
+		bool dtc;
 		DoubleLog* dst_log;
 		Loc dst_loc;
 		size_t prev_head_sum;
 
-		dtc = 0;
+		dtc = false;
+
 #ifdef USE_DTC
-		if (ex == 1 && old_ea.loc == COLD_LIST)// && false) // NO DTC
-#else
-		if (false)
-#endif
+		if (ex == 0)
+			dtc = true;
+		else if(old_ea.loc == COLD_LIST)
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
-				dtc = 1;
+				dtc = true;
 		}
-
-		if (dtc == 0)
-		{
-			dst_log = my_log;
-			dst_loc = HOT_LOG;
-		}
+#endif
 
 		if (dtc)
 		{
-			dst_loc = COLD_LIST;
+//			dst_loc = COLD_LIST;
 			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			//			kvp.value = 0;
-			KVP test_kvp = kvp;
-			new_ea = direct_to_cold(key,value,kvp,seg_lock,NULL,true); // kvp becomes old one
+//			KVP test_kvp = kvp;
+
+			SkiplistNode* skiplistNode;
+			while (1)
+			{
+#ifdef WARM_CACHE
+				if (ex)
+				{
+					EntryAddr old_ea;
+					old_ea.value = kvp.value;
+					NodeAddr warm_cache = get_warm_cache(old_ea);
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
+				}
+				else
+#endif
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+				if (try_at_lock2(skiplistNode->lock) == false)
+					continue;
+				if (skiplistNode->key > key || skiplist->find_next_node(skiplistNode)->key < key)
+				{
+					at_unlock2(skiplistNode->lock);
+					continue;
+				}
+				break;
+			}
+
+			new_ea = direct_to_cold(key,value,kvp,seg_lock,skiplistNode,true); // kvp becomes old one
 			old_ea.value = kvp.value;
 
 			direct_to_cold_cnt++;
 
-			if (ex)
+//			if (ex)
+			if (kvp.key == key)
 				invalidate_entry(old_ea);
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
+
+			if (may_split_warm_node(skiplistNode) == 0)
+				at_unlock2(skiplistNode->lock);
 		}
 		else // to log
 		{
+			dst_log = my_log;
+			dst_loc = HOT_LOG;
+
 			dst_log->ready_log();
 
 			pmem_head_p = dst_log->pmemLogAddr + dst_log->head_sum % dst_log->my_size;
@@ -1710,20 +1671,16 @@ group0_idx = 0;
 				{
 #ifdef WARM_CACHE
 					if (ex)
-					{
-						
+					{	
 						warm_cache = get_warm_cache(old_ea);
-						node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
-						
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);						
 //						node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
-
 					}
 					else
 #endif
 						node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					if (try_at_lock2(node->lock) == false)
 						continue;
-//					next_node = skiplist->sa_to_node(node->next[0]);
 					next_node = skiplist->find_next_node(node);
 					if (next_node->key <= key || node->key > key) // may split
 					{
@@ -1740,7 +1697,7 @@ group0_idx = 0;
 
 					if (may_split_warm_node(node))
 					{
-						at_unlock2(node->lock);
+//						at_unlock2(node->lock);
 						continue;
 					}
 					break;
@@ -2717,14 +2674,14 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #ifdef SPLIT_WITH_LIST_LOCK // LIST LOCK
 		while(1)
 		{
-			old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+			old_skiplistNode->find_half_listNode();
 			if (try_at_lock2(old_skiplistNode->half_listNode->lock) == false)
 				continue;
 			break;
 		}
 		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 #else // NO LOCK
-		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+		old_skiplistNode->find_half_listNode();
 		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 
 #endif
@@ -2771,14 +2728,14 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 #ifdef SPLIT_WITH_LIST_LOCK
 			while(1)
 			{
-				old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+				old_skiplistNode->find_half_listNode();
 				if (try_at_lock2(old_skiplistNode->half_listNode->lock) == false)
 					continue;
 				break;
 			}
 			half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 #else
-		old_skiplistNode->half_listNode = find_halfNode(old_skiplistNode);
+		old_skiplistNode->find_half_listNode();
 		half_key = old_skiplistNode->half_listNode->key; // need skiplist node lock to access half listNode
 #endif
 			if (old_skiplistNode->key >= half_key)
@@ -2865,6 +2822,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		child1_sl_node->list_head = child1_sl_node->list_tail = 0;
 		child2_sl_node->list_head = child2_sl_node->list_tail = 0;
 
+		child1_sl_node->update_wc();
+		child2_sl_node->update_wc();
+
 		at_unlock2(child1_sl_node->lock);
 		at_unlock2(child2_sl_node->lock);
 
@@ -2885,7 +2845,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
 	{
-		if (node->cold_block_sum > WARM_COLD_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+//		node->find_half_listNode();
+		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
 		{
 
 			// flush all
@@ -2896,7 +2857,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			{
 //				next_node = skiplist->sa_to_node(node->next[0]);
 				next_node = skiplist->find_next_node(node);
-				at_lock2(next_node->lock);
+//				at_lock2(next_node->lock);
+				if (try_at_lock2(next_node->lock) == false)
+					continue;
 //				if (next_node == skiplist->sa_to_node(node->next[0]))
 				if (next_node == skiplist->find_next_node(node))
 					break;
@@ -3140,6 +3103,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				{
 					try_cold_split(listNode,node);
 					cold_split_cnt++;
+					node->find_half_listNode();
 				}
 			}
 			//	at_unlock2(list_nodeMeta->rw_lock);//-----------------------------------------unlock dst cold
@@ -3180,9 +3144,10 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 			}
 		}
 #endif
-
+/*
 		if (cold_split_cnt > 0)
-			node->half_listNode = find_halfNode(node);
+			node->find_half_listNode();
+			*/
 
 #if 0 // not here
 		ListNode* half_listNode;
@@ -3573,7 +3538,7 @@ EA_test(key,ta);
 				continue;
 			}
 
-			if (false /*&& header.prev_loc == 3*/)
+			if (false /*&& header.prev_loc == 3*/) // IT WAS HARD HOT TO COLD
 			{
 				old_ea.loc = HOT_LOG;
 				old_ea.file_num = dl->log_num;
@@ -3609,7 +3574,6 @@ EA_test(key,ta);
 #endif
 				if (try_at_lock2(node->lock) == false)
 					continue;
-//				if ((skiplist->sa_to_node(node->next[0]))->key < key)
 				if (skiplist->find_next_node(node)->key < key)
 				{
 					at_unlock2(node->lock);

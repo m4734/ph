@@ -85,7 +85,7 @@ extern int log_max;
 #endif
 
 
-void PH_Interface::reset_test()
+void PH_Interface::global_reset_test()
 {
 	int i;
 	for (i=0;i<QUERY_THREAD_MAX;i++)
@@ -264,7 +264,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 		printf("recover_time %lf\n",recover_time/1000000000);
 	}
 
-	reset_test();
+	global_reset_test();
 
 	init_threads();
 

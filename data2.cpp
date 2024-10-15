@@ -193,8 +193,6 @@ namespace PH
 			for (j=0;j<POOL_NODE_MAX;j++)
 			{
 				nodeMeta = ((NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j));
-				if (nodeMeta->rw_lock)
-					debug_error("ssss\n");
 				if (nodeMeta->valid == NULL)
 				{
 					nodeMeta->my_offset.pool_num = i;
@@ -326,39 +324,6 @@ namespace PH
 	void NodeAllocator::free_node(NodeMeta* nm)
 	{
 		at_lock2(lock);
-#if 0
-		{
-			if (nm->list_addr.loc == WARM_LIST)
-			{
-				SkiplistNode* skiplistNode = &skiplist->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
-				if (skiplistNode != sln)
-					debug_error("sln not match\n");
-				int i;
-				for (i=0;i<WARM_MAX_NODE_GROUP;i++)
-				{
-					if (skiplistNode->data_node_addr[i] == nm->my_offset.value)
-						break;
-				}
-				if (i >= WARM_MAX_NODE_GROUP)
-					debug_error("missmatch1\n");
-				skiplistNode->freed++;
-			}
-			else if (nm->list_addr.loc == COLD_LIST && nm->group_cnt == 1)
-			{
-				ListNode* listNode = &list->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
-		NodeAddr nodeAddr;
-		NodeMeta* nodeMeta;
-		nodeAddr.value = listNode->data_node_addr;
-
-			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-			if (nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
-			{
-				debug_error("missmatch2\n");
-			}
-
-			}
-		}
-#endif
 		nm->next_p = free_head_p;
 		free_head_p = nm;
 		at_unlock2(lock);

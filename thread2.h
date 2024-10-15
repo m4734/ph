@@ -16,7 +16,9 @@ namespace PH
 #define EVICT_THREAD_MAX 100
 //thread_local Thread my_thread;
 
-#define WARM_COLD_RATIO (20)
+//#define WARM_COLD_MAX_RATIO (20)
+const int WARM_COLD_MAX_RATIO = 20; // split when bigger than 20
+const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than 10 (after merge smaller than 10)
 
 class DoubleLog;
 class SkiplistNode;

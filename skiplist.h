@@ -119,6 +119,8 @@ class SkiplistNode
 	~SkiplistNode() { delete[] next; }
 
 	void remove_key_from_list(uint64_t key);
+	void find_half_listNode();
+	void update_wc();
 
 	size_t key;
 //	SkiplistNode* node_p; // tree node or leaf
