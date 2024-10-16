@@ -9,6 +9,8 @@
 namespace PH
 {
 
+extern size_t NODE_SLOT_MAX;
+
 struct KVP;
 //const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
 
@@ -106,8 +108,8 @@ class PH_List
 
 };
 
-void try_reduce_group(ListNode* listNode);
-void try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
+bool try_reduce_group(ListNode* listNode);
+bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
 
 //struct SkiplistNode
 
@@ -239,8 +241,18 @@ class Skiplist
 	SkiplistNode* end_node;
 
 	void traverse_test();
-
 };
+
+//	bool need_reduce(ListNode* listNode);
+#if 1
+	inline bool need_reduce(ListNode* listNode)
+	{
+//		return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX); // try shorten group
+		return (((listNode->valid_cnt-1) / NODE_SLOT_MAX + 1)+1 < listNode->block_cnt); // try shorten group
+
+	}
+#endif
+
 
 //void test_before_free(ListNode* listNode);
 

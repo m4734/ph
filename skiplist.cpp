@@ -458,10 +458,10 @@ if (k2 == KEY_MAX)
 			next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
 
 		   }
-		   printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*NODE_SIZE/1024/1024/1024);
+		   printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
 #endif
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
-		printf("warm list %ld max size %lfGB\n",cnt,double(cnt)*NODE_SIZE/1024/1024/1024);
+		printf("warm list cnt %ld max size %lfGB\n",cnt,double(cnt)*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
 
 		int i,j;
 		for (i=0;i<=node_pool_list_cnt;i++)
@@ -1390,7 +1390,8 @@ if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group
 	printf("cold node cnt %ld size %lfGB\n",bc,double(bc)*NODE_SIZE/1024/1024/1024);
 #endif
 	int cnt = node_pool_list_cnt * NODE_POOL_SIZE + node_pool_cnt;
-	printf("cold list cnt %d\n",cnt);
+	printf("cold list cnt %d max %lfGB\n",cnt,double(cnt)*MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
+
 	//	printf("list pool cnt %ld\n",node_pool_list_cnt);
 
 	int i;
@@ -1453,6 +1454,7 @@ ListNode* PH_List::alloc_list_node()
 		node = &node_pool_list[node_pool_list_cnt][node_pool_cnt];
 		node->myAddr.pool_num = node_pool_list_cnt;
 		node->myAddr.node_offset = node_pool_cnt;
+
 		node_pool_cnt++;
 		at_unlock2(node_alloc_lock);
 	}
@@ -1526,14 +1528,20 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 	at_unlock2(next->lock);
 	//	at_unlock2(prev->lock);
 }
-
-
-	void try_reduce_group(ListNode* listNode) // remove last block
+#if 0
+	bool need_reduce(ListNode* listNode)
 	{
+		return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+	}
+#endif
+	bool try_reduce_group(ListNode* listNode) // remove last block
+	{
+		bool rv = false;
 		if (try_at_lock2(listNode->lock) == false)
-			return;
-		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+			return rv;
+		if (need_reduce(listNode)) // try shorten group
 		{
+			rv = true;
 			my_thread->reduce_group_cnt++;
 //			printf("reduce----------------------------------------\n");
 
@@ -1659,25 +1667,28 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 
 		}
 		at_unlock2(listNode->lock);
+		return rv;
 	}
 
-	void try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
+	bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
 	{
+		bool rv = false;
 		if (try_at_lock2(left_listNode->lock) == false)
-			return;
+			return rv;
 		if (try_at_lock2(right_listNode->lock) == false)
 		{
 			at_unlock2(left_listNode->lock);
-			return;
+			return rv;
 		}
 		if (right_listNode->hold || left_listNode->valid_cnt + right_listNode->valid_cnt > NODE_SLOT_MAX)
 		{
 			at_unlock2(left_listNode->lock);
 			at_unlock2(right_listNode->lock);
-			return;
+			return rv;
 		}
 
 		// OK
+		rv = true;
 		my_thread->list_merge_cnt++;
 		printf("mer?-------------------------------------------\n");
 
@@ -1830,6 +1841,8 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 		list->free_list_node(right_listNode);
 
 		at_unlock2(left_listNode->lock);
+
+		return rv;
 	}
 #if 0
 	void test_before_free(ListNode* listNode)

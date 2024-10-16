@@ -64,8 +64,6 @@ namespace PH
 				{
 					update = true;
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-//					if (key == 980863181398165901)
-//						debug_error("this\n");
 					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 					version = header->version;
 					if (kvp_p->key == key)

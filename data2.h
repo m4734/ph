@@ -10,8 +10,6 @@ namespace PH
 
 class SkiplistNode;
 
-	void forced_sync(NodeAddr nodeAddr);
-
 extern size_t NODE_SLOT_MAX;
 
 /*
@@ -162,18 +160,6 @@ bool inline is_valid(EntryHeader *h)
 
 
 
-#if 0
-struct BaseLogEntry
-{
-	uint64_t header; // delete + version
-	uint64_t key; // key
-	unsigned char value[VALUE_SIZE];
-	unsigned char pad[4];
-}; // 8 + 8 + 100 = 116 + 4 = 120
-#endif
-// need 8bytes align
-
-//const size_t ble_len = sizeof(BaseLogEntry);
 /*
 struct NodeOffset
 {

@@ -239,7 +239,7 @@ namespace PH
 
 //-------------------------------------------------------------------------------
 
-	PH_Thread::PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0),evict_buffer(NULL),split_buffer(NULL),sorted_buffer1(NULL),sorted_buffer2(NULL),key_list_buffer(NULL),old_ea_list_buffer(NULL)
+	PH_Thread::PH_Thread() : lock(0),read_lock(0),run(0),exit(0),op_cnt(0),update_request(0),evict_buffer(NULL),split_buffer(NULL),sorted_buffer1(NULL),sorted_buffer2(NULL)
 	{
 		reset_test();
 	}
@@ -258,8 +258,6 @@ namespace PH
 		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
 			printf("thread buffer alloc fail\n");
 
-		key_list_buffer = (uint64_t*)malloc(sizeof(uint64_t) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
-		old_ea_list_buffer = (EntryAddr*)malloc(sizeof(EntryAddr) * MAX_NODE_GROUP*(NODE_SIZE/ENTRY_SIZE));
 	}
 	void PH_Thread::buffer_clean()
 	{
@@ -269,8 +267,6 @@ namespace PH
 		free(sorted_buffer1);
 		free(sorted_buffer2);
 
-		free(key_list_buffer);
-		free(old_ea_list_buffer);
 	}
 
 
@@ -444,19 +440,6 @@ namespace PH
 		return new_ea;
 	}
 
-	struct SecondOfPair
-	{
-		unsigned char* addr;
-		EntryAddr ea;
-		bool operator<(const SecondOfPair &sop) const
-		{
-			return addr<sop.addr;
-		}
-		bool operator==(const SecondOfPair &sop) const
-		{
-			return addr == sop.addr;
-		}
-	};
 
 	void PH_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode) // MAKE MANY BUGS
 	{
@@ -473,7 +456,7 @@ namespace PH
 		//		std::vector<KA_Pair> key_list;
 		//		std::priority_queue<std::pair<uint64_t,unsigned char*>> key_list;
 //		std::priority_queue<std::pair<uint64_t,SecondOfPair>,std::vector<std::pair<uint64_t,SecondOfPair>>,std::greater<std::pair<uint64_t,SecondOfPair>>> key_list;
-		std::vector<std::pair<uint64_t,SecondOfPair>> key_list;
+		split_key_list.clear();
 		NodeMeta *list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 		//		NodeMeta *half_list_nodeMeta;
 		DataNode *list_dataNode_p[MAX_NODE_GROUP];
@@ -518,7 +501,7 @@ namespace PH
 					key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 					second.addr = addr+offset;
 					second.ea = ea;
-					key_list.push_back(std::make_pair(key,second)); // addr in temp dram
+					split_key_list.push_back(std::make_pair(key,second)); // addr in temp dram
 
 #if 0
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -543,20 +526,38 @@ namespace PH
 		}
 
 		//sort them //pass
-		std::sort(key_list.begin(),key_list.end());
+		std::sort(split_key_list.begin(),split_key_list.end());
 		//relocate
 		// fixed size here
+
+		int size = split_key_list.size();
+		int s1 = (size+1)/2;
+		ListNode* new_listNode;
+		new_listNode = list->alloc_list_node();
+
+		if (size > 1)
+			new_listNode->key = split_key_list[s1].first;
+		else // empty
+		{
+			uint64_t half1,half2;
+			half1 = listNode->key/2;
+			half2 = listNode->next->key/2;
+			new_listNode->key = half1+half2;
+		}
+
+		if (size == 1 && new_listNode->key <= split_key_list[0].first)
+			s1 = 0;
+
 
 		//-------------------------------------------------------------------------------
 		//		if (key_list.size() > 0)
 		//			printf("test here\n");
 
-		int size = key_list.size();
 		int group1_idx = 0;
 		memset(&sorted_buffer1[0],0,NODE_SIZE);
 		addr = sorted_buffer1[0].buffer;
 		offset = 0;
-		for (i=0;i<(size+1)/2;i++)
+		for (i=0;i<s1;i++)
 		{
 			if (offset+ENTRY_SIZE > NODE_BUFFER_SIZE)
 			{
@@ -565,9 +566,9 @@ namespace PH
 				addr = sorted_buffer1[group1_idx].buffer;
 				offset = 0;
 			}
-			memcpy(addr+offset,key_list[i].second.addr,ENTRY_SIZE);
-			key_list_buffer[i] = (key_list[i].first);
-			old_ea_list_buffer[i] = (key_list[i].second.ea);
+			memcpy(addr+offset,split_key_list[i].second.addr,ENTRY_SIZE);
+//			key_list_buffer[i] = (key_list[i].first);
+//			old_ea_list_buffer[i] = (key_list[i].second.ea);
 //			key_list.pop();
 			offset+=ENTRY_SIZE;
 		}
@@ -585,9 +586,9 @@ namespace PH
 				addr = sorted_buffer2[group2_idx].buffer;
 				offset = 0;
 			}
-			memcpy(addr+offset,key_list[i].second.addr,ENTRY_SIZE);
-			key_list_buffer[i] = (key_list[i].first);
-			old_ea_list_buffer[i] = (key_list[i].second.ea);
+			memcpy(addr+offset,split_key_list[i].second.addr,ENTRY_SIZE);
+//			key_list_buffer[i] = (key_list[i].first);
+//			old_ea_list_buffer[i] = (key_list[i].second.ea);
 //			key_list.pop();
 			offset+=ENTRY_SIZE;
 		}
@@ -599,8 +600,6 @@ namespace PH
 		NodeMeta* new_nodeMeta2[MAX_NODE_GROUP];
 
 		// do not change listNode just link new nodemeta
-		ListNode* new_listNode;
-		new_listNode = list->alloc_list_node();
 
 		listNode->warm_cache = skiplistNode->myAddr;
 		new_listNode->warm_cache = skiplistNode->myAddr;
@@ -684,7 +683,7 @@ namespace PH
 		dst_ea.file_num = new_nodeMeta1[0]->my_offset.pool_num;
 		dst_ea.loc = COLD_LIST;
 
-		for (i=0;i<(size+1)/2;i++)
+		for (i=0;i<s1;i++)
 		{
 			if (offset+ENTRY_SIZE > NODE_BUFFER_SIZE)
 			{
@@ -696,11 +695,13 @@ namespace PH
 				dst_ea.file_num = new_nodeMeta1[group1_idx]->my_offset.pool_num;
 			}
 
-			key = key_list_buffer[i];
+//			key = key_list_buffer[i];
+			key = split_key_list[i].first;
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			ea.value = kvp_p->value;
 
-			if (ea.value == old_ea_list_buffer[i].value)
+//			if (ea.value == old_ea_list_buffer[i].value)
+			if (ea.value == split_key_list[i].second.ea.value)
 			{
 				new_nodeMeta1[group1_idx]->valid[j] = true;
 				new_nodeMeta1[group1_idx]->valid_cnt++;
@@ -739,11 +740,13 @@ namespace PH
 
 			}
 
-			key = key_list_buffer[i];
+//			key = key_list_buffer[i];
+			key = split_key_list[i].first;
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			ea.value = kvp_p->value;
 
-			if (ea.value == old_ea_list_buffer[i].value)
+//			if (ea.value == old_ea_list_buffer[i].value)
+			if (ea.value == split_key_list[i].second.ea.value)
 			{
 				new_nodeMeta2[group2_idx]->valid[j] = true;
 				new_nodeMeta2[group2_idx]->valid_cnt++;
@@ -778,16 +781,9 @@ namespace PH
 		listNode->data_node_addr = new_nodeMeta1[0]->my_offset;
 		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset;
 
-		if (size > 1)
-			new_listNode->key = key_list_buffer[(size+1)/2];
-		else // empty
-		{
-			uint64_t half1,half2;
-			half1 = listNode->key/2;
-			half2 = listNode->next->key/2;
-			new_listNode->key = half1+half2;
-		}
 
+		if (new_listNode->key > listNode->next->key)
+			debug_error("reverse key\n");
 		if (listNode->key == new_listNode->key)
 			debug_error("split key error\n");
 
@@ -1580,7 +1576,7 @@ group0_idx = 0;
 		dtc = false;
 
 #ifdef USE_DTC
-		if (ex == 0)
+		if (ex == 0 && false)
 			dtc = true;
 		else if(old_ea.loc == COLD_LIST)
 		{
@@ -2710,7 +2706,8 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		{
 //			uint64_t old_half_key = half_key;
 //			split_listNode_group(old_skipListNode->half_listNode,old_skipListNode);
-			
+		SkiplistNode* next_skn; // for debug
+		next_skn = skiplist->find_next_node(old_skiplistNode);
 			try_cold_split(old_skiplistNode->half_listNode,old_skiplistNode);
 #ifdef SPLIT_WITH_LIST_LOCK
 			at_unlock2(old_skiplistNode->half_listNode->lock);

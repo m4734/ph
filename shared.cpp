@@ -15,6 +15,7 @@ namespace PH
 	extern size_t WARM_BATCH_ENTRY_CNT;
 	extern size_t ENTRY_SIZE;
 	extern PH_List* list;
+	extern Skiplist* skiplist;
 
 void debug_error(const char* msg)
 {
@@ -96,54 +97,10 @@ void debug_error(const char* msg)
 	}
 
 #if 1
-#if 0
-	void try_reduce_group(ListNode* listNode)
-	{
-		if (try_at_lock2(listNode->lock) == false)
-			return;
-		if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
-		{
-			NodeAddr nodeAddr;
-			nodeAddr = listNode->data_node_addr;
-			NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
-			nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-			int i;
-			for (i=0;i<listNode->block_cnt;i++)
-			{
-				at_lock2(nodeMeta_list[i]->rw_lock);
-				nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
-			}
+// dtc kv skip
+// hth kv
+// htw kv skip
 
-			target_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
-
-			//			int entry_num = nodeMeta->valid_cnt;
-
-			DataNode* dataNode;
-			unsigned char* addr;
-			uint64_t key;
-			std::atomic<uint8_t> *seg_lock;
-
-			dataNode = nodeAllocator->nodeAddr_to_node(target_nodeMeta->my_offset);
-
-			reverse_memcpy(reduce_buffer,dataNode,NODE_SIZE);
-			addr = dataNode+NODE_HEADER_SIZE;
-
-			for (i=0;i<NODE_SLOT_MAX;i++)
-			{
-				if (target_nodeMeta->valid[i])
-				{
-					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
-				}
-				addr+=ENTRY_SIZE;
-			}
-			for (i=0;i<listNode->block_cnt-1;i++)
-				at_unlock2(nodeMeta_list[i]->rw_lock);
-
-		}
-		at_unlock2(listNode->lock);
-	}
-#endif
 	void invalidate_entry(EntryAddr &ea,bool try_merge) // need kv lock
 	{
 		unsigned char* addr;
@@ -199,25 +156,34 @@ void debug_error(const char* msg)
 
 				if (try_merge)
 				{
+					bool rv = false;
 					if (listNode->valid_cnt * 2 <= NODE_SLOT_MAX) // try destory list node // must not be head
 					{
 						ListNode* prev_listNode = listNode->prev;
 						if (listNode->hold == 0 && prev_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
 						{
-							try_merge_listNode(prev_listNode,listNode);
+							rv = try_merge_listNode(prev_listNode,listNode);
 						}
 						else // else??
 						{
 							ListNode* next_listNode = listNode->next;
 							if (next_listNode->hold == 0 && next_listNode->valid_cnt + listNode->valid_cnt <= NODE_SLOT_MAX)
 							{
-								try_merge_listNode(listNode,next_listNode); // need more test
+								rv = try_merge_listNode(listNode,next_listNode); // need more test
 							}
 						}
 					}
-					else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+//					else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+					if (need_reduce(listNode))
 					{
-						try_reduce_group(listNode);// need more test
+						rv = try_reduce_group(listNode);// need more test
+					}
+					if (rv)
+					{
+						SkiplistNode* skiplistNode;
+						NodeAddr warm_cache = listNode->warm_cache;
+						skiplistNode = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];	
+						skiplistNode->cold_block_sum--;
 					}
 				}
 			}
