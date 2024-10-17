@@ -85,9 +85,13 @@ void debug_error(const char* msg)
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 	{
 		// need version clean - kv write - version write ...
-		memcpy(dst,src,len);
-		pmem_persist(dst,len);
+		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
+		pmem_persist(dst+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
 		_mm_sfence();
+		memcpy(dst,src,ENTRY_HEADER_SIZE); // write version
+		pmem_persist(dst,ENTRY_HEADER_SIZE);
+		_mm_sfence();
+
 	}
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
 	{
