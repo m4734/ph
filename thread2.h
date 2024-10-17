@@ -220,7 +220,7 @@ namespace PH
 			void init();
 			void clean();
 
-			int insert_op(uint64_t key,unsigned char* value);
+			int insert_op(uint64_t key,uint64_t value_size, unsigned char* value);
 			int read_op(uint64_t key,unsigned char* buf,std::string *value);
 			//int read_op(uint64_t key,std::string *value);
 			int delete_op(uint64_t key);

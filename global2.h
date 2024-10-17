@@ -12,24 +12,13 @@
 namespace PH
 {
 
-	/*
-#define VALUE_SIZE 100
-#define KEY_RANGE (size_t(100)*1000*1000)
-#define TOTAL_OPS (size_t(1000)*1000*1000)
-#define ENTRY_SIZE (8+8+VALUE_SIZE)
-#define TOTAL_DATA_SIZE (ENTRY_SIZE*KEY_RANGE)
-	 */
 	void recover_counter(uint64_t key,uint64_t version);
 
-	extern size_t VALUE_SIZE0;
-
-	//#define VALUE_SIZE 100
-
-	extern size_t KEY_RANGE;
+//	extern size_t KEY_RANGE; //MAX KEY_RANGE
 	//size_t TOTAL_OPS;
-	extern size_t ENTRY_SIZE;
-	extern size_t LOG_ENTRY_SIZE;
-	extern size_t TOTAL_DATA_SIZE;
+//	extern size_t ENTRY_SIZE;
+//	extern size_t LOG_ENTRY_SIZE;
+	extern size_t TOTAL_DATA_SIZE; // MAX_TOTAL
 
 	const int COUNTER_MAX = 1024;
 
@@ -61,11 +50,11 @@ namespace PH
 			//void *run_evict(void* p);
 
 		public:
-			void global_init(size_t VS,size_t KR,int num_thread,int num_pmem,int num_evict, int recover);
+			void global_init(size_t max_data_size,int num_thread,int num_pmem,int num_evict, int recover);
 			void global_clean();
 
 			//--------------------------------------------------------------
-			int insert_op(uint64_t key,unsigned char* value);
+			int insert_op(uint64_t key,uint64_t value_size,unsigned char* value);
 			int read_op(uint64_t key,unsigned char* buf);
 			int read_op(uint64_t key,std::string *value);
 			int delete_op(uint64_t key);

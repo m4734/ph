@@ -28,11 +28,6 @@ thread_local PH_Query_Thread* my_query_thread = NULL;
 thread_local PH_Evict_Thread* my_evict_thread = NULL;
 thread_local PH_Thread* my_thread;
 
-size_t VALUE_SIZE0;
-size_t KEY_RANGE;
-//size_t TOTAL_OPS;
-size_t ENTRY_SIZE;
-size_t LOG_ENTRY_SIZE;
 size_t TOTAL_DATA_SIZE;
 
 
@@ -170,9 +165,9 @@ void PH_Interface::clean_evict_thread()
 	my_thread = NULL;
 }
 
-void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int recover)
+void PH_Interface::global_init(size_t max_data_size,int n_t,int n_p,int n_e,int recover)
 {
-	printf("global init VS %lu thread %d pmem %d evict %d\n",VS,n_t,n_p,n_e);
+	printf("global init MDS %lf thread %d pmem %d evict %d\n",double(max_data_size)/1024/1024/1024,n_t,n_p,n_e);
 
 	if (recover)
 		printf("recover\n");
@@ -181,16 +176,7 @@ void PH_Interface::global_init(size_t VS,size_t KR,int n_t,int n_p,int n_e,int r
 	for (i=0;i<COUNTER_MAX;i++)
 		global_seq_num[i] = 0;
 
-	VALUE_SIZE0 = VS;
-	KEY_RANGE = KR;
-//	ENTRY_SIZE = 8 + 8 + VS;
-	ENTRY_SIZE = 8 + 8 + VS + (8 - VS%8);
-#ifdef WARM_CACHE
-	LOG_ENTRY_SIZE = ENTRY_SIZE + sizeof(uint64_t);
-#else
-	LOG_ENTRY_SIZE = ENTRY_SIZE;
-#endif
-	TOTAL_DATA_SIZE = ENTRY_SIZE*KEY_RANGE;
+	TOTAL_DATA_SIZE = max_data_size;
 
 	num_query_thread = n_t;
 	num_pmem = n_p;
@@ -378,11 +364,11 @@ printf("ccc\n");
 
 }
 
-int PH_Interface::insert_op(uint64_t key,unsigned char* value)
+int PH_Interface::insert_op(uint64_t key,uint64_t value_size, unsigned char* value)
 {
 	if (my_query_thread == NULL)
 		new_query_thread();
-	return my_query_thread->insert_op(key,value);
+	return my_query_thread->insert_op(key,value_size, value);
 }
 int PH_Interface::read_op(uint64_t key,unsigned char* buf)
 {

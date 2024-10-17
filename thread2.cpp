@@ -1473,7 +1473,7 @@ group0_idx = 0;
 
 #define INDEX
 
-	int PH_Query_Thread::insert_op(uint64_t key,unsigned char* value)
+	int PH_Query_Thread::insert_op(uint64_t key, uint64_t value_size, unsigned char* value)
 	{
 		//	update_free_cnt();
 		op_check();
@@ -1571,7 +1571,6 @@ group0_idx = 0;
 		bool dtc;
 		DoubleLog* dst_log;
 		Loc dst_loc;
-		size_t prev_head_sum;
 
 		dtc = false;
 
@@ -1617,7 +1616,7 @@ group0_idx = 0;
 				break;
 			}
 
-			new_ea = direct_to_cold(key,value,kvp,seg_lock,skiplistNode,true); // kvp becomes old one
+			new_ea = direct_to_cold(key,value_size,value,kvp,seg_lock,skiplistNode,true); // kvp becomes old one
 			old_ea.value = kvp.value;
 
 			direct_to_cold_cnt++;
@@ -1636,7 +1635,7 @@ group0_idx = 0;
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
 
-			dst_log->ready_log();
+			dst_log->ready_log(value_size);
 
 			pmem_head_p = dst_log->pmemLogAddr + dst_log->head_sum % dst_log->my_size;
 			//	dram_head_p = my_log->dramLogAddr + my_log->head_sum%my_log->my_size;
@@ -1645,10 +1644,6 @@ group0_idx = 0;
 			new_ea.loc = dst_loc;
 			new_ea.file_num = dst_log->log_num;
 			new_ea.offset = dst_log->head_sum % dst_log->my_size;
-
-			dst_log->insert_pmem_log(key,value);
-			//--------------------------------------------------- make version
-			//if (kvp_p)
 
 #ifdef HOT_KEY_LIST
 			while(1)
@@ -1683,19 +1678,9 @@ group0_idx = 0;
 						at_unlock2(node->lock);
 						continue;
 					}
-					/*
-					if (next_node != skiplist->sa_to_node(node->next[0]))
-					{
-						at_unlock2(node->lock);
-						continue;
-					}
-					*/
 
 					if (may_split_warm_node(node))
-					{
-//						at_unlock2(node->lock);
 						continue;
-					}
 					break;
 				}
 	
@@ -1733,15 +1718,12 @@ group0_idx = 0;
 			new_version.version = new_ver;
 			set_valid(new_version);
 
-
-
 			if (kvp_p->key != key) // new key...
 				ex = 0;
 			else
 				ex = 1;
 
 			// update version
-			dst_log->write_version(new_version.value); // has fence
 
 			// 3 get and write new version <- persist
 
@@ -1758,12 +1740,13 @@ group0_idx = 0;
 #else
 			dst_log->insert_dram_log(new_version.value,key,value);
 #endif
-#else
-			new_addr = pmem_head_p; // PMEM
-#endif
 
-			prev_head_sum = dst_log->head_sum;
-			dst_log->head_sum+=LOG_ENTRY_SIZE;
+#endif
+			dst_log->copy_to_pmem_log(value_size);
+//			dst_log->insert_pmem_log(key,value_size,value);
+			dst_log->write_version(new_version.value); // has fence
+
+			dst_log->head_sum+=ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size+WARM_CACHE_SIZE; // NO JUMP SIZE
 
 			//check
 			log_write_cnt++;
@@ -1796,21 +1779,6 @@ group0_idx = 0;
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
 		}
-		//	if (kvp_p)
-		// 5 add to key list if new key
-
-		// 7 unlock index -------------------------------------- lock to here
-		//		_mm_sfence();
-
-		//		hash_index->unlock_entry2(seg_lock,read_lock);
-
-
-		// 8 remove old dram list
-#ifdef USE_DRAM_CACHE
-
-
-#endif
-		// 9 check GC
 
 		return 0;
 	}
@@ -1854,6 +1822,7 @@ group0_idx = 0;
 		KVP kvp;
 		uint64_t ret;
 		int ex;
+		uint64_t value_size;
 
 		std::atomic<uint8_t>* seg_lock;
 
@@ -1867,7 +1836,10 @@ group0_idx = 0;
 			//			seg_depth = *seg_depth_p;
 
 			if (ex == 0)
+			{
+				printf("entry desonst exist\n");
 				return -1;
+			}
 
 			ea.value = kvp.value;
 
@@ -1883,10 +1855,11 @@ group0_idx = 0;
 					logical_offset = ea.offset;
 
 				addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+				value_size = *(uint64_t*)(addr+HEADER_SIZE+KEY_SIZE);
 				if (buf)
-					memcpy(buf,addr+ENTRY_HEADER_SIZE+KEY_SIZE,VALUE_SIZE0);
+					memcpy(buf,addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value_size);
 				else
-					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
+					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE),value_size);
 				//				_mm_sfence();
 #if 0 
 				uint64_t test_key;
@@ -1914,14 +1887,15 @@ group0_idx = 0;
 			else // warm cold
 			{
 				NodeMeta* nm;
-				int node_cnt,offset;
+				int node_cnt;//,offset;
 
 				node_cnt = ea.offset/NODE_SIZE;
 				nm = (NodeMeta*)((unsigned char*)nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
 				//at_lock2(nm->rw_lock);
 				if (try_at_lock2(nm->rw_lock) == false)
 					continue;
-				_mm_sfence();
+//				_mm_sfence();
+/*
 				if (ea.loc == 3) // cold list
 					offset = ((ea.offset-NODE_HEADER_SIZE)%NODE_SIZE)/ENTRY_SIZE;
 				else // warm list
@@ -1935,24 +1909,23 @@ group0_idx = 0;
 					at_unlock2(nm->rw_lock);
 					continue;
 				}
-
-				if (kvp.key != key || kvp.value != ea.value) // updated?
+*/
+				if (kvp_p->key != key || kvp_p->value != ea.value) // updated?
 				{
 					at_unlock2(nm->rw_lock);
 					continue;
 				}
 
-				//		at_lock2(nm->lock);
 				addr = (unsigned char*)nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
 				//		if (key == *(uint64_t*)(addr+HEADER_SIZE))
 				//			break;
-				//		at_unlock2(nm->lock);
+				value_size = *(uint64_t*)(addr+HEADER_SIZE+KEY_SIZE);
 
 				//	hash_index->read(key,&ea.value);//retry
 				if (buf)
-					memcpy(buf,addr+ENTRY_HEADER_SIZE+KEY_SIZE,VALUE_SIZE0);
+					memcpy(buf,addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value_size);
 				else
-					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE),VALUE_SIZE0);
+					value->assign((char*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE),value_size);
 				//		at_unlock2(nm->lock);
 				_mm_sfence();
 

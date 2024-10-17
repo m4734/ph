@@ -32,9 +32,6 @@ const size_t VALUE_SECOND_MASK = 0x3ff0000000000000; // 001111 ... 00
 const int VALUE_SECOND_SHIFT = 52;
 const size_t VALUE_THIRD_MASK = 0x000fffffffffffff;
 
-const size_t header_size = sizeof(uint64_t);
-
-
 void init_log(int num_pmem,int num_log);
 void clean_log();
 void recover_log();
@@ -94,9 +91,10 @@ class DoubleLog
 //	void check_turn(size_t &sum, size_t len);
 
 //	void insert_log(struct BaseLogEntry *baseLogEntry_p);
-	void insert_pmem_log(uint64_t key,unsigned char* value);
-	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value);
-	void insert_dram_log(uint64_t version, uint64_t key,unsigned char* value,NodeAddr* warm_cache);
+	void insert_pmem_log(uint64_t key,uint64_t value_size, unsigned char* value);
+	void insert_dram_log(uint64_t version, uint64_t key,uint64_t value_size, unsigned char* value);
+	void insert_dram_log(uint64_t version, uint64_t key,uint64_t value_size, unsigned char* value,NodeAddr* warm_cache);
+	void copy_to_pmem_log(uint64_t value_size);
 
 	void write_version(uint64_t version);
 

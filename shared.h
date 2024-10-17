@@ -38,6 +38,15 @@ namespace PH
 
 	void debug_error(const char* msg);
 
+	const uint32_t ENTRY_HEADER_SIZE = 8;
+	const uint32_t KEY_SIZE = 8;
+	const uint32_t SIZE_SIZE = 8;
+//value size ??
+	const uint32_t WARM_CACHE_SIZE = 8;
+	const uint32_t JUMP_SIZE = 8;
+
+//	const uint32_t ENTRY_SIZE = ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
+
 	const size_t KEY_MIN = 0x0000000000000000;
 	const size_t KEY_MAX = 0xffffffffffffffff;
 
