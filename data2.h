@@ -69,8 +69,9 @@ const size_t POOL_NODE_MAX = 64*1024;
 
 struct EntryLoc
 {
-	volatile uint16_t valid : 1;
-	uint16_t offset : 15;
+	//volatile uint16_t valid : 1; // always rw_lock
+	uint16_t valid : 1;
+	uint16_t offset : 15; // 32k
 };
 #if 0
 void init_warm_el(NodeMeta* nodeMeta) // only for 4KB
@@ -102,6 +103,7 @@ struct NodeMeta
 	void init_warm_el();
 	void init_cold_el();
 	int invalidate(EntryAddr ea);// size is regutned...
+	int el_clean(int entry_size,int bfv);
 //	NodeMeta() : valid(NULL) {}
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
@@ -137,8 +139,10 @@ struct NodeMeta
 //	int valid_cnt;
 
 	EntryLoc* entryLoc;
+	int el_cnt;
 	std::atomic<int> size_sum;
 	int max_empty;
+	bool need_clean;
 
 	std::atomic<uint8_t> rw_lock;
 

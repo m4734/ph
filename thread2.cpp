@@ -392,8 +392,6 @@ namespace PH
 		if (value_size8 > nodeMeta->max_empty)
 			return emptyEntryAddr;
 
-		if (nodeMeta->entryLoc[NODE_SLOT_MAX-1].offset > 0) // ... just pass
-			return emptyEntryAddr;
 
 		// anyway we will scan the array
 		// try best fit...
@@ -401,36 +399,74 @@ namespace PH
 		// 1 scan and merge invalid entries
 		// 2 insert..
 
-
-		int slot_idx;
+		int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 		EntryAddr new_ea;
+		int bfv;	
+		int bfi = nodeMeta->el_clean(entry_size,bfv);
+		if (bfi < 0) // no space
+			return emptyEntryAddr;
 
-		if (nodeMeta->valid_cnt < NODE_SLOT_MAX)
+		bool fit;
+		EntryHeader jump;
+
+		if (bfv == entry_size) // fit
 		{
-			for (slot_idx=0;slot_idx<NODE_SLOT_MAX;slot_idx++)
-			{
-				if (nodeMeta->valid[slot_idx] == false)
-					break;
-			}
+			fit = true;
 		}
 		else
-			return emptyEntryAddr;
+		{
+			if (nodeMeta->el_cnt >= NODE_SLOT_MAX) // ... just pass
+				return emptyEntryAddr;
+
+			fit = false;
+			jump.valid_bit = 0;
+			jump.delete_bit = 0;
+			jump.version = nodeMeta->entryLoc[bfi+1].offset;
+		}
+
+			// copy data first..
 
 		new_ea.loc = 3; // cold
 		new_ea.file_num = nodeMeta->my_offset.pool_num;
-		if (slot_idx < NODE_SLOT_MAX)
+//		if (slot_idx < NODE_SLOT_MAX)
 		{
 			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
-			new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+			new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[bfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-			pmem_entry_write(dataNode->buffer + ENTRY_SIZE*slot_idx , src_addr, ENTRY_SIZE);
-			nodeMeta->valid[slot_idx] = true; // validate
-			++nodeMeta->valid_cnt;
+			if (fit)
+			{
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[bfi].offset , src_addr, entry_size);
+				nodeMeta->entryLoc[bfi].valid = 1;
+			}
+			else // not fit need jump
+			{
+				unsigned char* dst = (unsigned char*)dataNode+nodeMeta->entryLoc[bfi].offset;
+				memcpy(dst+ENTRY_HEADER_SIZE,src_addr+ENTRY_HEADER_SIZE,entry_size-ENTRY_HEADER_SIZE);
+				memcpy(dst+entry_size,&jump,ENTRY_HEADER_SIZE);
+				pmem_persist(dst+ENTRY_HEADER_SIZE,entry_size);
+				_mm_sfence();
+				memcpy(dst,src,ENTRY_HEADER_SIZE); // write version
+				pmem_persist(dst,ENTRY_HEADER_SIZE);
+				_mm_sfence();
+
+int i;
+				for (i=nodeMeta->el_cnt;i>bfi+1;i--)
+					nodeMeta->entryLoc[i] = nodeMeta->entryLoc[i-1];
+				nodeMeta->el_cnt++;
+				nodeMeta->entryLoc[bfi].valid = 1;
+				nodeMeta->entryLoc[bfi+1].valid = 0;
+				nodeMeta->entryLoc[bfi+1].offset = nodeMeta->entryLoc[bfi].offset + entry_size;
+			}
+
+//			nodeMeta->valid[slot_idx] = true; // validate
+//			++nodeMeta->valid_cnt;
+			nodeMeta->size_sum+=entry_size;
 
 //			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr.value);
 			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
-			listNode->valid_cnt++;
+//			listNode->valid_cnt++;
+			listNode->size_sum+=entry_size;
 
 			// modify hash index here
 			//					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -449,8 +485,7 @@ namespace PH
 			//			src_offset+=ENTRY_SIZE;
 			//			at_unlock2(list_nodeMeta->rw_lock);
 		}
-		else
-			return emptyEntryAddr; // impossible??
+
 		return new_ea;
 	}
 
@@ -3222,7 +3257,6 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 
 		uint64_t value_size8;
 
-		const int entry_size_without_value = ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
 		int entry_size;
 
 #ifdef HTW_KEY_CHECK
@@ -3272,7 +3306,7 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 				header = (EntryHeader*)addr;
 				value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 				value_size8 = get_v8(value_size8);
-				entry_size = entry_size_without_value + value_size8;
+				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				node->list_size_sum-=value_size8;
 
 				if (dl->tail_sum > ll.offset || is_valid(header) == false)
@@ -3538,7 +3572,6 @@ EA_test(key,ta);
 		return rv;
 	}
 
-	const int log_entry_size_without_value = ENTRY_HEADER_SIZE + KEY_SIZE + SIZE_SIZE + 0 + WARM_CACHE_SIZE;
 
 	int PH_Evict_Thread::try_hard_evict(DoubleLog* dl)
 	{
@@ -3575,8 +3608,8 @@ EA_test(key,ta);
 
 			if (is_valid(header) == false)
 			{
-				dl->tail_sum+=log_entry_size_without_value + value_size8;
-				if (dl->tail_sum%dl->my_size + LOG_ENTRY_SIZE > dl->my_size)
+				dl->tail_sum+=LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;
+				if (dl->tail_sum%dl->my_size + NODE_SIZE/*LOG_ENTRY_SIZE*/ > dl->my_size)
 					dl->tail_sum+= (dl->my_size - (dl->tail_sum%dl->my_size));
 				continue;
 			}
@@ -3798,7 +3831,7 @@ EA_test(key,ta);
 				}
 			}
 
-			dl->soft_adv_offset+=log_entry_size_without_value + value_size8;//LOG_ENTRY_SIZE;
+			dl->soft_adv_offset+=LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;//LOG_ENTRY_SIZE;
 			if ((dl->soft_adv_offset)%dl->my_size  + LOG_ENTRY_SIZE > dl->my_size)
 				dl->soft_adv_offset+=(dl->my_size-((dl->soft_adv_offset)%dl->my_size));
 
