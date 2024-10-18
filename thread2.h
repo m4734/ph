@@ -74,16 +74,13 @@ namespace PH
 			//	NodeAddr get_warm_cache(EntryAddr ea);
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
-			/*
-			   DataNode split_buffer[MAX_NODE_GROUP];
-			   DataNode sorted_buffer1[MAX_NODE_GROUP];
-			   DataNode sorted_buffer2[MAX_NODE_GROUP];
-			 */
 
 			DataNode* sorted_buffer1;
 			DataNode* sorted_buffer2;
 
 			std::vector<std::pair<uint64_t,SecondOfPair>> split_key_list;
+
+
 
 		public:
 			PH_Thread();
@@ -149,7 +146,7 @@ namespace PH
 		protected:
 			void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
-			EntryAddr direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update);
+			EntryAddr direct_to_cold(uint64_t key, uint64_t value_size,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update);
 			//	void invalidate_entry(EntryAddr &ea);
 
 			unsigned int seed_for_dtc;

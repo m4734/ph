@@ -1301,7 +1301,7 @@ group0_idx = 0;
 		return wc;
 	}
 
-	EntryAddr PH_Thread::direct_to_cold(uint64_t key,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
 	{ // ALWAYS NEW
 		//		printf("not now\n");
 		//NO UNLOCK IN HERE!
@@ -1323,7 +1323,7 @@ group0_idx = 0;
 		ListNode* list_node;
 		NodeMeta* list_nodeMeta;
 
-		unsigned char entry[ENTRY_SIZE];
+		unsigned char entry[NODE_SIZE];
 		const uint64_t z = 0;
 		memcpy(entry,&z,ENTRY_HEADER_SIZE); // need to be zero for persist
 		memcpy(entry+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
