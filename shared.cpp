@@ -126,34 +126,12 @@ void debug_error(const char* msg)
 			nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num]+node_cnt*sizeof(NodeMeta));
 			//			at_lock2(nm->rw_lock);
 			// it doesn't change value just invalidate with meta
+
+			nm->invalidate(ea);
+
 #if 1 // we don't need batch... // no i need the batch
-			if (ea.loc == 2)
 			{
-				int batch_num,offset_in_batch;
-				batch_num = offset_in_node/WARM_BATCH_MAX_SIZE;
-				offset_in_batch = offset_in_node%WARM_BATCH_MAX_SIZE;
-				cnt = batch_num*WARM_BATCH_ENTRY_CNT + (offset_in_batch-NODE_HEADER_SIZE)/ENTRY_SIZE;
-#ifdef VALID_CHECK
-				if (nm->valid[cnt] == false)
-					debug_error("false false\n");
-#endif
-
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-
-			}
-			else
-			{
-				cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;
-
-#ifdef VALID_CHECK
-				if (nm->valid[cnt] == false)
-					debug_error("false false\n");
-#endif
-
-				nm->valid[cnt] = false; // invalidate
-				--nm->valid_cnt;
-
+#if 0 // reducd not now
 				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 //				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 				listNode->valid_cnt--;
@@ -190,6 +168,7 @@ void debug_error(const char* msg)
 						skiplistNode->cold_block_sum--;
 					}
 				}
+#endif
 			}
 #else
 			cnt = (offset_in_node-NODE_HEADER_SIZE)/ENTRY_SIZE;

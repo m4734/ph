@@ -12,124 +12,8 @@ class SkiplistNode;
 
 extern size_t NODE_SLOT_MAX;
 
-/*
-#define VERSION_SIZE 8
-#define KEY_SIZE 8
-#define VALUE_SIZE 100
-
-#define VER_DELETE (size_t(1)<<62)
-#define VER_CL_LOC1 (size_t(1)<<61)
-#define VER_CL_LOC2 (size_t(1)<<60)
-#define VER_PL_LOC1 (size_t(1)<<59)
-#define VER_PL_LOC2 (size_t(1)<<58)
-*/
-
 const size_t ENTRY_HEADER_SIZE = 8;
 const size_t KEY_SIZE = 8;
-//const size_t VALUE_SIZE = 100;
-//const size_t ENTRY_SIZE = HEADER_SIZE + KEY_SIZE + VALUE_SIZE;
-
-const size_t VER_DRAM_VALID = (size_t(1)<<63);
-const size_t VER_DELETE = (size_t(1)<<62);
-const size_t VER_CL_LOC1 = (size_t(1)<<61);
-const size_t VER_CL_LOC2 = (size_t(1)<<60);
-const size_t VER_PL_LOC1 = (size_t(1)<<59);
-const size_t VER_PL_LOC2 = (size_t(1)<<58);
-const size_t VER_CHECKED = (size_t(1)<<57);
-
-const size_t VER_LOC_MASK = (VER_CL_LOC1+VER_CL_LOC2+VER_PL_LOC1+VER_PL_LOC2);
-const size_t VER_LOC_INV_MASK = ~VER_LOC_MASK;
-const size_t VER_CL_MASK = (VER_CL_LOC1+VER_CL_LOC2);
-
-const size_t VER_NUM_MASK = (size_t(1)<<57)-1;
-
-/*
-inline unsigned char* value_to_node_addr(uint64_t value)
-{
-	return nodePoolList[(value & VALUE_SECOND_MASK) >> VALUE_SECOND_SHIFT] + value & VALUE_THIRD_MASK;
-}
-
-
-inline size_t get_ver_num(uint64_t version)
-{
-	return version & VER_NUM_MASK;
-}
-*/
-
-
-
-
-// 0 0
-// 0 1 hot
-// 1 0 warm
-// 1 1 cold
-//const size_t VER_CL_HOT = VER_CL_LOC2;
-#if 0
-bool inline is_checked(uint64_t version)
-{
-	return version & VER_CHECKED;
-}
-void inline set_checked(uint64_t* version)
-{
-	*version |= VER_CHECKED;
-}
-
-bool inline is_loc_hot(uint64_t version)
-{
-	return (((version & VER_CL_LOC1) == 0) && (version & VER_CL_LOC2));
-}
-#if 0
-void inline remove_loc_mask(uint64_t &version)
-{
-	version &= VER_LOC_INV_MASK;
-}
-#endif
-uint64_t inline set_loc_hot(uint64_t version)
-{
-	version &= VER_LOC_INV_MASK;
-	version |= VER_CL_LOC2;
-	return version;
-}
-uint64_t inline set_loc_cold(uint64_t version)
-{
-	version &= VER_LOC_INV_MASK;
-	version |= VER_CL_LOC1 | VER_CL_LOC2;
-	return version;
-}
-uint64_t inline set_loc_warm(uint64_t version)
-{
-	version &= VER_LOC_INV_MASK;
-	version |= VER_CL_LOC1;
-	return version;
-}
-
-
-
-void inline set_prev_loc(uint64_t &dst_version,uint64_t &src_version)
-{
-	dst_version |= ((src_version&VER_CL_MASK) >> 2);
-}
-void inline set_valid(uint64_t &version)
-{
-	version |= VER_DRAM_VALID;
-}
-void inline set_invalid(uint64_t &version)
-{
-	version &= (~VER_DRAM_VALID);
-}
-void inline set_invalid(uint64_t *version)
-{
-	*version &= (~VER_DRAM_VALID);
-}
-bool inline is_valid(uint64_t &version)
-{
-	return version & VER_DRAM_VALID;
-}
-bool inline is_valid(uint64_t *version)
-{
-	return *version & VER_DRAM_VALID;
-}
-#endif
 
 void inline set_invalid(EntryHeader &h)
 {
@@ -183,8 +67,41 @@ const size_t POOL_NODE_MAX = 64*1024;
 
 //const size_t NODE_SLOT_MAX = NODE_BUFFER_SIZE/ble_len;
 
+struct EntryLoc
+{
+	volatile uint16_t valid : 1;
+	uint16_t offset : 15;
+};
+#if 0
+void init_warm_el(NodeMeta* nodeMeta) // only for 4KB
+{
+	int i,offset;
+	for (i=0;i<WARM_BATCH_CNT;i++) // 4
+	{
+		offset = i * WARM_BATCH_ENTRY_CNT;
+		nodeMeta->entryLoc[offset].valid = 0;
+		nodeMeta->entryLoc[offset].offset = WARM_BATCH_MAX_SIZE*i;
+
+		nodeMeta->entryLoc[offset+1].valid = 1;
+		nodeMeta->entryLoc[offset+1].offset = WARM_BATCH_MAX_SIZE*(i+1);
+	}
+	nodeMeta->entryLoc[0].offset = NODE_HEADER_SIZE;
+}
+void init_cold_el(NodeMeta* nodeMeta)
+{
+	nodeMeta->entryLoc[0].valid = 0;
+	nodeMeta->entryLoc[0].offset = NODE_HEADER_SIZE;
+	nodeMeta->entryLoc[1].valid = 1;
+	nodeMeta->entryLoc[1].offset = NODE_SIZE;
+}
+#endif
+
+
 struct NodeMeta
 {
+	void init_warm_el();
+	void init_cold_el();
+	int invalidate(EntryAddr ea);// size is regutned...
 //	NodeMeta() : valid(NULL) {}
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
@@ -211,13 +128,17 @@ struct NodeMeta
 
 //	Node* node;
 //	volatile bool valid[NODE_SLOT_MAX];
-	volatile bool *valid; // must have rw lock...
+//	volatile bool *valid; // must have rw lock...
 //	std::vector<bool> valid;
 	// vecotr uint64_t key .... but we have to read pmem to split so it will be waste of dram cap
 
 //	int slot_cnt; // filled slot for warm
-	std::atomic<uint8_t> valid_cnt;
+//	std::atomic<uint8_t> valid_cnt;
 //	int valid_cnt;
+
+	EntryLoc* entryLoc;
+	std::atomic<int> size_sum;
+	int max_empty;
 
 	std::atomic<uint8_t> rw_lock;
 

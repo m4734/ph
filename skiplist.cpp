@@ -44,11 +44,11 @@ namespace PH
 	//const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
 	//size_t WARM_BATCH_MAX_SIZE = 1024;
 	//#define WARM_BATCH_MAX_SIZE 1024
-	size_t WARM_BATCH_ENTRY_CNT; // 8-9
+//	size_t WARM_BATCH_ENTRY_CNT; // 8-9
 	size_t WARM_BATCH_CNT; // 4096/1024
 			       //size_t WARM_BATCH_SIZE; // 120 * 8-9
 	size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
-	size_t WARM_GROUP_ENTRY_CNT; // NODE * MAX_GROUP
+	size_t WARM_GROUP_BATCH_CNT; // BATCH_CNT * MAX_GROUP
 
 	/*
 	   const size_t PMEM_UNIT = 256;
@@ -209,13 +209,19 @@ namespace PH
 		return node;
 	}
 
+	void const_init()
+	{
+		WARM_BATCH_CNT = 4;//NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
+		WARM_BATCH_ENTRY_CNT = 20;//(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
+		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+//		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
+		WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
+										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE
+	}
+
 	void Skiplist::recover_init(size_t size)
 	{
-		WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
-		WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
-		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
-		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
-										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
+		const_init();
 
 		setLimit(size);
 		//	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
@@ -289,11 +295,7 @@ namespace PH
 
 	void Skiplist::init(size_t size)
 	{
-		WARM_BATCH_CNT = NODE_SIZE/(WARM_BATCH_MAX_SIZE);//-NODE_HEADER_SIZE); // 4096/1024??
-		WARM_BATCH_ENTRY_CNT = (WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE; // 1024-16 / 120 = 8-9
-		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4 = 32
-		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
-										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE;
+		const_init;
 
 		setLimit(size);
 		//	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
@@ -521,8 +523,8 @@ if (k2 == KEY_MAX)
 			node->my_sa.pool_num = node_pool_list_cnt;
 			node->my_sa.offset = node_pool_cnt;
 
-			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
-
+//			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
+			node->key_list.resize(NODE_SLOT_MAX);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
 			node_pool_cnt++;
@@ -535,6 +537,7 @@ if (k2 == KEY_MAX)
 		node->recent_entry_cnt = 0;
 
 		node->list_head = node->list_tail = 0;
+		node->list_size_sum = 0;
 		node->data_head = node->data_tail = 0;
 		//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 		//	node->data_node_addr = nodeAllocator->alloc_node();

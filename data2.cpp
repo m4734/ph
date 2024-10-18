@@ -84,7 +84,8 @@ namespace PH
 
 	void NodeAllocator::init()
 	{
-		NODE_SLOT_MAX = NODE_BUFFER_SIZE / ENTRY_SIZE;
+//		NODE_SLOT_MAX = NODE_BUFFER_SIZE / ENTRY_SIZE;
+		NODE_SLOT_MAX = 80; // 4096 / 50
 
 		nodeMetaPoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
 		nodePoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
@@ -118,7 +119,7 @@ namespace PH
 			for (j=0;j<node_cnt[i];j++)
 			{
 				nodeMeta = (NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j);
-				free((bool*)nodeMeta->valid);
+				free(nodeMeta->entryLoc);
 			}
 			munmap(nodeMetaPoolList[i],sizeof(NodeMeta)*POOL_NODE_MAX);
 			pmem_unmap(nodePoolList[i],POOL_SIZE);
@@ -174,7 +175,7 @@ namespace PH
 			if (my_size != req_size)
 				printf("my size is not req size\n");
 			for (j=0;j<POOL_NODE_MAX;j++)
-				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->valid = NULL;
+				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->entryLoc = NULL;
 			if (fill)
 				node_cnt[pool_cnt+i] = POOL_NODE_MAX;
 			else
@@ -193,68 +194,16 @@ namespace PH
 			for (j=0;j<POOL_NODE_MAX;j++)
 			{
 				nodeMeta = ((NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j));
-				if (nodeMeta->valid == NULL)
+				if (nodeMeta->entryLoc == NULL)
 				{
 					nodeMeta->my_offset.pool_num = i;
 					nodeMeta->my_offset.node_offset = j;
-					nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+					nodeMeta->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
 					free_node(nodeMeta);
 				}
 			}
 		}
 	}
-
-#if 0
-	NodeAddr NodeAllocator::expand_node()
-	{
-		NodeMeta *nm;
-
-		size_t pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
-		if (node_cnt[pool_num] >= POOL_NODE_MAX)
-		{
-			alloc_pool();
-			pool_num = pool_cnt - num_pmem + alloc_cnt % num_pmem;
-		}
-
-		nm = (NodeMeta*)(nodeMetaPoolList[pool_num]+sizeof(NodeMeta)*node_cnt[pool_num]);
-		nm->my_offset.pool_num = pool_num;
-		nm->my_offset.node_offset = node_cnt[pool_num];
-		++node_cnt[pool_num];
-		++alloc_cnt;
-
-		nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
-
-		//		nm->pool_num = pool_cnt-PMEM_NUM + alloc_cnt%PMEM_NUM;
-		//		nm->node = (Node*)nodePoolList[node_cnt[pool_num]];
-		//		nm->written_size = 0;
-		//		nm->slot_cnt = 0;
-		/*
-		   int i;
-		   for (i=0;i<NODE_SLOT_MAX;i++)
-		   nm->valid[i] = false;
-		   \*/
-		//		nm->valid.resize(NODE_SLOT_MAX);
-		int i;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			nm->valid[i] = false;
-		nm->valid_cnt = 0; // init
-		nm->rw_lock = 0;
-
-		nm->group_cnt = 1;
-
-		nm->next_p = NULL;
-		nm->next_node_in_group = NULL;
-
-		//pmem memset
-		//		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
-		//		memset(dataNode,0,NODE_SIZE);
-		//		pmem_persist(dataNode,NODE_SIZE);
-		//		_mm_sfence();
-
-		//		nm->test = 0; // test
-		return nm->my_offset;
-	}
-#endif
 
 	NodeAddr NodeAllocator::alloc_node()
 	{
@@ -282,7 +231,7 @@ namespace PH
 			++node_cnt[pool_num];
 			++alloc_cnt;
 
-			nm->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX);
+			nm->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
 
 			at_unlock2(lock);
 //			nm->alloc_cnt_for_test = 0;
@@ -292,10 +241,12 @@ namespace PH
 		//		nm->written_size = 0;
 		//		nm->slot_cnt = 0;
 		//		nm->valid.resize(NODE_SLOT_MAX);
+		/*
 		int i;
 		for (i=0;i<NODE_SLOT_MAX;i++) // or WARM_NODE_ENTRY_CNT
 			nm->valid[i] = false;
-		nm->valid_cnt = 0; // init
+			*/
+		nm->size_sum = 0; // init
 
 		nm->group_cnt = 1;
 
@@ -358,6 +309,87 @@ namespace PH
 		//			printf("can not find half\n");
 		return keys[cnt/2];
 	}
+
+void NodeMeta::init_warm_el() // only for 4KB
+{
+	int i,offset;
+	for (i=0;i<NODE_SLOT_MAX;i++)
+		entryLoc[i].valid = entryLoc[i].offset = 0;
+
+	for (i=0;i<WARM_BATCH_CNT;i++) // 4
+	{
+		offset = i * WARM_BATCH_ENTRY_CNT;
+
+		entryLoc[offset].valid = 0;
+		entryLoc[offset].offset = WARM_BATCH_MAX_SIZE*i;
+
+		entryLoc[offset+1].valid = 1;
+		entryLoc[offset+1].offset = WARM_BATCH_MAX_SIZE*(i+1);
+	}
+	entryLoc[0].offset = NODE_HEADER_SIZE;
+}
+void NodeMeta::init_cold_el()
+{
+	int i;
+	for (i=0;i<NODE_SLOT_MAX;i++)
+		entryLoc[i].valid = entryLoc[i].offset = 0;
+
+	entryLoc[0].valid = 0;
+	entryLoc[0].offset = NODE_HEADER_SIZE;
+	entryLoc[1].valid = 1;
+	entryLoc[1].offset = NODE_SIZE;
+	max_empty = NODE_SIZE - NODE_HEADER_SIZE;
+}
+int NodeMeta::invalidate(EntryAddr ea)
+{
+	int offset = ea.offset%NODE_SIZE;
+	int start_index,end_index;
+	if (ea.loc == WARM_LIST)
+	{
+		start_index = (offset / WARM_BATCH_MAX_SIZE) * WARM_BATCH_ENTRY_CNT; // batch * 20
+		end_index = start_index+WARM_BATCH_ENTRY_CNT;
+	for (i=start_index;i<end_index;i++)
+	{
+		if (offset == entryLoc[i].offset)
+		{
+#ifdef INV_TEST
+	if (entryLoc[i].valid == 0)
+		debug_error("inv test fail\n");
+#endif
+			entryLoc[i].valid = 0;
+//			size_sum-=(entryLoc[i+1].offset-entryLoc[i].offset);
+			return 0;
+		}
+	}
+
+	}
+	else // COLD_LIST NEED MERGE and max empty
+	{
+		int size;
+		start_index = 0;
+		end_index = NODE_MAX_SLOT;
+	for (i=start_index;i<end_index;i++) // track first invalid
+	{
+		if (offset == entryLoc[i].offset)
+		{
+#ifdef INV_TEST
+	if (entryLoc[i].valid == 0)
+		debug_error("inv test fail\n");
+#endif
+			entryLoc[i].valid = 0;
+			size=(entryLoc[i+1].offset-entryLoc[i].offset);
+			size_sum-=size; // who need this?
+			max_empty = NODE_SIZE;
+			return size;
+		}
+	}
+
+	}
+	debug_error("inv can't find\n");
+	return 0;
+}
+
+
 
 
 }

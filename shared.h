@@ -31,6 +31,8 @@
 
 #endif
 
+#define INV_TEST
+
 //-----------------------------------
 
 namespace PH
@@ -207,4 +209,9 @@ union EntryHeader
 	}
 
 	void EA_test(uint64_t key, EntryAddr ea);
+
+	inline uint64_t get_v8(uint64_t &value_size)
+	{
+		return value_size + (8-value_size%8);
+	}
 }

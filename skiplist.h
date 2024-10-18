@@ -35,7 +35,8 @@ class AtomicPointer
 
 struct LogLoc
 {
-	int log_num;
+	uint16_t log_num;
+	uint16_t size;
 	size_t offset;
 };
 
@@ -166,6 +167,7 @@ class SkiplistNode
 //	void free();
 
 	int list_head,list_tail;
+	int list_size_sum;
 	int data_head,data_tail;
 //	int remain_cnt;
 	int recent_entry_cnt;
