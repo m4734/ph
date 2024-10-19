@@ -1161,7 +1161,7 @@ retry:
 
 	KVP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock)
 	{
-//		if (key == 5085256241807060763UL)
+//		if (key == 1677366336822111999UL)
 //			debug_error("key test\n");
 		KVP* ret;
 		while(true)

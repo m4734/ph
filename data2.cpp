@@ -267,9 +267,6 @@ namespace PH
 
 		_mm_sfence();
 		nm->rw_lock = 0;
-		//		forced_sync(nm->my_offset);
-
-		//		nm->test = 0; // test
 
 		return nm->my_offset;
 	}
@@ -332,7 +329,7 @@ namespace PH
 			entryLoc[offset].valid = 0;
 			entryLoc[offset].offset = WARM_BATCH_MAX_SIZE*i;
 
-			entryLoc[offset+1].valid = 1;
+			entryLoc[offset+1].valid = 0;
 			entryLoc[offset+1].offset = WARM_BATCH_MAX_SIZE*(i+1);
 		}
 		entryLoc[0].offset = NODE_HEADER_SIZE;
@@ -345,7 +342,7 @@ namespace PH
 
 		entryLoc[0].valid = 0;
 		entryLoc[0].offset = NODE_HEADER_SIZE;
-		entryLoc[1].valid = 1;
+		entryLoc[1].valid = 0;
 		entryLoc[1].offset = NODE_SIZE;
 		max_empty = NODE_SIZE - NODE_HEADER_SIZE;
 		need_clean = false;
@@ -380,7 +377,7 @@ namespace PH
 		{
 			int size;
 			start_index = 0;
-			end_index = NODE_SLOT_MAX;
+			end_index = el_cnt;//NODE_SLOT_MAX;
 			at_lock2(rw_lock);
 			for (i=start_index;i<end_index;i++) // track first invalid
 			{
@@ -393,7 +390,10 @@ namespace PH
 					entryLoc[i].valid = 0;
 					size=(entryLoc[i+1].offset-entryLoc[i].offset);
 					size_sum-=size; // who need this?
-							//			max_empty = NODE_SIZE;
+
+					ListNode* listNode = list->addr_to_listNode(list_addr);
+					listNode->size_sum-=size;
+										max_empty = NODE_SIZE;
 					need_clean = true;
 					at_unlock2(rw_lock);
 					return size;
@@ -414,6 +414,7 @@ namespace PH
 		src_idx = 1;
 		dst_idx = 1;
 
+		max_empty = 0;
 		//		while(nodeMeta->entryLoc[src_idx].offset > 0)
 		while(entryLoc[src_idx].offset < NODE_SIZE)
 		{
@@ -429,6 +430,9 @@ namespace PH
 						bfv = es;
 						bfi = dst_idx-1;
 					}
+					if (es > max_empty)
+						max_empty = es;
+						
 				}
 				dst_idx++;
 			}
@@ -445,7 +449,7 @@ namespace PH
 		entryLoc[dst_idx].offset = NODE_SIZE;
 		entryLoc[dst_idx].valid = 0;
 
-		if (entryLoc[dst_idx-1].valid == 0)
+//		if (entryLoc[dst_idx-1].valid == 0)
 		{
 			int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
 			if (es >= entry_size && bfv > es)
@@ -453,6 +457,8 @@ namespace PH
 				bfv = es;
 				bfi = dst_idx-1;
 			}
+			if (es > max_empty)
+				max_empty = es;
 		}
 
 		dst_idx++;

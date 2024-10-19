@@ -18,7 +18,7 @@
 
 //------------------------------
 
-//#define CC // cor check
+#define CC // cor check
 
 #ifdef CC
 

@@ -33,6 +33,8 @@ class AtomicPointer
 };
 #endif
 
+const uint16_t INV_LOG = 65535;
+
 struct LogLoc
 {
 	uint16_t log_num;
