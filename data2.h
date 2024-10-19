@@ -12,37 +12,8 @@ class SkiplistNode;
 
 extern size_t NODE_SLOT_MAX;
 
-const size_t ENTRY_HEADER_SIZE = 8;
-const size_t KEY_SIZE = 8;
-
-void inline set_invalid(EntryHeader &h)
-{
-	h.valid = false;
-}
-void inline set_invalid(EntryHeader *h)
-{
-	h->valid = false;
-}
-
-void inline set_valid(EntryHeader &h)
-{
-	h.valid = true;
-}
-void inline set_valid(EntryHeader *h)
-{
-	h->valid = true;
-}
-
-bool inline is_valid(EntryHeader &h)
-{
-	return h.valid;
-}
-bool inline is_valid(EntryHeader *h)
-{
-	return h->valid;
-}
-
-
+//const size_t ENTRY_HEADER_SIZE = 8;
+//const size_t KEY_SIZE = 8;
 
 /*
 struct NodeOffset
@@ -103,7 +74,7 @@ struct NodeMeta
 	void init_warm_el();
 	void init_cold_el();
 	int invalidate(EntryAddr ea);// size is regutned...
-	int el_clean(int entry_size,int bfv);
+	int el_clean(int entry_size,int &bfv);
 //	NodeMeta() : valid(NULL) {}
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
@@ -152,7 +123,7 @@ struct NodeMeta
 
 
 uint64_t find_half_in_node(NodeMeta* nm,DataNode* node);
-NodeMeta* append_group(NodeMeta* list_nodeMeta);
+NodeMeta* append_group(NodeMeta* list_nodeMeta,int loc);
 
 //void linkNext(NodeMeta* nm);
 //void linkNext(NodeAddr nodeAddr);
@@ -165,7 +136,7 @@ class NodeAllocator
 
 //	Node* get_node(NodeMeta* nm);
 	//NodeMeta* alloc_node();
-	NodeAddr alloc_node();
+	NodeAddr alloc_node(int loc);
 	void free_node(NodeMeta* nm);
 //	void free_node(NodeMeta* nm,SkiplistNode* sln = NULL);
 

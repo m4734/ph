@@ -9,7 +9,7 @@
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
-#define USE_DTC
+//#define USE_DTC
 
 //-----------------------------
 
@@ -56,10 +56,10 @@ namespace PH
 	const size_t KEY_MAX = 0xffffffffffffffff;
 
 #if 1 // big
-	const size_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
+	const uint32_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
 
-	const size_t WARM_MAX_NODE_GROUP = 2;
-	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
+	const uint32_t WARM_MAX_NODE_GROUP = 2;
+	const uint32_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
 
@@ -67,10 +67,18 @@ namespace PH
 	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #endif
 
-	const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
+	const uint32_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
 
-	const size_t NODE_HEADER_SIZE = 16; //8 + 8
-	const size_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
+	const uint32_t NODE_HEADER_SIZE = 16; //8 + 8
+	const uint32_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
+
+	const uint32_t WARM_BATCH_ENTRY_CNT = 20;
+	const uint32_t WARM_BATCH_CNT = 4;
+
+	const uint32_t 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
+
+
 #if 1
 	struct NodeAddr
 	{
@@ -123,7 +131,7 @@ union EntryHeader
 {
 	struct
 	{
-		size_t valid : 1;
+		size_t valid_bit : 1;
 		size_t delete_bit : 1;
 		size_t version : 62;
 	};
@@ -150,6 +158,10 @@ union EntryHeader
 			size_t offset : 48; 
 		};
 		uint64_t value;
+		bool operator!=(const EntryAddr &ea)
+		{
+			return value != ea.value;
+		}
 	/*	
 		EntryAddr operator=(const EntryAddr &ea)
 		{

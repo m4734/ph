@@ -12,8 +12,8 @@ namespace PH
 {
 	extern DoubleLog* doubleLogList;
 	extern NodeAllocator* nodeAllocator;
-	extern size_t WARM_BATCH_ENTRY_CNT;
-	extern size_t ENTRY_SIZE;
+//	extern size_t WARM_BATCH_ENTRY_CNT;
+//	extern size_t ENTRY_SIZE;
 	extern PH_List* list;
 	extern Skiplist* skiplist;
 
@@ -111,7 +111,7 @@ void debug_error(const char* msg)
 		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
-			set_invalid((EntryHeader*)addr); // invalidate
+			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
 							 //			hot_to_hot_cnt++; // log to hot
 		}
 		else // warm or cold

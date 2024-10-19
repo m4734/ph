@@ -14,12 +14,17 @@ namespace PH
 	extern DoubleLog* doubleLogList;
 	extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 
-	extern size_t WARM_BATCH_CNT;
-	extern size_t WARM_BATCH_ENTRY_CNT;
-	extern size_t WARM_GROUP_ENTRY_CNT;
+//	extern uint32_t WARM_BATCH_CNT;
+//	extern uint32_t WARM_BATCH_ENTRY_CNT;
+//	extern uint32_t WARM_GROUP_ENTRY_CNT;
 
 	extern PH_List* list;
-
+#if 1
+	uint64_t recover_block(int loc, NodeAddr &nodeAddr)
+	{
+		return 0;
+	}
+#else
 	uint64_t recover_block(int loc, NodeAddr &nodeAddr)
 	{
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
@@ -27,10 +32,11 @@ namespace PH
 		DataNode dram_dataNode = *dataNode; // pmem to dram
 
 		// have to be first access
-		if (nodeMeta->valid != NULL)
+		if (nodeMeta->entryLoc != NULL)
 			debug_error("double alloc\n");
-		nodeMeta->valid = (volatile bool*)malloc(sizeof(volatile bool) * NODE_SLOT_MAX); // TODO CHECK DUP OF start empty end
-		nodeMeta->valid_cnt = 0;
+
+		nodeMeta->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
+//		nodeMeta->valid_cnt = 0;
 
 		int offset = 0;
 		int i,j;
@@ -44,8 +50,13 @@ namespace PH
 		std::atomic<uint8_t> *seg_lock;
 		bool update;
 
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			nodeMeta->valid[i] = false;
+		if (loc == WARM_LIST)
+			nodeMeta->init_warm_el();
+		else if (loc == COLD_LIST)
+			nodeMeta->init_cold_el();
+
+//		for (i=0;i<NODE_SLOT_MAX;i++)
+//			nodeMeta->valid[i] = false;
 
 		ea.loc = loc;
 		ea.file_num = nodeAddr.pool_num;
@@ -151,7 +162,15 @@ namespace PH
 		}
 		return rv;
 	}
+#endif
 
+#if 1
+	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, EntryAddr list_addr,SkiplistNode* skiplistNode)
+	{
+		return 0;
+	}
+
+#else
 	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, EntryAddr list_addr,SkiplistNode* skiplistNode)
 	{
 		group_idx = 0;
@@ -209,6 +228,7 @@ namespace PH
 
 		return min;
 	}
+#endif
 /*
 	void PH_Recovery_Thread::init()
 	{

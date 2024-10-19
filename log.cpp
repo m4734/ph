@@ -190,6 +190,7 @@ void DoubleLog::init(char* filePath, size_t req_size,size_t hes,size_t ses)
 
 void DoubleLog::recover() // should be last...
 {
+#if 0
 	memcpy(dramLogAddr,pmemLogAddr,my_size);
 
 	size_t offset;
@@ -268,6 +269,7 @@ void DoubleLog::recover() // should be last...
 
 	head_sum = my_size-(my_size%LOG_ENTRY_SIZE);
 	tail_sum = 0;
+#endif
 }
 
 void DoubleLog::clean()
@@ -292,8 +294,9 @@ void DoubleLog::ready_log(uint64_t value_size8)
 	size_t offset = head_sum % my_size;
 	uint32_t required_size;
 
-	required_size = ENTRY_SIZE + value_size8 + WARM_CACHE_SIZE + JUMP_SIZE;
-	if (offset+required_size >= my_size) // check the space
+	required_size = LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8 + JUMP_SIZE;
+//	if (offset+required_size >= my_size) // check the space
+	if (offset+NODE_SIZE >= my_size)
 		head_sum+=(my_size-offset);
 
 //	if (tail_sum + my_size < head_sum + ENTRY_SIZE)

@@ -74,11 +74,13 @@ namespace PH
 			//	NodeAddr get_warm_cache(EntryAddr ea);
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
+			unsigned char *entry_buffer;
 
 			DataNode* sorted_buffer1;
 			DataNode* sorted_buffer2;
 
 			std::vector<std::pair<uint64_t,SecondOfPair>> split_key_list;
+			std::vector<uint64_t> sorted_entry_size;
 
 
 
@@ -147,6 +149,8 @@ namespace PH
 			void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
 			EntryAddr direct_to_cold(uint64_t key, uint64_t value_size,unsigned char* value,KVP &kvp,std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update);
+			EntryAddr insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea); // have skiplist lock // return old ea // need invalidation and kv unlock
+
 			//	void invalidate_entry(EntryAddr &ea);
 
 			unsigned int seed_for_dtc;
@@ -157,10 +161,17 @@ namespace PH
 			int reset_test_cnt = 0;
 	};
 
+	const int DEFAULT_SCAN_POOL_SIZE = 1024*1024;
+
 	class Scan_Result // signle thread
 	{
 		public:
-			Scan_Result() : result(NULL) {}
+			Scan_Result()
+			{
+				resultPool = 1;
+				resultOffset = 0;
+				pool_list.push_back((unsigned char*)malloc(DEFAULT_SCAN_POOL_SIZE));
+			}
 #if 0
 			std::vector<DataNode*> listNode_dataNodeList; 
 			std::vector<DataNode*> skiplistNode_dataNodeList; 
@@ -183,10 +194,9 @@ namespace PH
 			   std::vector<unsigned char*> key_list_list;
 			   std::vector<int> key_list_cnt;
 			 */
-			void resize(uint64_t length);
+//			void resize(uint64_t length);
 			//	std::vector<unsigned char*> result;
-			unsigned char* result;
-			void insert(unsigned char* p);
+			void insert(unsigned char* p,int size);
 
 #endif
 
@@ -199,6 +209,12 @@ namespace PH
 		private:
 			int resultSize;
 			int resultCnt;
+			int resultOffset;
+			int resultPool;
+
+			std::vector<unsigned char*> pool_list;
+			std::vector<NodeAddr> entry_loc_list;
+
 	};
 
 	class PH_Query_Thread : public PH_Thread

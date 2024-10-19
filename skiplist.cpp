@@ -45,10 +45,10 @@ namespace PH
 	//size_t WARM_BATCH_MAX_SIZE = 1024;
 	//#define WARM_BATCH_MAX_SIZE 1024
 //	size_t WARM_BATCH_ENTRY_CNT; // 8-9
-	size_t WARM_BATCH_CNT; // 4096/1024
+//	size_t WARM_BATCH_CNT; // 4096/1024
 			       //size_t WARM_BATCH_SIZE; // 120 * 8-9
-	size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
-	size_t WARM_GROUP_BATCH_CNT; // BATCH_CNT * MAX_GROUP
+//	size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
+//	size_t WARM_GROUP_BATCH_CNT; // BATCH_CNT * MAX_GROUP
 
 	/*
 	   const size_t PMEM_UNIT = 256;
@@ -200,7 +200,7 @@ namespace PH
 		int i;
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
 		{
-			nodeMeta = append_group(nodeMeta);
+			nodeMeta = append_group(nodeMeta,WARM_LIST);
 			node->data_node_addr[i] = nodeMeta->my_offset;
 			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
 //			nodeMeta->list_addr = node->myAddr;
@@ -211,11 +211,11 @@ namespace PH
 
 	void const_init()
 	{
-		WARM_BATCH_CNT = 4;//NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
-		WARM_BATCH_ENTRY_CNT = 20;//(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
-		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+//		WARM_BATCH_CNT = 4;//NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
+//		WARM_BATCH_ENTRY_CNT = 20;//(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
+//		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
 //		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
-		WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
+//		WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE
 	}
 
@@ -358,7 +358,7 @@ namespace PH
 
 	}
 
-
+#if 0
 	uint64_t find_warm_min(NodeAddr nodeAddr)
 	{
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
@@ -416,7 +416,7 @@ namespace PH
 		}
 		return rv;
 	}
-
+#endif
 	void Skiplist::clean()
 	{
 		//	printf("skiplist cnt %ld\n",node_pool_list_cnt);
@@ -442,7 +442,7 @@ namespace PH
 			dataNode_addr = node->data_node_addr[0];
 			if (dataNode_addr != next_dataNode_addr)
 				debug_error("link brok\n");
-
+#if 0
 k2 = find_skip_min(node);
 if (k1 >= k2)
 {
@@ -454,7 +454,7 @@ if (k2 == KEY_MAX)
 	k2 = 0;
 }
 	k1 = k2;
-
+#endif
 
 //---------------
 			next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
@@ -1322,7 +1322,7 @@ void PH_List::init()
 
 	empty_node = alloc_list_node();
 	empty_node->key = KEY_MIN;
-	empty_node->data_node_addr = nodeAllocator->alloc_node();
+	empty_node->data_node_addr = nodeAllocator->alloc_node(COLD_LIST);
 	empty_node->block_cnt=1;
 	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
@@ -1331,7 +1331,7 @@ void PH_List::init()
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
-	start_node->data_node_addr = nodeAllocator->alloc_node();
+	start_node->data_node_addr = nodeAllocator->alloc_node(COLD_LIST);
 	start_node->block_cnt=1;
 	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
@@ -1340,7 +1340,7 @@ void PH_List::init()
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
-	end_node->data_node_addr = nodeAllocator->alloc_node();
+	end_node->data_node_addr = nodeAllocator->alloc_node(COLD_LIST);
 	end_node->block_cnt=1;
 	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
@@ -1463,7 +1463,8 @@ ListNode* PH_List::alloc_list_node()
 	}
 
 	node->block_cnt = 0;
-	node->valid_cnt = 0;
+//	node->valid_cnt = 0;
+	node->size_sum = 0;
 	node->next = NULL;
 	node->prev = NULL;
 	node->hold = 0;
@@ -1539,6 +1540,8 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 #endif
 	bool try_reduce_group(ListNode* listNode) // remove last block
 	{
+		return false;
+#if 0
 		bool rv = false;
 		if (try_at_lock2(listNode->lock) == false)
 			return rv;
@@ -1671,10 +1674,13 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 		}
 		at_unlock2(listNode->lock);
 		return rv;
+#endif
 	}
 
 	bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
 	{
+		return false;
+#if 0
 		bool rv = false;
 		if (try_at_lock2(left_listNode->lock) == false)
 			return rv;
@@ -1846,6 +1852,7 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 		at_unlock2(left_listNode->lock);
 
 		return rv;
+#endif
 	}
 #if 0
 	void test_before_free(ListNode* listNode)

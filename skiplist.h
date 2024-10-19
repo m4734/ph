@@ -61,7 +61,8 @@ class ListNode
 	int block_cnt;
 	int hold;
 
-	std::atomic<uint8_t> valid_cnt; // 256 ...
+//	std::atomic<uint8_t> valid_cnt; // 256 ...
+	std::atomic<uint64_t> size_sum;
 	std::atomic<uint8_t> lock;
 };
 
@@ -250,7 +251,8 @@ class Skiplist
 	inline bool need_reduce(ListNode* listNode)
 	{
 //		return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX); // try shorten group
-		return (((listNode->valid_cnt-1) / NODE_SLOT_MAX + 1)+1 < listNode->block_cnt); // try shorten group
+//		return (((listNode->valid_cnt-1) / NODE_SLOT_MAX + 1)+1 < listNode->block_cnt); // try shorten group
+		return false;
 
 	}
 #endif

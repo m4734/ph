@@ -174,7 +174,7 @@ void PH_Interface::global_init(size_t max_data_size,int n_t,int n_p,int n_e,int 
 
 	int i;
 	for (i=0;i<COUNTER_MAX;i++)
-		global_seq_num[i] = 0;
+		global_seq_num[i] = 1;
 
 	TOTAL_DATA_SIZE = max_data_size;
 

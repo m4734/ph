@@ -30,9 +30,9 @@ namespace PH
 		_mm_sfence();
 	}
 
-	NodeMeta* append_group(NodeMeta* list_nodeMeta)
+	NodeMeta* append_group(NodeMeta* list_nodeMeta,int loc)
 	{
-		NodeAddr new_nodeAddr = nodeAllocator->alloc_node();
+		NodeAddr new_nodeAddr = nodeAllocator->alloc_node(loc);
 		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
 		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
 		if (list_nodeMeta)
@@ -205,7 +205,7 @@ namespace PH
 		}
 	}
 
-	NodeAddr NodeAllocator::alloc_node()
+	NodeAddr NodeAllocator::alloc_node(int loc)
 	{
 		at_lock2(lock);
 		NodeMeta *nm;
@@ -255,6 +255,11 @@ namespace PH
 
 		nm->next_addr = nm->next_addr_in_group = emptyNodeAddr;
 
+		if (loc == WARM_LIST)
+			nm->init_warm_el();
+		else if (loc == COLD_LIST)
+			nm->init_cold_el();
+
 		//pmem memset
 		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
 		memset(dataNode,0,NODE_SIZE);
@@ -282,6 +287,9 @@ namespace PH
 
 	uint64_t find_half_in_node(NodeMeta* nm,DataNode* node) // USE DRAM NODE!!!!
 	{
+		printf("find half in node what is this\n");
+		return 0;
+		/*
 		int i,j;
 		uint64_t keys[NODE_SLOT_MAX];
 		uint64_t new_key;
@@ -308,6 +316,7 @@ namespace PH
 		//		if (cnt == 0)
 		//			printf("can not find half\n");
 		return keys[cnt/2];
+		*/
 	}
 
 	void NodeMeta::init_warm_el() // only for 4KB
@@ -346,6 +355,8 @@ namespace PH
 	{
 		int offset = ea.offset%NODE_SIZE;
 		int start_index,end_index;
+		int i;
+
 		if (ea.loc == WARM_LIST)
 		{
 			start_index = (offset / WARM_BATCH_MAX_SIZE) * WARM_BATCH_ENTRY_CNT; // batch * 20
@@ -369,7 +380,7 @@ namespace PH
 		{
 			int size;
 			start_index = 0;
-			end_index = NODE_MAX_SLOT;
+			end_index = NODE_SLOT_MAX;
 			at_lock2(rw_lock);
 			for (i=start_index;i<end_index;i++) // track first invalid
 			{
@@ -404,15 +415,15 @@ namespace PH
 		dst_idx = 1;
 
 		//		while(nodeMeta->entryLoc[src_idx].offset > 0)
-		while(nodeMeta->entryLoc[src_idx].offset < NODE_SIZE)
+		while(entryLoc[src_idx].offset < NODE_SIZE)
 		{
-			if (nodeMeta->entryLoc[src_idx].valid)
+			if (entryLoc[src_idx].valid)
 			{
 				//				if (src_idx != dst_idx)
-				nodeMeta->entryLoc[dst_idx] = nodeMeta->entryLoc[src_idx];
-				if (nodeMeta->entryLoc[dst_idx-1].valid == 0)
+				entryLoc[dst_idx] = entryLoc[src_idx];
+				if (entryLoc[dst_idx-1].valid == 0)
 				{
-					int es = nodeMeta->entryLoc[dst_idx].offset - nodeMeta->entryLoc[dst_idx-1].offset;
+					int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
 					if (es >= entry_size && bfv > es)
 					{
 						bfv = es;
@@ -421,22 +432,22 @@ namespace PH
 				}
 				dst_idx++;
 			}
-			else if (nodeMeta->entryLoc[src_idx-1].valid)
+			else if (entryLoc[src_idx-1].valid)
 			{
 				//				if (src_idx != dst_idx)
-				nodeMeta->entryLoc[dst_idx] = nodeMeta->entryLoc[src_idx];
+				entryLoc[dst_idx] = entryLoc[src_idx];
 				dst_idx++;
 			}
 			src_idx++;
 		}
-		nodeMeta->entryLoc[src_idx].offset = 0;
+		entryLoc[src_idx].offset = 0;
 
-		nodeMeta->entryLoc[dst_idx].offset = NODE_SIZE;
-		nodeMeta->entryLoc[dst_idx].valid = 0;
+		entryLoc[dst_idx].offset = NODE_SIZE;
+		entryLoc[dst_idx].valid = 0;
 
-		if (nodeMeta->entryLoc[dst_idx-1].valid == 0)
+		if (entryLoc[dst_idx-1].valid == 0)
 		{
-			int es = nodeMeta->entryLoc[dst_idx].offset - nodeMeta->entryLoc[dst_idx-1].offset;
+			int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
 			if (es >= entry_size && bfv > es)
 			{
 				bfv = es;

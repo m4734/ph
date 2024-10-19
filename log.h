@@ -87,7 +87,7 @@ class DoubleLog
 	void init(char* filePath,size_t size,size_t hes,size_t ses);
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
-	void ready_log();
+	void ready_log(uint64_t value_size8);
 //	void check_turn(size_t &sum, size_t len);
 
 //	void insert_log(struct BaseLogEntry *baseLogEntry_p);
