@@ -44,6 +44,13 @@ void debug_error(const char* msg)
 		{
 			if (key != *(uint64_t*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE))
 				debug_error("ea error!\n");
+				/*
+			if (ea.loc == COLD_LIST)
+			{
+				if (((ea.offset % 4096)-16)%128 != 0)
+					debug_error("fixed error\n");
+			}
+			*/
 		}
 	}
 

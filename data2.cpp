@@ -358,8 +358,10 @@ namespace PH
 		{
 			start_index = (offset / WARM_BATCH_MAX_SIZE) * WARM_BATCH_ENTRY_CNT; // batch * 20
 			end_index = start_index+WARM_BATCH_ENTRY_CNT;
-			for (i=start_index;i<end_index;i++)
+//i			for (i=start_index;i<end_index;i++)
+			while(start_index <= end_index)
 			{
+				i = (start_index+end_index)/2;
 				if (offset == entryLoc[i].offset)
 				{
 #ifdef INV_TEST
@@ -370,6 +372,12 @@ namespace PH
 					//			size_sum-=(entryLoc[i+1].offset-entryLoc[i].offset);
 					return 0;
 				}
+				
+				if (entryLoc[i].offset == 0 || offset < entryLoc[i].offset)
+					end_index = i-1;
+				else
+					start_index = i+1;
+					
 			}
 
 		}
@@ -379,8 +387,10 @@ namespace PH
 			start_index = 0;
 			end_index = el_cnt;//NODE_SLOT_MAX;
 			at_lock2(rw_lock);
-			for (i=start_index;i<end_index;i++) // track first invalid
+//			for (i=start_index;i<end_index;i++) // track first invalid
+			while(start_index <= end_index)
 			{
+				i = (start_index+end_index)/2;
 				if (offset == entryLoc[i].offset)
 				{
 #ifdef INV_TEST
@@ -398,6 +408,12 @@ namespace PH
 					at_unlock2(rw_lock);
 					return size;
 				}
+				
+				if (entryLoc[i].offset == 0 || offset < entryLoc[i].offset)
+					end_index = i-1;
+				else
+					start_index = i+1;
+					
 			}
 			at_unlock2(rw_lock);
 		}

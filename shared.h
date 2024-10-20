@@ -9,7 +9,7 @@
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
-//#define USE_DTC
+#define USE_DTC
 
 //-----------------------------
 
@@ -18,7 +18,7 @@
 
 //------------------------------
 
-#define CC // cor check
+//#define CC // cor check
 
 #ifdef CC
 
@@ -28,10 +28,10 @@
 #define LIST_TRAVERSE_TEST
 #define VALID_CHECK
 #define UNLOCK_TEST
+#define INV_TEST
 
 #endif
 
-#define INV_TEST
 
 //-----------------------------------
 
@@ -227,6 +227,7 @@ union EntryHeader
 
 	inline uint64_t get_v8(uint64_t &value_size)
 	{
-		return value_size + (8-value_size%8);
+		return (value_size+8-1)/8*8;
+//		return value_size + (8-value_size%8);
 	}
 }

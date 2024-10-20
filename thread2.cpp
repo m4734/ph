@@ -788,7 +788,7 @@ namespace PH
 		for (i=0;i<ih;i++) // mvoing kvp
 		{
 			entry_size = sorted_entry_size[i];
-			if (offset + entry_size + NODE_HEADER_SIZE > NODE_BUFFER_SIZE || j >= NODE_SLOT_MAX-1)
+			if (offset + entry_size + ENTRY_HEADER_SIZE > NODE_SIZE || j >= NODE_SLOT_MAX-1)
 			{
 				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
 				new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
@@ -825,7 +825,7 @@ namespace PH
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 
-				EA_test(key,dst_ea);
+//				EA_test(key,dst_ea);
 			}
 			else
 			{
@@ -857,7 +857,7 @@ namespace PH
 		for (;i<size;i++)
 		{
 			entry_size = sorted_entry_size[i];
-			if (offset + entry_size + NODE_HEADER_SIZE  > NODE_BUFFER_SIZE || j >= NODE_SLOT_MAX-1)
+			if (offset + entry_size + ENTRY_HEADER_SIZE  > NODE_SIZE || j >= NODE_SLOT_MAX-1)
 			{
 				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 				new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
@@ -894,11 +894,11 @@ namespace PH
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 
-				EA_test(key,dst_ea);
+//				EA_test(key,dst_ea);
 			}
 			else
 			{
-				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
+				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 //				new_nodeMeta2[group2_idx]->valid[j] = false;
 				//				debug_error("not now\n");
 			}
@@ -1144,6 +1144,8 @@ namespace PH
 		else if (ea.loc == WARM_LIST)
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			if (nm->list_addr.loc != WARM_LIST)
+				return emptyNodeAddr;
 #if 1
 			wc.pool_num = nm->list_addr.file_num;
 			wc.node_offset = nm->list_addr.offset;
@@ -1157,6 +1159,8 @@ namespace PH
 		else
 		{
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
+			if (nm->list_addr.loc != COLD_LIST)
+				return emptyNodeAddr;
 #if 1
 			ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
 			wc = listNode->warm_cache;
@@ -1234,7 +1238,7 @@ namespace PH
 				if (new_ea.value != 0)
 				{
 					kvp_p->value = new_ea.value;
-					EA_test(key,new_ea);
+//					EA_test(key,new_ea);
 					_mm_sfence();	
 
 //					list_nodeMeta->entryLoc[i].valid = 0; // src inv  not here
@@ -1246,7 +1250,7 @@ namespace PH
 					at_unlock2(listNode->lock);
 
 					//check
-					warm_to_cold_cnt++;
+//					warm_to_cold_cnt++; // to cold
 					return real_old_ea; // still have kv lock
 					break;
 				}
@@ -1308,13 +1312,13 @@ namespace PH
 		ListNode* list_node;
 		NodeMeta* list_nodeMeta;
 
-		value_size = get_v8(value_size);
+		uint64_t value_size8 = get_v8(value_size);
 
 		const uint64_t z = 0;
 		memcpy(entry_buffer,&z,ENTRY_HEADER_SIZE); // need to be zero for persist
 		memcpy(entry_buffer+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
 		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
-		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value,value_size);//v8?
+		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value,value_size8);//v8?
 
 		while(1)
 		{
@@ -1345,7 +1349,7 @@ namespace PH
 				//-------------------------------------------------------- skiplist
 			}
 
-			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size,seg_lock,emptyEntryAddr);
+			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,emptyEntryAddr);
 
 			if (old_ea.loc == HOT_LOG)
 			{
@@ -1488,6 +1492,7 @@ namespace PH
 			if (skiplist_from_warm == NULL)
 				at_unlock2(skiplist_node->lock);
 #endif
+				break;
 		}
 
 //		if (cold_split_cnt > 0)
@@ -1609,6 +1614,7 @@ namespace PH
 			   set_valid(new_version);
 			   new_ea.value = 0;
 			 */
+			 old_ea.value = 0;
 		}
 		else
 		{
@@ -1637,7 +1643,7 @@ namespace PH
 #ifdef USE_DTC
 		if (ex == 0 && false)
 			dtc = true;
-		else if(old_ea.loc == COLD_LIST)
+		else if(ex && old_ea.loc == COLD_LIST)
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
@@ -2544,146 +2550,6 @@ namespace PH
 		check_end();
 	}
 
-#if 0
-	const size_t PMEM_BUFFER_SIZE = 256;
-
-	void PH_Evict_Thread::split_listNode(ListNode *listNode,SkiplistNode *skiplistNode)
-	{
-		printf("don't use this now\n");
-
-		DataNode *list_dataNode = nodeAddr_to_node(listNode->data_node_addr);
-		NodeMeta *list_nodeMeta = nodeAddr_to_nodeMeta(listNode->data_node_addr);
-
-		at_lock2(list_nodeMeta->rw_lock);
-		if (list_nodeMeta->valid_cnt == 0)
-		{
-			at_unlock2(list_nodeMeta->rw_lock);
-			return;
-		}
-
-		DataNode temp_node = *list_dataNode; // move to dram
-		DataNode temp_new_node;
-		uint64_t half_key;
-		uint64_t key;
-
-		size_t offset;
-		size_t offset2;
-		unsigned char* addr;
-		addr = (unsigned char*)&temp_node;
-		offset = NODE_HEADER_SIZE;
-		offset2 = NODE_HEADER_SIZE;
-
-		half_key = find_half_in_node(list_nodeMeta,&temp_node);
-		//		half_key = pivot;
-#if 0
-		if (half_key == listNode->key)
-		{
-			at_unlock2(list_nodeMeta->rw_lock);
-			return; // fail -- all same key?
-		}
-#endif
-		ListNode* new_listNode = list->alloc_list_node();
-		NodeMeta* new_nodeMeta = nodeAddr_to_nodeMeta(new_listNode->data_node_addr);
-		DataNode* new_dataNode = nodeAddr_to_node(new_listNode->data_node_addr);
-
-		new_listNode->key = half_key;
-		new_listNode->next = listNode->next;
-		new_listNode->prev = listNode;
-
-		int moved_idx[NODE_SLOT_MAX];
-		int moved_cnt=0;
-		int i;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-		{
-			if (list_nodeMeta->valid[i] == false) // ??? invalidated??
-			{
-				//						new_nodeMeta->valid[i] = false;
-				offset+=ENTRY_SIZE;
-				continue;
-			}
-			key = *(uint64_t*)(addr+offset+HEADER_SIZE);
-			if (key >= half_key)
-			{
-				//				new_nodeMeta->valid[moved_cnt] = true;
-				memcpy((unsigned char*)&temp_new_node+offset2,(unsigned char*)&temp_node+offset,ENTRY_SIZE);
-				//need invalicdation
-				moved_idx[moved_cnt] = i;
-				++moved_cnt;
-
-				//						++new_nodeMeta->valid_cnt;
-				//						--list_nodeMeta->valid_cnt;
-
-				offset2+=ENTRY_SIZE;
-			}
-			offset+=ENTRY_SIZE;
-		}
-
-		temp_new_node.next_offset = list_nodeMeta->next_p->my_offset;
-		//				pmem_node_nt_write(nodeAddr_to_node(new_listNode->data_node_addr),&temp_new_node,0,NODE_SIZE);
-		pmem_nt_write((unsigned char*)new_dataNode,(unsigned char*)&temp_new_node,offset2);
-		KVP* kvp_p;
-		std::atomic<uint8_t> *seg_lock;
-		EntryAddr ea;
-		for (i=0;i<moved_cnt;i++)
-		{
-			key = *(uint64_t*)(temp_new_node.buffer + ENTRY_SIZE*i + HEADER_SIZE);
-			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			ea.loc = 3; // cold
-			ea.file_num = list_nodeMeta->my_offset.pool_num;
-			ea.offset = list_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*moved_idx[i];
-			if (kvp_p->value == ea.value) // doesn't moved
-			{
-				// ea cold
-				ea.file_num = new_nodeMeta->my_offset.pool_num;
-				ea.offset = new_nodeMeta->my_offset.node_offset*NODE_SIZE + NODE_HEADER_SIZE + ENTRY_SIZE*i;
-				kvp_p->value = ea.value;
-				kvp_p->version = set_loc_cold(kvp_p->version);
-				new_nodeMeta->valid[i] = true;
-				new_nodeMeta->valid_cnt++;
-				list_nodeMeta->valid_cnt--;
-			}
-			else
-				new_nodeMeta->valid[i] = false; // moved to hot
-			_mm_sfence(); // need this?
-			hash_index->unlock_entry2(seg_lock,read_lock);
-			list_nodeMeta->valid[moved_idx[i]] = false;
-		}
-
-		//		new_nodeMeta->valid_cnt = moved_cnt;
-		//		list_nodeMeta->valid_cnt-=moved_cnt;
-
-		// link here
-		new_nodeMeta->next_p = list_nodeMeta->next_p;
-
-		//link
-		pmem_next_write(list_dataNode,new_nodeMeta->my_offset);
-		list_nodeMeta->next_p = new_nodeMeta;
-
-		ListNode* old;
-		while(skiplistNode->my_listNode.load()->key < half_key)// && skiplistNode->key >= half_key)
-		{
-			//			at_lock2(skiplistNode->lock);
-			if (skiplistNode->key >= half_key)
-			{
-				old = skiplistNode->my_listNode;
-				if (old->key >= half_key)
-					break;
-				if (skiplistNode->my_listNode.compare_exchange_strong(old,new_listNode) == false)
-					continue;
-				//				skiplistNode->my_listNode = new_listNode;
-			}
-			//			at_unlock2(skiplistNode->lock);
-			skiplistNode = skiplistNode->next[0];
-			// unlock here?
-		}
-
-		list->insert_node(listNode,new_listNode);
-
-		at_unlock2(list_nodeMeta->rw_lock);
-
-	}
-#endif
-
 	void PH_Thread::flush_warm_node(SkiplistNode* node) // lock from outside
 	{
 		while(node->data_tail<node->data_head || node->list_tail < node->list_head) // flush all
@@ -3027,6 +2893,8 @@ namespace PH
 				//need inv and unlock
 				nodeMeta->entryLoc[i].valid = 0;
 				hash_index->unlock_entry2(seg_lock,read_lock);
+
+				warm_to_cold_cnt++;
 			}
 			i++; // have to sucess...
 
@@ -3507,7 +3375,7 @@ namespace PH
 					dst_addr.offset = node_offset + nodeMeta->entryLoc[slot_index].offset;
 					kvp_p->value = dst_addr.value;
 
-					EA_test(key,dst_addr);
+//					EA_test(key,dst_addr);
 
 					//					nodeMeta->valid[slot_index] = true; // validate
 					nodeMeta->entryLoc[slot_index].valid = 1;
