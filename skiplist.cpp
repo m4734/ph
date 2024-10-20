@@ -538,6 +538,8 @@ if (k2 == KEY_MAX)
 
 		node->list_head = node->list_tail = 0;
 		node->list_size_sum = 0;
+		node->current_batch_size = 0;
+		node->current_batch_index = 0;
 		node->data_head = node->data_tail = 0;
 		//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 		//	node->data_node_addr = nodeAllocator->alloc_node();

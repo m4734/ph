@@ -253,7 +253,7 @@ namespace PH
 
 	void PH_Thread::buffer_init()
 	{
-		if (posix_memalign((void**)&evict_buffer,NODE_SIZE,WARM_BATCH_MAX_SIZE) != 0)
+		if (posix_memalign((void**)&evict_buffer,NODE_SIZE,NODE_SIZE) != 0)//WARM_BATCH_MAX_SIZE) != 0)
 			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&entry_buffer,NODE_SIZE,WARM_BATCH_MAX_SIZE) != 0)
 			printf("thread buffer alloc fail\n");
@@ -900,7 +900,6 @@ namespace PH
 			{
 				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 //				new_nodeMeta2[group2_idx]->valid[j] = false;
-				//				debug_error("not now\n");
 			}
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -2563,6 +2562,8 @@ namespace PH
 				//				at_unlock2(nodeMeta->rw_lock);
 			}
 		}
+		if (node->current_batch_size > 0) // flus hlast batch
+			warm_to_cold(node);
 	}
 
 #define SPLIT_WITH_LIST_LOCK
@@ -2858,6 +2859,7 @@ namespace PH
 				break;
 			if (nodeMeta->entryLoc[i].valid == 0)
 			{
+				nodeMeta->entryLoc[i].offset = 0;
 				i++;
 				continue;
 			}
@@ -2891,11 +2893,14 @@ namespace PH
 			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea) != emptyEntryAddr) // scucess
 			{
 				//need inv and unlock
+				nodeMeta->entryLoc[i].offset = 0;//init
 				nodeMeta->entryLoc[i].valid = 0;
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
 				warm_to_cold_cnt++;
 			}
+//			else
+//				debug_error("empty ettr\n");
 			i++; // have to sucess...
 
 #if 0
@@ -3131,15 +3136,7 @@ namespace PH
 		struct timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
-		// hot to warm should be in one node
 		int node_num;
-		// fixed size
-
-		//target_cnt > 0 && may fit batch
-
-		// want to make left + batch_num*batch = target_cnt
-
-		//------------------------------------------------------------- calc cnt and make space
 
 		unsigned char* dst_node;
 		int i;
@@ -3158,7 +3155,10 @@ namespace PH
 		volatile uint8_t* seg_depth_p;
 		uint8_t seg_depth;
 
-		size_t written_size,base_offset;
+		int written_size,base_offset;
+		int start_offset;
+		int start_index;
+		int end_offset;
 		int write_cnt,base_index;
 		int batch_num;
 		int i_dst;
@@ -3173,11 +3173,10 @@ namespace PH
 		wk2 = skiplist->find_next_node(node)->key;
 #endif
 
-//		int start_offset;
 
 		do
 		{
-			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT) // if no space // batch >= 4 * 4
+			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-WARM_BATCH_CNT) // if no space // batch >= 4 * 4
 				warm_to_cold(node);
 
 			node_num = (node->data_head%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // % 16 / 4
@@ -3186,24 +3185,25 @@ namespace PH
 			at_lock2(nodeMeta->rw_lock);//------------------------------------------------lock here
 
 			batch_num = (node->data_head)%WARM_BATCH_CNT; // % 4
+
+			base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
+			base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
+			start_index = base_index + node->current_batch_index;
+			end_offset = base_offset + WARM_BATCH_MAX_SIZE;
+
 			if (batch_num == 0)
 			{
-//				start_offseu = NODE_HEADER_SIZE;
-				//				start_offset = NODE_HEADER_SIZE + (node->data_head % WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE; // always HEADER!
-				written_size = NODE_HEADER_SIZE;
+//				written_size = NODE_HEADER_SIZE;
+				start_offset = base_offset + node->current_batch_size+NODE_HEADER_SIZE; // < 1024
 			}
 			else
 			{
-//				start_offset = 0;
-				written_size = 0;
+//				written_size = 0;
+				start_offset = base_offset + node->current_batch_size;
 			}
 
-//			written_size = start_offset;
-
-			memset(evict_buffer,0,WARM_BATCH_MAX_SIZE); // 1024
-			base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
-			base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
-
+			memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
+			written_size = 0;
 			write_cnt = 0;
 			//			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
 
@@ -3259,60 +3259,89 @@ namespace PH
 #endif
 				}
 
-				if (written_size + entry_size + ENTRY_HEADER_SIZE > WARM_BATCH_MAX_SIZE) // batch 1024 full // + JUMP...
+				if (start_offset + written_size + entry_size > end_offset) // batch 1024 full
 					break; 
+				if (node->current_batch_index + write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
+					break;
+
 				//				else
 				{
-					nodeMeta->entryLoc[base_index+write_cnt].valid = 0;
-					nodeMeta->entryLoc[base_index+write_cnt].offset = base_offset+written_size;
+//					if ((start_index+write_cnt)/20 != (start_offset+written_size)/WARM_BATCH_MAX_SIZE)
+//						debug_error("mispamthc\n");
+					nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
+					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size;
+
 					node->list_size_sum-=value_size8;
 
-					memcpy(evict_buffer+written_size,addr,entry_size);
+					memcpy(evict_buffer + start_offset + written_size,addr,entry_size);
 
 					written_size+=entry_size;
 					//					if (header->prev_loc != 0)
 					//						ex_entry_cnt++;
 
-
 					write_cnt++;
 
 					hot_to_warm_cnt++;
 				}
-				if (write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
-					break;
 			}
 
-			nodeMeta->entryLoc[base_index+write_cnt].valid = 0;
-			nodeMeta->entryLoc[base_index+write_cnt].offset = base_offset+written_size;
-			nodeMeta->entryLoc[base_index+write_cnt].valid = 0;
-			nodeMeta->entryLoc[base_index+write_cnt].offset = base_offset+WARM_BATCH_MAX_SIZE;
+			if (write_cnt == 0)
+			{
+				node->list_tail = i; //restart from i
+				node->data_head++;
+				node->current_batch_size = 0;
+				node->current_batch_index = 0;
 
-			EntryHeader jump;
-#if 0
-			jump.valid_bit = 0;
-			jump.delete_bit = 0;
-			jump.version = (batch_num+1) * WARM_BATCH_MAX_SIZE; // or just 0
-#else
-			jump.value = 0; // end of batch
-#endif
-			memcpy(evict_buffer+written_size,&jump,ENTRY_HEADER_SIZE);
+				at_unlock2(nodeMeta->rw_lock);
+				continue;
+			}
+
+//			if ((start_index+write_cnt)/20 != (start_offset+written_size-1)/WARM_BATCH_MAX_SIZE)
+//				debug_error("mispamthc\n");
+
+			nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
+			nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset +written_size;
+			nodeMeta->entryLoc[start_index+write_cnt+1].valid = 0;
+			nodeMeta->entryLoc[start_index+write_cnt+1].offset = base_offset+WARM_BATCH_MAX_SIZE;
 
 			i_dst = i;
 
-			//-----------------------------------------------
-
-
 			//------------------------------- evict buffer filled
 
-			//			if (node->data_head % WARM_BATCH_ENTRY_CNT) // not aligned // always algined...
-			//				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
-			//			else
+			//evict current batch size (+ NODE_HEADER) ~ written size...
+
+			if (false && start_offset == NODE_HEADER_SIZE) // need node head flush
 			{
-				if (batch_num == 0) // fill header if it is first batch
-				{
-					memcpy(evict_buffer,&nodeMeta->next_addr,sizeof(NodeAddr)); // warm node must be fixed
-					memcpy(evict_buffer+sizeof(NodeAddr),&nodeMeta->next_addr_in_group,sizeof(NodeAddr)); // warm node must be fixed
-				}
+				memcpy(evict_buffer,&nodeMeta->next_addr,sizeof(NodeAddr)); // warm node must be fixed
+				memcpy(evict_buffer+sizeof(NodeAddr),&nodeMeta->next_addr_in_group,sizeof(NodeAddr)); // warm node must be fixed
+				pmem_nt_write(dst_node,evict_buffer,NODE_HEADER_SIZE+written_size+ENTRY_HEADER_SIZE);
+			}
+			else
+			{
+				// we need 256 align
+#if 1
+				int padding = end_offset-start_offset-written_size;
+				uint64_t first_header = *(uint64_t*)(evict_buffer+start_offset);
+				*(uint64_t*)(evict_buffer+start_offset) = 0;
+				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,written_size+padding);
+				_mm_sfence();
+//				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,ENTRY_HEADER_SIZE); // persist--------------------
+				pmem_nt_write(dst_node+start_offset,(unsigned char*)&first_header,ENTRY_HEADER_SIZE); // persist--------------------
+				_mm_sfence();
+#else
+				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,written_size);
+				_mm_sfence();
+#endif
+
+			}
+
+			node->current_batch_size+=written_size;
+			node->current_batch_index+=write_cnt;
+#if 0
+			if (node->data_head % WARM_BATCH_ENTRY_CNT) // not aligned // always algined...
+				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
+			else
+			{
 #if 0
 				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
 #else
@@ -3320,6 +3349,7 @@ namespace PH
 
 #endif
 			}
+#endif
 
 			//------------------------------- pmem write
 
@@ -3334,7 +3364,7 @@ namespace PH
 			//			dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + start_offset; //nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
 
 			//			src_addr.loc = 1; //hot
-			int slot_index = base_index;//node->data_head%WARM_NODE_ENTRY_CNT; // have to in batch
+			int slot_index = start_index;//node->data_head%WARM_NODE_ENTRY_CNT; // have to in batch
 
 			for (i=node->list_tail;i<i_dst;i++)
 			{
@@ -3361,16 +3391,6 @@ namespace PH
 					if (key < wk1 || key >= wk2)
 						debug_error("HTW_KEY_CHECK FAIL\n");
 #endif
-					/*
-					   EntryHeader eh;
-					   eh.value = kvp_p->version;
-					//					eh.prev_loc = 1;
-					kvp_p->version = eh.value; // hot to warm... //set_prev_loc_warm(kvp_p->version);
-					if (eh.prev_loc == 0 && eh.version > 1)
-					debug_error("fefefe\n");
-
-					//	kvp_p->version = set_loc_warm(kvp_p->version);
-					 */
 					// just change location
 					dst_addr.offset = node_offset + nodeMeta->entryLoc[slot_index].offset;
 					kvp_p->value = dst_addr.value;
@@ -3402,7 +3422,14 @@ namespace PH
 
 			node->list_tail = i_dst;
 			//			node->data_head+= write_cnt;
-			node->data_head++;
+			
+			if (node->list_tail < node->list_head)
+			{
+				node->data_head++;
+				node->current_batch_size = 0;
+				node->current_batch_index = 0;
+			}
+			
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
 		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
@@ -3704,8 +3731,8 @@ namespace PH
 					//	else
 					//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
 					//					if (node->list_head - node->list_tail < WARM_NODE_ENTRY_CNT)//WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
-					//					if (node->list_head - node->list_tail < WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
-					if (node->list_size_sum < WARM_BATCH_MAX_SIZE && node->list_head - node->list_tail < NODE_SLOT_MAX)
+//					if (node->list_head - node->list_tail < NODE_SLOT_MAX)// WARM_LOG_MIN)
+//					if (node->current_batch_size + node->list_size_sum <= WARM_BATCH_MAX_SIZE && node->list_head - node->list_tail < NODE_SLOT_MAX)
 					{
 						//						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
 						node->entry_list[node->list_head%NODE_SLOT_MAX] = ll;
@@ -3714,8 +3741,8 @@ namespace PH
 						node->list_head++; // lock...
 						node->list_size_sum+=value_size8;
 
-						at_unlock2(node->lock);
-						break; // in the list // 
+//						at_unlock2(node->lock);
+//						break; // in the list // 
 					}
 
 					//					set_checked((uint64_t*)addr);
@@ -3723,9 +3750,9 @@ namespace PH
 					// need to try flush
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
-					//					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
-					list_gc(node);
-					if (node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+						list_gc(node);
+					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
 						//					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
 					{
 						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
@@ -3738,7 +3765,7 @@ namespace PH
 						soft_htw_cnt++;
 					}
 					at_unlock2(node->lock);
-					//					break;
+					break;
 				}
 			}
 
