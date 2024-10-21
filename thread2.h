@@ -121,6 +121,8 @@ namespace PH
 			uint64_t hot_to_hot_cnt;
 			uint64_t hot_to_cold_cnt;
 
+			uint64_t cold_split_cnt;
+
 			uint64_t soft_htw_cnt;
 			uint64_t hard_htw_cnt;
 

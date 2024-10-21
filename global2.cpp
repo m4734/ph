@@ -78,6 +78,8 @@ extern int log_max;
 	std::atomic<uint64_t> reduce_group_sum;
 	std::atomic<uint64_t> list_merge_sum;
 
+	std::atomic<uint64_t> cold_split_sum;
+
 #ifdef WARM_STAT
 	std::atomic<uint64_t> warm_hit_sum;
 	std::atomic<uint64_t> warm_miss_sum;
@@ -103,6 +105,8 @@ void PH_Interface::global_reset_test()
 
 	reduce_group_sum = 0;
 	list_merge_sum = 0;
+
+	cold_split_sum = 0;
 
 #ifdef WARM_STAT
 	warm_hit_sum = warm_miss_sum = warm_no_sum = 0;
@@ -380,6 +384,8 @@ printf("ccc\n");
 
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());
+
+	printf("cold split sum %lu\n",cold_split_sum.load());
 
 }
 

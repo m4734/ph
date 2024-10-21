@@ -51,6 +51,8 @@ namespace PH
 	extern std::atomic<uint64_t> hot_to_hot_sum;
 	extern std::atomic<uint64_t> hot_to_cold_sum;
 
+	extern std::atomic<uint64_t> cold_split_sum;
+
 	extern std::atomic<uint64_t> soft_htw_sum;
 	extern std::atomic<uint64_t> hard_htw_sum;
 
@@ -208,6 +210,8 @@ namespace PH
 
 		reduce_group_cnt = 0;
 		list_merge_cnt = 0;
+
+		cold_split_cnt = 0;
 #ifdef WARM_STAT
 		warm_hit_cnt = warm_miss_cnt = warm_no_cnt = 0;
 #endif
@@ -335,6 +339,8 @@ namespace PH
 		hot_to_hot_sum+=hot_to_hot_cnt;
 		hot_to_cold_sum+=hot_to_cold_cnt;
 
+		cold_split_sum+=cold_split_cnt;
+
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
 
@@ -443,6 +449,7 @@ namespace PH
 
 	void PH_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode) // MAKE MANY BUGS
 	{
+		cold_split_cnt++;
 		// lock all the nodes
 		// copy
 		//scan all keys
@@ -3195,7 +3202,6 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 	{
 
 		struct timespec ts1,ts2;
-		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
 		// hot to warm should be in one node
 		int node_num;
@@ -3242,6 +3248,9 @@ main_time_sum+=(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec;
 		{
 			if (WARM_GROUP_ENTRY_CNT - (node->data_head-node->data_tail) < WARM_BATCH_ENTRY_CNT) // if no space
 				warm_to_cold(node);
+				_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts1);
+		_mm_sfence();
 
 			node_num = (node->data_head%WARM_GROUP_ENTRY_CNT)/WARM_NODE_ENTRY_CNT;
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
@@ -3428,11 +3437,19 @@ EA_test(key,ta);
 			node->data_head+= write_cnt;
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
-		}while(node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
-
+_mm_sfence();
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
 		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-		htw_cnt++;
+
+		}while(node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
+		/*
+_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
+		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+		*/
+		htw_cnt++; //??
 
 		node->recent_entry_cnt = ex_entry_cnt;
 		/*
