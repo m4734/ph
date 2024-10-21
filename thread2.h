@@ -24,8 +24,8 @@ namespace PH
 
 	// we need 4/3 t //// t == 10 -> 2x = 40/3...
 //	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
-//	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than 
-	const int WARM_COLD_MAX_RATIO = 10; // split when bigger than 
+	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than 
+//	const int WARM_COLD_MAX_RATIO = 10; // split when bigger than 
 	const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than (after merge smaller than )
 
 	class DoubleLog;
@@ -124,8 +124,13 @@ namespace PH
 			uint64_t soft_htw_cnt;
 			uint64_t hard_htw_cnt;
 
-			uint64_t htw_time,htw_cnt,wtc_time,wtc_cnt;
+			uint64_t htw_cnt;
+			uint64_t wtc_cnt;
+
+#ifdef TIME_STAT
+			uint64_t htw_time,wtc_time;
 			uint64_t dtc_time;
+#endif
 
 			uint64_t reduce_group_cnt;
 			uint64_t list_merge_cnt;

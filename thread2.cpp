@@ -178,8 +178,9 @@ namespace PH
 		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = direct_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
-
+#ifdef TIME_STAT
 		dtc_time = htw_time = wtc_time = 0;
+#endif
 		htw_cnt = wtc_cnt = 0;
 
 		reduce_group_cnt = 0;
@@ -316,13 +317,14 @@ namespace PH
 
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
-
+#ifdef TIME_STAT
 		htw_time_sum+=htw_time;
 		wtc_time_sum+=wtc_time;
+		dtc_time_sum+=dtc_time;
+#endif
 		htw_cnt_sum+=htw_cnt;
 		wtc_cnt_sum+=wtc_cnt;
 
-		dtc_time_sum+=dtc_time;
 #ifdef WARM_STAT
 		warm_hit_sum += warm_hit_cnt;
 		warm_miss_sum += warm_miss_cnt;
@@ -1330,10 +1332,10 @@ namespace PH
 	  // 2 find listnode
 	  // 3 insert kv
 	  // 4 return addr
-
+#ifdef TIME_STAT
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
-
+#endif
 		//		int cold_split_cnt = 0;
 
 		EntryAddr new_ea,old_ea;
@@ -1405,10 +1407,10 @@ namespace PH
 
 		//		if (cold_split_cnt > 0)
 		//			skiplist_node->find_half_listNode();
-
+#ifdef TIME_STAT
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-
+#endif
 		return new_ea;
 	}
 
@@ -2828,10 +2830,10 @@ namespace PH
 	{
 
 		//evict unit will be 1024 // batch evict
-
+#ifdef TIME_STAT
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
-
+#endif
 		int node_num;
 		node_num = (node->data_tail%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // %16 / 4
 
@@ -3027,9 +3029,10 @@ namespace PH
 		   nodeMeta->valid_cnt = 0;
 		 */
 		at_unlock2(nodeMeta->rw_lock);
-
+#ifdef TIME_STAT
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		wtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+#endif
 		wtc_cnt++;
 	}
 
@@ -3037,10 +3040,9 @@ namespace PH
 	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	void PH_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
-
+#ifdef TIME_STAT
 		struct timespec ts1,ts2;
-		clock_gettime(CLOCK_MONOTONIC,&ts1);
-
+#endif
 		int node_num;
 
 		unsigned char* dst_node;
@@ -3083,6 +3085,11 @@ namespace PH
 		{
 			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-WARM_BATCH_CNT) // if no space // batch >= 4 * 4
 				warm_to_cold(node);
+#ifdef TIME_STAT
+_mm_sfence();
+			clock_gettime(CLOCK_MONOTONIC,&ts1);
+_mm_sfence();
+#endif
 
 			node_num = (node->data_head%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // % 16 / 4
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
@@ -3200,6 +3207,13 @@ namespace PH
 				node->current_batch_index = 0;
 
 				at_unlock2(nodeMeta->rw_lock);
+#ifdef TIME_STAT
+		_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
+		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+#endif
+
 				continue;
 			}
 
@@ -3345,9 +3359,12 @@ namespace PH
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
 		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
-
+#ifdef TIME_STAT
+_mm_sfence();
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
 		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+#endif
 		htw_cnt++;
 
 		node->recent_entry_cnt = ex_entry_cnt;
@@ -3668,9 +3685,10 @@ namespace PH
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
 					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX)
 						list_gc(node);
 					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-						//					if (node->list_head - node->list_tail >= WARM_BATCH_ENTRY_CNT)
+//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX)
 					{
 						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 						//	at_lock2(nodeMeta->rw_lock);
