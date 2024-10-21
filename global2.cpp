@@ -373,6 +373,11 @@ printf("ccc\n");
 	if (direct_to_cold_sum > 0)
 		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
 
+	if (hot_to_warm_sum > 0)
+		printf("hot_to_warm avg %lu\n",htw_time_sum/hot_to_warm_sum);
+	if (warm_to_cold_sum > 0)
+		printf("warm_to_cold avg %lu\n",wtc_time_sum/warm_to_cold_sum);
+
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());
 
