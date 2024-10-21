@@ -141,7 +141,9 @@ union EntryHeader
 	{
 		size_t valid_bit : 1;
 		size_t delete_bit : 1;
-		size_t version : 62;
+		size_t large_bit : 1;
+		size_t empty_bit : 1;
+		size_t version : 60;
 	};
 	uint64_t value;
 };
@@ -234,7 +236,7 @@ union EntryHeader
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len);
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
-	unsigned char* get_entry(EntryAddr &ea);
+	inline unsigned char* get_entry(EntryAddr &ea);
 
 	inline EntryAddr nodeAddr_to_listAddr(Loc loc, NodeAddr &nodeAddr)
 	{
@@ -254,10 +256,16 @@ union EntryHeader
 	}
 
 	const uint16_t INV16 = 0xffff;//2^16-1
+	const uint64_t INV64 = 0xffffffffffffffff;
 	struct LargeAddr
 	{
 		uint16_t unit;
 		uint16_t pool;
 		uint32_t cnt;
 	};
+
+/*inline */unsigned char* get_large_from_addr(unsigned char* addr);
+/*inline */void invalidate_large_from_ea(EntryAddr &ea);
+/*inline */void invalidate_large_from_addr(unsigned char* addr);
+
 }

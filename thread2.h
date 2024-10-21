@@ -82,7 +82,8 @@ namespace PH
 			std::vector<std::pair<uint64_t,SecondOfPair>> split_key_list;
 			std::vector<uint64_t> sorted_entry_size;
 
-
+			LargeAddr large_addr;
+			uint64_t last_value_size;
 
 		public:
 			PH_Thread();
