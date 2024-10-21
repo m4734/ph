@@ -60,6 +60,9 @@ void init_log(int num_pmem, int num_log)
 
 //	log_size = LOG_SIZE_PER_PMEM/size_t(num_log);
 	log_size = TOTAL_DATA_SIZE/10/(log_max); // TOTAL DATA SIZE / HOT RATIO / LOG NUM
+	log_size/=1024;
+	log_size*=1024;
+
 #if 0
 	if (log_size < 1024*1024*1024) // minimum
 		log_size = 1024*1024*1024;
@@ -288,6 +291,11 @@ void DoubleLog::clean()
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
+void DoubleLog::log_check()
+{
+	if (head_sum < tail_sum)
+		debug_error("xxx\n");
+}
 
 void DoubleLog::ready_log(uint64_t value_size8)
 {
@@ -296,7 +304,7 @@ void DoubleLog::ready_log(uint64_t value_size8)
 
 	required_size = LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8 + JUMP_SIZE;
 //	if (offset+required_size >= my_size) // check the space
-	if (offset+NODE_SIZE >= my_size)
+	if (offset+NODE_SIZE > my_size)
 		head_sum+=(my_size-offset);
 
 //	if (tail_sum + my_size < head_sum + ENTRY_SIZE)

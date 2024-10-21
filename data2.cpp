@@ -465,7 +465,7 @@ namespace PH
 		entryLoc[dst_idx].offset = NODE_SIZE;
 		entryLoc[dst_idx].valid = 0;
 
-//		if (entryLoc[dst_idx-1].valid == 0)
+		if (entryLoc[dst_idx-1].valid == 0)
 		{
 			int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
 			if (es >= entry_size && bfv > es)

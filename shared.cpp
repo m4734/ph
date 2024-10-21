@@ -26,7 +26,7 @@ void debug_error(const char* msg)
 	unsigned char* get_entry(EntryAddr &ea)
 	{
 		if (ea.loc == HOT_LOG)
-			return  doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+			return  doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
 		else
 			return (unsigned char*)nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
 	}
@@ -36,7 +36,7 @@ void debug_error(const char* msg)
 //		printf("not now\n");
 		if (ea.loc == HOT_LOG)
 		{
-			if (key != *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+ea.offset+ENTRY_HEADER_SIZE))
+			if (key != *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+get_log_offset(ea)+ENTRY_HEADER_SIZE))
 				debug_error("ea error!\n");
 
 		}
@@ -117,7 +117,7 @@ void debug_error(const char* msg)
 		unsigned char* addr;
 		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
 		{
-			addr = doubleLogList[ea.file_num].dramLogAddr + ea.offset;
+			addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
 			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
 							 //			hot_to_hot_cnt++; // log to hot
 		}

@@ -183,13 +183,6 @@ namespace PH
 
 		built = 0;
 	}
-	/*
-	   void SkiplistNode::free()
-	   {
-	   delete next;
-	   }
-	 */
-	extern size_t ENTRY_SIZE;
 
 	SkiplistNode* Skiplist::allocate_node()
 	{

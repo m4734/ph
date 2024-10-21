@@ -143,6 +143,10 @@ namespace PH
 			size_t t25_sum;
 			size_t etc_time_sum;
 #endif
+			size_t data_sum=0;
+			size_t ld_sum=0;
+			size_t ld_cnt=0;
+
 			void reset_test();
 
 		protected:

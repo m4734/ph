@@ -73,6 +73,8 @@ extern int log_max;
 	std::atomic<uint64_t> reduce_group_sum;
 	std::atomic<uint64_t> list_merge_sum;
 
+	std::atomic<uint64_t> data_sum_sum,ld_sum_sum,ld_cnt_sum;
+
 #ifdef WARM_STAT
 	std::atomic<uint64_t> warm_hit_sum;
 	std::atomic<uint64_t> warm_miss_sum;
@@ -362,6 +364,7 @@ printf("ccc\n");
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());
 
+	printf("data sum sum %lfGB large sum %lu large cnt %lu\n",double(data_sum_sum)/1024/1024/1024,ld_sum_sum.load(),ld_cnt_sum.load());
 }
 
 int PH_Interface::insert_op(uint64_t key,uint64_t value_size, unsigned char* value)

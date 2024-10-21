@@ -29,9 +29,14 @@
 #define VALID_CHECK
 #define UNLOCK_TEST
 #define INV_TEST
+#define DST_CHECK
+#define SPLIT_KEY_TEST
+
+//#define NO_EXIST
 
 #endif
 
+#define NO_EXIST
 
 //-----------------------------------
 
@@ -39,6 +44,8 @@ namespace PH
 {
 
 	void debug_error(const char* msg);
+
+	const uint32_t LARGE_VALUE_THRESHOLD = 300;// must be smllaer than WARM_BATCH_MAX_SIZE 1024 - ..
 
 	const uint32_t ENTRY_HEADER_SIZE = 8;
 	const uint32_t KEY_SIZE = 8;
@@ -155,7 +162,7 @@ union EntryHeader
 		{
 			size_t loc : 2; // 1 hot / 2 warm / 3 cold	
 			size_t file_num : 14;
-			size_t offset : 48; 
+			size_t offset : 48;  // .. 2^16 * 4 G
 		};
 		uint64_t value;
 		bool operator!=(const EntryAddr &ea)
@@ -172,6 +179,19 @@ union EntryHeader
 	};
 
 	const EntryAddr emptyEntryAddr = (EntryAddr) {.value = 0};
+
+	extern size_t log_size;
+
+/*
+	inline size_t get_log_offset(size_t &offset)
+	{
+		return offset % log_size;
+	}
+	*/
+	inline size_t get_log_offset(EntryAddr &ea)
+	{
+		return ea.offset % log_size;
+	}
 
 	const size_t MAX_LEVEL = 30;
 

@@ -25,13 +25,6 @@ struct NodeAddr;
 //const size_t HARD_EVICT_SPACE = LOG_SIZE_PER_PMEM/20; // 5% // 300MB / 3GB
 //const size_t SOFT_EVICT_SPACE = LOG_SIZE_PER_PMEM/10; // 5% // 600MB / 3GB
 
- // 2 // 10 // 52
-const size_t VALUE_FIRST_MASK = 0xc000000000000000; // 11000000 ...
-const int VALUE_FIRST_SHIFT = 62;
-const size_t VALUE_SECOND_MASK = 0x3ff0000000000000; // 001111 ... 00
-const int VALUE_SECOND_SHIFT = 52;
-const size_t VALUE_THIRD_MASK = 0x000fffffffffffff;
-
 void init_log(int num_pmem,int num_log);
 void clean_log();
 void recover_log();
@@ -43,6 +36,7 @@ class DoubleLog
 
 
 	public: // lazy
+	void log_check(); //debug
 
 //	size_t log_size;
 	size_t my_size;
@@ -120,21 +114,14 @@ class DoubleLog
 	std::atomic<uint8_t> evict_alloc=0;
 
 	size_t block_cnt;
+
+	//debug
+//	size_t head_sum_log[100000];
+//	int head_sum_cnt = 0;
+//	int adv_cnt = 0;
 };
 
 extern DoubleLog* doubleLogList;
-//extern DoubleLog* WDLL; // warm double log list
-
-inline unsigned char* value_to_log_addr(uint64_t value)
-{
-	return doubleLogList[(value & VALUE_SECOND_MASK)>>VALUE_SECOND_SHIFT].dramLogAddr + (value & VALUE_THIRD_MASK);
-}
-
-inline uint64_t log_addr_to_value(int log_num,size_t offset)
-{
-	return size_t(1) << VALUE_FIRST_SHIFT + size_t(log_num) << VALUE_SECOND_SHIFT + offset;
-}
-
 
 }
 
