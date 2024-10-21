@@ -2793,7 +2793,7 @@ namespace PH
 	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
 	{
 		//		node->find_half_listNode();
-		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= NODE_SLOT_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_KEY_LIST_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
 		{
 
 			// flush all
@@ -3126,7 +3126,8 @@ namespace PH
 
 				if (dl->tail_sum > ll.offset || header->valid_bit == false)
 				{
-					node->list_size_sum-=value_size8;
+//					node->list_size_sum-=value_size8;
+					node->list_size_sum-=ll.size;
 					node->entry_list[li].log_num = INV_LOG; // invalid
 					continue;
 				}
@@ -3176,7 +3177,8 @@ namespace PH
 					nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
 					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size;
 
-					node->list_size_sum-=value_size8;
+//					node->list_size_sum-=value_size8;
+					node->list_size_sum-=ll.size;
 
 					memcpy(evict_buffer + start_offset + written_size,addr,entry_size);
 
@@ -3637,7 +3639,7 @@ namespace PH
 					//add entry
 					ll.log_num = dl->log_num;
 					ll.offset = dl->soft_adv_offset;
-					ll.size = value_size8;
+					ll.size = ENTRY_SIZE_WITHOUT_VALUE+value_size8;
 
 					//try push
 					//	if (node->tail + WARM_NODE_ENTRY_CNT <= node->head)
@@ -3653,7 +3655,8 @@ namespace PH
 						//	node->entry_list.push_back(ll);
 						//	node->entry_size_sum+=ENTRY_SIZE;
 						node->list_head++; // lock...
-						node->list_size_sum+=value_size8;
+//						node->list_size_sum+=ENTRY_SIZE_WITHOUT_VALUE+value_size8;
+						node->list_size_sum+=ll.size;
 
 						//						at_unlock2(node->lock);
 						//						break; // in the list // 

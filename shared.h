@@ -15,11 +15,11 @@
 //-----------------------------
 
 #define WARM_STAT
-#define SCAN_TIME
+//#define SCAN_TIME
 
 //------------------------------
 
-#define CC // cor check
+//#define CC // cor check
 
 #ifdef CC
 
@@ -37,7 +37,9 @@
 
 #endif
 
-#define NO_EXIST
+#define LIST_TRAVERSE_TEST
+
+//#define NO_EXIST
 
 //-----------------------------------
 
@@ -64,9 +66,9 @@ namespace PH
 	const size_t KEY_MAX = 0xffffffffffffffff;
 
 #if 1 // big
-	const uint32_t NODE_SIZE = 4096; // 4KB // 2KB // 1KB by value size...
+	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 4;
+	const uint32_t WARM_MAX_NODE_GROUP = 2;
 	const uint32_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
@@ -81,11 +83,14 @@ namespace PH
 	const uint32_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
 
 	const uint32_t WARM_BATCH_ENTRY_CNT = 20;
-	const uint32_t WARM_BATCH_CNT = 4;
+	const uint32_t WARM_BATCH_CNT = NODE_SIZE/WARM_BATCH_MAX_SIZE;////4;
 
 	const uint32_t 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
+	const uint32_t NODE_SLOT_MAX = 80; // 4096/50
+
+	const uint32_t WARM_KEY_LIST_MAX = WARM_MAX_NODE_GROUP * NODE_SLOT_MAX;
 
 #if 1
 	struct NodeAddr

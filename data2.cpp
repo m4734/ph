@@ -13,7 +13,7 @@
 namespace PH
 {
 
-	size_t NODE_SLOT_MAX;
+//	size_t NODE_SLOT_MAX;
 
 	NodeAllocator* nodeAllocator;
 
@@ -85,7 +85,7 @@ namespace PH
 	void NodeAllocator::init()
 	{
 		//		NODE_SLOT_MAX = NODE_BUFFER_SIZE / ENTRY_SIZE;
-		NODE_SLOT_MAX = 80; // 4096 / 50
+//		NODE_SLOT_MAX = 80; // 4096 / 50
 
 		nodeMetaPoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);
 		nodePoolList = (unsigned char**)malloc(sizeof(unsigned char*)*POOL_MAX);

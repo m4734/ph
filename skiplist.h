@@ -9,7 +9,7 @@
 namespace PH
 {
 
-extern size_t NODE_SLOT_MAX;
+//extern size_t NODE_SLOT_MAX;
 
 struct KVP;
 //const size_t MAX_LEVEL = 30; // 2^30 = 1G entry?
@@ -138,7 +138,7 @@ class SkiplistNode
 	int next_size;
 
 	std::vector<uint64_t> key_list;
-	/*volatile*/ uint8_t key_list_size;
+	/*volatile*/ int key_list_size; 
 
 	std::vector<LogLoc> entry_list;
 //	std::queue<LogLoc> entry_list;

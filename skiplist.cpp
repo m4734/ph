@@ -517,7 +517,7 @@ if (k2 == KEY_MAX)
 			node->my_sa.offset = node_pool_cnt;
 
 //			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
-			node->key_list.resize(NODE_SLOT_MAX);
+			node->key_list.resize(WARM_KEY_LIST_MAX);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
 			node_pool_cnt++;
@@ -1361,6 +1361,9 @@ void PH_List::clean()
 {
 #ifdef LIST_TRAVERSE_TEST
 	size_t max,use,bc;
+	int rc1=0,rc2=0;
+	int bs;
+	int gc;
 	ListNode* node;
 	NodeMeta* nodeMeta;
 	node = start_node;
@@ -1368,8 +1371,11 @@ void PH_List::clean()
 	while(node != end_node)
 	{
 		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+		bs = 0;
+		gc = 0;
 		while (nodeMeta)
 		{
+			gc++;
 //			if (nodeMeta->list_addr != nodeAddr_to_listAddr(COLD_LIST,node->myAddr))
 //				debug_error("node-list error\n");
 #ifdef PER_TEST
@@ -1382,10 +1388,17 @@ if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group
 //			use+=nodeMeta->valid_cnt;
 			use+=nodeMeta->size_sum;
 			max+=NODE_SIZE;
+			bs+=nodeMeta->size_sum;
+
 			nodeMeta = nodeMeta->next_node_in_group;
 		}
+		if (bs+NODE_SIZE <= gc*NODE_SIZE)
+			rc1++;
+		if (bs+NODE_SIZE*2 <= gc*NODE_SIZE)
+			rc2++;
 		node = node->next;
 	}
+	printf("rc1 %d rc2 %d\n",rc1,rc2);
 	printf("cold use %ld max %ld = %lf\n",use,max,double(use)/max);
 	printf("cold node cnt %ld size %lfGB\n",bc,double(bc)*NODE_SIZE/1024/1024/1024);
 #endif
