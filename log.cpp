@@ -69,6 +69,7 @@ void init_log(int num_pmem, int num_log)
 #endif
 
 #if 1
+//	HARD_EVICT_SPACE = log_size/10; // 5% 5%
 	HARD_EVICT_SPACE = log_size/20; // 5% 5%
 //	HARD_EVICT_SPACE = log_size/100; // 5% 1%
 	SOFT_EVICT_SPACE = log_size/2; // 10% 50%
@@ -307,8 +308,8 @@ void DoubleLog::ready_log(uint64_t value_size8)
 	if (offset+NODE_SIZE > my_size)
 		head_sum+=(my_size-offset);
 
-//	if (tail_sum + my_size < head_sum + ENTRY_SIZE)
-//		block_cnt++;
+	if (tail_sum + my_size < head_sum + required_size)
+		block_cnt++;
 	while(tail_sum + my_size < head_sum + required_size)
 	{
 		usleep(1);// sleep

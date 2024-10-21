@@ -202,6 +202,9 @@ namespace PH
 //			void resize(uint64_t length);
 			//	std::vector<unsigned char*> result;
 			void insert(unsigned char* p,int size);
+			unsigned char* get_buffer(int size);
+			void insert_from_header(unsigned char* header);
+			void setTarget(int target);
 
 #endif
 
@@ -212,7 +215,7 @@ namespace PH
 			int getCnt();
 
 		private:
-			int resultSize;
+			int resultTarget;
 			int resultCnt;
 			int resultOffset;
 			int resultPool;

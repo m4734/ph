@@ -44,30 +44,6 @@ struct EntryLoc
 	uint16_t valid : 1;
 	uint16_t offset : 15; // 32k
 };
-#if 0
-void init_warm_el(NodeMeta* nodeMeta) // only for 4KB
-{
-	int i,offset;
-	for (i=0;i<WARM_BATCH_CNT;i++) // 4
-	{
-		offset = i * WARM_BATCH_ENTRY_CNT;
-		nodeMeta->entryLoc[offset].valid = 0;
-		nodeMeta->entryLoc[offset].offset = WARM_BATCH_MAX_SIZE*i;
-
-		nodeMeta->entryLoc[offset+1].valid = 1;
-		nodeMeta->entryLoc[offset+1].offset = WARM_BATCH_MAX_SIZE*(i+1);
-	}
-	nodeMeta->entryLoc[0].offset = NODE_HEADER_SIZE;
-}
-void init_cold_el(NodeMeta* nodeMeta)
-{
-	nodeMeta->entryLoc[0].valid = 0;
-	nodeMeta->entryLoc[0].offset = NODE_HEADER_SIZE;
-	nodeMeta->entryLoc[1].valid = 1;
-	nodeMeta->entryLoc[1].offset = NODE_SIZE;
-}
-#endif
-
 
 struct NodeMeta
 {

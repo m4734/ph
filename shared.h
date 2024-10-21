@@ -15,11 +15,11 @@
 //-----------------------------
 
 #define WARM_STAT
-//#define SCAN_TIME
+#define SCAN_TIME
 
 //------------------------------
 
-//#define CC // cor check
+#define CC // cor check
 
 #ifdef CC
 

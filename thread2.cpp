@@ -78,14 +78,14 @@ namespace PH
 	//	extern const size_t WARM_BATCH_MAX_SIZE;
 	//	extern size_t WARM_BATCH_MAX_SIZE;
 	/*
-	extern size_t WARM_BATCH_ENTRY_CNT;
-	extern size_t WARM_GROUP_ENTRY_CNT;
-	extern size_t WARM_BATCH_CNT;
-	extern size_t WARM_NODE_ENTRY_CNT;
-	extern size_t WARM_LOG_MAX;
-	extern size_t WARM_LOG_MIN;
-	extern size_t WARM_LOG_THRESHOLD;
-*/
+	   extern size_t WARM_BATCH_ENTRY_CNT;
+	   extern size_t WARM_GROUP_ENTRY_CNT;
+	   extern size_t WARM_BATCH_CNT;
+	   extern size_t WARM_NODE_ENTRY_CNT;
+	   extern size_t WARM_LOG_MAX;
+	   extern size_t WARM_LOG_MIN;
+	   extern size_t WARM_LOG_THRESHOLD;
+	 */
 	extern Skiplist* skiplist;
 	extern PH_List* list;
 	//extern const size_t MAX_LEVEL;
@@ -529,7 +529,7 @@ namespace PH
 			split_buffer[group0_idx] = *list_dataNode_p[group0_idx]; // pmem to dram
 			old_nodeMeta[group0_idx] = list_nodeMeta;
 
-//			addr = split_buffer[group0_idx].buffer;
+			//			addr = split_buffer[group0_idx].buffer;
 			addr = (unsigned char*)&split_buffer[group0_idx];
 
 			ea.file_num = list_nodeMeta->my_offset.pool_num;
@@ -786,7 +786,7 @@ namespace PH
 				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
 				new_nodeMeta1[group1_idx]->entryLoc[j].offset = NODE_SIZE;
 				new_nodeMeta1[group1_idx]->el_cnt = j+1;
-			
+
 				group1_idx++;
 				addr = (unsigned char*)&sorted_buffer1[group1_idx];
 				offset = NODE_HEADER_SIZE;
@@ -811,8 +811,8 @@ namespace PH
 				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 1;
 				new_nodeMeta1[group1_idx]->size_sum+=entry_size;
 
-//				new_nodeMeta1[group1_idx]->valid[j] = true;
-//				new_nodeMeta1[group1_idx]->valid_cnt++;
+				//				new_nodeMeta1[group1_idx]->valid[j] = true;
+				//				new_nodeMeta1[group1_idx]->valid_cnt++;
 
 				dst_ea.large = ea.large;
 				dst_ea.offset = start_offset + offset;
@@ -824,7 +824,7 @@ namespace PH
 			else
 			{
 				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-//				new_nodeMeta1[group1_idx]->valid[j] = false;
+				//				new_nodeMeta1[group1_idx]->valid[j] = false;
 			}
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -887,8 +887,8 @@ namespace PH
 				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 1;
 				new_nodeMeta2[group2_idx]->size_sum+=entry_size;
 
-//				new_nodeMeta2[group2_idx]->valid[j] = true;
-//				new_nodeMeta2[group2_idx]->valid_cnt++;
+				//				new_nodeMeta2[group2_idx]->valid[j] = true;
+				//				new_nodeMeta2[group2_idx]->valid_cnt++;
 
 				dst_ea.large = ea.large;
 				dst_ea.offset = start_offset + offset;
@@ -900,7 +900,7 @@ namespace PH
 			else
 			{
 				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-//				new_nodeMeta2[group2_idx]->valid[j] = false;
+				//				new_nodeMeta2[group2_idx]->valid[j] = false;
 			}
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1206,13 +1206,13 @@ namespace PH
 			{ // this is not new update and the key is re inserted
 				hash_index->unlock_entry2(seg_lock,read_lock); // unlock
 				at_unlock2(listNode->lock);
-//				new_ea.value = kvp_p->value; 
+				//				new_ea.value = kvp_p->value; 
 				return emptyEntryAddr; // no invalidation
 			}
 
 			// What happen if we failed once and retry here...
 
-//			if (kvp_p->key == key)
+			//			if (kvp_p->key == key)
 			if (kvp_p->value != INV0)
 				real_old_ea.value = kvp_p->value;
 			else // first update
@@ -1271,16 +1271,16 @@ namespace PH
 #endif
 					_mm_sfence();	
 
-//					list_nodeMeta->entryLoc[i].valid = 0; // src inv  not here
+					//					list_nodeMeta->entryLoc[i].valid = 0; // src inv  not here
 					//					nodeMeta->valid_cnt--;
 
 					//need invalidation before unlock...
-//					hash_index->unlock_entry2(seg_lock,read_lock);
+					//					hash_index->unlock_entry2(seg_lock,read_lock);
 					at_unlock2(list_nodeMeta->rw_lock); // unlock dst rw lock
 					at_unlock2(listNode->lock);
 
 					//check
-//					warm_to_cold_cnt++; // to cold
+					//					warm_to_cold_cnt++; // to cold
 					return real_old_ea; // still have kv lock
 					break;
 				}
@@ -1310,7 +1310,7 @@ namespace PH
 				else // split
 				{
 					try_cold_split(listNode,skiplistNode);
-//					cold_split_cnt++;
+					//					cold_split_cnt++;
 					skiplistNode->find_half_listNode();
 
 				}
@@ -1334,7 +1334,7 @@ namespace PH
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 
-//		int cold_split_cnt = 0;
+		//		int cold_split_cnt = 0;
 
 		EntryAddr new_ea,old_ea;
 
@@ -1400,11 +1400,11 @@ namespace PH
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
-				break;
+			break;
 		}
 
-//		if (cold_split_cnt > 0)
-//			skiplist_node->find_half_listNode();
+		//		if (cold_split_cnt > 0)
+		//			skiplist_node->find_half_listNode();
 
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
@@ -1522,7 +1522,7 @@ namespace PH
 			   set_valid(new_version);
 			   new_ea.value = 0;
 			 */
-			 old_ea.value = 0;
+			old_ea.value = 0;
 		}
 		else
 		{
@@ -1558,14 +1558,14 @@ namespace PH
 			large_addr = largeAddr; // buffer for insert // src of value
 
 			value_size = sizeof(LargeAddr); // 8
-//			value_size = INV64; // for dtc
+							//			value_size = INV64; // for dtc
 			value = (unsigned char*)&large_addr;
 #else
 			dtc = true;
 #endif
 
-//			return 0;
-//			dtc = true;
+			//			return 0;
+			//			dtc = true;
 		}
 
 #ifdef USE_DTC
@@ -1756,8 +1756,8 @@ namespace PH
 			//			dst_log->insert_pmem_log(key,value_size,value);
 			dst_log->write_version(new_version.value); // has fence
 
-//			dst_log->head_sum_log[dst_log->head_sum_cnt] = dst_log->head_sum;
-//			dst_log->head_sum_cnt++;
+			//			dst_log->head_sum_log[dst_log->head_sum_cnt] = dst_log->head_sum;
+			//			dst_log->head_sum_cnt++;
 			dst_log->head_sum+=LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8;//ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE; // NO JUMP SIZE
 
 			//check
@@ -1862,16 +1862,16 @@ namespace PH
 
 			if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot or warm
 			{
-//				doubleLogList[ea.file_num].log_check();
-//				size_t old_tail_sum,logical_tail,logical_offset,diff;
-//				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
+				//				doubleLogList[ea.file_num].log_check();
+				//				size_t old_tail_sum,logical_tail,logical_offset,diff;
+				//				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
 				/*
-				logical_tail = old_tail_sum % doubleLogList[ea.file_num].my_size;
-				if (old_tail_sum > ea.offset)
-					logical_offset = ea.offset + doubleLogList[ea.file_num].my_size;
-				else
-					logical_offset = ea.offset;
-*/
+				   logical_tail = old_tail_sum % doubleLogList[ea.file_num].my_size;
+				   if (old_tail_sum > ea.offset)
+				   logical_offset = ea.offset + doubleLogList[ea.file_num].my_size;
+				   else
+				   logical_offset = ea.offset;
+				 */
 				if (ea.offset < doubleLogList[ea.file_num].tail_sum)
 					continue;
 				addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
@@ -1888,12 +1888,12 @@ namespace PH
 					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
 				}
 				/*
-				if (value_size >= NODE_SIZE)
-				{
-					debug_error("invalid log addr\n");
-					continue;
-				}
-				*/
+				   if (value_size >= NODE_SIZE)
+				   {
+				   debug_error("invalid log addr\n");
+				   continue;
+				   }
+				 */
 				if (buf)
 					memcpy(buf,value_addr,value_size);
 				else
@@ -1917,15 +1917,15 @@ namespace PH
 				//				if (ea.value != kvp_p->value) // value is unique ?
 				//					continue;
 
-/*
-				diff = doubleLogList[ea.file_num].tail_sum-old_tail_sum;
-				if (logical_tail+diff > logical_offset) // entry may be overwritten // try again
-					continue;
-					*/
+				/*
+				   diff = doubleLogList[ea.file_num].tail_sum-old_tail_sum;
+				   if (logical_tail+diff > logical_offset) // entry may be overwritten // try again
+				   continue;
+				 */
 
 				if (doubleLogList[ea.file_num].tail_sum > ea.offset)
 					continue;
-//				doubleLogList[ea.file_num].log_check();
+				//				doubleLogList[ea.file_num].log_check();
 
 			}
 			else // warm cold
@@ -2050,9 +2050,13 @@ namespace PH
 		for (i=0;i<resultPool;i++)
 			free(pool_list[i]);
 	}
+	void Scan_Result::setTarget(int target)
+	{
+		resultTarget = target;
+	}
 	void Scan_Result::insert(unsigned char* p,int size)
 	{
-		if (resultCnt >= resultSize)
+		if (resultCnt >= resultTarget)
 			return;
 		if (resultOffset + size > DEFAULT_SCAN_POOL_SIZE)
 		{
@@ -2068,6 +2072,26 @@ namespace PH
 		resultCnt++;
 		resultOffset+=size;
 	}
+	unsigned char* Scan_Result::get_buffer(int size)
+	{
+		if (resultCnt >= resultTarget)
+			return NULL;
+		if (resultOffset + size > DEFAULT_SCAN_POOL_SIZE)
+		{
+			pool_list.push_back((unsigned char*)malloc(DEFAULT_SCAN_POOL_SIZE));
+			resultOffset = 0;
+			resultPool++;
+		}
+		//		memcpy(pool_list[resultPool-1]+resultOffset,p,size);
+		NodeAddr loc;
+		loc.pool_num = resultPool-1;
+		loc.node_offset = resultOffset;
+		entry_loc_list.push_back(loc);
+		resultCnt++;
+		resultOffset+=size;
+
+		return pool_list[resultPool-1]+resultOffset;
+	}
 	void Scan_Result::empty()
 	{
 		resultCnt = 0;
@@ -2075,25 +2099,37 @@ namespace PH
 
 		entry_loc_list.clear();
 	}
-#if 0
-	void Scan_Result::resize(uint64_t length)
-	{
-		if (resultSize >= length)
-			return;
-		delete result;
-		result = new unsigned char[ENTRY_SIZE*length];
-		resultSize = length;
-	}
-#endif
 	int Scan_Result::getCnt()
 	{
 		return resultCnt;
 	}
 
+	void Scan_Result::insert_from_header(unsigned char* header)
+	{
+		uint64_t value_size;
+		unsigned char* large_addr;
+		unsigned char* dst_addr;
+
+		if (((EntryHeader*)header)->large_bit)
+		{
+			large_addr = get_large_from_addr(header);
+			value_size = *(uint64_t*)large_addr;
+			dst_addr = get_buffer(ENTRY_SIZE_WITHOUT_VALUE+value_size);
+			if (dst_addr == NULL)
+				return;
+			memcpy(dst_addr,header,ENTRY_HEADER_SIZE+KEY_SIZE);
+			memcpy(dst_addr+ENTRY_HEADER_SIZE+KEY_SIZE,large_addr,SIZE_SIZE+value_size);
+		}
+		else
+		{
+			value_size = *(uint64_t*)(header+ENTRY_HEADER_SIZE+KEY_SIZE);
+			insert(header,ENTRY_SIZE_WITHOUT_VALUE+value_size);
+		}
+
+	}
+
 	int PH_Query_Thread::scan_op(uint64_t start_key,uint64_t length)
 	{
-		return 0;
-#if 0
 		//	update_free_cnt();
 		op_check();
 
@@ -2125,8 +2161,9 @@ namespace PH
 		int group_idx;
 		int size;
 
-//		scan_result.resize(length);
+		//		scan_result.resize(length);
 		scan_result.empty();
+		scan_result.setTarget(length);
 
 		while(1) // find first
 		{
@@ -2180,6 +2217,8 @@ namespace PH
 		_mm_sfence();
 #endif
 
+		int end_batch;
+
 		while(scan_result.getCnt() < length && skiplistNode != skiplist->end_node)
 		{
 			while(1)
@@ -2232,11 +2271,13 @@ namespace PH
 							ex = 0;
 							break;
 						}
+						if (ea.offset < doubleLogList[ea.file_num].tail_sum)
+							continue;
 						addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
 						//						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
 						if (seg_depth_p != NULL && seg_depth != *seg_depth_p)
 							continue;
-						if (is_valid((EntryHeader*)addr) == false)
+						if (((EntryHeader*)addr)->valid_bit == false)
 							continue;
 						skiplist_key_list.push_back(std::make_pair(key,addr));
 					}
@@ -2268,21 +2309,21 @@ namespace PH
 				//				at_unlock2(nodeMeta->rw_lock);
 
 				addr = (unsigned char*)&sorted_buffer1[group_idx];
+				end_batch = 0;
 				for (i=0;i<WARM_BATCH_CNT;i++)
 				{
-					addr = (unsigned char*)&sorted_buffer1[group_idx] + WARM_BATCH_MAX_SIZE*i + NODE_HEADER_SIZE;
-					offset = 0;
-					//					j = 0;
-					for (j=0;j<WARM_BATCH_ENTRY_CNT;j++)
-						//					while(offset+ENTRY_SIZE <= WARM_BATCH_MAX_SIZE)
+					end_batch+=WARM_BATCH_MAX_SIZE;
+//					addr = (unsigned char*)&sorted_buffer1[group_idx] + WARM_BATCH_MAX_SIZE*i;
+					for (j=i*WARM_BATCH_ENTRY_CNT;j<NODE_SLOT_MAX;j++) // 20?
 					{
-						if (nodeMeta->valid[j])
+						if (nodeMeta->entryLoc[j].valid)
 						{
-							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
+							key = *(uint64_t*)(addr+nodeMeta->entryLoc[j].offset+ENTRY_HEADER_SIZE);
 							if (key >= start_key)
-								skiplist_key_list.push_back(std::make_pair(key,addr+offset));
+								skiplist_key_list.push_back(std::make_pair(key,addr+nodeMeta->entryLoc[j].offset));
 						}
-						offset+=ENTRY_SIZE;
+						else if (nodeMeta->entryLoc[j].offset >= end_batch) // or ... +1024
+							break;
 						//						j++;
 					}
 				}
@@ -2329,19 +2370,17 @@ namespace PH
 					//					sorted_buffer2[group_idx] = *dataNode; // the name is
 					memcpy(&sorted_buffer2[group_idx],dataNode,NODE_SIZE);
 
-					addr = sorted_buffer2[group_idx].buffer;
-					offset = 0;
+					addr = (unsigned char*)&sorted_buffer2[group_idx];
 
 					i = 0;
-					while(offset+ENTRY_SIZE <= NODE_BUFFER_SIZE)
+					while(nodeMeta->entryLoc[i].offset < NODE_SIZE)
 					{
-						if (nodeMeta->valid[i])
+						if (nodeMeta->entryLoc[i].valid)
 						{
-							key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
+							key = *(uint64_t*)(addr+nodeMeta->entryLoc[i].offset+ENTRY_HEADER_SIZE);
 							if (key >= start_key)
-								list_key_list.push_back(std::make_pair(key,addr+offset));
+								list_key_list.push_back(std::make_pair(key,addr+nodeMeta->entryLoc[i].offset));
 						}
-						offset+=ENTRY_SIZE;
 						i++;
 					}
 
@@ -2368,6 +2407,8 @@ namespace PH
 
 				//pop
 #if 1
+				unsigned char* header;
+
 				if (skiplist_key_list.size() > sklt && list_key_list.size() > lklt)
 				{
 					key1 = skiplist_key_list[sklt].first;
@@ -2376,7 +2417,7 @@ namespace PH
 					{
 						if (key1 < key2)
 						{
-							scan_result.insert(skiplist_key_list[sklt].second);
+							scan_result.insert_from_header(skiplist_key_list[sklt].second);
 							sklt++;
 							if (skiplist_key_list.size() == sklt)
 								break;
@@ -2384,7 +2425,7 @@ namespace PH
 						}
 						else
 						{
-							scan_result.insert(list_key_list[lklt].second);
+							scan_result.insert_from_header(list_key_list[lklt].second);
 							lklt++;
 							if (list_key_list.size() == lklt)
 								break;
@@ -2397,7 +2438,7 @@ namespace PH
 					size = list_key_list.size();
 					for (i=lklt;i<size;i++)
 					{
-						scan_result.insert(list_key_list[lklt].second);
+						scan_result.insert_from_header(list_key_list[lklt].second);
 						lklt++;
 					}
 				}
@@ -2420,7 +2461,7 @@ namespace PH
 				for (i=sklt;i<size;i++)
 				{
 #if 1
-					scan_result.insert(skiplist_key_list[sklt].second);
+					scan_result.insert_from_header(skiplist_key_list[sklt].second);
 					sklt++;
 #endif
 				}
@@ -2457,7 +2498,6 @@ namespace PH
 #endif
 
 		return scan_result.getCnt();
-#endif
 	}
 	int PH_Query_Thread::next_op(unsigned char* buf)
 	{
@@ -2904,8 +2944,8 @@ namespace PH
 				warm_to_cold_cnt++;
 			}
 
-//			else
-//				debug_error("empty ettr\n");
+			//			else
+			//				debug_error("empty ettr\n");
 			i++; // have to sucess...
 
 		}
@@ -3058,12 +3098,12 @@ namespace PH
 
 			if (batch_num == 0)
 			{
-//				written_size = NODE_HEADER_SIZE;
+				//				written_size = NODE_HEADER_SIZE;
 				start_offset = base_offset + node->current_batch_size+NODE_HEADER_SIZE; // < 1024
 			}
 			else
 			{
-//				written_size = 0;
+				//				written_size = 0;
 				start_offset = base_offset + node->current_batch_size;
 			}
 
@@ -3131,8 +3171,8 @@ namespace PH
 
 				//				else
 				{
-//					if ((start_index+write_cnt)/20 != (start_offset+written_size)/WARM_BATCH_MAX_SIZE)
-//						debug_error("mispamthc\n");
+					//					if ((start_index+write_cnt)/20 != (start_offset+written_size)/WARM_BATCH_MAX_SIZE)
+					//						debug_error("mispamthc\n");
 					nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
 					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size;
 
@@ -3161,8 +3201,8 @@ namespace PH
 				continue;
 			}
 
-//			if ((start_index+write_cnt)/20 != (start_offset+written_size-1)/WARM_BATCH_MAX_SIZE)
-//				debug_error("mispamthc\n");
+			//			if ((start_index+write_cnt)/20 != (start_offset+written_size-1)/WARM_BATCH_MAX_SIZE)
+			//				debug_error("mispamthc\n");
 
 			nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
 			nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset +written_size;
@@ -3186,11 +3226,12 @@ namespace PH
 				// we need 256 align
 #if 1
 				int padding = end_offset-start_offset-written_size;
+				padding%=256;
 				uint64_t first_header = *(uint64_t*)(evict_buffer+start_offset);
 				*(uint64_t*)(evict_buffer+start_offset) = 0;
 				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,written_size+padding);
 				_mm_sfence();
-//				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,ENTRY_HEADER_SIZE); // persist--------------------
+				//				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,ENTRY_HEADER_SIZE); // persist--------------------
 				pmem_nt_write(dst_node+start_offset,(unsigned char*)&first_header,ENTRY_HEADER_SIZE); // persist--------------------
 				_mm_sfence();
 #else
@@ -3291,14 +3332,14 @@ namespace PH
 
 			node->list_tail = i_dst;
 			//			node->data_head+= write_cnt;
-			
+
 			if (node->list_tail < node->list_head)
 			{
 				node->data_head++;
 				node->current_batch_size = 0;
 				node->current_batch_index = 0;
 			}
-			
+
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
 		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
@@ -3542,8 +3583,8 @@ namespace PH
 			//		if (dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space && dl->head_sum + dl->hard_evict_space < dl->soft_adv_offset + dl->my_size)//HARD_EVICT_SPACE)
 			//			break;
 
-//			if (dl->soft_adv_offset != dl->head_sum_log[dl->adv_cnt])
-//				debug_error("not match\n");
+			//			if (dl->soft_adv_offset != dl->head_sum_log[dl->adv_cnt])
+			//				debug_error("not match\n");
 
 			addr = dl->dramLogAddr + ((dl->soft_adv_offset) % dl->my_size);
 			header.value = *(uint64_t*)addr;
@@ -3604,8 +3645,8 @@ namespace PH
 					//	else
 					//					if (node->list_tail + WARM_NODE_ENTRY_CNT > node->list_head) // list has space
 					//					if (node->list_head - node->list_tail < WARM_NODE_ENTRY_CNT)//WARM_BATCH_ENTRY_CNT)// WARM_LOG_MIN)
-//					if (node->list_head - node->list_tail < NODE_SLOT_MAX)// WARM_LOG_MIN)
-//					if (node->current_batch_size + node->list_size_sum <= WARM_BATCH_MAX_SIZE && node->list_head - node->list_tail < NODE_SLOT_MAX)
+					//					if (node->list_head - node->list_tail < NODE_SLOT_MAX)// WARM_LOG_MIN)
+					//					if (node->current_batch_size + node->list_size_sum <= WARM_BATCH_MAX_SIZE && node->list_head - node->list_tail < NODE_SLOT_MAX)
 					{
 						//						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
 						node->entry_list[node->list_head%NODE_SLOT_MAX] = ll;
@@ -3614,8 +3655,8 @@ namespace PH
 						node->list_head++; // lock...
 						node->list_size_sum+=value_size8;
 
-//						at_unlock2(node->lock);
-//						break; // in the list // 
+						//						at_unlock2(node->lock);
+						//						break; // in the list // 
 					}
 
 					//					set_checked((uint64_t*)addr);
@@ -3645,7 +3686,7 @@ namespace PH
 			dl->soft_adv_offset+=LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;//LOG_ENTRY_SIZE;
 			if ((dl->soft_adv_offset)%dl->my_size  + NODE_SIZE/*LOG_ENTRY_SIZE*/ > dl->my_size)
 				dl->soft_adv_offset+=(dl->my_size-(dl->soft_adv_offset%dl->my_size));
-//			dl->adv_cnt++;
+			//			dl->adv_cnt++;
 
 			// don't move tail sum
 		}

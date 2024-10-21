@@ -1378,9 +1378,10 @@ if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group
 	debug_error("failed\n");
 #endif
 			bc++;
-			max+=NODE_SLOT_MAX;
+//			max+=NODE_SLOT_MAX;
 //			use+=nodeMeta->valid_cnt;
 			use+=nodeMeta->size_sum;
+			max+=NODE_SIZE;
 			nodeMeta = nodeMeta->next_node_in_group;
 		}
 		node = node->next;
