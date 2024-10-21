@@ -59,6 +59,7 @@ extern int log_max;
 	std::atomic<uint64_t> warm_to_cold_sum;
 	std::atomic<uint64_t> direct_to_cold_sum;
 	std::atomic<uint64_t> hot_to_hot_sum;
+	std::atomic<uint64_t> cold_split_sum;
 	std::atomic<uint64_t> hot_to_cold_sum;
 
 	std::atomic<uint64_t> soft_htw_sum;
@@ -94,6 +95,7 @@ void PH_Interface::global_reset_test()
 	for (i=0;i<log_max;i++)
 		doubleLogList[i].block_cnt = 0;
 
+	cold_split_sum = 0;
 	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
@@ -374,6 +376,8 @@ printf("ccc\n");
 
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());
+
+	printf("cold split sum %lu\n",cold_split_sum.load());
 
 	printf("data sum sum %lfGB large sum %lu large cnt %lu\n",double(data_sum_sum)/1024/1024/1024,ld_sum_sum.load(),ld_cnt_sum.load());
 }
