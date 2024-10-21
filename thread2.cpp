@@ -1230,6 +1230,17 @@ namespace PH
 
 				if (new_ea.value != 0)
 				{
+					if (kvp_p->value == INV0)
+					{
+						data_sum+=value_size8+KEY_SIZE;
+						if (value_size8 >= LARGE_VALUE_THRESHOLD)
+						{
+							ld_sum+=value_size8+KEY_SIZE;
+							ld_cnt++;
+						}
+						else
+							debug_error("???\n");
+					}
 					kvp_p->value = new_ea.value;
 #ifdef DST_CHECK
 					EA_test(key,new_ea);
@@ -1632,14 +1643,16 @@ namespace PH
 		bool dtc;
 		DoubleLog* dst_log;
 		Loc dst_loc;
-
+#ifdef LARGE_ALLOC
 		if (value_size > LARGE_VALUE_THRESHOLD)
 		{
+			LargeAddr largeAddr;
+
 //			return 0;
-			dtc = true;
+//			dtc = true;
 		}
-		else
-			dtc = false;
+#endif
+		dtc = false;
 
 #ifdef USE_DTC
 		if (ex == 0 && false)
@@ -1793,7 +1806,7 @@ namespace PH
 			if (kvp_p->key != key) // new key...
 			{
 				data_sum+=value_size+KEY_SIZE;
-				if (value_size >- LARGE_VALUE_THRESHOLD)
+				if (value_size >= LARGE_VALUE_THRESHOLD)
 				{
 					ld_sum+=value_size+KEY_SIZE;
 					ld_cnt++;

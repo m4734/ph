@@ -9,6 +9,7 @@
 #include "lock.h"
 #include "skiplist.h"
 #include "data2.h"
+#include "large.h"
 
 namespace PH
 {
@@ -21,6 +22,7 @@ extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
 extern Skiplist* skiplist;
 extern PH_List* list;
+extern LargeAlloc* largeAlloc;
 
 extern NodeAllocator* nodeAllocator;
 
@@ -217,6 +219,8 @@ void PH_Interface::global_init(size_t max_data_size,int n_t,int n_p,int n_e,int 
 		skiplist->init(TOTAL_DATA_SIZE/1); // test
 //	skiplist->init(TOTAL_DATA_SIZE/10); // warm 1/10...
 
+	largeAlloc = new LargeAlloc();
+
 	if (recover)
 	{
 		printf("recover start\n");
@@ -328,6 +332,8 @@ printf("cc\n");
 	delete list;
 printf("ccc\n");
 	nodeAllocator->clean();
+
+	delete largeAlloc;
 
 	int i;
 	size_t hbs=0;

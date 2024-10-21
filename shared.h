@@ -10,6 +10,7 @@
 #define WARM_CACHE
 #define SCAN_SORT
 #define USE_DTC
+#define LARGE_ALLOC
 
 //-----------------------------
 
@@ -161,7 +162,8 @@ union EntryHeader
 		struct
 		{
 			size_t loc : 2; // 1 hot / 2 warm / 3 cold	
-			size_t file_num : 14;
+			size_t large : 1;
+			size_t file_num : 13;
 			size_t offset : 48;  // .. 2^16 * 4 G
 		};
 		uint64_t value;
@@ -250,4 +252,12 @@ union EntryHeader
 		return (value_size+8-1)/8*8;
 //		return value_size + (8-value_size%8);
 	}
+
+	const uint16_t INV16 = 0xffff;//2^16-1
+	struct LargeAddr
+	{
+		uint16_t unit;
+		uint16_t pool;
+		uint32_t cnt;
+	};
 }
