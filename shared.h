@@ -12,7 +12,7 @@
 #define USE_DTC
 #define LARGE_ALLOC
 //#define FORCE_HOT_TO_COLD
-
+//#define FORCE_DTC
 //-----------------------------
 
 #define WARM_STAT

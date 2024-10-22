@@ -1268,8 +1268,8 @@ namespace PH
 							ld_sum+=value_size8+KEY_SIZE;
 							ld_cnt++;
 						}
-						else
-							debug_error("???\n");
+//						else
+//							debug_error("???\n");
 					}
 					new_ea.large = old_ea.large;//...
 					kvp_p->value = new_ea.value;
@@ -1587,6 +1587,10 @@ namespace PH
 			//			dtc = true;
 		}
 
+#ifdef FORCE_DTC
+	dtc = true;
+#endif
+
 #ifdef USE_DTC
 		if (ex == 0 && false)
 			dtc = true;
@@ -1767,7 +1771,8 @@ namespace PH
 
 			dst_log->insert_dram_log(new_version.value,key,value_size,value,&warm_cache);
 #else
-			dst_log->insert_dram_log(new_version.value,key,value_size,value);
+			warm_cache = emptyNodeAddr;
+			dst_log->insert_dram_log(new_version.value,key,value_size,value,&warm_cache);
 #endif
 
 #endif

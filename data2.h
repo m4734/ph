@@ -28,7 +28,7 @@ const size_t POOL_MAX = 1024;
 const size_t POOL_SIZE = 1024*1024*1024;//1GB
 */
 const size_t POOL_MAX = 64*1024;
-const size_t POOL_SIZE = 64*1024*4096;
+const size_t POOL_SIZE = 16*1024*4096;
 const size_t POOL_NODE_MAX = POOL_SIZE/NODE_SIZE; // 1GB / 4KB = 256K
 //const size_t POOL_NODE_MAX = 64*1024;
 
