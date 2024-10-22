@@ -259,6 +259,7 @@ namespace PH
 			nm->init_warm_el();
 		else if (loc == COLD_LIST)
 			nm->init_cold_el();
+		nm->last_index = 0;
 
 		//pmem memset
 		DataNode* dataNode = nodeAddr_to_node(nm->my_offset);
@@ -419,6 +420,30 @@ namespace PH
 		}
 		debug_error("inv can't find\n");
 		return 0;
+	}
+
+	int NodeMeta::find_nfi(int entry_size)
+	{
+		int start_index = last_index+1;
+
+		while(last_index+2 < el_cnt)
+		{
+			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
+				return last_index;
+			last_index++;
+		}
+
+		last_index = 0;
+
+		while(last_index+2 <= start_index)
+		{
+			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
+				return last_index;
+			last_index++;
+		}
+
+		return -1;
+		
 	}
 
 	int NodeMeta::el_clean(int entry_size,int &bfv) // return best fit

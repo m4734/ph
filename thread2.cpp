@@ -398,6 +398,41 @@ namespace PH
 
 		int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 		EntryAddr new_ea;
+#if 0 
+//-------------------------------------------- //try next fit
+
+int nfi = nodeMeta->find_nfi(entry_size);
+if (nfi >= 0)
+{
+	printf("fit\n");
+	new_ea.loc = 3; // cold
+	new_ea.large = large_value;
+	new_ea.file_num = nodeMeta->my_offset.pool_num;
+		//		if (slot_idx < NODE_SLOT_MAX)
+		{
+			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
+			new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+
+			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+			{
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+				nodeMeta->entryLoc[nfi].valid = 1;
+			}
+			nodeMeta->size_sum+=entry_size;
+
+			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+			listNode->size_sum+=entry_size;
+
+		}
+
+		return new_ea;
+
+}
+#endif
+//-------------------------------------------------------
+
+
+
 		int bfv;	
 		int bfi = nodeMeta->el_clean(entry_size,bfv);
 		if (bfi < 0) // no space

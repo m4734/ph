@@ -51,6 +51,7 @@ struct NodeMeta
 	void init_cold_el();
 	int invalidate(EntryAddr ea);// size is regutned...
 	int el_clean(int entry_size,int &bfv);
+	int find_nfi(int entryi_size);
 //	NodeMeta() : valid(NULL) {}
 //	~NodeMeta() { delete valid; }
 //	volatile uint64_t next_offset;
@@ -87,6 +88,7 @@ struct NodeMeta
 
 	EntryLoc* entryLoc;
 	int el_cnt;
+	int last_index;//next fit
 	std::atomic<int> size_sum;
 	int max_empty;
 	bool need_clean;
