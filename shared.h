@@ -247,7 +247,7 @@ union EntryHeader
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len);
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
-	inline unsigned char* get_entry(EntryAddr &ea);
+	/*inline */unsigned char* get_entry(EntryAddr &ea);
 
 	inline EntryAddr nodeAddr_to_listAddr(Loc loc, NodeAddr &nodeAddr)
 	{

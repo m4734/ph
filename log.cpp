@@ -194,11 +194,11 @@ void DoubleLog::init(char* filePath, size_t req_size,size_t hes,size_t ses)
 
 void DoubleLog::recover() // should be last...
 {
-#if 0
+#if 1
 	memcpy(dramLogAddr,pmemLogAddr,my_size);
 
 	size_t offset;
-	uint64_t key,v1,v2;
+	uint64_t key,v1,v2,value_size8;
 	EntryHeader* header1;
 	EntryHeader* header2;
 	offset = 0;
@@ -222,14 +222,25 @@ void DoubleLog::recover() // should be last...
 //do 
 		header1 = (EntryHeader*)addr;
 
-		if (header1->version > 0)
+		if (header1->value == 0) // end of log
+			break;
+
+		if (header1->valid_bit == 0 && header1->delete_bit == 0) // jump
+		{
+			offset = header1->version;
+			addr = dramLogAddr+header1->version;
+			continue;
+		}
+
+
+//		if (header1->version > 0)
 		{
 			update = true;
 
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 
-//			if (key == 15307025541213771458UL)
-//				debug_error("hot key error here\n");
+			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = get_v8(value_size8);
 
 			kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 			v1 = header1->version;
@@ -241,7 +252,7 @@ void DoubleLog::recover() // should be last...
 				if (v1 < v2)
 				{
 					update = false;
-					header1->valid = false;// if it is on HOTLOG
+					header1->valid_bit = false;// if it is on HOTLOG
 				}
 				else
 					invalidate_entry(ea2);
@@ -267,35 +278,22 @@ void DoubleLog::recover() // should be last...
 		}
 
 
-		addr += LOG_ENTRY_SIZE;
-		offset += LOG_ENTRY_SIZE;
+		addr += LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;
+		offset += LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 	}
 
-	head_sum = my_size-(my_size%LOG_ENTRY_SIZE);
+//	head_sum = my_size-(my_size%LOG_ENTRY_SIZE);
+	head_sum = offset; // must be break by header 0....
 	tail_sum = 0;
 #endif
 }
 
 void DoubleLog::clean()
 {
-//	printf("%lu %lu\n",my_size,log_size);
-#if 0
-	int i;
-	for (i=0;i<dram_list_pool_cnt;i++)
-		free(dram_list_pool[i]);
-	free(dram_list_pool);
-#endif
-//printf(" my size %lu\n",my_size);
 #ifdef USE_DRAM_CACHE
 	munmap(dramLogAddr,my_size);
 #endif
 	pmem_unmap(pmemLogAddr,my_size);
-}
-
-void DoubleLog::log_check()
-{
-	if (head_sum < tail_sum)
-		debug_error("xxx\n");
 }
 
 void DoubleLog::ready_log(uint64_t value_size8)

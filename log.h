@@ -36,7 +36,6 @@ class DoubleLog
 
 
 	public: // lazy
-	void log_check(); //debug
 
 //	size_t log_size;
 	size_t my_size;

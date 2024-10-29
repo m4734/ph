@@ -13,18 +13,19 @@ namespace PH
 {
 	extern DoubleLog* doubleLogList;
 	extern NodeAllocator* nodeAllocator;
-//	extern size_t WARM_BATCH_ENTRY_CNT;
-//	extern size_t ENTRY_SIZE;
+	//	extern size_t WARM_BATCH_ENTRY_CNT;
+	//	extern size_t ENTRY_SIZE;
 	extern PH_List* list;
 	extern Skiplist* skiplist;
 	extern LargeAlloc* largeAlloc;
 
-void debug_error(const char* msg)
-{
-	printf("error----------------------------------------\n");
-	printf("%s\n",msg);
-}
-	inline unsigned char* get_entry(EntryAddr &ea)
+	void debug_error(const char* msg)
+	{
+		printf("error----------------------------------------\n");
+		printf("%s\n",msg);
+	}
+
+	/*inline */unsigned char* get_entry(EntryAddr &ea)
 	{
 		if (ea.loc == HOT_LOG)
 			return doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
@@ -32,30 +33,30 @@ void debug_error(const char* msg)
 			return (unsigned char*)nodeAllocator->nodePoolList[ea.file_num]+ea.offset;
 	}
 
-/*inline */unsigned char* get_large_from_addr(unsigned char* addr)
-{
-	LargeAddr la;
-	la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
-	return largeAlloc->read(la);
-}
+	/*inline */unsigned char* get_large_from_addr(unsigned char* addr)
+	{
+		LargeAddr la;
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		return largeAlloc->read(la);
+	}
 
-/*inline */void invalidate_large_from_ea(EntryAddr &ea)
-{
-	unsigned char* addr = get_entry(ea);
-	LargeAddr la;
-	la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
-	largeAlloc->invalidate(la);
-}
-/*inline */void invalidate_large_from_addr(unsigned char* addr)
-{
-	LargeAddr la;
-	la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
-	largeAlloc->invalidate(la);
-}
+	/*inline */void invalidate_large_from_ea(EntryAddr &ea)
+	{
+		unsigned char* addr = get_entry(ea);
+		LargeAddr la;
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		largeAlloc->invalidate(la);
+	}
+	/*inline */void invalidate_large_from_addr(unsigned char* addr)
+	{
+		LargeAddr la;
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		largeAlloc->invalidate(la);
+	}
 
 	void EA_test(uint64_t key, EntryAddr ea)
 	{
-//		printf("not now\n");
+		//		printf("not now\n");
 		if (ea.loc == HOT_LOG)
 		{
 			if (key != *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr+get_log_offset(ea)+ENTRY_HEADER_SIZE))
@@ -66,13 +67,13 @@ void debug_error(const char* msg)
 		{
 			if (key != *(uint64_t*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE))
 				debug_error("ea error!\n");
-				/*
-			if (ea.loc == COLD_LIST)
-			{
-				if (((ea.offset % 4096)-16)%128 != 0)
-					debug_error("fixed error\n");
-			}
-			*/
+			/*
+			   if (ea.loc == COLD_LIST)
+			   {
+			   if (((ea.offset % 4096)-16)%128 != 0)
+			   debug_error("fixed error\n");
+			   }
+			 */
 		}
 	}
 
@@ -130,9 +131,9 @@ void debug_error(const char* msg)
 	}
 
 #if 1
-// dtc kv skip
-// hth kv
-// htw kv skip
+	// dtc kv skip
+	// hth kv
+	// htw kv skip
 
 	void invalidate_entry(EntryAddr &ea,bool try_merge) // need kv lock
 	{
@@ -143,7 +144,7 @@ void debug_error(const char* msg)
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
 			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
-							 //			hot_to_hot_cnt++; // log to hot
+							     //			hot_to_hot_cnt++; // log to hot
 			if (ea.large)
 			{
 				LargeAddr la;
@@ -178,7 +179,7 @@ void debug_error(const char* msg)
 			{
 #if 0 // reducd not now
 				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
-//				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
+				//				ListNode* listNode = list->addr_to_listNode(nm->list_addr);
 				listNode->valid_cnt--;
 
 				if (try_merge)
@@ -200,7 +201,7 @@ void debug_error(const char* msg)
 							}
 						}
 					}
-//					else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+					//					else if (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
 					if (need_reduce(listNode))
 					{
 						rv = try_reduce_group(listNode);// need more test
