@@ -1696,7 +1696,7 @@ if (nfi >= 0)
 			new_ea.loc = dst_loc;
 			new_ea.large = large_value;
 			new_ea.file_num = dst_log->log_num;
-			new_ea.offset = dst_log->head_sum;// % dst_log->my_size;
+			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite
 
 #ifdef HOT_KEY_LIST
 			while(1)
@@ -3179,10 +3179,19 @@ if (nfi >= 0)
 			for (i=node->list_tail;i<node->list_head;i++)
 			{
 				li = i % NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT; // need list max
+
+
 				ll = node->entry_list[li];
 				dl = &doubleLogList[ll.log_num];
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 
+
+/*
+				if (ll.log_num == 0 && li == 12)
+				{
+					debug_error("ehereee??\n");
+				}
+*/
 				header = (EntryHeader*)addr;
 				value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 				value_size8 = get_v8(value_size8);
@@ -3244,7 +3253,7 @@ if (nfi >= 0)
 					//					if ((start_index+write_cnt)/20 != (start_offset+written_size)/WARM_BATCH_MAX_SIZE)
 					//						debug_error("mispamthc\n");
 					nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
-					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size;
+					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size; // 0~NODE_SIZE
 
 					//					node->list_size_sum-=value_size8;
 					node->list_size_sum-=ll.size;
@@ -3365,7 +3374,7 @@ if (nfi >= 0)
 				src_addr.loc = HOT_LOG;
 				src_addr.large = header->large_bit;
 				src_addr.file_num = ll.log_num;
-				src_addr.offset = ll.offset;//%dl->my_size; // dobuleloglist log num my size
+				src_addr.offset = ll.offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
 
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				if (kvp_p->value == src_addr.value)
@@ -3397,7 +3406,9 @@ if (nfi >= 0)
 #if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
 				else // inserted during hot to warm
 				{
-					//					debug_error("htw\n");
+//					debug_error("htw0\n");
+					if (header->valid_bit)
+						debug_error("htw\n");
 					//					nodeMeta->valid[slot_index] = false; // validate fail
 
 				}
@@ -3535,6 +3546,9 @@ if (nfi >= 0)
 			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 			value_size8 = get_v8(value_size8);
 			// evict now
+
+//			if (key == 14272674034553496781UL)
+//				debug_error("first\n");
 
 			if (header.valid_bit == false)
 			{

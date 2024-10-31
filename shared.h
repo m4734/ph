@@ -34,7 +34,7 @@
 #define DST_CHECK
 #define SPLIT_KEY_TEST
 
-//#define NO_EXIST
+#define NO_EXIST
 
 //#define TIME_STAT
 

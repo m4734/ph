@@ -197,7 +197,8 @@ void DoubleLog::recover() // should be last...
 #if 1
 	memcpy(dramLogAddr,pmemLogAddr,my_size);
 
-	size_t offset;
+	size_t offset,jump_head,jump_tail;
+	int jump = 0;
 	uint64_t key,v1,v2,value_size8;
 	EntryHeader* header1;
 	EntryHeader* header2;
@@ -227,8 +228,21 @@ void DoubleLog::recover() // should be last...
 
 		if (header1->valid_bit == 0 && header1->delete_bit == 0) // jump
 		{
-			offset = header1->version;
-			addr = dramLogAddr+header1->version;
+			if (offset+NODE_SIZE > my_size) // it is end of the log
+				break;
+			if (jump)
+				debug_error("jump twice\n");
+			jump =1;
+			jump_head = offset;
+			jump_tail = header1->version%my_size;
+			// it has to be head ...
+			if (jump_tail <= offset) // already done // |---------- tail xxxxxxxxxx head ----------|
+			{
+				jump = 2;
+				break;
+			}
+			offset = jump_tail;
+			addr = dramLogAddr+offset;
 			continue;
 		}
 
@@ -264,12 +278,18 @@ void DoubleLog::recover() // should be last...
 			{
 				recover_counter(key,v1);
 				kvp_p->key = key;
-				ea1.offset = offset;
+				// |--------- tail xxxxxxxxxx head ----------|
+				// |xxxxxxx head ------------- tail xxxxxxxxx|
+				if (jump) // log is cut or not
+					ea1.offset = offset;
+				else
+					ea1.offset = offset+my_size;
 				kvp_p->value = ea1.value;
 				if (ea2.loc != HOT_LOG) // USE WARM CACHE
 				{
 					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					skiplistNode->key_list[skiplistNode->key_list_size++] = key;
+					// hot to hot.... unless it is deleted
 				}
 			}
 
@@ -283,8 +303,24 @@ void DoubleLog::recover() // should be last...
 	}
 
 //	head_sum = my_size-(my_size%LOG_ENTRY_SIZE);
-	head_sum = offset; // must be break by header 0....
-	tail_sum = 0;
+	if (jump == 1) // |xxxxxx haed -------------- tail xxxxxxxxx|
+	{
+		head_sum = jump_head+my_size;
+		tail_sum = jump_tail;
+//		if (head_sum < tail_sum )
+//			head_sum+=my_size;
+	}
+	else if (jump == 2) // |----------- tail xxxxxxxxxxxx head -----------|
+	{
+		head_sum = jump_head+my_size;
+		tail_sum = jump_tail+my_size;
+	}
+	else
+	{
+		head_sum = offset; // must be break by header 0....
+		tail_sum = 0;
+	}
+	soft_adv_offset = tail_sum;
 #endif
 }
 

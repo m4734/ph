@@ -272,7 +272,7 @@ namespace PH
 		//	empty_node->dataNodeHeader = empty_node->data_node_addr[0];
 
 		empty_node->prev = NULL;
-//		start_node->prev = empty_node;// 
+		start_node->prev = empty_node;// 
 /*
 		NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr[0]);
 		NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr[0]);
@@ -784,7 +784,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	{
 		node = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];	
 		//	node = sa_to_node(sa);
-		next_sa = node->next[0];
+		next_sa.value = node->next[0].value.load();
 		next_node = sa_to_node(next_sa);
 		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
 		{

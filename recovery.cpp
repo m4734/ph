@@ -57,6 +57,9 @@ namespace PH
 			nodeMeta->init_cold_el();
 */
 
+//		if (nodeAddr.pool_num == 10 && nodeAddr.node_offset == 15043)
+//			debug_error("debug\n");
+
 		ea.loc = loc;
 		ea.file_num = nodeAddr.pool_num;
 
@@ -77,6 +80,7 @@ namespace PH
 			{
 				nodeMeta->entryLoc[i].offset = offset;
 				nodeMeta->entryLoc[i].valid = 0;
+				nodeMeta->el_cnt++; // invalid during recover
 
 				header = (EntryHeader*)(addr+offset);
 				if (header->value == 0)
@@ -140,7 +144,7 @@ namespace PH
 			i++;
 			nodeMeta->entryLoc[i].offset = NODE_SIZE;
 			nodeMeta->entryLoc[i].valid = 0;
-
+			nodeMeta->el_cnt = i+1;
 		}
 		else // if WARM_LIST
 		{
@@ -221,6 +225,7 @@ namespace PH
 				nodeMeta->entryLoc[j].offset = WARM_BATCH_MAX_SIZE*(i+1);;
 				nodeMeta->entryLoc[j].valid = 0;
 			}
+			// warm node el cnt...
 
 		}
 		return rv;
