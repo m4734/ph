@@ -162,7 +162,11 @@ namespace PH
 		req_size = POOL_SIZE;
 		for(i=0;i<num_pmem;i++)
 		{
+#ifdef INTERLEAVE
+			sprintf(path,"/mnt/pmem0/data%d",pool_cnt+i); // 1~
+#else
 			sprintf(path,"/mnt/pmem%d/data%d",i+1,pool_cnt+i); // 1~
+#endif
 			nodeMetaPoolList[pool_cnt + i] = (unsigned char*)mmap(NULL,sizeof(NodeMeta)*POOL_NODE_MAX,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1,0);  // for free recoever...
 			if (!nodeMetaPoolList[pool_cnt + i])
 				printf("alloc_pool error1----------------------------------------------\n");

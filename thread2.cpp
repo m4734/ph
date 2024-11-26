@@ -1909,7 +1909,8 @@ if (nfi >= 0)
 			if (ex == 0)
 			{
 #ifndef NO_EXIST
-				printf("entry desonst exist\n");
+//				printf("entry desonst exist\n");
+				debug_error("can't find key\n");
 #endif
 				return -1;
 			}

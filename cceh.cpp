@@ -1541,6 +1541,7 @@ ctt3+=(ts1.tv_sec-ts3.tv_sec)*1000000000+ts1.tv_nsec-ts3.tv_nsec;
 #endif
 
 		hash_index = new CCEH(20); // M
+//		hash_index = new CCEH(25);
 	}
 
 	void CCEH::remove_ts(void* temp_seg)
