@@ -450,7 +450,7 @@ namespace PH
 		
 	}
 
-	int NodeMeta::el_clean(int entry_size,int &bfv) // return best fit
+	int NodeMeta::el_clean(int entry_size,int &bfv) // return best fit // push offset array
 	{
 		int src_idx,dst_idx;
 		int bfi=-1;

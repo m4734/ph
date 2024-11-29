@@ -375,7 +375,7 @@ namespace PH
 		check_end();
 	}	
 
-	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8) // need lock from outside
+	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8, int* best_fit_index) // need lock from outside
 	{
 		bool large_value;
 		if (value_size8 == INV64)
@@ -398,40 +398,40 @@ namespace PH
 
 		int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 		EntryAddr new_ea;
-#if 0 
-//-------------------------------------------- //try next fit
+#if 1 
+		//-------------------------------------------- //try next fit
 
-int nfi = nodeMeta->find_nfi(entry_size);
-if (nfi >= 0)
-{
-	printf("fit\n");
-	new_ea.loc = 3; // cold
-	new_ea.large = large_value;
-	new_ea.file_num = nodeMeta->my_offset.pool_num;
-		//		if (slot_idx < NODE_SLOT_MAX)
+		int nfi = nodeMeta->find_nfi(entry_size);
+		if (nfi >= 0)
 		{
-			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
-			new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
-
-			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+			//	printf("fit\n");
+			new_ea.loc = 3; // cold
+			new_ea.large = large_value;
+			new_ea.file_num = nodeMeta->my_offset.pool_num;
+			//		if (slot_idx < NODE_SLOT_MAX)
 			{
-				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
-				nodeMeta->entryLoc[nfi].valid = 1;
-			}
-			nodeMeta->size_sum+=entry_size;
+				//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
+				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
-			ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
-			listNode->size_sum+=entry_size;
+				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+				{
+					pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+					nodeMeta->entryLoc[nfi].valid = 1;
+				}
+				nodeMeta->size_sum+=entry_size;
+
+				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+				listNode->size_sum+=entry_size;
+
+			}
+
+			*best_fit_index = nfi;
+
+			return new_ea;
 
 		}
-
-		return new_ea;
-
-}
 #endif
-//-------------------------------------------------------
-
-
+		//-------------------------------------------------------
 
 		int bfv;	
 		int bfi = nodeMeta->el_clean(entry_size,bfv);
@@ -519,7 +519,7 @@ if (nfi >= 0)
 			//			src_offset+=ENTRY_SIZE;
 			//			at_unlock2(list_nodeMeta->rw_lock);
 		}
-
+		*best_fit_index = bfi;
 		return new_ea;
 	}
 
@@ -1221,13 +1221,13 @@ if (nfi >= 0)
 		return wc;
 	}
 
-	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea) // have skiplist lock // return old ea // need invalidation and kv unlock
+	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
 		EntryAddr new_ea;
 		EntryAddr real_old_ea;
 		KVP* kvp_p;
 
-		while(true) // always success unless re updated
+		while(true) // always success unless re updated // split retry loop
 		{
 			ListNode* listNode = skiplistNode->my_listNode;
 			while (key >= listNode->next->key)
@@ -1240,7 +1240,7 @@ if (nfi >= 0)
 				continue;
 			}
 
-#if 1
+#if 0
 			// lock here
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			//					if (kvp_p->value != (uint64_t)addr) // moved
@@ -1252,19 +1252,6 @@ if (nfi >= 0)
 				return emptyEntryAddr; // no invalidation
 			}
 
-			// What happen if we failed once and retry here...
-
-			//			if (kvp_p->key == key)
-			if (kvp_p->value != INV0)
-				real_old_ea.value = kvp_p->value;
-			else // first update
-			{
-				real_old_ea = emptyEntryAddr;
-				kvp_p->key = key;
-			}
-			//------------------------------ entry locked!!
-#endif
-
 			if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now
 			{
 				EntryHeader new_version;
@@ -1275,21 +1262,78 @@ if (nfi >= 0)
 				else
 					new_version.large_bit = false;
 				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-
 				memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
 			}
 
+			// What happen if we failed once and retry here...
+
+			//------------------------------ entry locked!!
+#endif
+
+
 			NodeMeta* list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 			new_ea.value = 0;
-			while (true) //list_nodeMeta) // try block group
+			while (true) //list_nodeMeta) // try block group // group loop
 			{
-				at_lock2(list_nodeMeta->rw_lock);
+				// check space before lock
+				if (value_size8 > list_nodeMeta->max_empty)
+				{
+					if (list_nodeMeta->next_node_in_group == NULL)
+						break;
+					list_nodeMeta = list_nodeMeta->next_node_in_group;
+				}
 
-				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
+				at_lock2(list_nodeMeta->rw_lock);
+				int fit_index;
+#if 1
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				// lock here
+				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
+				{ // this is not new update and the key is re inserted
+						// validation rollback
+					list_nodeMeta->entryLoc[fit_index].valid = 0;
+
+					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
+					at_unlock2(list_nodeMeta->rw_lock);
+					at_unlock2(listNode->lock);
+					//				new_ea.value = kvp_p->value; 
+					return emptyEntryAddr; // no invalidation
+				}
+
+				if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now
+				{
+					EntryHeader new_version;
+					new_version.valid_bit = 1;
+					new_version.delete_bit = 0;
+					if (value_size8 == INV64)
+						new_version.large_bit = true;
+					else
+						new_version.large_bit = false;
+					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
+				}
+#endif
+
+				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8,&fit_index);
 
 				if (new_ea.value != 0)
 				{
-					if (kvp_p->value == INV0)
+
+					//success from here
+
+					// What happen if we failed once and retry here...
+
+					//			if (kvp_p->key == key)
+					if (kvp_p->value != INV0)
+						real_old_ea.value = kvp_p->value;
+					else // first update
+					{
+						real_old_ea = emptyEntryAddr;
+						kvp_p->key = key;
+					}
+					//------------------------------ entry locked!!
+
+					if (kvp_p->value == INV0) // just statistics
 					{
 						if (value_size8 == INV64)
 						{
@@ -1303,9 +1347,10 @@ if (nfi >= 0)
 							ld_sum+=value_size8+KEY_SIZE;
 							ld_cnt++;
 						}
-//						else
-//							debug_error("???\n");
+						//						else
+						//							debug_error("???\n");
 					}
+
 					new_ea.large = old_ea.large;//...
 					kvp_p->value = new_ea.value;
 #ifdef DST_CHECK
@@ -1327,6 +1372,9 @@ if (nfi >= 0)
 					break;
 				}
 
+				//failed
+
+				hash_index->unlock_entry2(seg_lock,read_lock);
 				at_unlock2(list_nodeMeta->rw_lock);
 				if (list_nodeMeta->next_node_in_group == NULL)
 					break;
@@ -1336,7 +1384,7 @@ if (nfi >= 0)
 			if (new_ea.value == 0)
 				//			if (list_nodeMeta == NULL) // cold split
 			{
-				hash_index->unlock_entry2(seg_lock,read_lock);
+				//				hash_index->unlock_entry2(seg_lock,read_lock);
 				//				at_unlock2(list_nodeMeta->rw_lock);
 
 				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
@@ -1346,8 +1394,6 @@ if (nfi >= 0)
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta,COLD_LIST); // have to be last
 					append_nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
 					//					append_nodeMeta->list_addr = listNode->myAddr;
-					//					if (append_nodeMeta->list_addr.loc == 0)
-					//						debug_error("loc1\n");
 				}
 				else // split
 				{
@@ -1363,7 +1409,7 @@ if (nfi >= 0)
 		return real_old_ea;
 	}
 
-	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, std::atomic<uint8_t>* &seg_lock, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
 	{ // ALWAYS NEW
 	  //		printf("not now\n");
 	  //NO UNLOCK IN HERE!
@@ -1399,6 +1445,7 @@ if (nfi >= 0)
 		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value,value_size8);//v8?
 
 		EntryAddr src_ea;
+		std::atomic<uint8_t>* seg_lock; // need for invalidation
 
 		while(1)
 		{
@@ -1434,7 +1481,7 @@ if (nfi >= 0)
 			else
 				src_ea.value = kvp.value;
 
-			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea);
+			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea); //seglock ref
 
 			if (old_ea.loc == HOT_LOG)
 			{
@@ -1623,7 +1670,7 @@ if (nfi >= 0)
 		}
 
 #ifdef FORCE_DTC
-	dtc = true;
+		dtc = true;
 #endif
 
 #ifdef USE_DTC
@@ -1669,7 +1716,7 @@ if (nfi >= 0)
 				}
 				break;
 			}
-			new_ea = direct_to_cold(key,value_size,value,kvp,seg_lock,skiplistNode,true); // kvp becomes old one
+			new_ea = direct_to_cold(key,value_size,value,kvp,skiplistNode,true); // kvp becomes old one
 			direct_to_cold_cnt++;
 #if 0 // moved to direct_to_cold...
 			old_ea.value = kvp.value;
@@ -1909,7 +1956,7 @@ if (nfi >= 0)
 			if (ex == 0)
 			{
 #ifndef NO_EXIST
-//				printf("entry desonst exist\n");
+				//				printf("entry desonst exist\n");
 				debug_error("can't find key\n");
 #endif
 				return -1;
@@ -2990,7 +3037,7 @@ if (nfi >= 0)
 			}
 			//------------------------------ entry locked!!
 #endif
-			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea) != emptyEntryAddr) // scucess
+			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea) != emptyEntryAddr) // scucess //seg lock ref
 			{
 				//need inv and unlock
 				nodeMeta->entryLoc[i].offset = 0;//init
@@ -3067,25 +3114,6 @@ if (nfi >= 0)
 			}
 		}
 #endif
-		// 2 decide split key
-		// 3 split
-
-		/*
-		   else // warm init
-		   {
-		// may need memset...
-		// hot->cold...
-		}
-		 */
-
-		//init nodeMeta
-		/*
-		   for (i=0;i<nodeMeta->slot_cnt;i++) // vinalifd warm
-		   nodeMeta->valid[i] = false;
-		   nodeMeta->written_size = 0;
-		   nodeMeta->slot_cnt = 0;
-		   nodeMeta->valid_cnt = 0;
-		 */
 		at_unlock2(nodeMeta->rw_lock);
 #ifdef TIME_STAT
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
@@ -3137,8 +3165,6 @@ if (nfi >= 0)
 		wk1 = node->key;
 		wk2 = skiplist->find_next_node(node)->key;
 #endif
-
-
 		do
 		{
 			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
@@ -3186,13 +3212,6 @@ if (nfi >= 0)
 				dl = &doubleLogList[ll.log_num];
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 
-
-/*
-				if (ll.log_num == 0 && li == 12)
-				{
-					debug_error("ehereee??\n");
-				}
-*/
 				header = (EntryHeader*)addr;
 				value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 				value_size8 = get_v8(value_size8);
@@ -3229,7 +3248,7 @@ if (nfi >= 0)
 					if (old_ea.large)
 						value_size8 = INV64;
 
-					new_ea = direct_to_cold(key,value_size8,addr + 8+8+8,kvp,seg_lock,node,false);
+					new_ea = direct_to_cold(key,value_size8,addr + 8+8+8,kvp,node,false);
 					if (kvp.value == old_ea.value) // ok
 					{
 						//					old_ea.value = kvp.value;
@@ -3407,7 +3426,7 @@ if (nfi >= 0)
 #if 1 // may do nothing and save space... // no we need to push slot cnt because memory is already copied
 				else // inserted during hot to warm
 				{
-//					debug_error("htw0\n");
+					//					debug_error("htw0\n");
 					if (header->valid_bit)
 						debug_error("htw\n");
 					//					nodeMeta->valid[slot_index] = false; // validate fail
@@ -3548,8 +3567,8 @@ if (nfi >= 0)
 			value_size8 = get_v8(value_size8);
 			// evict now
 
-//			if (key == 14272674034553496781UL)
-//				debug_error("first\n");
+			//			if (key == 14272674034553496781UL)
+			//				debug_error("first\n");
 
 			if (header.valid_bit == false)
 			{
@@ -3761,20 +3780,22 @@ if (nfi >= 0)
 					// need to try flush
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
-					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-						//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX)
-						list_gc(node);
-					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-						//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX)
+					//					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
 					{
-						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-						//	at_lock2(nodeMeta->rw_lock);
-						hot_to_warm(node,false);
-						may_split_warm_node(node);
-						//	at_unlock2(nodeMeta->rw_lock);
-						//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-						//	warm_to_cold(node); // in lock???
-						soft_htw_cnt++;
+						list_gc(node);
+						//						if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+						if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+						{
+							//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+							//	at_lock2(nodeMeta->rw_lock);
+							hot_to_warm(node,false);
+							may_split_warm_node(node);
+							//	at_unlock2(nodeMeta->rw_lock);
+							//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+							//	warm_to_cold(node); // in lock???
+							soft_htw_cnt++;
+						}
 					}
 					at_unlock2(node->lock);
 					break;
