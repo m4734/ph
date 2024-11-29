@@ -85,6 +85,46 @@ namespace PH
 			LargeAddr large_addr;
 			uint64_t last_value_size;
 
+//---------------------------------
+			TimeEntry timeEntry[TIME_LIST_END];
+
+	inline void tes(TimeList timeList)
+	{
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
+		timeEntry[timeList].cnt++;
+#endif
+	}
+	inline void tee(TimeList timeList)
+	{
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
+		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
+//		timeEntry[timeList].cnt++;
+#endif
+	}
+	inline void ter(int timeList)
+	{
+		timeEntry[timeList].sum = timeEntry[timeList].cnt  = 0;
+	}
+	inline void timeReset()
+	{
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+			ter(i);
+	}
+	inline void timeAgg()
+	{
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+		{
+			time_sum[i]+= timeEntry[i].sum;
+			time_cnt[i]+= timeEntry[i].cnt;
+			printf("%d %lu\n",i,timeEntry[i].cnt);
+		}
+	}
+
+//---------------------------------
 		public:
 			PH_Thread();
 			~PH_Thread();

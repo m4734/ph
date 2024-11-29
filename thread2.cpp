@@ -259,6 +259,7 @@ namespace PH
 
 	void PH_Query_Thread::init()
 	{
+//		timeReset();
 		buffer_init();
 
 		//		evict_buffer = (unsigned char*)malloc(WARM_BATCH_MAX_SIZE);
@@ -316,6 +317,7 @@ namespace PH
 		log_write_sum+=log_write_cnt;
 		hot_to_warm_sum+=hot_to_warm_cnt;
 		warm_to_cold_sum+=warm_to_cold_cnt;
+		printf("warm to cold cnt %lu\n",warm_to_cold_cnt);
 		cold_split_sum+=cold_split_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
 		cold_split_sum+=cold_split_cnt;
@@ -1258,6 +1260,8 @@ namespace PH
 
 	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
+		tes(INSERT_TO_COLD);
+
 		EntryAddr new_ea;
 		EntryAddr real_old_ea;
 		KVP* kvp_p;
@@ -1326,12 +1330,13 @@ namespace PH
 				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
 				{ // this is not new update and the key is re inserted
 						// validation rollback
-					list_nodeMeta->entryLoc[fit_index].valid = 0;
+//					list_nodeMeta->entryLoc[fit_index].valid = 0;
 
 					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
 					at_unlock2(list_nodeMeta->rw_lock);
 					at_unlock2(listNode->lock);
 					//				new_ea.value = kvp_p->value; 
+					tee(INSERT_TO_COLD);
 					return emptyEntryAddr; // no invalidation
 				}
 
@@ -1349,9 +1354,9 @@ namespace PH
 				}
 #endif
 
-tes(INSERT_ENTRY_TO_SLOT);
+//tes(INSERT_ENTRY_TO_SLOT);
 				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8,&fit_index);
-tee(INSERT_ENTRY_TO_SLOT);
+//tee(INSERT_ENTRY_TO_SLOT);
 				if (new_ea.value != 0)
 				{
 
@@ -1404,6 +1409,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 					//check
 					//					warm_to_cold_cnt++; // to cold
+					tee(INSERT_TO_COLD);
 					return real_old_ea; // still have kv lock
 					break;
 				}
@@ -1426,22 +1432,26 @@ tee(INSERT_ENTRY_TO_SLOT);
 				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
 									       //				if (listNode->block_cnt < MAX_NODE_GROUP)
 				{
+//					tes(APPEND_OF_ITC);
 					listNode->block_cnt++;
 					NodeMeta* append_nodeMeta = append_group(list_nodeMeta,COLD_LIST); // have to be last
 					append_nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
 					//					append_nodeMeta->list_addr = listNode->myAddr;
+//					tee(APPEND_OF_ITC);
 				}
 				else // split
 				{
+//					tes(SPLIT_OF_ITC);
 					try_cold_split(listNode,skiplistNode);
 					//					cold_split_cnt++;
 					skiplistNode->find_half_listNode();
-
+//					tes(SPLIT_OF_ITC);
 				}
 			}
 
 			at_unlock2(listNode->lock);
 		}
+		tee(INSERT_TO_COLD);
 		return real_old_ea;
 	}
 
@@ -1458,6 +1468,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 #endif
+//		tes(DIRECT_TO_COLD);
 		//		int cold_split_cnt = 0;
 
 		EntryAddr new_ea,old_ea;
@@ -1516,9 +1527,9 @@ tee(INSERT_ENTRY_TO_SLOT);
 				src_ea.value = emptyEntryAddr.value;
 			else
 				src_ea.value = kvp.value;
-
+			tes(INSERT_TO_COLD_OF_DTC);
 			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea); //seglock ref
-
+			tee(INSERT_TO_COLD_OF_DTC);
 			if (old_ea.loc == HOT_LOG)
 			{
 				skiplist_node->remove_key_from_list(key);
@@ -1546,6 +1557,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 #endif
+//		tee(DIRECT_TO_COLD);
 		return new_ea;
 	}
 
@@ -2654,6 +2666,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 	void PH_Evict_Thread::init()
 	{
+//		timeReset();
 		buffer_init();
 
 		sleep_time = 1000;
@@ -3073,8 +3086,10 @@ tee(INSERT_ENTRY_TO_SLOT);
 			}
 			//------------------------------ entry locked!!
 #endif
+			tes(INSERT_TO_COLD_FROM_WARM);
 			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea) != emptyEntryAddr) // scucess //seg lock ref
 			{
+				tee(INSERT_TO_COLD_FROM_WARM);
 				//need inv and unlock
 				nodeMeta->entryLoc[i].offset = 0;//init
 				nodeMeta->entryLoc[i].valid = 0;
@@ -3086,6 +3101,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 				warm_to_cold_cnt++;
 			}
+			else
+				tee(INSERT_TO_COLD_FROM_WARM);
 
 			//			else
 			//				debug_error("empty ettr\n");

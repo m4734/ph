@@ -289,49 +289,26 @@ union EntryHeader
 		uint64_t cnt;
 //		uint64_t avg;
 	};
+
+	//add time list // add time name // insert tes and tee
 	enum TimeList
 	{
 		INSERT_ENTRY_TO_SLOT,
+		DIRECT_TO_COLD,
+		INSERT_TO_COLD_OF_DTC,
+		INSERT_TO_COLD_FROM_WARM,
+		INSERT_TO_COLD,
+		APPEND_OF_ITC,
+		SPLIT_OF_ITC,
+		TEMP1,
 		TIME_LIST_END
 	};
+	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TIME_LIST_END"};
 
-	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","TIME_LIST_END"};
 	extern std::atomic<uint64_t> time_sum[TIME_LIST_END];
 	extern std::atomic<uint64_t> time_cnt[TIME_LIST_END];
-	extern thread_local TimeEntry timeEntry[TIME_LIST_END];
+//	extern thread_local TimeEntry timeEntry[TIME_LIST_END];
 
-	inline void tes(TimeList timeList)
-	{
-#ifdef TIME_STAT
-		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
-#endif
-	}
-	inline void tee(TimeList timeList)
-	{
-#ifdef TIME_STAT
-		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
-		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
-		timeEntry[timeList].cnt++;
-#endif
-	}
-//	inline void ter(TimeList timeList)
-	inline void ter(int timeList)
-	{
-		timeEntry[timeList].sum = timeEntry[timeList].cnt  = 0;
-	}
-	/*
-	inline uint64_t tea(TimeList timeList)
-	{
-		timeEntry[timeList].avg = timeEntry[timeList].sum/timeEntry[timeList].cnt;
-		return timeEntry[timeList].avg;
-	}
-	*/
-	inline void timeReset()
-	{
-		int i;
-		for (i=0;i<TIME_LIST_END;i++)
-			ter(i);
-	}
 	inline void timeInit()
 	{
 		int i;
@@ -341,15 +318,6 @@ union EntryHeader
 			time_cnt[i] = 0;
 		}
 	}
-	inline void timeAgg()
-	{
-		int i;
-		for (i=0;i<TIME_LIST_END;i++)
-		{
-			time_sum[i]+= timeEntry[i].sum;
-			time_cnt[i]+= timeEntry[i].cnt;
-		}
-	}
 	inline void timePrint()
 	{
 		printf("timeList\n");
@@ -357,7 +325,10 @@ union EntryHeader
 		int i;
 		for (i=0;i<TIME_LIST_END;i++)
 		{
-			printf("%s %lu\n",time_name[i],time_sum[i].load()/time_cnt[i].load());
+			if (time_cnt[i].load() == 0)
+				printf("div zero\n");
+			else
+				printf("%s %lu %lu\n",time_name[i],time_cnt[i].load(),time_sum[i].load()/time_cnt[i].load());
 		}
 		printf("---------------------------\n");
 	}
