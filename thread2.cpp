@@ -190,6 +190,9 @@ namespace PH
 #ifdef WARM_STAT
 		warm_hit_cnt = warm_miss_cnt = warm_no_cnt = 0;
 #endif
+
+		timeReset();
+
 		reset_test_cnt++;
 	}
 
@@ -345,6 +348,8 @@ namespace PH
 
 		reduce_group_sum+=reduce_group_cnt;
 		list_merge_sum+=list_merge_cnt;
+
+		timeAgg();
 	}
 
 	void PH_Query_Thread::clean()
@@ -409,27 +414,56 @@ namespace PH
 			new_ea.large = large_value;
 			new_ea.file_num = nodeMeta->my_offset.pool_num;
 			//		if (slot_idx < NODE_SLOT_MAX)
-			{
+//			{
 				//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-				{
-					pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
-					nodeMeta->entryLoc[nfi].valid = 1;
-				}
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+				nodeMeta->entryLoc[nfi].valid = 1;
+
 				nodeMeta->size_sum+=entry_size;
 
 				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
 				listNode->size_sum+=entry_size;
-
-			}
+//			}
 
 			*best_fit_index = nfi;
 
 			return new_ea;
 
 		}
+#if 0
+		else if(nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset-nodeMeta->entryLoc[nodeMeta->el_cnt-2].offset >= entry_size) // test
+		{
+			nodeMeta->entryLoc[nodeMeta->el_cnt].offset = nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset;
+			nodeMeta->entryLoc[nodeMeta->el_cnt].valid = 0;
+			nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset = nodeMeta->entryLoc[nodeMeta->el_cnt-2].offset+entry_size;
+			nfi = nodeMeta->el_cnt-2;
+			nodeMeta->el_cnt++;
+
+			new_ea.loc = 3; // cold
+			new_ea.large = large_value;
+			new_ea.file_num = nodeMeta->my_offset.pool_num;
+			//		if (slot_idx < NODE_SLOT_MAX)
+//			{
+				//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
+				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+
+				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+				nodeMeta->entryLoc[nfi].valid = 1;
+
+				nodeMeta->size_sum+=entry_size;
+
+				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
+				listNode->size_sum+=entry_size;
+//			}
+
+			*best_fit_index = nfi;
+			return new_ea;
+		}
+#endif
 #endif
 		//-------------------------------------------------------
 
@@ -438,6 +472,7 @@ namespace PH
 		if (bfi < 0) // no space
 			return emptyEntryAddr;
 
+//		debug_error("unexpected sccuess\n"); // it doesn't happen after fill
 		bool fit;
 		EntryHeader jump;
 
@@ -1314,8 +1349,9 @@ namespace PH
 				}
 #endif
 
+tes(INSERT_ENTRY_TO_SLOT);
 				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8,&fit_index);
-
+tee(INSERT_ENTRY_TO_SLOT);
 				if (new_ea.value != 0)
 				{
 

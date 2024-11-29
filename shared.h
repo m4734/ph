@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <atomic>
+#include <time.h>
+#include <stdio.h>
 
 //--------------------------------
 
@@ -279,4 +281,84 @@ union EntryHeader
 /*inline */void invalidate_large_from_ea(EntryAddr &ea);
 /*inline */void invalidate_large_from_addr(unsigned char* addr);
 
+//--------------------------------------- statistic
+	struct TimeEntry
+	{
+		timespec start,end;
+		uint64_t sum;
+		uint64_t cnt;
+//		uint64_t avg;
+	};
+	enum TimeList
+	{
+		INSERT_ENTRY_TO_SLOT,
+		TIME_LIST_END
+	};
+
+	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","TIME_LIST_END"};
+	extern std::atomic<uint64_t> time_sum[TIME_LIST_END];
+	extern std::atomic<uint64_t> time_cnt[TIME_LIST_END];
+	extern thread_local TimeEntry timeEntry[TIME_LIST_END];
+
+	inline void tes(TimeList timeList)
+	{
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
+#endif
+	}
+	inline void tee(TimeList timeList)
+	{
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
+		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
+		timeEntry[timeList].cnt++;
+#endif
+	}
+//	inline void ter(TimeList timeList)
+	inline void ter(int timeList)
+	{
+		timeEntry[timeList].sum = timeEntry[timeList].cnt  = 0;
+	}
+	/*
+	inline uint64_t tea(TimeList timeList)
+	{
+		timeEntry[timeList].avg = timeEntry[timeList].sum/timeEntry[timeList].cnt;
+		return timeEntry[timeList].avg;
+	}
+	*/
+	inline void timeReset()
+	{
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+			ter(i);
+	}
+	inline void timeInit()
+	{
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+		{
+			time_sum[i] = 0;
+			time_cnt[i] = 0;
+		}
+	}
+	inline void timeAgg()
+	{
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+		{
+			time_sum[i]+= timeEntry[i].sum;
+			time_cnt[i]+= timeEntry[i].cnt;
+		}
+	}
+	inline void timePrint()
+	{
+		printf("timeList\n");
+		printf("---------------------------\n");
+		int i;
+		for (i=0;i<TIME_LIST_END;i++)
+		{
+			printf("%s %lu\n",time_name[i],time_sum[i].load()/time_cnt[i].load());
+		}
+		printf("---------------------------\n");
+	}
 }

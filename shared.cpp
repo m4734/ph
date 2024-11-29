@@ -19,6 +19,11 @@ namespace PH
 	extern Skiplist* skiplist;
 	extern LargeAlloc* largeAlloc;
 
+	std::atomic<uint64_t> time_sum[TIME_LIST_END];
+	std::atomic<uint64_t> time_cnt[TIME_LIST_END];
+	thread_local TimeEntry timeEntry[TIME_LIST_END];
+
+
 	void debug_error(const char* msg)
 	{
 		printf("error----------------------------------------\n");

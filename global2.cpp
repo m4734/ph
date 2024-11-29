@@ -109,6 +109,7 @@ void PH_Interface::global_reset_test()
 	warm_hit_sum = warm_miss_sum = warm_no_sum = 0;
 #endif
 
+	timeInit();
 }
 
 void PH_Interface::new_query_thread()
@@ -380,6 +381,8 @@ printf("ccc\n");
 	printf("cold split sum %lu\n",cold_split_sum.load());
 
 	printf("data sum sum %lfGB large sum %lu large cnt %lu\n",double(data_sum_sum)/1024/1024/1024,ld_sum_sum.load(),ld_cnt_sum.load());
+
+	timePrint();
 }
 
 int PH_Interface::insert_op(uint64_t key,uint64_t value_size, unsigned char* value)
