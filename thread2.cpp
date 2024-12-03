@@ -317,7 +317,7 @@ namespace PH
 		log_write_sum+=log_write_cnt;
 		hot_to_warm_sum+=hot_to_warm_cnt;
 		warm_to_cold_sum+=warm_to_cold_cnt;
-		printf("warm to cold cnt %lu\n",warm_to_cold_cnt);
+//		printf("warm to cold cnt %lu\n",warm_to_cold_cnt);
 		cold_split_sum+=cold_split_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
 		cold_split_sum+=cold_split_cnt;
@@ -382,7 +382,7 @@ namespace PH
 		check_end();
 	}	
 
-	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8, int* best_fit_index) // need lock from outside
+	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8) // need lock from outside
 	{
 		bool large_value;
 		if (value_size8 == INV64)
@@ -430,8 +430,6 @@ namespace PH
 				listNode->size_sum+=entry_size;
 //			}
 
-			*best_fit_index = nfi;
-
 			return new_ea;
 
 		}
@@ -462,7 +460,6 @@ namespace PH
 				listNode->size_sum+=entry_size;
 //			}
 
-			*best_fit_index = nfi;
 			return new_ea;
 		}
 #endif
@@ -556,7 +553,6 @@ namespace PH
 			//			src_offset+=ENTRY_SIZE;
 			//			at_unlock2(list_nodeMeta->rw_lock);
 		}
-		*best_fit_index = bfi;
 		return new_ea;
 	}
 
@@ -1260,7 +1256,7 @@ namespace PH
 
 	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
-		tes(INSERT_TO_COLD);
+//		tes(INSERT_TO_COLD);
 
 		EntryAddr new_ea;
 		EntryAddr real_old_ea;
@@ -1315,15 +1311,20 @@ namespace PH
 			while (true) //list_nodeMeta) // try block group // group loop
 			{
 				// check space before lock
-				if (value_size8 > list_nodeMeta->max_empty)
+				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
+//				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty)// || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
+//				if (value_size8 > list_nodeMeta->max_empty)
 				{
 					if (list_nodeMeta->next_node_in_group == NULL)
 						break;
 					list_nodeMeta = list_nodeMeta->next_node_in_group;
+					continue;
 				}
 
 				at_lock2(list_nodeMeta->rw_lock);
-				int fit_index;
+
+//				tes(TEMP1);
+
 #if 1
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 				// lock here
@@ -1335,8 +1336,9 @@ namespace PH
 					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
 					at_unlock2(list_nodeMeta->rw_lock);
 					at_unlock2(listNode->lock);
-					//				new_ea.value = kvp_p->value; 
-					tee(INSERT_TO_COLD);
+					//				new_ea.value = kvp_p->value;
+//					tee(TEMP1); 
+//					tee(INSERT_TO_COLD);
 					return emptyEntryAddr; // no invalidation
 				}
 
@@ -1354,9 +1356,9 @@ namespace PH
 				}
 #endif
 
-//tes(INSERT_ENTRY_TO_SLOT);
-				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8,&fit_index);
-//tee(INSERT_ENTRY_TO_SLOT);
+tes(INSERT_ENTRY_TO_SLOT);
+				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
+tee(INSERT_ENTRY_TO_SLOT);
 				if (new_ea.value != 0)
 				{
 
@@ -1409,7 +1411,8 @@ namespace PH
 
 					//check
 					//					warm_to_cold_cnt++; // to cold
-					tee(INSERT_TO_COLD);
+//					tee(INSERT_TO_COLD);
+//					tee(TEMP1);
 					return real_old_ea; // still have kv lock
 					break;
 				}
@@ -1418,6 +1421,7 @@ namespace PH
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				at_unlock2(list_nodeMeta->rw_lock);
+//				tee(TEMP1);
 				if (list_nodeMeta->next_node_in_group == NULL)
 					break;
 				list_nodeMeta = list_nodeMeta->next_node_in_group;
@@ -1451,7 +1455,7 @@ namespace PH
 
 			at_unlock2(listNode->lock);
 		}
-		tee(INSERT_TO_COLD);
+//		tee(INSERT_TO_COLD);
 		return real_old_ea;
 	}
 
@@ -3102,7 +3106,9 @@ namespace PH
 				warm_to_cold_cnt++;
 			}
 			else
+{
 				tee(INSERT_TO_COLD_FROM_WARM);
+}
 
 			//			else
 			//				debug_error("empty ettr\n");
@@ -3834,11 +3840,11 @@ namespace PH
 					//			node->try_hot_to_warm();
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
 					//					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+					if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
 					{
 						list_gc(node);
 						//						if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-						if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+						if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
 						{
 							//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 							//	at_lock2(nodeMeta->rw_lock);

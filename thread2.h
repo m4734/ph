@@ -90,14 +90,14 @@ namespace PH
 
 	inline void tes(TimeList timeList)
 	{
-#ifdef TIME_STAT
+#ifdef TIME_STAT2
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
 		timeEntry[timeList].cnt++;
 #endif
 	}
 	inline void tee(TimeList timeList)
 	{
-#ifdef TIME_STAT
+#ifdef TIME_STAT2
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
 		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
 //		timeEntry[timeList].cnt++;
@@ -120,7 +120,7 @@ namespace PH
 		{
 			time_sum[i]+= timeEntry[i].sum;
 			time_cnt[i]+= timeEntry[i].cnt;
-			printf("%d %lu\n",i,timeEntry[i].cnt);
+//			printf("%d %lu\n",i,timeEntry[i].cnt);
 		}
 	}
 
