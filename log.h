@@ -91,6 +91,18 @@ class DoubleLog
 
 	void write_version(uint64_t version);
 
+	void buffer_to_pmem(unsigned char *src,uint64_t size);
+	void buffer_to_dram(unsigned char *src,uint64_t size);
+
+	inline unsigned char* get_pmem_head_p()
+	{
+		return pmemLogAddr + head_sum%my_size;
+	}
+	inline unsigned char* get_dram_head_p()
+	{
+		return dramLogAddr + head_sum%my_size;
+	}
+
 	void recover();
 
 //	inline unsigned char* get_pmem_head_p() { return pmemLogAddr+head_offset; }

@@ -1474,7 +1474,7 @@ ListNode* PH_List::alloc_list_node()
 
 	node->block_cnt = 0;
 //	node->valid_cnt = 0;
-	node->size_sum = 0;
+//	node->size_sum = 0;
 	node->next = NULL;
 	node->prev = NULL;
 	node->hold = 0;

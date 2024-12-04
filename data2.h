@@ -89,7 +89,8 @@ struct NodeMeta
 	EntryLoc* entryLoc;
 	int el_cnt;
 	int last_index;//next fit
-	std::atomic<int> size_sum;
+//	std::atomic<int> size_sum;
+	int size_sum; // rw lock will ...
 	int max_empty;
 	bool need_clean;
 

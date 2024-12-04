@@ -354,25 +354,45 @@ void DoubleLog::ready_log(uint64_t value_size8)
 void DoubleLog::insert_pmem_log(uint64_t key,uint64_t value_size, unsigned char *value)
 {
 	// use checksum or write twice
-
+	// write twice
+	// key valuesize value (no wc) jump
 	EntryHeader jump;
 	jump.valid_bit = 0;
 	jump.delete_bit = 0;
 	jump.version = tail_sum;
-
 	uint64_t value_size8 = get_v8(value_size);
 
 	// 1 write kv
 	unsigned char* head_p = pmemLogAddr + head_sum%my_size;
+#if 1
 	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE, value, value_size);
 // dont write warm cache
 	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE, &jump, JUMP_SIZE);
 
-	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size+WARM_CACHE_SIZE+JUMP_SIZE);
-	_mm_sfence();
+	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE+JUMP_SIZE);
+//	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size8);
+
+//	_mm_sfence(); // manual
+#else
+
+#endif
 }
+
+void DoubleLog::buffer_to_pmem(unsigned char *src,uint64_t size)
+{
+	unsigned char* head_p = pmemLogAddr + head_sum%my_size;
+	memcpy(head_p,src,size);
+	pmem_persist(head_p,size);
+}
+void DoubleLog::buffer_to_dram(unsigned char *src,uint64_t size)
+{
+	unsigned char* head_p = dramLogAddr + head_sum%my_size;
+	memcpy(head_p,src,size);
+	pmem_persist(head_p,size);
+}
+
 #if 0
 const size_t CACHE_MASK = 0xffffffffffffffc0; // 64 // 1111...11000000
 void clwb(unsigned char* addr,size_t len)
@@ -447,7 +467,7 @@ void DoubleLog::write_version(uint64_t version)
 {
 	memcpy(pmemLogAddr+head_sum%my_size ,&version, ENTRY_HEADER_SIZE);
 	pmem_persist(pmemLogAddr + head_sum%my_size , ENTRY_HEADER_SIZE);
-	_mm_sfence();
+//	_mm_sfence(); // manual
 }
 
 }

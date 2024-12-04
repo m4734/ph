@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <x86intrin.h> //fence
+
 //#include "skiplist.h"
 #include "shared.h"
 
@@ -86,19 +88,24 @@ namespace PH
 			uint64_t last_value_size;
 
 //---------------------------------
+public:
 			TimeEntry timeEntry[TIME_LIST_END];
 
 	inline void tes(TimeList timeList)
 	{
 #ifdef TIME_STAT2
+		_mm_mfence();
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
+		_mm_mfence();
 		timeEntry[timeList].cnt++;
 #endif
 	}
 	inline void tee(TimeList timeList)
 	{
 #ifdef TIME_STAT2
+		_mm_mfence();
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
+		_mm_mfence();
 		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
 //		timeEntry[timeList].cnt++;
 #endif
@@ -282,6 +289,7 @@ namespace PH
 			std::vector<std::pair<uint64_t,unsigned char*>> skiplist_key_list;
 			std::vector<std::pair<uint64_t,unsigned char*>> list_key_list;
 
+			EntryHeader jump_for_insert,new_version_for_insert;
 
 		public:
 			void init();

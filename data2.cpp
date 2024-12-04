@@ -13,6 +13,8 @@
 namespace PH
 {
 
+//	extern thread_local PH_Thread* my_thread; // for time check
+
 //	size_t NODE_SLOT_MAX;
 
 	NodeAllocator* nodeAllocator;
@@ -388,11 +390,32 @@ namespace PH
 		}
 		else // COLD_LIST NEED MERGE and max empty
 		{
+//			my_thread->tes(TEMP2);
 			int size;
 			start_index = 0;
 			end_index = el_cnt;//NODE_SLOT_MAX;
 			at_lock2(rw_lock);
 //			for (i=start_index;i<end_index;i++) // track first invalid
+
+#if 0 //JUST TEST DO NOT USE THIS
+
+	i = (offset-NODE_HEADER_SIZE)/128;
+	if (offset == entryLoc[i].offset)
+	{
+		entryLoc[i].valid = 0;
+		size=(entryLoc[i+1].offset-entryLoc[i].offset);
+		size_sum-=size; // who need this?
+
+		ListNode* listNode = list->addr_to_listNode(list_addr);
+		listNode->size_sum-=size; // need lock...
+		max_empty = NODE_SIZE;
+		need_clean = true;
+		at_unlock2(rw_lock);
+		my_thread->tee(TEMP2);
+		return size;
+	}
+#endif
+
 			while(start_index <= end_index)
 			{
 				i = (start_index+end_index)/2;
@@ -406,11 +429,12 @@ namespace PH
 					size=(entryLoc[i+1].offset-entryLoc[i].offset);
 					size_sum-=size; // who need this?
 
-					ListNode* listNode = list->addr_to_listNode(list_addr);
-					listNode->size_sum-=size;
+//					ListNode* listNode = list->addr_to_listNode(list_addr);
+//					listNode->size_sum-=size; // need lock...
 										max_empty = NODE_SIZE;
 					need_clean = true;
 					at_unlock2(rw_lock);
+//					my_thread->tee(TEMP2);
 					return size;
 				}
 				

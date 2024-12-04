@@ -43,7 +43,7 @@
 #endif
 
 #define TIME_STAT
-#define TIME_STAT2
+//#define TIME_STAT2
 #define LIST_TRAVERSE_TEST
 
 
@@ -303,9 +303,15 @@ union EntryHeader
 		SPLIT_OF_ITC,
 		TEMP1,
 		TEMP2,
+		TEMP3,
+		DRAM,
+		PMEM,
+		VERSION,
+		INSERT,
+		READ,
 		TIME_LIST_END
 	};
-	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TIME_LIST_END"};
+	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TEMP3","DRAM","PMEM","VERSION","INSERT","READ","TIME_LIST_END"};
 
 	extern std::atomic<uint64_t> time_sum[TIME_LIST_END];
 	extern std::atomic<uint64_t> time_cnt[TIME_LIST_END];

@@ -64,7 +64,8 @@ class ListNode
 	int hold;
 
 //	std::atomic<uint8_t> valid_cnt; // 256 ...
-	std::atomic<uint64_t> size_sum;
+//	std::atomic<uint64_t> size_sum;
+//	int size_sum;
 	std::atomic<uint8_t> lock;
 };
 
