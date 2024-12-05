@@ -172,7 +172,7 @@ void PH_Interface::clean_evict_thread()
 	my_thread = NULL;
 }
 
-void PH_Interface::global_init(size_t max_data_size,int n_t,int n_p,int n_e,int recover)
+void PH_Interface::global_init(int VS,size_t max_data_size,int n_t,int n_p,int n_e,int recover)
 {
 	printf("global init MDS %lf thread %d pmem %d evict %d\n",double(max_data_size)/1024/1024/1024,n_t,n_p,n_e);
 

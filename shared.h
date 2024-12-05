@@ -179,8 +179,9 @@ union EntryHeader
 		{
 			size_t loc : 2; // 1 hot / 2 warm / 3 cold	
 			size_t large : 1;
-			size_t file_num : 13;
-			size_t offset : 48;  // .. 2^16 * 4 G
+			size_t size : 10; // 10bit 1KB
+			size_t file_num : 19; // 512 k files
+			size_t offset : 32;  // .. 2^16 * 4 G // 4GB
 		};
 		uint64_t value;
 		bool operator!=(const EntryAddr &ea)

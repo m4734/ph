@@ -511,6 +511,7 @@ namespace PH
 
 		new_ea.loc = 3; // cold
 		new_ea.large = large_value;
+		new_ea.size = *(uint64_t*)(src_addr + ENTRY_HEADER_SIZE + KEY_SIZE);//value_size;
 		new_ea.file_num = nodeMeta->my_offset.pool_num;
 		//		if (slot_idx < NODE_SLOT_MAX)
 		{
@@ -638,6 +639,7 @@ namespace PH
 					key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 					second.addr = addr+offset;
 					ea.large = ((EntryHeader*)(addr+offset))->large_bit;
+					ea.size = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
 					ea.offset = base_offset + offset;
 					second.ea = ea;
 					split_key_list.push_back(std::make_pair(key,second)); // addr in temp dram
@@ -910,6 +912,7 @@ namespace PH
 				//				new_nodeMeta1[group1_idx]->valid_cnt++;
 
 				dst_ea.large = ea.large;
+				dst_ea.size = ea.size;
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 #ifdef DST_CHECK
@@ -986,6 +989,7 @@ namespace PH
 				//				new_nodeMeta2[group2_idx]->valid_cnt++;
 
 				dst_ea.large = ea.large;
+				dst_ea.size = ea.size;
 				dst_ea.offset = start_offset + offset;
 				kvp_p->value = dst_ea.value;
 #ifdef DST_CHECK
@@ -1414,7 +1418,7 @@ namespace PH
 						//							debug_error("???\n");
 					}
 
-					new_ea.large = old_ea.large;//...
+//					new_ea.large = old_ea.large;//... did in insert entyr to slot
 					kvp_p->value = new_ea.value;
 #ifdef DST_CHECK
 					EA_test(key,new_ea);
@@ -1806,7 +1810,7 @@ namespace PH
 		}
 		else // to log
 		{
-//			tes(TEMP1);
+			tes(TEMP1);
 
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
@@ -1837,6 +1841,7 @@ namespace PH
 			new_ea.loc = dst_loc;
 			new_ea.large = large_value;
 //			new_ea.large = 0; // ov test
+			new_ea.size = value_size;
 			new_ea.file_num = dst_log->log_num;
 			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite
 #ifdef HOT_KEY_LIST
@@ -2005,7 +2010,7 @@ namespace PH
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
-//			tee(TEMP1);
+			tee(TEMP1);
 
 		}
 		tee(INSERT);
@@ -2067,8 +2072,8 @@ namespace PH
 
 			if (ex == 0)
 			{
+				
 #ifndef NO_EXIST
-				//				printf("entry desonst exist\n");
 				debug_error("can't find key\n");
 #endif
 				return -1;
@@ -2081,6 +2086,7 @@ namespace PH
 
 			if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot or warm
 			{
+//				return -1;
 				//				doubleLogList[ea.file_num].log_check();
 				//				size_t old_tail_sum,logical_tail,logical_offset,diff;
 				//				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
@@ -2103,7 +2109,9 @@ namespace PH
 				}
 				else
 				{
-					value_size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					value_size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					value_size = 100;
+					value_size = ea.size;
 					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
 				}
 				/*
@@ -2157,7 +2165,7 @@ namespace PH
 				//at_lock2(nm->rw_lock);
 				if (try_at_lock2(nm->rw_lock) == false)
 					continue;
-				//				_mm_sfence();
+//				_mm_sfence();
 				/*
 				   if (ea.loc == 3) // cold list
 				   offset = ((ea.offset-NODE_HEADER_SIZE)%NODE_SIZE)/ENTRY_SIZE;
@@ -2173,7 +2181,8 @@ namespace PH
 				   continue;
 				   }
 				 */
-				if (kvp_p->key != key || kvp_p->value != ea.value) // updated?
+//				if (kvp_p->key != key || kvp_p->value != ea.value) // updated?
+				if (kvp.key != key || kvp.value != ea.value)
 				{
 					at_unlock2(nm->rw_lock);
 					continue;
@@ -2191,7 +2200,10 @@ namespace PH
 				}
 				else
 				{
-					value_size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					value_size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					value_size = 100;
+					value_size = ea.size;
+					
 					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
 				}
 
@@ -3132,7 +3144,8 @@ namespace PH
 				old_ea.large = 0;
 
 			key = *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE);
-			value_size8 =  *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE + SIZE_SIZE);
+			value_size8 =  *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE + KEY_SIZE);
+			old_ea.size = value_size8;
 			value_size8 = get_v8(value_size8);
 
 #if 0
@@ -3359,6 +3372,7 @@ namespace PH
 					old_ea.loc = HOT_LOG;
 					old_ea.file_num = ll.log_num;
 					old_ea.large = header->large_bit;
+					old_ea.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 					old_ea.offset = ll.offset;
 
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
@@ -3514,6 +3528,7 @@ namespace PH
 
 				src_addr.loc = HOT_LOG;
 				src_addr.large = header->large_bit;
+				src_addr.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 				src_addr.file_num = ll.log_num;
 				src_addr.offset = ll.offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
 
@@ -3527,6 +3542,7 @@ namespace PH
 #endif
 					// just change location
 					dst_addr.large = src_addr.large;
+					dst_addr.size = src_addr.size;
 					dst_addr.offset = node_offset + nodeMeta->entryLoc[slot_index].offset;
 					kvp_p->value = dst_addr.value;
 #ifdef DST_CHECK

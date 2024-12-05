@@ -50,7 +50,7 @@ namespace PH
 			//void *run_evict(void* p);
 
 		public:
-			void global_init(size_t max_data_size,int num_thread,int num_pmem,int num_evict, int recover);
+			void global_init(int VS, size_t max_data_size,int num_thread,int num_pmem,int num_evict, int recover);
 			void global_clean();
 
 			//--------------------------------------------------------------
