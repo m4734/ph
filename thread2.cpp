@@ -1843,7 +1843,7 @@ namespace PH
 //			new_ea.large = 0; // ov test
 			new_ea.size = value_size;
 			new_ea.file_num = dst_log->log_num;
-			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite
+			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite;
 #ifdef HOT_KEY_LIST
 			while(1)
 			{
@@ -1970,6 +1970,7 @@ namespace PH
 //			dst_log->buffer_to_dram(entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8);
 			unsigned char* dram_head_p = dst_log->get_dram_head_p();
 			memcpy(dram_head_p,entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8); //dram
+//			memcpy(dram_head_p,entry_buffer,ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE); //dram
 
 #else
 			warm_cache = emptyNodeAddr;
@@ -1982,7 +1983,8 @@ namespace PH
 
 			//			dst_log->head_sum_log[dst_log->head_sum_cnt] = dst_log->head_sum;
 			//			dst_log->head_sum_cnt++;
-			dst_log->head_sum+=LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8;//ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE; // NO JUMP SIZE
+			dst_log->head_sum+=LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8;
+//			dst_log->head_sum+=ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE; // NO JUMP SIZE
 
 			//check
 			log_write_cnt++;
@@ -2086,7 +2088,6 @@ namespace PH
 
 			if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot or warm
 			{
-//				return -1;
 				//				doubleLogList[ea.file_num].log_check();
 				//				size_t old_tail_sum,logical_tail,logical_offset,diff;
 				//				old_tail_sum = doubleLogList[ea.file_num].tail_sum;
@@ -3564,8 +3565,15 @@ namespace PH
 				else // inserted during hot to warm
 				{
 					//					debug_error("htw0\n");
-					if (header->valid_bit)
+					if (header->valid_bit) // may possible... // index -> invalidate // just pass it // it will be invalidated by query thread
+					{
+						/*
+						EntryAddr temp;
+						temp.value = kvp_p->value;
+						printf("%d %d\n",temp.size,src_addr.size);
+						*/
 						debug_error("htw\n");
+					}
 					//					nodeMeta->valid[slot_index] = false; // validate fail
 
 				}

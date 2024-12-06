@@ -38,7 +38,7 @@
 
 #define NO_EXIST
 
-//#define TIME_STAT
+#define TIME_STAT
 
 #endif
 
@@ -179,9 +179,12 @@ union EntryHeader
 		{
 			size_t loc : 2; // 1 hot / 2 warm / 3 cold	
 			size_t large : 1;
-			size_t size : 10; // 10bit 1KB
-			size_t file_num : 19; // 512 k files
-			size_t offset : 32;  // .. 2^16 * 4 G // 4GB
+//			size_t empty : 1;
+			size_t size : 11; // 10bit 1KB
+			size_t file_num : 10; // 1 k files
+			size_t offset : 40;  // .. 2^16 * 4 G // 1TB
+			// TODO offset need recycle
+			// log ( 136 * 1B )
 		};
 		uint64_t value;
 		bool operator!=(const EntryAddr &ea)

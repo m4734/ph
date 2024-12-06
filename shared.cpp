@@ -155,6 +155,10 @@ namespace PH
 		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
 		{
 			addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
+#ifdef INV_TEST
+	if (((EntryHeader*)addr)->valid_bit == 0)
+		debug_error("hot inv fail\n");
+#endif
 			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
 							     //			hot_to_hot_cnt++; // log to hot
 			if (ea.large)
