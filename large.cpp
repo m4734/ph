@@ -26,9 +26,9 @@ UnitPool::~UnitPool()
 
 void insert2(unsigned char *dst, uint64_t value_size, unsigned char* value)
 {
-	memcpy(dst,&value_size,SIZE_SIZE);
-	memcpy(dst+SIZE_SIZE,value,value_size);
-	pmem_persist(dst,SIZE_SIZE+value_size);
+	memcpy(dst,&value_size,SIZE_SIZE_L);
+	memcpy(dst+SIZE_SIZE_L,value,value_size);
+	pmem_persist(dst,SIZE_SIZE_L+value_size);
 	_mm_sfence();
 }
 
@@ -79,7 +79,7 @@ LargeAddr UnitPool::insert(uint64_t value_size,unsigned char* value)
 		return la;
 	}
 
-	int required_size = value_size + SIZE_SIZE;
+	int required_size = value_size + SIZE_SIZE_L;
 
 	if (current_size + required_size > LARGE_POOL_MAX)
 	{
@@ -124,7 +124,7 @@ LargeAlloc::~LargeAlloc()
 LargeAddr LargeAlloc::insert(uint64_t value_size,unsigned char* value)
 {
 	int target_size;
-	target_size = value_size + SIZE_SIZE;
+	target_size = value_size + SIZE_SIZE_L;
 
 	while(unit_list[unit_list_max-1]->unit < target_size)
 	{

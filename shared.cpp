@@ -41,7 +41,7 @@ namespace PH
 	/*inline */unsigned char* get_large_from_addr(unsigned char* addr)
 	{
 		LargeAddr la;
-		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
 		return largeAlloc->read(la);
 	}
 
@@ -49,13 +49,13 @@ namespace PH
 	{
 		unsigned char* addr = get_entry(ea);
 		LargeAddr la;
-		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
 		largeAlloc->invalidate(la);
 	}
 	/*inline */void invalidate_large_from_addr(unsigned char* addr)
 	{
 		LargeAddr la;
-		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+		la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
 		largeAlloc->invalidate(la);
 	}
 
@@ -119,7 +119,7 @@ namespace PH
 	}
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 	{
-#if 0
+#if 0 // should be here
 		// need version clean - kv write - version write ...
 		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
 		pmem_persist(dst+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
@@ -147,7 +147,7 @@ namespace PH
 	// hth kv
 	// htw kv skip
 
-	void invalidate_entry(EntryAddr &ea,bool try_merge) // need kv lock
+	void invalidate_entry(EntryAddr &ea,bool inv_large, bool try_merge) // need kv lock
 	{
 		unsigned char* addr;
 
@@ -161,10 +161,11 @@ namespace PH
 #endif
 			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
 							     //			hot_to_hot_cnt++; // log to hot
-			if (ea.large)
+//			if (ea.size == LARGE_SIZE)
+			if (inv_large)
 			{
 				LargeAddr la;
-				la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+				la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
 				largeAlloc->invalidate(la);
 			}
 
@@ -184,10 +185,11 @@ namespace PH
 
 			nm->invalidate(ea);
 
-			if (ea.large)
+//			if (ea.size == LARGES_SIZE)
+			if (inv_large)
 			{
 				LargeAddr la;
-				la = *(LargeAddr*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+				la = *(LargeAddr*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
 				largeAlloc->invalidate(la);
 			}
 

@@ -43,7 +43,7 @@
 #endif
 
 #define TIME_STAT
-//#define TIME_STAT2
+#define TIME_STAT2
 #define LIST_TRAVERSE_TEST
 
 
@@ -61,13 +61,14 @@ namespace PH
 
 	const uint32_t ENTRY_HEADER_SIZE = 8;
 	const uint32_t KEY_SIZE = 8;
-	const uint32_t SIZE_SIZE = 8;
+//	const uint32_t SIZE_SIZE = 8;
+	const uint32_t SIZE_SIZE_L = 8;
 //value size ??
 	const uint32_t WARM_CACHE_SIZE = 8;
 	const uint32_t JUMP_SIZE = 8;
 
-	const uint32_t ENTRY_SIZE_WITHOUT_VALUE = ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
-	const uint32_t LOG_ENTRY_SIZE_WITHOUT_VALUE = ENTRY_HEADER_SIZE + KEY_SIZE + SIZE_SIZE + 0 + WARM_CACHE_SIZE;
+	const uint32_t ENTRY_SIZE_WITHOUT_VALUE = ENTRY_HEADER_SIZE+KEY_SIZE;//+SIZE_SIZE;
+	const uint32_t LOG_ENTRY_SIZE_WITHOUT_VALUE = ENTRY_HEADER_SIZE + KEY_SIZE + /*SIZE_SIZE + */0 + WARM_CACHE_SIZE;
 
 //	const uint32_t ENTRY_SIZE = ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
 
@@ -149,6 +150,10 @@ namespace PH
 	};
 #endif
 
+const uint8_t LARGE_PTR_SIZE = 8;
+
+// empty bit requires init
+
 union EntryHeader
 {
 	struct
@@ -156,8 +161,9 @@ union EntryHeader
 		size_t valid_bit : 1;
 		size_t delete_bit : 1;
 		size_t large_bit : 1;
-		size_t empty_bit : 1;
-		size_t version : 60;
+//		size_t empty_bit : 1;
+		size_t size : 13;
+		size_t version : 48; // 
 	};
 	uint64_t value;
 };
@@ -245,7 +251,7 @@ union EntryHeader
 		unsigned char buffer[NODE_BUFFER_SIZE];
 	};
 
-	void invalidate_entry(EntryAddr &ea,bool try_merge = true);
+	void invalidate_entry(EntryAddr &ea,bool inv_large,bool try_merge = true);
 
 //	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len);
 	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len);

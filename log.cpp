@@ -253,7 +253,8 @@ void DoubleLog::recover() // should be last...
 
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 
-			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = header1->size;
 			value_size8 = get_v8(value_size8);
 
 			kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
@@ -269,7 +270,7 @@ void DoubleLog::recover() // should be last...
 					header1->valid_bit = false;// if it is on HOTLOG
 				}
 				else
-					invalidate_entry(ea2);
+					invalidate_entry(ea2,ea2.large,false);
 			}
 			else
 				ea2.loc = NONE;
@@ -366,12 +367,12 @@ void DoubleLog::insert_pmem_log(uint64_t key,uint64_t value_size, unsigned char 
 	unsigned char* head_p = pmemLogAddr + head_sum%my_size;
 #if 1
 	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE, value, value_size);
+//	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/, value, value_size);
 // dont write warm cache
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE, &jump, JUMP_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8+WARM_CACHE_SIZE, &jump, JUMP_SIZE);
 
-	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE+JUMP_SIZE);
+	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE/*+SIZE_SIZE*/+value_size8+WARM_CACHE_SIZE+JUMP_SIZE);
 //	pmem_persist(head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size8);
 
 //	_mm_sfence(); // manual
@@ -421,9 +422,10 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key, uint64_t value_s
 	unsigned char* head_p = dramLogAddr + head_sum%my_size;
 	memcpy(head_p,&version,ENTRY_HEADER_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE, value, value_size);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8, &jump, JUMP_SIZE);
+//	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/, value, value_size);
+	// wc not here
+//	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8, &jump, JUMP_SIZE);
 
 //	_mm_sfence();
 }
@@ -431,10 +433,12 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key, uint64_t value_s
 void DoubleLog::insert_dram_log(uint64_t version, uint64_t key, uint64_t value_size, unsigned char *value,NodeAddr* warm_cache)
 {
 	// use checksum or write twice
+	/*
 	EntryHeader jump;
 	jump.valid_bit = 0;
 	jump.delete_bit = 0;
 	jump.version = tail_sum;
+	*/
 
 	// 1 write kv
 	uint64_t value_size8 = get_v8(value_size);
@@ -442,10 +446,10 @@ void DoubleLog::insert_dram_log(uint64_t version, uint64_t key, uint64_t value_s
 	unsigned char* head_p = dramLogAddr + head_sum%my_size;
 	memcpy(head_p,&version,ENTRY_HEADER_SIZE);
 	memcpy(head_p+ENTRY_HEADER_SIZE, &key, KEY_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE, value, value_size);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8, warm_cache, WARM_CACHE_SIZE);
-	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE, &jump, JUMP_SIZE);
+//	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE, &value_size, SIZE_SIZE);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/, value, value_size);
+	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8, warm_cache, WARM_CACHE_SIZE);
+//	memcpy(head_p+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE, &jump, JUMP_SIZE);
 
 //	_mm_sfence();
 }
@@ -456,9 +460,9 @@ void DoubleLog::copy_to_pmem_log(uint64_t value_size)
 	unsigned char* dram_head_p = dramLogAddr + head_sum%my_size;
 	uint64_t value_size8 = get_v8(value_size);
 
-	memcpy(pmem_head_p+ENTRY_HEADER_SIZE,dram_head_p+ENTRY_HEADER_SIZE,KEY_SIZE + SIZE_SIZE + value_size8 + WARM_CACHE_SIZE + JUMP_SIZE);
+	memcpy(pmem_head_p+ENTRY_HEADER_SIZE,dram_head_p+ENTRY_HEADER_SIZE,KEY_SIZE /*+ SIZE_SIZE*/ + value_size8 + WARM_CACHE_SIZE + JUMP_SIZE);
 
-	pmem_persist(pmem_head_p+ENTRY_HEADER_SIZE,KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE+JUMP_SIZE);
+	pmem_persist(pmem_head_p+ENTRY_HEADER_SIZE,KEY_SIZE/*+SIZE_SIZE*/+value_size8+WARM_CACHE_SIZE+JUMP_SIZE);
 	_mm_sfence();
 
 }

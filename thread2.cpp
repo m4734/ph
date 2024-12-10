@@ -20,7 +20,7 @@
 
 namespace PH
 {
-//	extern thread_local PH_Thread* my_thread;
+	extern thread_local PH_Thread* my_thread;
 
 	extern NodeAllocator* nodeAllocator;
 
@@ -391,6 +391,7 @@ namespace PH
 
 	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8) // need lock from outside
 	{
+		/*
 		bool large_value;
 		if (value_size8 == INV64)
 		{
@@ -399,7 +400,7 @@ namespace PH
 		}
 		else
 			large_value = false;
-
+			*/
 
 		const int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 		
@@ -414,9 +415,11 @@ namespace PH
 		// 2 insert..
 
 		EntryAddr new_ea;
-#if 0
+#if 1
 		new_ea.loc = 3;
-		new_ea.large = large_value;
+		new_ea.large = ((EntryHeader*)src_addr)->large_bit;
+//		new_ea.size = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+		new_ea.size = ((EntryHeader*)src_addr)->size;
 		new_ea.file_num = nodeMeta->my_offset.pool_num;
 
 		//-------------------------------------------- //try next fit
@@ -433,10 +436,11 @@ namespace PH
 				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-//			my_thread->tes(TEMP3);
+			my_thread->tes(TEMP3);
 				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
 //				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr, 128);
-//			my_thread->tee(TEMP3);
+//				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr,ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+			my_thread->tee(TEMP3);
 				nodeMeta->entryLoc[nfi].valid = 1;
 
 				nodeMeta->size_sum+=entry_size;
@@ -466,7 +470,10 @@ namespace PH
 				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+			my_thread->tes(TEMP3);
 				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+//				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr, 128);
+			my_thread->tee(TEMP3);
 				nodeMeta->entryLoc[nfi].valid = 1;
 
 				nodeMeta->size_sum+=entry_size;
@@ -478,7 +485,7 @@ namespace PH
 			return new_ea;
 		}
 
-		return emptyEntryAddr;
+//		return emptyEntryAddr; // fixed size only
 #endif
 #endif
 		//-------------------------------------------------------
@@ -509,9 +516,11 @@ namespace PH
 
 		// copy data first..
 
+		// duplicated if use first part
 		new_ea.loc = 3; // cold
-		new_ea.large = large_value;
-		new_ea.size = *(uint64_t*)(src_addr + ENTRY_HEADER_SIZE + KEY_SIZE);//value_size;
+		new_ea.large = ((EntryHeader*)src_addr)->large_bit;
+//		new_ea.size = *(uint64_t*)(src_addr + ENTRY_HEADER_SIZE + KEY_SIZE);//value_size;
+		new_ea.size = ((EntryHeader*)src_addr)->size;
 		new_ea.file_num = nodeMeta->my_offset.pool_num;
 		//		if (slot_idx < NODE_SLOT_MAX)
 		{
@@ -598,6 +607,7 @@ namespace PH
 		//			debug_error("cold block bug\n");
 
 		unsigned char* addr;
+		unsigned char* addr2;
 		int offset;
 		int group0_idx=0;
 		uint64_t key;
@@ -636,10 +646,12 @@ namespace PH
 				if (list_nodeMeta->entryLoc[i].valid)
 				{
 					offset = list_nodeMeta->entryLoc[i].offset;
-					key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
-					second.addr = addr+offset;
-					ea.large = ((EntryHeader*)(addr+offset))->large_bit;
-					ea.size = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+					addr2 = addr+offset;
+					key = *(uint64_t*)(addr2+ENTRY_HEADER_SIZE);
+					second.addr = addr2;
+					ea.large = ((EntryHeader*)addr2)->large_bit;
+//					ea.size = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+					ea.size = ((EntryHeader*)addr2)->size;
 					ea.offset = base_offset + offset;
 					second.ea = ea;
 					split_key_list.push_back(std::make_pair(key,second)); // addr in temp dram
@@ -695,7 +707,8 @@ namespace PH
 			while(i < size-1) // size == 1 will go right...
 			{
 				src_addr = split_key_list[i].second.addr;
-				value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//				value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+				value_size8 = ((EntryHeader*)src_addr)->size;
 				value_size8 = get_v8(value_size8);
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				sorted_entry_size.push_back(entry_size);
@@ -731,7 +744,8 @@ namespace PH
 			while(i < size && split_key_list[i].first < new_listNode->key)
 			{
 				src_addr = split_key_list[i].second.addr;
-				value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//				value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+				value_size8 = ((EntryHeader*)src_addr)->size;
 				value_size8 = get_v8(value_size8);
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				sorted_entry_size.push_back(entry_size);
@@ -763,7 +777,8 @@ namespace PH
 		for (;i<size;i++)
 		{
 			src_addr = split_key_list[i].second.addr;
-			value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = ((EntryHeader*)src_addr)->size;
 			value_size8 = get_v8(value_size8);
 			entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 			sorted_entry_size.push_back(entry_size);
@@ -1237,9 +1252,10 @@ namespace PH
 		{
 			if (ea.offset < doubleLogList[ea.file_num].tail_sum)
 				return emptyNodeAddr;
-			uint64_t value8 = *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE);
-			value8 = get_v8(value8);
-			wc = *(NodeAddr*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE + SIZE_SIZE + value8);
+//			uint64_t value_size8 = *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE);
+			uint64_t value_size8 = ((EntryHeader*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea)))->size;
+			value_size8 = get_v8(value_size8);
+			wc = *(NodeAddr*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE /*+ SIZE_SIZE*/ + value_size8);
 		}
 		else if (ea.loc == WARM_LIST)
 		{
@@ -1278,9 +1294,9 @@ namespace PH
 		return wc;
 	}
 
-	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea) // have skiplist lock // return old ea // need invalidation and kv unlock after this
+	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
-//		tes(INSERT_TO_COLD);
+		tes(INSERT_TO_COLD);
 
 		EntryAddr new_ea;
 		EntryAddr real_old_ea;
@@ -1362,27 +1378,32 @@ namespace PH
 					at_unlock2(listNode->lock);
 					//				new_ea.value = kvp_p->value;
 //					tee(TEMP1); 
-//					tee(INSERT_TO_COLD);
+					tee(INSERT_TO_COLD);
 					return emptyEntryAddr; // no invalidation
 				}
 
-				if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now
+				if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now // get version after key lock
 				{
 					EntryHeader new_version;
 					new_version.valid_bit = 1;
 					new_version.delete_bit = 0;
+//					new_version.large_bit = ((EntryHeader*)src_addr)->large_bit;
+					new_version.large_bit = large;
+					/*
 					if (value_size8 == INV64)
 						new_version.large_bit = true;
 					else
 						new_version.large_bit = false;
+						*/
+					new_version.size = ((EntryHeader*)src_addr)->size;
 					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
 				}
 #endif
 
-//tes(INSERT_ENTRY_TO_SLOT);
+tes(INSERT_ENTRY_TO_SLOT);
 				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
-//tee(INSERT_ENTRY_TO_SLOT);
+tee(INSERT_ENTRY_TO_SLOT);
 				if (new_ea.value != 0)
 				{
 
@@ -1399,10 +1420,11 @@ namespace PH
 						kvp_p->key = key;
 					}
 					//------------------------------ entry locked!!
-
+/*
 					if (kvp_p->value == INV0) // just statistics
 					{
-						if (value_size8 == INV64)
+//						if (value_size8 == LARGE_SIZE)
+						if (new_ea.large)
 						{
 							value_size8 = last_value_size;
 							ld_sum+=last_value_size+KEY_SIZE;
@@ -1417,6 +1439,7 @@ namespace PH
 						//						else
 						//							debug_error("???\n");
 					}
+					*/
 
 //					new_ea.large = old_ea.large;//... did in insert entyr to slot
 					kvp_p->value = new_ea.value;
@@ -1435,7 +1458,7 @@ namespace PH
 
 					//check
 					//					warm_to_cold_cnt++; // to cold
-//					tee(INSERT_TO_COLD);
+					tee(INSERT_TO_COLD);
 //					tee(TEMP1);
 					return real_old_ea; // still have kv lock
 					break;
@@ -1479,11 +1502,14 @@ namespace PH
 
 			at_unlock2(listNode->lock);
 		}
-//		tee(INSERT_TO_COLD);
+
+		debug_error("impossbile\n");
+
+		tee(INSERT_TO_COLD);
 		return real_old_ea;
 	}
 
-	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool new_update) // may lock from outside // have to be exist
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update) // may lock from outside // have to be exist
 	{ // ALWAYS NEW
 	  //		printf("not now\n");
 	  //NO UNLOCK IN HERE!
@@ -1492,6 +1518,7 @@ namespace PH
 	  // 2 find listnode
 	  // 3 insert kv
 	  // 4 return addr
+
 #ifdef TIME_STAT
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -1499,40 +1526,35 @@ namespace PH
 //		tes(DIRECT_TO_COLD);
 		//		int cold_split_cnt = 0;
 
-		EntryAddr new_ea,old_ea;
+		EntryAddr old_ea;
 
 		SkiplistNode* skiplist_node;
 
 		ListNode* list_node;
 		NodeMeta* list_nodeMeta;
 
-		uint64_t value_size8;
-
-		if (value_size == INV64)
-			value_size8 = 8; // sizeof(large addr)
-		else
-			value_size8 = get_v8(value_size);
+		uint64_t value_size8 = get_v8(value_size);
 
 		const uint64_t z = 0;
 		memcpy(entry_buffer,&z,ENTRY_HEADER_SIZE); // need to be zero for persist
 		memcpy(entry_buffer+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
-		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
-		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value,value_size8);//v8?
+//		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
+		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/,value,value_size8);//v8?
 
 		EntryAddr src_ea;
 		std::atomic<uint8_t>* seg_lock; // need for invalidation
 
-		while(1)
+		if (skiplist_from_warm)
+			skiplist_node = skiplist_from_warm;
+		else
 		{
-			if (skiplist_from_warm)
-				skiplist_node = skiplist_from_warm;
-			else
+			while(1)
 			{
 #ifdef WARM_CACHE
 				if (new_update) // use kvp // always new for now...
 				{
 					//					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,read_lock,kvp);
-					EntryAddr old_ea;
+//					EntryAddr old_ea;
 					old_ea.value = kvp.value;
 					NodeAddr warm_cache = get_warm_cache(old_ea);
 					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
@@ -1548,38 +1570,39 @@ namespace PH
 					at_unlock2(skiplist_node->lock);
 					continue;
 				}
+				break;
 				//-------------------------------------------------------- skiplist
 			}
-
-			if (new_update)
-				src_ea.value = emptyEntryAddr.value;
-			else
-				src_ea.value = kvp.value;
-//			tes(INSERT_TO_COLD_OF_DTC);
-			old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea); //seglock ref
-//			tee(INSERT_TO_COLD_OF_DTC);
-			if (old_ea.loc == HOT_LOG)
-			{
-				skiplist_node->remove_key_from_list(key);
-			}
-
-			if (skiplist_from_warm == NULL)
-				at_unlock2(skiplist_node->lock);
-
-			if (old_ea.value != emptyEntryAddr.value) // sucess
-			{
-//				tes(TEMP1);
-				invalidate_entry(old_ea);
-//				tee(TEMP1);
-				kvp.value = old_ea.value;
-			}
-			else
-				kvp.value = 0;
-
-			hash_index->unlock_entry2(seg_lock,read_lock);
-
-			break;
 		}
+
+		if (new_update)
+			src_ea.value = emptyEntryAddr.value;
+		else
+			src_ea.value = kvp.value;
+
+//		tes(INSERT_TO_COLD_OF_DTC);
+		old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea,large); //seglock ref
+//		tee(INSERT_TO_COLD_OF_DTC);
+
+		if (old_ea.value != emptyEntryAddr.value) // 
+		{
+			if (old_ea.loc == HOT_LOG)
+				skiplist_node->remove_key_from_list(key);
+
+//			tes(TEMP1);
+			invalidate_entry(old_ea,old_ea.large);
+//			tee(TEMP1);
+//			kvp.value = new_ea.value;
+		}
+		else
+		{
+//			kvp.value = 0;
+			debug_error("impsosssbile fail\n"); // may first insert
+		}
+		hash_index->unlock_entry2(seg_lock,read_lock);
+
+		if (skiplist_from_warm == NULL)
+			at_unlock2(skiplist_node->lock);
 
 		//		if (cold_split_cnt > 0)
 		//			skiplist_node->find_half_listNode();
@@ -1588,7 +1611,7 @@ namespace PH
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 #endif
 //		tee(DIRECT_TO_COLD);
-		return new_ea;
+		return old_ea; // we don't use this
 	}
 
 	void list_gc(SkiplistNode* skiplistNode) // need node lock
@@ -1724,19 +1747,21 @@ namespace PH
 		bool dtc;
 		DoubleLog* dst_log;
 		Loc dst_loc;
-		bool large_value = false;
+		bool large = false;
 
 		dtc = false;
 
 		if (value_size > LARGE_VALUE_THRESHOLD)
 		{
+			debug_error("not large now\n");
 #ifdef LARGE_ALLOC
-			large_value = true;
+			large = true;
 
 			LargeAddr largeAddr = largeAlloc->insert(value_size,value);
 			large_addr = largeAddr; // buffer for insert // src of value
 
-			value_size = sizeof(LargeAddr); // 8
+//			value_size = sizeof(LargeAddr); // 8
+			value_size = LARGE_PTR_SIZE;
 							//			value_size = INV64; // for dtc
 			value = (unsigned char*)&large_addr;
 #else
@@ -1764,12 +1789,13 @@ namespace PH
 
 		if (dtc)
 		{
+//			tes(TEMP2);
 			//			dst_loc = COLD_LIST;
 			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			//			kvp.value = 0;
 			//			KVP test_kvp = kvp;
-			if (large_value)
-				value_size = 8;
+//			if (large_value)
+//				value_size = LARGE_PTR_SIZE;
 
 			SkiplistNode* skiplistNode;
 			while (1)
@@ -1794,7 +1820,7 @@ namespace PH
 				}
 				break;
 			}
-			new_ea = direct_to_cold(key,value_size,value,kvp,skiplistNode,true); // kvp becomes old one
+			/*new_ea = */direct_to_cold(key,value_size,value,kvp,skiplistNode,large,true); // kvp becomes old one
 			direct_to_cold_cnt++;
 #if 0 // moved to direct_to_cold...
 			old_ea.value = kvp.value;
@@ -1806,11 +1832,11 @@ namespace PH
 #endif
 			if (may_split_warm_node(skiplistNode) == 0)
 				at_unlock2(skiplistNode->lock);
-
+//			tee(TEMP2);
 		}
 		else // to log
 		{
-			tes(TEMP1);
+//			tes(TEMP1);
 
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
@@ -1820,27 +1846,36 @@ namespace PH
 
 			const uint64_t z = 0;
 			jump_for_insert.version = dst_log->tail_sum;
-
+/*
 			memcpy(entry_buffer,&z,ENTRY_HEADER_SIZE);
 			memcpy(entry_buffer+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
 			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
 			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE,value,value_size8);//v8?
 			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8,&z,WARM_CACHE_SIZE);//v8?
 			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE,&jump_for_insert,JUMP_SIZE);//v8?
+			*/
 //			dst_log->insert_pmem_log(key,value_size,value);
 //			dst_log->buffer_to_pmem(evict_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE);
 
 
 			unsigned char* pmem_head_p = dst_log->get_pmem_head_p();
 			
-			memcpy(pmem_head_p,entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE); // pmem
-			pmem_persist(pmem_head_p,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE);
+//			memcpy(pmem_head_p,entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE); // pmem
+//			pmem_persist(pmem_head_p,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE);
 
+//------------------------- PMEM WRITE
+			memcpy(pmem_head_p,&z,ENTRY_HEADER_SIZE); // zzz
+			memcpy(pmem_head_p+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
+//			memcpy(pmem_head_p+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
+			memcpy(pmem_head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/,value,value_size8);//v8?
+			memcpy(pmem_head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8,&z,WARM_CACHE_SIZE);//v8? //zzz
+			memcpy(pmem_head_p+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8+WARM_CACHE_SIZE,&jump_for_insert,JUMP_SIZE);//v8?
+			pmem_persist(pmem_head_p,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8+JUMP_SIZE);
+//----------------------------
 
 			//			new_ea.loc = 1; // hot
 			new_ea.loc = dst_loc;
-			new_ea.large = large_value;
-//			new_ea.large = 0; // ov test
+			new_ea.large = large;
 			new_ea.size = value_size;
 			new_ea.file_num = dst_log->log_num;
 			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite;
@@ -1917,15 +1952,14 @@ namespace PH
 			old_ea.value = kvp_p->value;
 #endif
 
-			uint64_t new_ver;
-			new_ver = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-			new_version_for_insert.version = new_ver;
-			new_version_for_insert.large_bit = large_value;
-//			new_version.large_bit = 0; // ov test
+			uint64_t new_ver; //valid dele size ver
+			new_version_for_insert.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+			new_version_for_insert.large_bit = large;
+			new_version_for_insert.size = value_size;
 			new_ver = new_version_for_insert.value;
 
 			// update version
-			memcpy(entry_buffer,&new_ver,ENTRY_HEADER_SIZE);
+//			memcpy(entry_buffer,&new_ver,ENTRY_HEADER_SIZE);
 
 
 			_mm_sfence();
@@ -1933,10 +1967,10 @@ namespace PH
 //			dst_log->buffer_to_pmem(entry_buffer,ENTRY_HEADER_SIZE);
 //			dst_log->buffer_to_pmem((unsigned char*)&new_ver,ENTRY_HEADER_SIZE);
 
-
-			memcpy(pmem_head_p,entry_buffer,ENTRY_HEADER_SIZE); // pmem header
+//-------------------------------------- PMEM HEADER
+			memcpy(pmem_head_p,&new_ver,ENTRY_HEADER_SIZE); // pmem header
 			pmem_persist(pmem_head_p,ENTRY_HEADER_SIZE);
-
+//--------------------------------------------
 
 			// 3 get and write new version <- persist
 
@@ -1964,14 +1998,17 @@ namespace PH
 				warm_cache = get_warm_cache(old_ea);
 			else
 				warm_cache = emptyNodeAddr;
-//			dst_log->insert_dram_log(new_version.value,key,value_size,value,&warm_cache);
 
-			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8,&warm_cache,WARM_CACHE_SIZE);
+				//--------------------------------------- DRAM WRITE
+			dst_log->insert_dram_log(new_ver,key,value_size,value,&warm_cache);
+
+//			memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8,&warm_cache,WARM_CACHE_SIZE);
 //			dst_log->buffer_to_dram(entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8);
-			unsigned char* dram_head_p = dst_log->get_dram_head_p();
-			memcpy(dram_head_p,entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8); //dram
+//			unsigned char* dram_head_p = dst_log->get_dram_head_p();
+//			memcpy(dram_head_p,entry_buffer,LOG_ENTRY_SIZE_WITHOUT_VALUE+value_size8); //dram
 //			memcpy(dram_head_p,entry_buffer,ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8+WARM_CACHE_SIZE); //dram
 
+//--------------------------------------------------------------------------
 #else
 			warm_cache = emptyNodeAddr;
 			dst_log->insert_dram_log(new_version.value,key,value_size,value,&warm_cache);
@@ -2007,12 +2044,16 @@ namespace PH
 			{
 //				if (old_ea.loc == HOT_LOG)
 //					hot_to_hot_cnt++; // need warm to hot?
-				invalidate_entry(old_ea); // log write test
+				invalidate_entry(old_ea,large); // log write test
 			}
+#ifdef DST_CHECK
+			EA_test(key,new_ea);
+#endif
+
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
-			tee(TEMP1);
+//			tee(TEMP1);
 
 		}
 		tee(INSERT);
@@ -2106,14 +2147,13 @@ namespace PH
 					unsigned char* vsp;
 					vsp = get_large_from_addr(addr);
 					value_size = *(uint64_t*)vsp;
-					value_addr = vsp+SIZE_SIZE;
+					value_addr = vsp+SIZE_SIZE_L;
 				}
 				else
 				{
 //					value_size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
-//					value_size = 100;
 					value_size = ea.size;
-					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
+					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE;//+SIZE_SIZE;
 				}
 				/*
 				   if (value_size >= NODE_SIZE)
@@ -2197,7 +2237,7 @@ namespace PH
 					unsigned char* vsp;
 					vsp = get_large_from_addr(addr);
 					value_size = *(uint64_t*)vsp;
-					value_addr = vsp+SIZE_SIZE;
+					value_addr = vsp+SIZE_SIZE_L;
 				}
 				else
 				{
@@ -2205,7 +2245,7 @@ namespace PH
 //					value_size = 100;
 					value_size = ea.size;
 					
-					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE;
+					value_addr = addr+ENTRY_HEADER_SIZE+KEY_SIZE;//+SIZE_SIZE;
 				}
 
 				//	hash_index->read(key,&ea.value);//retry
@@ -2352,11 +2392,12 @@ namespace PH
 			if (dst_addr == NULL)
 				return;
 			memcpy(dst_addr,header,ENTRY_HEADER_SIZE+KEY_SIZE);
-			memcpy(dst_addr+ENTRY_HEADER_SIZE+KEY_SIZE,large_addr,SIZE_SIZE+value_size);
+			memcpy(dst_addr+ENTRY_HEADER_SIZE+KEY_SIZE,large_addr+SIZE_SIZE_L,value_size);
 		}
 		else
 		{
-			value_size = *(uint64_t*)(header+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size = *(uint64_t*)(header+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size = ((EntryHeader*)header)->size;
 			insert(header,ENTRY_SIZE_WITHOUT_VALUE+value_size);
 		}
 
@@ -3121,7 +3162,7 @@ namespace PH
 		int base_offset = batch_num*WARM_BATCH_MAX_SIZE;
 		unsigned char* src_addr;
 
-		bool large_value;
+		bool large;
 
 		while (i < end_slot)
 		{
@@ -3133,19 +3174,17 @@ namespace PH
 				i++;
 				continue;
 			}
+
 			old_ea.offset = node_offset + nodeMeta->entryLoc[i].offset;//batch_num*WARM_BATCH_MAX_SIZE + src_offset;
 										   //			old_ea.offset = dna.node_offset*NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + src_offset;
 
 			src_addr = evict_buffer+(nodeMeta->entryLoc[i].offset - base_offset);
 
-			large_value = ((EntryHeader*)src_addr)->large_bit;
-			if (large_value)
-				old_ea.large = 1;
-			else
-				old_ea.large = 0;
+			old_ea.large = large = ((EntryHeader*)src_addr)->large_bit;
 
 			key = *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE);
-			value_size8 =  *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE + KEY_SIZE);
+//			value_size8 =  *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE + KEY_SIZE);
+			value_size8 = ((EntryHeader*)src_addr)->size;
 			old_ea.size = value_size8;
 			value_size8 = get_v8(value_size8);
 
@@ -3167,15 +3206,16 @@ namespace PH
 			//------------------------------ entry locked!!
 #endif
 //			tes(INSERT_TO_COLD_FROM_WARM);
-			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea) != emptyEntryAddr) // scucess //seg lock ref
+			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea,large) != emptyEntryAddr) // scucess //seg lock ref
 			{
 //				tee(INSERT_TO_COLD_FROM_WARM);
 				//need inv and unlock
 				nodeMeta->entryLoc[i].offset = 0;//init
 				nodeMeta->entryLoc[i].valid = 0;
 
-				if (large_value)
-					invalidate_large_from_addr(src_addr); // it is dram..
+//				if (large_value)
+//				if ( // what was this?? large value still exists in cold
+//					invalidate_large_from_addr(src_addr); // it is dram..
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -3276,7 +3316,7 @@ namespace PH
 		int ex_entry_cnt=0;
 		uint64_t key;
 		EntryAddr old_ea;
-		EntryAddr new_ea;
+//		EntryAddr new_ea;
 		KVP kvp;
 		KVP* kvp_p;
 		std::atomic<uint8_t>* seg_lock;
@@ -3348,7 +3388,9 @@ namespace PH
 				addr = dl->dramLogAddr + (ll.offset%dl->my_size);
 
 				header = (EntryHeader*)addr;
-				value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//				value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//				value_size8 = ((EntryHeader*)addr)->size;
+				value_size8 = header->size;
 				value_size8 = get_v8(value_size8);
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 
@@ -3373,7 +3415,8 @@ namespace PH
 					old_ea.loc = HOT_LOG;
 					old_ea.file_num = ll.log_num;
 					old_ea.large = header->large_bit;
-					old_ea.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					old_ea.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+					old_ea.size = ((EntryHeader*)addr)->size;
 					old_ea.offset = ll.offset;
 
 					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
@@ -3381,10 +3424,7 @@ namespace PH
 					//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 					kvp.value = old_ea.value;
 
-					if (old_ea.large)
-						value_size8 = INV64;
-
-					new_ea = direct_to_cold(key,value_size8,addr + 8+8+8,kvp,node,false);
+					/*new_ea = */direct_to_cold(key,value_size8,addr + ENTRY_HEADER_SIZE+KEY_SIZE,kvp,node,false);
 					if (kvp.value == old_ea.value) // ok
 					{
 						//					old_ea.value = kvp.value;
@@ -3529,7 +3569,8 @@ namespace PH
 
 				src_addr.loc = HOT_LOG;
 				src_addr.large = header->large_bit;
-				src_addr.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//				src_addr.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+				src_addr.size = ((EntryHeader*)addr)->size;
 				src_addr.file_num = ll.log_num;
 				src_addr.offset = ll.offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
 
@@ -3553,8 +3594,8 @@ namespace PH
 					//					nodeMeta->valid[slot_index] = true; // validate
 					nodeMeta->entryLoc[slot_index].valid = 1;
 					//					++nodeMeta->valid_cnt;
-					if (src_addr.large)
-						invalidate_large_from_addr(addr);
+//					if (src_addr.large) // not understand
+//						invalidate_large_from_addr(addr);
 					_mm_sfence();
 					header->valid_bit = 0; // invalidate hot log entry
 #ifdef HOT_KEY_LIST	
@@ -3666,7 +3707,8 @@ namespace PH
 
 			if (header.valid_bit)
 				break;
-			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = header.size;
 			value_size8 = get_v8(value_size8);
 			entry_size = LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 
@@ -3708,7 +3750,8 @@ namespace PH
 			header.value = *(uint64_t*)addr;
 
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = ((EntryHeader*)addr)->size;
 			value_size8 = get_v8(value_size8);
 			// evict now
 
@@ -3728,11 +3771,12 @@ namespace PH
 			{
 #if 0
 				old_ea.loc = HOT_LOG;
+				old_ea.large = header.large_bit;
 				old_ea.file_num = dl->log_num;
 				old_ea.offset = dl->tail_sum%dl->my_size;
 				kvp.value = old_ea.value;
 
-				direct_to_cold(key,addr + ENTRY_HEADER_SIZE + KEY_SIZE,kvp,seg_lock,NULL,false);
+				direct_to_cold(key,addr + ENTRY_HEADER_SIZE + KEY_SIZE,kvp,seg_lock,NULL,large,false);
 
 				if (old_ea.value == kvp.value) // ok
 				{
@@ -3752,7 +3796,7 @@ namespace PH
 			}
 			else
 			{
-				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8);
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 
 				SkiplistNode* node;
 #ifdef WARM_CACHE
@@ -3850,14 +3894,15 @@ namespace PH
 			header.value = *(uint64_t*)addr;
 
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+//			value_size8 = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
+			value_size8 = header.size;
 			value_size8 = get_v8(value_size8);
 
 			if (header.valid_bit)// && header.prev_loc != 3)// && is_checked(header) == false)
 			{
 				rv = 1;
 
-				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE+value_size8);
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 				// regist the log num and size_t
 				while(true) // the log allocated to this evict thread
 				{
@@ -3927,10 +3972,12 @@ namespace PH
 					//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
 					//					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
 					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
 					{
 						list_gc(node);
 						//						if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
 						if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+//						if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
 						{
 							//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 							//	at_lock2(nodeMeta->rw_lock);
