@@ -28,6 +28,7 @@ namespace PH
 	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 //	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than 
 //	const int WARM_COLD_MAX_RATIO = 10; // split when bigger than 
+//	const int WARM_COLD_MAX_RATIO = 12; // split when bigger than 
 	const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than (after merge smaller than )
 
 	class DoubleLog;

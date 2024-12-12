@@ -451,7 +451,7 @@ namespace PH
 			return new_ea;
 		}
 #if 1
-		else if(nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset-nodeMeta->entryLoc[nodeMeta->el_cnt-2].offset >= entry_size) // test
+		else if(nodeMeta->entryLoc[nodeMeta->el_cnt-2].valid == false && nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset-nodeMeta->entryLoc[nodeMeta->el_cnt-2].offset >= entry_size) // test // only for append in empty jump will be zero
 		{
 			nodeMeta->entryLoc[nodeMeta->el_cnt].offset = nodeMeta->entryLoc[nodeMeta->el_cnt-1].offset;
 			nodeMeta->entryLoc[nodeMeta->el_cnt].valid = 0;
@@ -476,6 +476,9 @@ namespace PH
 				nodeMeta->entryLoc[nfi].valid = 1;
 
 				nodeMeta->size_sum+=entry_size;
+
+//				if (nodeMeta->size_sum == 4096-16)
+//					debug_error("fit1\n");
 
 //				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
 //				listNode->size_sum+=entry_size;
@@ -629,6 +632,10 @@ namespace PH
 		{
 			list_size_sum+=list_nodeMeta->size_sum;
 
+//			if (list_nodeMeta->size_sum == 4080)
+//				debug_error("fit4\n");
+
+
 			at_lock2(list_nodeMeta->rw_lock); // lock the node
 
 			list_dataNode_p[group0_idx] = nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset);
@@ -648,6 +655,7 @@ namespace PH
 					offset = list_nodeMeta->entryLoc[i].offset;
 					addr2 = addr+offset;
 					key = *(uint64_t*)(addr2+ENTRY_HEADER_SIZE);
+
 					second.addr = addr2;
 					ea.large = ((EntryHeader*)addr2)->large_bit;
 //					ea.size = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
@@ -713,9 +721,9 @@ namespace PH
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				sorted_entry_size.push_back(entry_size);
 
-				if (offset+entry_size + ENTRY_HEADER_SIZE > NODE_SIZE || j >= NODE_SLOT_MAX-1) // + JUMP
+				if (offset+entry_size/* + ENTRY_HEADER_SIZE*/ > NODE_SIZE || j >= NODE_SLOT_MAX-1) // + JUMP
 				{
-					memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
+//					memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
 					group1_idx++;
 					j = 0;
 					memset(&sorted_buffer1[group1_idx],0,NODE_SIZE);
@@ -751,9 +759,9 @@ namespace PH
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				sorted_entry_size.push_back(entry_size);
 
-				if (offset+entry_size + ENTRY_HEADER_SIZE > NODE_SIZE || j >= NODE_SLOT_MAX-1) // + JUMP
+				if (offset+entry_size/* + ENTRY_HEADER_SIZE*/ > NODE_SIZE || j >= NODE_SLOT_MAX-1) // + JUMP
 				{
-					memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
+//					memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
 					group1_idx++;
 					j = 0;
 					memset(&sorted_buffer1[group1_idx],0,NODE_SIZE);
@@ -766,7 +774,7 @@ namespace PH
 				j++;
 			}
 		}
-		memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
+//		memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
 
 		int ih = i; // i half
 
@@ -784,9 +792,12 @@ namespace PH
 			entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 			sorted_entry_size.push_back(entry_size);
 
-			if (offset+entry_size + ENTRY_HEADER_SIZE > NODE_SIZE || j >= NODE_SLOT_MAX-1) 
+			if (offset+entry_size/* + ENTRY_HEADER_SIZE*/ > NODE_SIZE || j >= NODE_SLOT_MAX-1) 
 			{
-				memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
+				/*
+				if (offset < NODE_SIZE) // memset 0 // we don't need this
+					memcpy(addr+offset,&end_jump,ENTRY_HEADER_SIZE);
+					*/
 				group2_idx++;
 				j = 0;
 				memset(&sorted_buffer2[group2_idx],0,NODE_SIZE);
@@ -890,11 +901,14 @@ namespace PH
 		for (i=0;i<ih;i++) // mvoing kvp
 		{
 			entry_size = sorted_entry_size[i];
-			if (offset + entry_size + ENTRY_HEADER_SIZE > NODE_SIZE || j >= NODE_SLOT_MAX-1)
+			if (offset + entry_size/* + ENTRY_HEADER_SIZE*/ > NODE_SIZE || j >= NODE_SLOT_MAX-1)
 			{
-				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-				new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
-				j++;
+				if (offset < NODE_SIZE)
+				{
+					new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
+					new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
+					j++;
+				}
 
 				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
 				new_nodeMeta1[group1_idx]->entryLoc[j].offset = NODE_SIZE;
@@ -946,9 +960,12 @@ namespace PH
 			offset+=entry_size;
 		}
 
-		new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-		new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
-		j++;
+		if (offset < NODE_SIZE)
+		{
+			new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
+			new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
+			j++;
+		}
 
 		new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
 		new_nodeMeta1[group1_idx]->entryLoc[j].offset = NODE_SIZE;
@@ -965,11 +982,14 @@ namespace PH
 		for (;i<size;i++)
 		{
 			entry_size = sorted_entry_size[i];
-			if (offset + entry_size + ENTRY_HEADER_SIZE  > NODE_SIZE || j >= NODE_SLOT_MAX-1)
+			if (offset + entry_size /*+ ENTRY_HEADER_SIZE*/  > NODE_SIZE || j >= NODE_SLOT_MAX-1)
 			{
-				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-				new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
-				j++;
+				if (offset < NODE_SIZE)
+				{
+					new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
+					new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
+					j++;
+				}
 
 				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 				new_nodeMeta2[group2_idx]->entryLoc[j].offset = NODE_SIZE;
@@ -1023,9 +1043,12 @@ namespace PH
 			offset+=entry_size;
 		}
 
+if (offset < NODE_SIZE)
+{
 		new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 		new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
 		j++;
+}
 
 		new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
 		new_nodeMeta2[group2_idx]->entryLoc[j].offset = NODE_SIZE;
@@ -1307,12 +1330,20 @@ namespace PH
 
 		while(true) // always success unless re updated // split retry loop
 		{
+			tes(TEMP4);
 			ListNode* listNode = skiplistNode->my_listNode;
 			while (key >= listNode->next->key)
 				listNode = listNode->next;
-
+#if 1
 			at_lock2(listNode->lock);//-------------------------------------lock dst cold
-			if (key > listNode->next->key) // split??
+#else
+			if (try_at_lock2(listNode->lock) == false)
+			{
+				printf("lock fail1\n");
+				at_lock2(listNode->lock);
+			}
+#endif
+			if (key >= listNode->next->key) // split??
 			{
 				at_unlock2(listNode->lock);
 				continue;
@@ -1348,13 +1379,12 @@ namespace PH
 			//------------------------------ entry locked!!
 #endif
 
-
 			NodeMeta* list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
-			new_ea.value = 0;
-			while (true) //list_nodeMeta) // try block group // group loop
+//			new_ea.value = 0;
+			while (true)//list_nodeMeta) // try block group // group loop
 			{
 				// check space before lock
-				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum  >= /*>*/ NODE_SIZE-NODE_HEADER_SIZE)
+				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
 //				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty)// || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
 //				if (value_size8 > list_nodeMeta->max_empty)
 				{
@@ -1363,13 +1393,22 @@ namespace PH
 					list_nodeMeta = list_nodeMeta->next_node_in_group;
 					continue;
 				}
-
+#if 1
 				at_lock2(list_nodeMeta->rw_lock);
-
-//				tes(TEMP1);
+#else
+				if (try_at_lock2(list_nodeMeta->rw_lock) == false)
+				{
+					printf("lock fail2\n");
+					at_lock2(list_nodeMeta->rw_lock);
+				}
+#endif
+				tee(TEMP4);
+				tes(TEMP1);
 
 #if 1
+tes(TEMP2);
 				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+tee(TEMP2);
 				// lock here
 				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
 				{ // this is not new update and the key is re inserted
@@ -1377,31 +1416,34 @@ namespace PH
 //					list_nodeMeta->entryLoc[fit_index].valid = 0;
 
 					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
+					
+					tee(TEMP1); 
 					at_unlock2(list_nodeMeta->rw_lock);
 					at_unlock2(listNode->lock);
 					//				new_ea.value = kvp_p->value;
-//					tee(TEMP1); 
 					tee(INSERT_TO_COLD);
 					return emptyEntryAddr; // no invalidation
 				}
 
 				if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now // get version after key lock
 				{
+					/*
 					EntryHeader new_version;
 					new_version.valid_bit = 1;
 					new_version.delete_bit = 0;
 //					new_version.large_bit = ((EntryHeader*)src_addr)->large_bit;
 					new_version.large_bit = large;
-					/*
-					if (value_size8 == INV64)
-						new_version.large_bit = true;
-					else
-						new_version.large_bit = false;
-						*/
 //					new_version.size = ((EntryHeader*)src_addr)->size;
 					new_version.size = value_size;
 					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
+					*/
+					EntryHeader* header = (EntryHeader*)src_addr;
+					header->valid_bit = 1;
+					header->delete_bit = 0;
+					header->large_bit = large;
+					header->size = value_size;
+					header->version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 				}
 #endif
 
@@ -1458,13 +1500,14 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 					//need invalidation before unlock...
 					//					hash_index->unlock_entry2(seg_lock,read_lock);
+
+					tee(TEMP1);
 					at_unlock2(list_nodeMeta->rw_lock); // unlock dst rw lock
 					at_unlock2(listNode->lock);
 
 					//check
 					//					warm_to_cold_cnt++; // to cold
 					tee(INSERT_TO_COLD);
-//					tee(TEMP1);
 					return real_old_ea; // still have kv lock
 					break;
 				}
@@ -1473,14 +1516,15 @@ tee(INSERT_ENTRY_TO_SLOT);
 				debug_error("fail here\n");
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
+
+				tee(TEMP1);
 				at_unlock2(list_nodeMeta->rw_lock);
-//				tee(TEMP1);
 				if (list_nodeMeta->next_node_in_group == NULL)
 					break;
 				list_nodeMeta = list_nodeMeta->next_node_in_group;
 			}
 			//			if (i >= NODE_SLOT_MAX) // need split
-			if (new_ea.value == 0)
+//			if (new_ea.value == 0)
 				//			if (list_nodeMeta == NULL) // cold split
 			{
 				//				hash_index->unlock_entry2(seg_lock,read_lock);

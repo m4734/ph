@@ -452,9 +452,9 @@ namespace PH
 
 	int NodeMeta::find_nfi(int entry_size)
 	{
-		int start_index = last_index+1;
+		int start_index = last_index;//+1;
 
-		while(last_index+2 < el_cnt)
+		while(last_index+2 <= el_cnt)
 		{
 			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
 				return last_index;
