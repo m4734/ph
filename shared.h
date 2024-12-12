@@ -45,8 +45,7 @@
 #define TIME_STAT
 #define TIME_STAT2
 #define LIST_TRAVERSE_TEST
-
-
+#define ENTRY_WRITE_TEMP
 
 //#define NO_EXIST
 
@@ -273,11 +272,12 @@ union EntryHeader
 
 	void EA_test(uint64_t key, EntryAddr ea);
 
-	inline uint64_t get_v8(uint64_t &value_size)
+	inline int get_v8(int &value_size)
 	{
 		return (value_size+8-1)/8*8;
 //		return value_size + (8-value_size%8);
 	}
+
 
 	const uint16_t INV16 = 0xffff;//2^16-1
 	const uint64_t INV64 = 0xffffffffffffffff;

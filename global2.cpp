@@ -385,7 +385,7 @@ printf("ccc\n");
 	timePrint();
 }
 
-int PH_Interface::insert_op(uint64_t key,uint64_t value_size, unsigned char* value)
+int PH_Interface::insert_op(uint64_t key,int value_size, unsigned char* value)
 {
 	if (my_query_thread == NULL)
 		new_query_thread();

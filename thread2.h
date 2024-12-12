@@ -85,7 +85,7 @@ namespace PH
 			std::vector<uint64_t> sorted_entry_size;
 
 			LargeAddr large_addr;
-			uint64_t last_value_size;
+			int last_value_size;
 
 //---------------------------------
 public:
@@ -97,7 +97,7 @@ public:
 		_mm_mfence();
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].start);
 		_mm_mfence();
-		timeEntry[timeList].cnt++;
+//		timeEntry[timeList].cnt++;
 #endif
 	}
 	inline void tee(TimeList timeList)
@@ -107,7 +107,7 @@ public:
 		clock_gettime(CLOCK_MONOTONIC,&timeEntry[timeList].end);
 		_mm_mfence();
 		timeEntry[timeList].sum+=(timeEntry[timeList].end.tv_sec-timeEntry[timeList].start.tv_sec)*1000000000+timeEntry[timeList].end.tv_nsec-timeEntry[timeList].start.tv_nsec;
-//		timeEntry[timeList].cnt++;
+		timeEntry[timeList].cnt++;
 #endif
 	}
 	inline void ter(int timeList)
@@ -206,8 +206,8 @@ public:
 		protected:
 			void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
-			EntryAddr direct_to_cold(uint64_t key, uint64_t value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update);
-			EntryAddr insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large); // have skiplist lock // return old ea // need invalidation and kv unlock
+			EntryAddr direct_to_cold(uint64_t key, int value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update);
+			EntryAddr insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large); // have skiplist lock // return old ea // need invalidation and kv unlock
 
 			//	void invalidate_entry(EntryAddr &ea);
 
@@ -295,7 +295,7 @@ public:
 			void init();
 			void clean();
 
-			int insert_op(uint64_t key,uint64_t value_size, unsigned char* value);
+			int insert_op(uint64_t key,int value_size, unsigned char* value);
 			int read_op(uint64_t key,unsigned char* buf,std::string *value);
 			//int read_op(uint64_t key,std::string *value);
 			int delete_op(uint64_t key);

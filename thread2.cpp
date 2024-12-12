@@ -389,7 +389,7 @@ namespace PH
 		check_end();
 	}	
 
-	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, uint64_t value_size8) // need lock from outside
+	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, int value_size8) // need lock from outside
 	{
 		/*
 		bool large_value;
@@ -438,8 +438,8 @@ namespace PH
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 			my_thread->tes(TEMP3);
 				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
-//				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr, 128);
-//				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr,ENTRY_HEADER_SIZE+KEY_SIZE+SIZE_SIZE);
+//				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, ENTRY_SIZE_WITHOUT_VALUE);
+
 			my_thread->tee(TEMP3);
 				nodeMeta->entryLoc[nfi].valid = 1;
 
@@ -448,7 +448,6 @@ namespace PH
 //				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
 //				listNode->size_sum+=entry_size;
 //			}
-
 			return new_ea;
 		}
 #if 1
@@ -580,6 +579,7 @@ namespace PH
 			//			src_offset+=ENTRY_SIZE;
 			//			at_unlock2(list_nodeMeta->rw_lock);
 		}
+
 		return new_ea;
 	}
 
@@ -680,7 +680,7 @@ namespace PH
 
 		int j;
 		unsigned char* src_addr;
-		uint64_t value_size8;
+		int value_size8;
 		//-------------------------------------------------------------------------------
 		//		if (key_list.size() > 0)
 		//			printf("test here\n");
@@ -747,6 +747,7 @@ namespace PH
 //				value_size8 = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 				value_size8 = ((EntryHeader*)src_addr)->size;
 				value_size8 = get_v8(value_size8);
+
 				entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 				sorted_entry_size.push_back(entry_size);
 
@@ -1253,7 +1254,7 @@ namespace PH
 			if (ea.offset < doubleLogList[ea.file_num].tail_sum)
 				return emptyNodeAddr;
 //			uint64_t value_size8 = *(uint64_t*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE);
-			uint64_t value_size8 = ((EntryHeader*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea)))->size;
+			int value_size8 = ((EntryHeader*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea)))->size;
 			value_size8 = get_v8(value_size8);
 			wc = *(NodeAddr*)(doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea) + ENTRY_HEADER_SIZE + KEY_SIZE /*+ SIZE_SIZE*/ + value_size8);
 		}
@@ -1294,13 +1295,15 @@ namespace PH
 		return wc;
 	}
 
-	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size8, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large) // have skiplist lock // return old ea // need invalidation and kv unlock after this
+	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
 		tes(INSERT_TO_COLD);
 
 		EntryAddr new_ea;
 		EntryAddr real_old_ea;
 		KVP* kvp_p;
+
+		int value_size8 = get_v8(value_size);
 
 		while(true) // always success unless re updated // split retry loop
 		{
@@ -1351,7 +1354,7 @@ namespace PH
 			while (true) //list_nodeMeta) // try block group // group loop
 			{
 				// check space before lock
-				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
+				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum  >= /*>*/ NODE_SIZE-NODE_HEADER_SIZE)
 //				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty)// || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
 //				if (value_size8 > list_nodeMeta->max_empty)
 				{
@@ -1395,7 +1398,8 @@ namespace PH
 					else
 						new_version.large_bit = false;
 						*/
-					new_version.size = ((EntryHeader*)src_addr)->size;
+//					new_version.size = ((EntryHeader*)src_addr)->size;
+					new_version.size = value_size;
 					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
 					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
 				}
@@ -1404,6 +1408,7 @@ namespace PH
 tes(INSERT_ENTRY_TO_SLOT);
 				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
 tee(INSERT_ENTRY_TO_SLOT);
+
 				if (new_ea.value != 0)
 				{
 
@@ -1465,6 +1470,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 				}
 
 				//failed
+				debug_error("fail here\n");
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 				at_unlock2(list_nodeMeta->rw_lock);
@@ -1509,7 +1515,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		return real_old_ea;
 	}
 
-	EntryAddr PH_Thread::direct_to_cold(uint64_t key,uint64_t value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update) // may lock from outside // have to be exist
+	EntryAddr PH_Thread::direct_to_cold(uint64_t key,int value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update) // may lock from outside // have to be exist
 	{ // ALWAYS NEW
 	  //		printf("not now\n");
 	  //NO UNLOCK IN HERE!
@@ -1533,13 +1539,14 @@ tee(INSERT_ENTRY_TO_SLOT);
 		ListNode* list_node;
 		NodeMeta* list_nodeMeta;
 
-		uint64_t value_size8 = get_v8(value_size);
+//		uint64_t value_size8 = get_v8(value_size);
 
 		const uint64_t z = 0;
 		memcpy(entry_buffer,&z,ENTRY_HEADER_SIZE); // need to be zero for persist
 		memcpy(entry_buffer+ENTRY_HEADER_SIZE,&key,KEY_SIZE);
 //		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE,&value_size,SIZE_SIZE);
-		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/,value,value_size8);//v8?
+//		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/,value,value_size8);//v8?
+		memcpy(entry_buffer+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/,value,value_size);//v8?
 
 		EntryAddr src_ea;
 		std::atomic<uint8_t>* seg_lock; // need for invalidation
@@ -1581,7 +1588,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			src_ea.value = kvp.value;
 
 //		tes(INSERT_TO_COLD_OF_DTC);
-		old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size8,seg_lock,src_ea,large); //seglock ref
+		old_ea = insert_to_cold(skiplist_node,entry_buffer,key,value_size,seg_lock,src_ea,large); //seglock ref
 //		tee(INSERT_TO_COLD_OF_DTC);
 
 		if (old_ea.value != emptyEntryAddr.value) // 
@@ -1648,7 +1655,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 #define INDEX
 
-	int PH_Query_Thread::insert_op(uint64_t key, uint64_t value_size, unsigned char* value)
+	int PH_Query_Thread::insert_op(uint64_t key, int value_size, unsigned char* value)
 	{
 		tes(INSERT);
 		last_value_size = value_size;
@@ -1841,7 +1848,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
 
-			uint64_t value_size8 = get_v8(value_size);
+			int value_size8 = get_v8(value_size);
 			dst_log->ready_log(value_size8);
 
 			const uint64_t z = 0;
@@ -2100,7 +2107,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		KVP kvp;
 		uint64_t ret;
 		int ex;
-		uint64_t value_size;
+		int value_size;
 
 		std::atomic<uint8_t>* seg_lock;
 
@@ -2236,7 +2243,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 				{
 					unsigned char* vsp;
 					vsp = get_large_from_addr(addr);
-					value_size = *(uint64_t*)vsp;
+					value_size = *(uint64_t*)vsp; // 8 bytes...
 					value_addr = vsp+SIZE_SIZE_L;
 				}
 				else
@@ -2380,7 +2387,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 	void Scan_Result::insert_from_header(unsigned char* header)
 	{
-		uint64_t value_size;
+		int value_size;
 		unsigned char* large_addr;
 		unsigned char* dst_addr;
 
@@ -3121,7 +3128,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 		int i;
 		int slot_idx;
 		int cold_split_cnt = 0;
-		uint64_t value_size8;
+//		uint64_t value_size8,value_size;
+		int value_size;
 
 		std::atomic<uint8_t>* seg_lock;
 
@@ -3184,9 +3192,9 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 			key = *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE);
 //			value_size8 =  *(uint64_t*)(src_addr +ENTRY_HEADER_SIZE + KEY_SIZE);
-			value_size8 = ((EntryHeader*)src_addr)->size;
-			old_ea.size = value_size8;
-			value_size8 = get_v8(value_size8);
+			value_size = ((EntryHeader*)src_addr)->size;
+			old_ea.size = value_size;
+//			value_size8 = get_v8(value_size8);
 
 #if 0
 			// lock here
@@ -3206,7 +3214,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			//------------------------------ entry locked!!
 #endif
 //			tes(INSERT_TO_COLD_FROM_WARM);
-			if (insert_to_cold(node,src_addr,key,value_size8,seg_lock,old_ea,large) != emptyEntryAddr) // scucess //seg lock ref
+			if (insert_to_cold(node,src_addr,key,value_size,seg_lock,old_ea,large) != emptyEntryAddr) // scucess //seg lock ref
 			{
 //				tee(INSERT_TO_COLD_FROM_WARM);
 				//need inv and unlock
@@ -3331,7 +3339,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		int batch_num;
 		int i_dst;
 
-		uint64_t value_size8;
+		int value_size8;
 
 		int entry_size;
 
@@ -3696,7 +3704,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		EntryHeader header;
 		int rv=0;
 
-		uint64_t value_size8;
+		int value_size8;
 		int entry_size;
 
 		//pass invalid
@@ -3735,7 +3743,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 		NodeAddr warm_cache;
 
-		uint64_t value_size8;
+		int value_size8;
 
 		//check
 		//	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
@@ -3870,7 +3878,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		NodeMeta* nodeMeta;
 		LogLoc ll;
 		NodeAddr warm_cache;
-		uint64_t value_size8;
+		int value_size8;
 
 		//	if (dl->tail_sum + SOFT_EVICT_SPACE > dl->head_sum)
 		//		return rv;

@@ -80,14 +80,14 @@ class DoubleLog
 	void init(char* filePath,size_t size,size_t hes,size_t ses);
 	void clean();
 //	void insert_log(unsigned char* addr, int len);
-	void ready_log(uint64_t value_size8);
+	void ready_log(int value_size8);
 //	void check_turn(size_t &sum, size_t len);
 
 //	void insert_log(struct BaseLogEntry *baseLogEntry_p);
-	void insert_pmem_log(uint64_t key,uint64_t value_size, unsigned char* value);
-	void insert_dram_log(uint64_t version, uint64_t key,uint64_t value_size, unsigned char* value);
-	void insert_dram_log(uint64_t version, uint64_t key,uint64_t value_size, unsigned char* value,NodeAddr* warm_cache);
-	void copy_to_pmem_log(uint64_t value_size);
+	void insert_pmem_log(uint64_t key,int value_size, unsigned char* value);
+	void insert_dram_log(uint64_t version, uint64_t key,int value_size, unsigned char* value);
+	void insert_dram_log(uint64_t version, uint64_t key,int value_size, unsigned char* value,NodeAddr* warm_cache);
+	void copy_to_pmem_log(int value_size);
 
 	void write_version(uint64_t version);
 

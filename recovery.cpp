@@ -44,7 +44,8 @@ namespace PH
 		EntryHeader* header;
 		EntryHeader* old_header;
 		EntryAddr ea,old_ea;
-		uint64_t key,version,old_version,value_size8;
+		uint64_t key,version,old_version;
+		int value_size8;
 		size_t base_node_offset;
 
 		KVP* kvp_p;
@@ -100,7 +101,8 @@ namespace PH
 				{
 					update = true;
 					key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
-					value_size8 = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+//					value_size8 = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+					value_size8 = header->size;
 					value_size8 = get_v8(value_size8);
 					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
 					version = header->version;
@@ -181,7 +183,8 @@ namespace PH
 						update = true;
 						key = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE);
 
-						value_size8 = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+//						value_size8 = *(uint64_t*)(addr+offset+ENTRY_HEADER_SIZE+KEY_SIZE);
+						value_size8 = header->size;
 						value_size8 = get_v8(value_size8);
 
 						kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);

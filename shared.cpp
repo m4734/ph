@@ -119,7 +119,7 @@ namespace PH
 	}
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
 	{
-#if 0 // should be here
+#ifndef ENTRY_WRITE_TEMP // should be here
 		// need version clean - kv write - version write ...
 		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
 		pmem_persist(dst+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
@@ -131,7 +131,6 @@ namespace PH
 		memcpy(dst,src,len);
 		pmem_persist(dst,len);
 		_mm_sfence();
-
 #endif
 
 	}
