@@ -132,8 +132,27 @@ namespace PH
 		pmem_persist(dst,len);
 		_mm_sfence();
 #endif
-
 	}
+
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* jump_p)
+	{
+#ifndef ENTRY_WRITE_TEMP // should be here
+		// need version clean - kv write - version write ...
+		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
+		memcpy(dst+len,jump_p,ENTRY_HEADER_SIZE);
+		pmem_persist(dst+ENTRY_HEADER_SIZE,len);//-ENTRY_HEADER_SIZE);
+		_mm_sfence();
+		memcpy(dst,src,ENTRY_HEADER_SIZE); // write version
+		pmem_persist(dst,ENTRY_HEADER_SIZE);
+		_mm_sfence();
+#else
+		memcpy(dst,src,len);
+		pmem_persist(dst,len);
+		_mm_sfence();
+#endif
+	}
+
+
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr)
 	{
 		dst_node->next_offset = nodeAddr;

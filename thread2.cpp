@@ -477,9 +477,6 @@ namespace PH
 
 				nodeMeta->size_sum+=entry_size;
 
-//				if (nodeMeta->size_sum == 4096-16)
-//					debug_error("fit1\n");
-
 //				ListNode* listNode = list->addr_to_listNode(nodeMeta->list_addr);
 //				listNode->size_sum+=entry_size;
 //			}
@@ -631,10 +628,6 @@ namespace PH
 		while(list_nodeMeta)
 		{
 			list_size_sum+=list_nodeMeta->size_sum;
-
-//			if (list_nodeMeta->size_sum == 4080)
-//				debug_error("fit4\n");
-
 
 			at_lock2(list_nodeMeta->rw_lock); // lock the node
 
@@ -3806,9 +3799,6 @@ tee(INSERT_ENTRY_TO_SLOT);
 			value_size8 = ((EntryHeader*)addr)->size;
 			value_size8 = get_v8(value_size8);
 			// evict now
-
-			//			if (key == 14272674034553496781UL)
-			//				debug_error("first\n");
 
 			if (header.valid_bit == false)
 			{

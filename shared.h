@@ -43,9 +43,9 @@
 #endif
 
 #define TIME_STAT
-#define TIME_STAT2
+//#define TIME_STAT2
 #define LIST_TRAVERSE_TEST
-#define ENTRY_WRITE_TEMP
+//#define ENTRY_WRITE_TEMP
 
 //#define NO_EXIST
 
