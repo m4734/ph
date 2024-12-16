@@ -463,7 +463,7 @@ namespace PH
 
 		last_index = 0;
 
-		while(last_index+2 <= start_index)
+		while(last_index < start_index)
 		{
 			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
 				return last_index;

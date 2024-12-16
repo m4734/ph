@@ -117,13 +117,18 @@ namespace PH
 		}
 		_mm_sfence();
 	}
-	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len)
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len,unsigned char* temp_header)
 	{
 #ifndef ENTRY_WRITE_TEMP // should be here
 		// need version clean - kv write - version write ...
-		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
+		memcpy(dst,temp_header,ENTRY_HEADER_SIZE); // temp header -- jump to next
+		pmem_persist(dst,ENTRY_HEADER_SIZE);
+		_mm_sfence();
+
+		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE); // write fit
 		pmem_persist(dst+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
 		_mm_sfence();
+
 		memcpy(dst,src,ENTRY_HEADER_SIZE); // write version
 		pmem_persist(dst,ENTRY_HEADER_SIZE);
 		_mm_sfence();
@@ -134,10 +139,14 @@ namespace PH
 #endif
 	}
 
-	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* jump_p)
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* temp_header,unsigned char* jump_p)
 	{
 #ifndef ENTRY_WRITE_TEMP // should be here
 		// need version clean - kv write - version write ...
+		memcpy(dst,temp_header,ENTRY_HEADER_SIZE); // temp header -- jump to next
+		pmem_persist(dst,ENTRY_HEADER_SIZE);
+		_mm_sfence();
+
 		memcpy(dst+ENTRY_HEADER_SIZE,src+ENTRY_HEADER_SIZE,len-ENTRY_HEADER_SIZE);
 		memcpy(dst+len,jump_p,ENTRY_HEADER_SIZE);
 		pmem_persist(dst+ENTRY_HEADER_SIZE,len);//-ENTRY_HEADER_SIZE);

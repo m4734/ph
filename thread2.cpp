@@ -424,9 +424,17 @@ namespace PH
 
 		//-------------------------------------------- //try next fit
 
+
+		EntryHeader jump;
+		jump.value = 0;
+
+//		if (*(uint64_t*)(src_addr+8) == 12673797959553654552UL)
+//			debug_error("before\n");
+
 		int nfi = nodeMeta->find_nfi(entry_size);
-		if (nfi >= 0)
+		if (nfi >= 0) // fit
 		{
+			jump.version = nodeMeta->entryLoc[nfi+1].offset;
 //			new_ea.loc = 3; // cold
 //			new_ea.large = large_value;
 //			new_ea.file_num = nodeMeta->my_offset.pool_num;
@@ -437,7 +445,7 @@ namespace PH
 
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 			my_thread->tes(TEMP3);
-				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size,(unsigned char*)&jump);
 //				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, ENTRY_SIZE_WITHOUT_VALUE);
 
 			my_thread->tee(TEMP3);
@@ -465,12 +473,15 @@ namespace PH
 			*/
 			//		if (slot_idx < NODE_SLOT_MAX)
 //			{
+
+			jump.version = nodeMeta->entryLoc[nfi+1].offset;
+
 				//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
 				new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->entryLoc[nfi].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 
 				DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 			my_thread->tes(TEMP3);
-				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size);
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, entry_size,(unsigned char*)&jump);
 //				pmem_entry_write((unsigned char*)dataNode + NODE_HEADER_SIZE + nfi*128 , src_addr, 128);
 			my_thread->tee(TEMP3);
 				nodeMeta->entryLoc[nfi].valid = 1;
@@ -494,13 +505,16 @@ namespace PH
 		if (bfi < 0) // no space
 			return emptyEntryAddr;
 
-//		debug_error("unexpected sccuess\n"); // it doesn't happen after fill
+		debug_error("unexpected sccuess\n"); // it doesn't happen after fill
 		bool fit;
-		EntryHeader jump;
+//		EntryHeader jump;
 
 		if (bfv == entry_size) // fit
 		{
 			fit = true;
+			jump.valid_bit = 0;
+			jump.delete_bit = 0;
+			jump.version = nodeMeta->entryLoc[bfi+1].offset;
 		}
 		else
 		{
@@ -529,8 +543,10 @@ namespace PH
 			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
 			if (fit)
 			{
-				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[bfi].offset , src_addr, entry_size);
+				
+				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[bfi].offset , src_addr, entry_size,(unsigned char*)&jump);
 				nodeMeta->entryLoc[bfi].valid = 1;
+				
 			}
 			else // not fit need jump
 			{
@@ -3840,6 +3856,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			{
 				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 
+				tes(SKIP_LOCK);
 				SkiplistNode* node;
 #ifdef WARM_CACHE
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
@@ -3847,12 +3864,15 @@ tee(INSERT_ENTRY_TO_SLOT);
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
 				if (try_at_lock2(node->lock) == false)
+				{
 					continue;
+				}
 				if (skiplist->find_next_node(node)->key < key)
 				{
 					at_unlock2(node->lock);
 					continue;
 				}
+				tee(SKIP_LOCK);
 				hard_htw_cnt++;
 				//NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//at_lock2(nodeMeta->rw_lock);

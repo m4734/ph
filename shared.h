@@ -256,7 +256,7 @@ union EntryHeader
 	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len);
 	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
 	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
-	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len);
+	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* temp_header);
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
 	/*inline */unsigned char* get_entry(EntryAddr &ea);
@@ -320,9 +320,10 @@ union EntryHeader
 		VERSION,
 		INSERT,
 		READ,
+		SKIP_LOCK,
 		TIME_LIST_END
 	};
-	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TEMP3","TEMP4","DRAM","PMEM","VERSION","INSERT","READ","TIME_LIST_END"};
+	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TEMP3","TEMP4","DRAM","PMEM","VERSION","INSERT","READ","SKIP_LOCK","TIME_LIST_END"};
 
 	extern std::atomic<uint64_t> time_sum[TIME_LIST_END];
 	extern std::atomic<uint64_t> time_cnt[TIME_LIST_END];
