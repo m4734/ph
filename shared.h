@@ -43,7 +43,7 @@
 #endif
 
 #define TIME_STAT
-//#define TIME_STAT2
+#define TIME_STAT2
 #define LIST_TRAVERSE_TEST
 //#define ENTRY_WRITE_TEMP
 
@@ -100,6 +100,10 @@ namespace PH
 	const uint32_t NODE_SLOT_MAX = 80; // 4096/50
 
 	const uint32_t WARM_KEY_LIST_MAX = WARM_MAX_NODE_GROUP * NODE_SLOT_MAX;
+
+	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
+	const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than (after merge smaller than )
+	const int WARM_COLD_MAX_RATIO_TEMP = 20; // for cold nodes
 
 #if 1
 	struct NodeAddr
@@ -321,9 +325,10 @@ union EntryHeader
 		INSERT,
 		READ,
 		SKIP_LOCK,
+		INSERT_LOG,
 		TIME_LIST_END
 	};
-	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TEMP3","TEMP4","DRAM","PMEM","VERSION","INSERT","READ","SKIP_LOCK","TIME_LIST_END"};
+	static const char *time_name[] = {"INSERT_ENTRY_TO_SLOT","DIRECT_TO_COLD","INSERT_TO_COLD_OF_DTC","INSERT_TO_COLD_FORM_WARM","INSERT_TO_COLD","APPEND_OF_ITC","SPLIT_OF_ITC","TEMP1","TEMP2","TEMP3","TEMP4","DRAM","PMEM","VERSION","INSERT","READ","SKIP_LOCK","INESRT_LOG","TIME_LIST_END"};
 
 	extern std::atomic<uint64_t> time_sum[TIME_LIST_END];
 	extern std::atomic<uint64_t> time_cnt[TIME_LIST_END];

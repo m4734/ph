@@ -118,7 +118,6 @@ bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
 
 //struct SkiplistNode
 
-
 class SkiplistNode
 {
 	public:
@@ -129,7 +128,10 @@ class SkiplistNode
 	void find_half_listNode();
 	void update_wc();
 
-	size_t key;
+	void update_cold_node(ListNode* cold_node);
+	void insert_cold_node(ListNode* cold_node);
+
+	uint64_t key;
 //	SkiplistNode* node_p; // tree node or leaf
 //	std::vector<std::atomic<SkiplistNode*>> next;
 //	std::vector<AtomicPointer> next;
@@ -155,8 +157,9 @@ class SkiplistNode
 
 	int level;
 	int built;
-	std::atomic<ListNode*> my_listNode;
-//	NodeMeta* my_node;
+//	std::atomic<ListNode*> my_listNode;
+//	ListNode* my_listNode;
+
 	NodeAddr myAddr; // nodeMeta addr // skiplist addr?
 //	NodeAddr prev;
 	SkiplistNode* volatile prev;
@@ -182,8 +185,15 @@ class SkiplistNode
 //	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
 
+/*
 	int cold_block_sum;
 	ListNode* half_listNode;
+*/
+
+	int cold_cnt;
+	std::vector<uint64_t> cold_keys;
+	std::vector<ListNode*> cold_nodes; 
+
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];

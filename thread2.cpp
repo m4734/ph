@@ -1123,6 +1123,9 @@ if (offset < NODE_SIZE)
 		_mm_sfence();
 
 #endif
+
+	skiplistNode->insert_cold_node(new_listNode);
+
 #if 0
 		// listNode is never deleted just split
 		SkiplistNode* next_skiplistNode;
@@ -1340,6 +1343,7 @@ if (offset < NODE_SIZE)
 		while(true) // always success unless re updated // split retry loop
 		{
 			tes(TEMP4);
+#if 0
 			ListNode* listNode = skiplistNode->my_listNode;
 			while (key >= listNode->next->key)
 				listNode = listNode->next;
@@ -1357,7 +1361,21 @@ if (offset < NODE_SIZE)
 				at_unlock2(listNode->lock);
 				continue;
 			}
+#else // use cold nodes
+			ListNode* listNode;
+			int z;
+			for (z=0;z<skiplistNode->cold_cnt-1;z++)
+			{
+				if (key < skiplistNode->cold_keys[z+1])
+					break;
+			}
+			if (z == skiplistNode->cold_cnt)
+				listNode = skiplistNode->cold_nodes[z-1];
+			else
+				listNode = skiplistNode->cold_nodes[z];
+#endif
 
+				tee(TEMP4);
 #if 0
 			// lock here
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
@@ -1411,7 +1429,6 @@ if (offset < NODE_SIZE)
 					at_lock2(list_nodeMeta->rw_lock);
 				}
 #endif
-				tee(TEMP4);
 				tes(TEMP1);
 
 #if 1
@@ -1554,7 +1571,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 //					tes(SPLIT_OF_ITC);
 					try_cold_split(listNode,skiplistNode);
 					//					cold_split_cnt++;
-					skiplistNode->find_half_listNode();
+//					skiplistNode->find_half_listNode(); // use cold nodes
 //					tes(SPLIT_OF_ITC);
 				}
 			}
@@ -1896,7 +1913,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		}
 		else // to log
 		{
-//			tes(TEMP1);
+			tes(INSERT_LOG);
 
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
@@ -2113,7 +2130,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			_mm_sfence();
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
-//			tee(TEMP1);
+			tee(INSERT_LOG);
 
 		}
 		tee(INSERT);
@@ -2683,7 +2700,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 			// list
 			if (list_key_list.size())
 				debug_error("list somegint\n");
-			listNode = skiplistNode->my_listNode; // do we need listNode lock?? we already locked skiplist...
+//			listNode = skiplistNode->my_listNode; // do we need listNode lock?? we already locked skiplist...
+			listNode = skiplistNode->cold_nodes[0];
 			while (listNode->next->key < start_key)
 				listNode = listNode->next;
 
@@ -2938,16 +2956,14 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 	void PH_Thread::split_empty_warm_node(SkiplistNode *old_skiplistNode) // old node is deleted // split need lock....
 	{
-		/*
-		   if (old_skipListNode->key == 3458764513820540926UL)
-		   debug_error("split here\n");
-		 */
 		//we will not reuse old skiplist
 
 		uint64_t half_key;
 		SkiplistNode* child1_sl_node;
 		SkiplistNode* child2_sl_node;
 		ListNode* half_listNode;
+
+		#if 0 // find half 
 
 		//		if (old_skiplistNode->half_listNode == NULL)
 		/*
@@ -3027,6 +3043,23 @@ tee(INSERT_ENTRY_TO_SLOT);
 #endif
 		half_listNode = old_skiplistNode->half_listNode;
 
+		#endif
+//---------------------------------------------------------------------
+
+		if (old_skiplistNode->cold_cnt <= 1) // need at least two cold nodes
+		{			
+
+			try_cold_split(old_skiplistNode->cold_nodes[0],old_skiplistNode);// == false) // we have skiplist node lock do we need list node lock??
+
+			// never faill...
+		}
+		int half_cold_index = old_skiplistNode->cold_cnt/2;
+		half_listNode = old_skiplistNode->cold_nodes[half_cold_index];
+
+		at_lock2(half_listNode->lock);
+
+		half_key = half_listNode->key;
+
 		child1_sl_node = skiplist->allocate_node();
 		child2_sl_node = skiplist->allocate_node();
 
@@ -3039,13 +3072,31 @@ tee(INSERT_ENTRY_TO_SLOT);
 		at_lock2(child1_sl_node->lock);
 		at_lock2(child2_sl_node->lock);
 
-		old_skiplistNode->half_listNode->hold = 1;
+		int z;
+		for (z=0;z<half_cold_index;z++)
+		{
+			child1_sl_node->cold_keys[z] = old_skiplistNode->cold_keys[z];
+			child1_sl_node->cold_nodes[z] = old_skiplistNode->cold_nodes[z];
+			child1_sl_node->cold_nodes[z]->warm_cache = child1_sl_node->myAddr;
+		}
+		child1_sl_node->cold_cnt = half_cold_index;
+		for (;z<old_skiplistNode->cold_cnt;z++)
+		{
+			child2_sl_node->cold_keys[z-half_cold_index] = old_skiplistNode->cold_keys[z];
+			child2_sl_node->cold_nodes[z-half_cold_index] = old_skiplistNode->cold_nodes[z];
+			child2_sl_node->cold_nodes[z-half_cold_index]->warm_cache = child2_sl_node->myAddr;
+		}
+		child2_sl_node->cold_cnt = old_skiplistNode->cold_cnt-half_cold_index;
+
+//		old_skiplistNode->half_listNode->hold = 1;
+		half_listNode->hold = 1;
 
 		child1_sl_node->key = old_skiplistNode->key;
-		child1_sl_node->my_listNode = old_skiplistNode->my_listNode.load();
+//		child1_sl_node->my_listNode = old_skiplistNode->my_listNode.load();
+//		child1_sl_node->my_listNode = old_skiplistNode->my_listNode;
 
 		child2_sl_node->key = half_key;
-		child2_sl_node->my_listNode = old_skiplistNode->half_listNode;
+//		child2_sl_node->my_listNode = old_skiplistNode->half_listNode;
 
 #ifdef HOT_KEY_LIST
 		// key list split
@@ -3105,8 +3156,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 		//		child1_sl_node->list_head = child1_sl_node->list_tail = 0;
 		//		child2_sl_node->list_head = child2_sl_node->list_tail = 0;
 
-		child1_sl_node->update_wc();
-		child2_sl_node->update_wc();
+//		child1_sl_node->update_wc(); // moved to upper
+//		child2_sl_node->update_wc();
 
 		at_unlock2(child1_sl_node->lock);
 		at_unlock2(child2_sl_node->lock);
@@ -3129,7 +3180,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 	int PH_Thread::may_split_warm_node(SkiplistNode *node) // had warm node lock // didn't had rw_lock
 	{
 		//		node->find_half_listNode();
-		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_KEY_LIST_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+//		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_KEY_LIST_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+		if (node->cold_cnt > WARM_COLD_MAX_RATIO || node->key_list_size >= WARM_KEY_LIST_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
 		{
 
 			// flush all
@@ -3856,7 +3908,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			{
 				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 
-				tes(SKIP_LOCK);
+//				tes(SKIP_LOCK);
 				SkiplistNode* node;
 #ifdef WARM_CACHE
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
@@ -3872,7 +3924,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 					at_unlock2(node->lock);
 					continue;
 				}
-				tee(SKIP_LOCK);
+//				tee(SKIP_LOCK);
 				hard_htw_cnt++;
 				//NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//at_lock2(nodeMeta->rw_lock);

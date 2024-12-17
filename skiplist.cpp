@@ -106,7 +106,7 @@ namespace PH
 		key_list_size--;
 
 	}
-
+/*
 	void SkiplistNode::find_half_listNode() // do we have lock?
 	{
 		SkiplistNode* node = this;
@@ -132,7 +132,7 @@ namespace PH
 		}
 		half_listNode = hl;
 	}
-
+*/
 	void SkiplistNode::update_wc() // do we have lock?
 	{
 		SkiplistNode* node = this;
@@ -143,12 +143,17 @@ namespace PH
 		current_key = node->key;
 //		next_key = (skiplist->sa_to_node(node->next[0]))->key;
 		next_key = skiplist->find_next_node(node)->key;
-		listNode = node->my_listNode;
+		int i;
+		for (i=0;i<cold_cnt;i++)
+			node->cold_nodes[i]->warm_cache = node->myAddr;
+//		listNode = node->my_listNode;
+			/*
 		while (next_key > listNode->key)
 		{
 			listNode->warm_cache = node->myAddr;
 			listNode = listNode->next;
 		}
+		*/
 	}
 
 	void SkiplistNode::setLevel(size_t l)
@@ -239,7 +244,9 @@ namespace PH
 		empty_node = alloc_sl_node();
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
-		empty_node->my_listNode = list->empty_node;
+//		empty_node->my_listNode = list->empty_node;
+		empty_node->cold_cnt = 1;
+		empty_node->cold_nodes[0] = list->empty_node;
 		nodeAddr = {3,0};
 		empty_node->data_node_addr[0] = nodeAddr;
 
@@ -248,7 +255,9 @@ namespace PH
 		start_node = alloc_sl_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
-		start_node->my_listNode = list->start_node;
+//		start_node->my_listNode = list->start_node;
+		start_node->cold_cnt = 1;
+		start_node->cold_nodes[0] = list->start_node;
 		nodeAddr = {1,1};
 		start_node->data_node_addr[0] = nodeAddr;
 
@@ -256,7 +265,9 @@ namespace PH
 		end_node = alloc_sl_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
-		end_node->my_listNode = list->end_node;
+//		end_node->my_listNode = list->end_node;
+		end_node->cold_cnt = 1;
+		end_node->cold_nodes[0] = list->end_node;
 		nodeAddr = {3,1};
 		end_node->data_node_addr[0] = nodeAddr;
 
@@ -308,20 +319,28 @@ namespace PH
 		NodeMeta* nodeMeta;
 		int i;
 
+		//empty - start - end
+
 		empty_node = allocate_node();
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
-		empty_node->my_listNode = list->empty_node;
+//		empty_node->my_listNode = list->empty_node;
+		empty_node->cold_cnt=1;
+		empty_node->cold_nodes[0] = list->empty_node;
 
 		start_node = allocate_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
-		start_node->my_listNode = list->start_node;
+//		start_node->my_listNode = list->start_node;
+		start_node->cold_cnt=1;
+		start_node->cold_nodes[0] = list->start_node;
 
 		end_node = allocate_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
-		end_node->my_listNode = list->end_node;
+//		end_node->my_listNode = list->end_node;
+		end_node->cold_cnt=1;
+		end_node->cold_nodes[0] = list->end_node;
 
 
 		for (i=0;i<=MAX_LEVEL;i++)
@@ -520,6 +539,10 @@ if (k2 == KEY_MAX)
 			node->key_list.resize(WARM_KEY_LIST_MAX);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
+			node->cold_cnt = 0;
+			node->cold_keys.resize(WARM_COLD_MAX_RATIO_TEMP);
+			node->cold_nodes.resize(WARM_COLD_MAX_RATIO_TEMP);
+
 			node_pool_cnt++;
 
 			at_unlock2(node_alloc_lock);
@@ -542,8 +565,10 @@ if (k2 == KEY_MAX)
 		node->ver = node_counter.fetch_add(1);
 		node->my_sa.ver = node->ver;
 
-		node->cold_block_sum = 0;
-		node->half_listNode = NULL;
+//		node->cold_block_sum = 0;
+//		node->half_listNode = NULL;
+
+		node->cold_cnt = 0;
 
 		_mm_sfence();
 
@@ -811,6 +836,45 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	return node;
 }
 
+void SkiplistNode::update_cold_node(ListNode* cold_node) // will not use
+{
+	const uint64_t key = cold_node->key;
+	int i;
+	for (i=0;i<cold_cnt;i++)
+	{
+		if (key == cold_keys[i])
+		{
+			cold_nodes[i] = cold_node;
+			break;
+		}
+	}
+}
+
+void SkiplistNode::insert_cold_node(ListNode* cold_node)
+{
+	const uint64_t key = cold_node->key;
+	int i;
+	for (i=cold_cnt;i>0;i--)
+	{
+		if (key > cold_keys[i-1])
+		{
+			cold_keys[i] = key;
+			cold_nodes[i] = cold_node;
+			break;
+		}
+		cold_keys[i] = cold_keys[i-1];
+		cold_nodes[i] = cold_nodes[i-1];
+	}
+	if (i == 0)
+	{
+		cold_keys[i] = key;
+		cold_nodes[i] = cold_node;
+	}
+
+	cold_cnt++;
+}
+
+//----------------------------------------------------------
 
 void Skiplist::setLimit(size_t size)
 {
@@ -956,8 +1020,8 @@ void Skiplist::traverse_test()
 		skiplistNode = start_node;
 		while(skiplistNode != end_node)
 		{
-			if (skiplistNode->my_listNode == NULL)
-				debug_error("no linked listNode\n");
+//			if (skiplistNode->my_listNode == NULL)
+//				debug_error("no linked listNode\n");
 			ps = skiplistNode;
 			skiplistNode = find_next_node(skiplistNode);
 		}
@@ -1116,14 +1180,15 @@ void Skiplist::recover()
 //				debug_error("here2\n");
 //			if (listNode == NULL)
 //				debug_error("list null\n");
-			skiplistNode->my_listNode = listNode;
+//			skiplistNode->my_listNode = listNode;
 			skiplistNode->key = list_key;
 			listNode->hold = 1;
 		}
 
 		{
 			listNode->warm_cache = skiplistNode->myAddr; // cold_bl..
-			skiplistNode->cold_block_sum+=listNode->block_cnt;
+//			skiplistNode->cold_block_sum+=listNode->block_cnt;
+			skiplistNode->insert_cold_node(listNode);
 		}
 
 		list_key = list_next_key;
