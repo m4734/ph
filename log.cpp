@@ -290,6 +290,7 @@ void DoubleLog::recover() // should be last...
 				if (ea2.loc != HOT_LOG) // USE WARM CACHE
 				{
 					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					// need lock if multi thread
 					skiplistNode->key_list[skiplistNode->key_list_size++] = key;
 					// hot to hot.... unless it is deleted
 				}

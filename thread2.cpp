@@ -1599,7 +1599,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		timespec ts1,ts2;
 		clock_gettime(CLOCK_MONOTONIC,&ts1);
 #endif
-//		tes(DIRECT_TO_COLD);
+		tes(DIRECT_TO_COLD);
 		//		int cold_split_cnt = 0;
 
 		EntryAddr old_ea;
@@ -1625,6 +1625,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			skiplist_node = skiplist_from_warm;
 		else
 		{
+			debug_error("will not here\n");
 			while(1)
 			{
 #ifdef WARM_CACHE
@@ -1642,7 +1643,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 					skiplist_node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 				if (try_at_lock2(skiplist_node->lock) == false)
 					continue;
-				if (skiplist_node->key > key || skiplist->find_next_node(skiplist_node)->key < key)
+				if (skiplist_node->key > key || skiplist->find_next_node(skiplist_node)->key <= key)
 				{
 					at_unlock2(skiplist_node->lock);
 					continue;
@@ -1687,7 +1688,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		clock_gettime(CLOCK_MONOTONIC,&ts2);
 		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
 #endif
-//		tee(DIRECT_TO_COLD);
+		tee(DIRECT_TO_COLD);
 		return old_ea; // we don't use this
 	}
 
@@ -1866,7 +1867,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 		if (dtc)
 		{
-//			tes(TEMP2);
+			tes(INSERT_DTC);
 			//			dst_loc = COLD_LIST;
 			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			//			kvp.value = 0;
@@ -1875,8 +1876,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 //				value_size = LARGE_PTR_SIZE;
 
 			SkiplistNode* skiplistNode;
-			while (1)
-			{
+
 #ifdef WARM_CACHE
 				if (ex)
 				{
@@ -1888,11 +1888,32 @@ tee(INSERT_ENTRY_TO_SLOT);
 				else
 #endif
 					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
-				if (try_at_lock2(skiplistNode->lock) == false)
-					continue;
+
+			while (1)
+			{
+				/*
 				if (skiplistNode->key > key || skiplist->find_next_node(skiplistNode)->key < key)
 				{
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					continue;
+				}
+				*/
+				// deleted or out of range
+				if (skiplistNode->ver == 0 || skiplistNode->key > key || skiplist->find_next_node(skiplistNode)->key <= key)
+				{
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					continue;
+				}
+				if (try_at_lock2(skiplistNode->lock) == false)
+				{
+//					debug_error("lock fail1\n");
+//					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					continue;
+				}
+				if (skiplistNode->ver == 0 || skiplistNode->key > key || skiplist->find_next_node(skiplistNode)->key <= key)
+				{
 					at_unlock2(skiplistNode->lock);
+					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					continue;
 				}
 				break;
@@ -1909,7 +1930,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 #endif
 			if (may_split_warm_node(skiplistNode) == 0)
 				at_unlock2(skiplistNode->lock);
-//			tee(TEMP2);
+			tee(INSERT_DTC);
 		}
 		else // to log
 		{
@@ -1969,8 +1990,6 @@ tee(INSERT_ENTRY_TO_SLOT);
 					 */
 					SkiplistNode* node;
 					SkiplistNode* next_node;
-					while(true)
-					{
 
 #ifdef WARM_CACHE
 						if (ex)
@@ -1982,19 +2001,27 @@ tee(INSERT_ENTRY_TO_SLOT);
 						else
 #endif
 							node = skiplist->find_node(key,prev_sa_list,next_sa_list);
+
+					while(true)
+					{
+						if (node->ver == 0 || skiplist->find_next_node(node)->key <= key || node->key > key) // may split
+						{
+							node = skiplist->find_node(key,prev_sa_list,next_sa_list);
+							continue;
+						}
+
 						if (try_at_lock2(node->lock) == false)
 							continue;
-
-						next_node = skiplist->find_next_node(node);
-						if (next_node->key <= key || node->key > key) // may split
+						if (node->ver == 0 || skiplist->find_next_node(node)->key <= key || node->key > key) // may split
 						{
 							at_unlock2(node->lock);
+							node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 							continue;
 						}
 
 						if (may_split_warm_node(node))
 						{
-
+							node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 							continue;
 						}
 						break;
@@ -2517,8 +2544,6 @@ tee(INSERT_ENTRY_TO_SLOT);
 		scan_result.empty();
 		scan_result.setTarget(length);
 
-		while(1) // find first
-		{
 			ex = hash_index->read(start_key,&kvp,&kvp_p,seg_depth,seg_depth_p);
 #ifdef WARM_CACHE
 			if (ex)
@@ -2531,11 +2556,21 @@ tee(INSERT_ENTRY_TO_SLOT);
 				warm_cache = emptyNodeAddr;
 
 			skiplistNode = skiplist->find_node(start_key,prev_sa_list,next_sa_list,warm_cache);
+
+
+		while(1) // find first
+		{
+			if (skiplistNode->ver == 0 || start_key < skiplistNode->key)
+			{
+				skiplistNode = skiplist->find_node(start_key,prev_sa_list,next_sa_list);
+				continue;
+			}
 			if (try_at_lock2(skiplistNode->lock) == false)
 				continue;
-			if (start_key < skiplistNode->key)
+			if (skiplistNode->ver == 0 || start_key < skiplistNode->key)
 			{
 				at_unlock2(skiplistNode->lock);
+				skiplistNode = skiplist->find_node(start_key,prev_sa_list,next_sa_list);
 				continue;
 			}
 			break;
@@ -3915,14 +3950,25 @@ tee(INSERT_ENTRY_TO_SLOT);
 #else
 				node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
+				while(1)
+				{
+				if (node->ver == 0 || node->key > key || skiplist->find_next_node(node)->key <= key)
+				{
+					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
+					continue;
+				}
+
 				if (try_at_lock2(node->lock) == false)
 				{
 					continue;
 				}
-				if (skiplist->find_next_node(node)->key < key)
+				if (node->ver == 0 || node->key > key || skiplist->find_next_node(node)->key <= key)
 				{
 					at_unlock2(node->lock);
+					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					continue;
+				}
+				break;
 				}
 //				tee(SKIP_LOCK);
 				hard_htw_cnt++;
@@ -4016,15 +4062,22 @@ tee(INSERT_ENTRY_TO_SLOT);
 			{
 				rv = 1;
 
-				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 				// regist the log num and size_t
-				while(true) // the log allocated to this evict thread
-				{
 #ifdef WARM_CACHE 
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
 					node = skiplist->find_node(key,prev_sa_list,next_sa_list,warm_cache);
 #else
 					node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 #endif
+
+				while(true) // the log allocated to this evict thread
+				{
+					if (node->ver == 0 || skiplist->find_next_node(node)->key <= key || node->key > key) // may split
+					{
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list);
+						continue;
+					}
+
 					if (try_at_lock2(node->lock) == false)
 					{
 						// too busy???
@@ -4032,9 +4085,10 @@ tee(INSERT_ENTRY_TO_SLOT);
 						continue;
 					}
 
-					if (skiplist->find_next_node(node)->key <= key || node->key > key) // may split
+					if (node->ver == 0 || skiplist->find_next_node(node)->key <= key || node->key > key) // may split
 					{
 						at_unlock2(node->lock);
+						node = skiplist->find_node(key,prev_sa_list,next_sa_list);
 						continue;
 					}
 

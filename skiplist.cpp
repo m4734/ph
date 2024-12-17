@@ -795,7 +795,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next,volat
 	return node;
 }
 #endif
-SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, NodeAddr &warm_cache) // what if max
+SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, NodeAddr &warm_cache) // what if max // unsafe without lock
 {
 #ifdef WARM_CACHE
 
@@ -807,21 +807,20 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	SkipAddr next_sa;
 	if (warm_cache != emptyNodeAddr)
 	{
-		node = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];	
+		node = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];
+		return node;	
 		//	node = sa_to_node(sa);
 		next_sa.value = node->next[0].value.load();
 		next_node = sa_to_node(next_sa);
 		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
 		{
 #ifdef WARM_STAT
-//			addr2_hit++;
 			my_thread->warm_hit_cnt++;
 #endif
 			return node;
 		}
 #ifdef WARM_STAT
 		else
-//			addr2_miss++;
 			my_thread->warm_miss_cnt++;
 #endif
 	}
@@ -1176,8 +1175,6 @@ void Skiplist::recover()
 			}
 			next_key = next_skiplistNode->key;
 
-//			if (skiplistNode->ver == 417)
-//				debug_error("here2\n");
 //			if (listNode == NULL)
 //				debug_error("list null\n");
 //			skiplistNode->my_listNode = listNode;
