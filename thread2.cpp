@@ -3522,6 +3522,15 @@ tee(INSERT_ENTRY_TO_SLOT);
 			}
 
 			memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
+#if 1 
+			if (node->current_batch_size == 0) // set zero for parital write // zero - payload - first header
+			{
+				if (batch_num == 0)
+					pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
+				else
+					pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,WARM_BATCH_MAX_SIZE);
+			}
+#endif
 			written_size = 0;
 			write_cnt = 0;
 			//			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
@@ -3645,6 +3654,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 			//------------------------------- evict buffer filled
 
 			//evict current batch size (+ NODE_HEADER) ~ written size...
+			// start offset always header
+			// write header zero write payload write header real
 
 			if (false && start_offset == NODE_HEADER_SIZE) // need node head flush
 			{
@@ -3654,6 +3665,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 			}
 			else
 			{
+// we may need memset 0 
 				// we need 256 align
 #if 1
 				int padding = end_offset-start_offset-written_size;
