@@ -66,7 +66,7 @@ namespace PH
 			void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
 			void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
 			void split_empty_warm_node(SkiplistNode* old_skiplistNode);
-			int may_split_warm_node(SkiplistNode* node);
+			bool may_split_warm_node(SkiplistNode* node);
 			void flush_warm_node(SkiplistNode* node);
 			void try_cold_split(ListNode* listNode,SkiplistNode* node);
 			//	void try_reduce_group(ListNode* listNode);
@@ -75,6 +75,10 @@ namespace PH
 
 			void check_end();
 			//	NodeAddr get_warm_cache(EntryAddr ea);
+
+			SkiplistNode* get_skiplist_node(uint64_t key,NodeAddr warm_cache);
+			bool try_warm_to_cold(SkiplistNode* node);
+			bool try_hot_to_warm(SkiplistNode* node);
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 			unsigned char *entry_buffer;

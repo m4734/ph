@@ -361,7 +361,7 @@ namespace PH
 		int start_index,end_index;
 		int i;
 
-		if (ea.loc == WARM_LIST)
+		if (ea.loc == WARM_LIST) // still have key lock // also warm to cold will be cancelled if it is invalid
 		{
 			start_index = (offset / WARM_BATCH_MAX_SIZE) * WARM_BATCH_ENTRY_CNT; // batch * 20
 			end_index = start_index+WARM_BATCH_ENTRY_CNT;

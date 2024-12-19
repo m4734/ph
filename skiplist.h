@@ -166,8 +166,14 @@ class SkiplistNode
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 //	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
-	std::atomic<uint8_t> lock;
-//	std::atomic<uint8_t> rw_lock; // ???
+	std::atomic<uint8_t> key_list_lock; // hot key list
+	std::atomic<uint8_t> insert_lock; // HL TO WL and evict list
+	std::atomic<uint8_t> evict_lock; // WL TO CL
+	std::atomic<uint8_t> split_lock; // WN split
+	std::atomic<uint8_t> thread_counter; // split prevent
+
+	bool inc_counter();
+	bool acq_split_lock();
 
 	void setLevel();
 	void setLevel(size_t l);

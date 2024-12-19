@@ -572,7 +572,11 @@ if (k2 == KEY_MAX)
 
 		_mm_sfence();
 
-		node->lock = 0;
+		node->key_list_lock = 0;
+		node->insert_lock = 0;
+		node->evict_lock = 0;
+		node->split_lock = 0;
+		node->thread_counter = 0;
 //		node->rw_lock = 0;
 
 		return node;
@@ -872,6 +876,27 @@ void SkiplistNode::insert_cold_node(ListNode* cold_node)
 
 	cold_cnt++;
 }
+
+	bool SkiplistNode::inc_counter()
+	{
+		if (split_lock)
+			return false;
+		thread_counter++;
+		if (split_lock)
+		{
+			thread_counter--;
+			return false;
+		}
+		return true;
+	}
+
+	bool SkiplistNode::acq_split_lock()
+	{
+		if (try_at_lock2(split_lock) == false)
+			return false;
+		while(thread_counter > 1);
+		return true;
+	}
 
 //----------------------------------------------------------
 
