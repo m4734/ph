@@ -1,3 +1,5 @@
+#if 0
+
 #include <atomic>
 #include <stdio.h>
 #include <x86intrin.h>
@@ -10,7 +12,7 @@ namespace PH
 
 #define USE_CAS
 
-void at_lock2(std::atomic<uint8_t> &lock)
+inline void at_lock2(std::atomic<uint8_t> &lock)
 {
 #ifdef USE_CAS
 	uint8_t z;
@@ -32,7 +34,7 @@ void at_lock2(std::atomic<uint8_t> &lock)
 	_mm_mfence();
 }
 
-void at_unlock2(std::atomic<uint8_t> &lock)
+inline void at_unlock2(std::atomic<uint8_t> &lock)
 {
 //	_mm_sfence();
 #ifdef UNLOCK_TEST
@@ -43,7 +45,7 @@ void at_unlock2(std::atomic<uint8_t> &lock)
 	lock.store(0,std::memory_order_release);
 }
 
-int try_at_lock2(std::atomic<uint8_t> &lock)
+inline int try_at_lock2(std::atomic<uint8_t> &lock)
 {
 #ifdef USE_CAS
 	uint8_t z=0;
@@ -58,3 +60,6 @@ int try_at_lock2(std::atomic<uint8_t> &lock)
 }
 
 }
+
+
+#endif

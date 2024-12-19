@@ -3490,8 +3490,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 #endif
 		do
 		{
-			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
-				warm_to_cold(node);
+//			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
+//				warm_to_cold(node);
 #ifdef TIME_STAT
 			_mm_sfence();
 			clock_gettime(CLOCK_MONOTONIC,&ts1);
@@ -3819,6 +3819,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 		   split_warm_node(node,half_listNode);
 		   }
 		 */
+		if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
+			warm_to_cold(node);
 
 	}
 
