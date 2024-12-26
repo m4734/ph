@@ -37,7 +37,6 @@
 
 #define NO_EXIST
 
-#define TIME_STAT
 
 #endif
 
@@ -49,7 +48,7 @@
 #define TIME_STAT2
 
 #define LIST_TRAVERSE_TEST
-//#define ENTRY_WRITE_TEMP // remove this
+#define ENTRY_WRITE_TEMP // remove this
 
 //--------------------------------------
 
@@ -100,12 +99,12 @@ namespace PH
 	const uint32_t WARM_BATCH_ENTRY_CNT = 20;
 	const uint32_t WARM_BATCH_CNT = NODE_SIZE/WARM_BATCH_MAX_SIZE;////4;
 
-	const uint32_t 	WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+	const uint32_t WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
 	const uint32_t NODE_SLOT_MAX = 80; // 4096/50
 
-	const uint32_t WARM_KEY_LIST_MAX = WARM_MAX_NODE_GROUP * NODE_SLOT_MAX;
+	const uint32_t WARM_KEY_LIST_MAX_TEMP = WARM_MAX_NODE_GROUP * NODE_SLOT_MAX;
 
 	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 	const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than (after merge smaller than )

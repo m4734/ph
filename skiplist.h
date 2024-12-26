@@ -173,7 +173,9 @@ class SkiplistNode
 	std::atomic<uint8_t> thread_counter; // split prevent
 
 	bool inc_counter();
+	void dec_counter();
 	bool acq_split_lock();
+	//inline
 
 	void setLevel();
 	void setLevel(size_t l);

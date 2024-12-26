@@ -252,6 +252,7 @@ namespace PH
 		   for (i=0;i<NODE_SLOT_MAX;i++) // or WARM_NODE_ENTRY_CNT
 		   nm->valid[i] = false;
 		 */
+//		at_lock2(nm->rw_lock);
 		nm->size_sum = 0; // init
 
 		nm->group_cnt = 1;
@@ -274,6 +275,7 @@ namespace PH
 
 		_mm_sfence();
 		nm->rw_lock = 0;
+//		at_unlock2(nm->rw_lock);
 
 		return nm->my_offset;
 	}
@@ -353,8 +355,9 @@ namespace PH
 		entryLoc[1].offset = NODE_SIZE;
 		max_empty = NODE_SIZE - NODE_HEADER_SIZE;
 		need_clean = false;
-		el_cnt = 2;
+		el_cnt[0] = 2;
 	}
+
 	int NodeMeta::invalidate(EntryAddr ea)
 	{
 		int offset = ea.offset%NODE_SIZE;
@@ -363,8 +366,11 @@ namespace PH
 
 		if (ea.loc == WARM_LIST) // still have key lock // also warm to cold will be cancelled if it is invalid
 		{
+			at_lock2(rw_lock);
+
 			start_index = (offset / WARM_BATCH_MAX_SIZE) * WARM_BATCH_ENTRY_CNT; // batch * 20
-			end_index = start_index+WARM_BATCH_ENTRY_CNT;
+//			end_index = start_index+WARM_BATCH_ENTRY_CNT;
+			end_index = start_index+el_cnt[offset / WARM_BATCH_MAX_SIZE]-1; // batch_num
 //i			for (i=start_index;i<end_index;i++)
 			while(start_index <= end_index)
 			{
@@ -377,6 +383,7 @@ namespace PH
 #endif
 					entryLoc[i].valid = 0;
 					//			size_sum-=(entryLoc[i+1].offset-entryLoc[i].offset);
+					at_unlock2(rw_lock);
 					return 0;
 				}
 				
@@ -387,13 +394,14 @@ namespace PH
 					
 			}
 
+		debug_error("inv can't find1\n");
 		}
 		else // COLD_LIST NEED MERGE and max empty
 		{
 //			my_thread->tes(TEMP2);
 			int size;
 			start_index = 0;
-			end_index = el_cnt;//NODE_SLOT_MAX;
+			end_index = el_cnt[0]-1;//NODE_SLOT_MAX;
 			at_lock2(rw_lock);
 //			for (i=start_index;i<end_index;i++) // track first invalid
 
@@ -438,15 +446,26 @@ namespace PH
 					return size;
 				}
 				
-				if (entryLoc[i].offset == 0 || offset < entryLoc[i].offset)
+				if (/*entryLoc[i].offset == 0 || */offset < entryLoc[i].offset)
 					end_index = i-1;
 				else
 					start_index = i+1;
 					
 			}
-			at_unlock2(rw_lock);
+		debug_error("inv can't find2\n");
+		for (i=0;i<el_cnt[0];i++)
+		{
+			if (offset == entryLoc[i].offset)
+				break;
 		}
-		debug_error("inv can't find\n");
+		if (i >= el_cnt[0])
+			debug_error("errrorrr\n");
+
+			at_unlock2(rw_lock);
+
+
+
+		}
 		return 0;
 	}
 
@@ -454,7 +473,7 @@ namespace PH
 	{
 		int start_index = last_index;//+1;
 
-		while(last_index+2 <= el_cnt)
+		while(last_index+2 <= el_cnt[0])
 		{
 			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
 				return last_index;
@@ -531,7 +550,7 @@ namespace PH
 		}
 
 		dst_idx++;
-		el_cnt = dst_idx;
+		el_cnt[0] = dst_idx;
 
 		return bfi;
 	}

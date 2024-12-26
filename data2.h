@@ -87,7 +87,7 @@ struct NodeMeta
 //	int valid_cnt;
 
 	EntryLoc* entryLoc;
-	int el_cnt;
+	int el_cnt[WARM_BATCH_CNT]; // temp??
 	int last_index;//next fit
 //	std::atomic<int> size_sum;
 	int size_sum; // rw lock will ...

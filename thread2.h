@@ -60,7 +60,7 @@ namespace PH
 			void buffer_init();
 			void buffer_clean();
 
-			void hot_to_warm(SkiplistNode* node,bool force);
+			void hot_to_warm(SkiplistNode* node);//,bool force);
 			void warm_to_cold(SkiplistNode* node);
 			//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 			void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);

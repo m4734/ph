@@ -36,7 +36,7 @@ namespace PH
 			debug_error("double alloc\n");
 
 		nodeMeta->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
-		nodeMeta->el_cnt=0;
+		nodeMeta->el_cnt[0]=0;
 
 		int offset = 0;
 		int i,j;
@@ -81,7 +81,7 @@ namespace PH
 			{
 				nodeMeta->entryLoc[i].offset = offset;
 				nodeMeta->entryLoc[i].valid = 0;
-				nodeMeta->el_cnt++; // invalid during recover
+				nodeMeta->el_cnt[0]++; // invalid during recover
 
 				header = (EntryHeader*)(addr+offset);
 				if (header->value == 0)
@@ -146,9 +146,9 @@ namespace PH
 			i++;
 			nodeMeta->entryLoc[i].offset = NODE_SIZE;
 			nodeMeta->entryLoc[i].valid = 0;
-			nodeMeta->el_cnt = i+1;
+			nodeMeta->el_cnt[0] = i+1;
 		}
-		else // if WARM_LIST
+		else // if WARM_LIST // TODO el cnt 
 		{
 			for (i=0;i<WARM_BATCH_CNT;i++)
 			{

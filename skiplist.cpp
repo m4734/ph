@@ -536,7 +536,7 @@ if (k2 == KEY_MAX)
 			node->my_sa.offset = node_pool_cnt;
 
 //			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
-			node->key_list.resize(WARM_KEY_LIST_MAX);
+			node->key_list.resize(WARM_KEY_LIST_MAX_TEMP);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
 			node->cold_cnt = 0;
@@ -888,6 +888,11 @@ void SkiplistNode::insert_cold_node(ListNode* cold_node)
 			return false;
 		}
 		return true;
+	}
+
+	void SkiplistNode::dec_counter()
+	{
+			thread_counter--;
 	}
 
 	bool SkiplistNode::acq_split_lock()
