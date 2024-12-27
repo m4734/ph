@@ -1364,19 +1364,18 @@ namespace PH
 					break;
 			}
 			if (z == skiplistNode->cold_cnt)
-				listNode = skiplistNode->cold_nodes[z-1];
-			else
-				listNode = skiplistNode->cold_nodes[z];
-			tee(TEMP4);
+				z--;
+			listNode = skiplistNode->cold_nodes[z];
 
 			at_lock2(listNode->lock); // alryead held skiplsit lock ... will not fail?
 
-			if (key < listNode->key || key >= listNode->next->key)
+			if (listNode->key != skiplistNode->cold_keys[z])
 			{
 				at_unlock2(listNode->lock);
 				continue;
 			}
 
+			tee(TEMP4);
 #endif
 
 #if 0
@@ -1413,7 +1412,6 @@ namespace PH
 			//			new_ea.value = 0;
 			while (true)//list_nodeMeta) // try block group // group loop
 			{
-				tes(TEMP1);
 #if 1
 
 				// check space before lock
@@ -1444,7 +1442,7 @@ namespace PH
 #endif
 
 
-				tee(TEMP1); 
+				tes(TEMP1); 
 
 #endif
 
