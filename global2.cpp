@@ -68,9 +68,6 @@ extern int log_max;
 	std::atomic<uint64_t> htw_cnt_sum;
 	std::atomic<uint64_t> wtc_cnt_sum;
 
-	std::atomic<uint64_t> htw_time_sum;
-	std::atomic<uint64_t> wtc_time_sum;
-
 	std::atomic<uint64_t> dtc_time_sum;
 
 	std::atomic<uint64_t> reduce_group_sum;
@@ -99,7 +96,7 @@ void PH_Interface::global_reset_test()
 	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
-	dtc_time_sum = htw_time_sum = wtc_time_sum = 0;
+	dtc_time_sum = 0;
 	htw_cnt_sum = wtc_cnt_sum = 0;
 
 	reduce_group_sum = 0;
@@ -365,15 +362,8 @@ printf("ccc\n");
 	if (soft_htw_sum + hard_htw_sum > 0)
 		printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
 
-	if (htw_cnt_sum > 0 && wtc_cnt_sum > 0)
-		printf("htw time avg %lu wtc time avg %lu\n",htw_time_sum/htw_cnt_sum,wtc_time_sum/wtc_cnt_sum);
 	if (direct_to_cold_sum > 0)
 		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
-
-	if (hot_to_warm_sum > 0)
-		printf("hot_to_warm avg %lu\n",htw_time_sum/hot_to_warm_sum);
-	if (warm_to_cold_sum > 0)
-		printf("warm_to_cold avg %lu\n",wtc_time_sum/warm_to_cold_sum);
 
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());

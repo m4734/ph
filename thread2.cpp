@@ -58,8 +58,6 @@ namespace PH
 	extern std::atomic<uint64_t> soft_htw_sum;
 	extern std::atomic<uint64_t> hard_htw_sum;
 
-	extern std::atomic<uint64_t> htw_time_sum;
-	extern std::atomic<uint64_t> wtc_time_sum;
 	extern std::atomic<uint64_t> htw_cnt_sum;
 	extern std::atomic<uint64_t> wtc_cnt_sum;
 
@@ -171,7 +169,7 @@ namespace PH
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
 #ifdef TIME_STAT
-		dtc_time = htw_time = wtc_time = 0;
+		dtc_time = 0;
 #endif
 		htw_cnt = wtc_cnt = 0;
 
@@ -317,8 +315,6 @@ namespace PH
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
 #ifdef TIME_STAT
-		htw_time_sum+=htw_time;
-		wtc_time_sum+=wtc_time;
 		dtc_time_sum+=dtc_time;
 #endif
 		htw_cnt_sum+=htw_cnt;
@@ -1413,44 +1409,6 @@ namespace PH
 			//------------------------------ entry locked!!
 #endif
 
-				tes(TEMP2);
-				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-				tee(TEMP2);
-
-				// lock here
-				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
-				{ // this is not new update and the key is re inserted
-				  // validation rollback
-				  //					list_nodeMeta->entryLoc[fit_index].valid = 0;
-
-					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
-					at_unlock2(listNode->lock);
-					//				new_ea.value = kvp_p->value;
-					tee(INSERT_TO_COLD);
-					return emptyEntryAddr; // no invalidation
-				}
-				else if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now // get version after key lock
-				{
-					/*
-					   EntryHeader new_version;
-					   new_version.valid_bit = 1;
-					   new_version.delete_bit = 0;
-					//					new_version.large_bit = ((EntryHeader*)src_addr)->large_bit;
-					new_version.large_bit = large;
-					//					new_version.size = ((EntryHeader*)src_addr)->size;
-					new_version.size = value_size;
-					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
-					 */
-					EntryHeader* header = (EntryHeader*)src_addr;
-					header->valid_bit = 1;
-					header->delete_bit = 0;
-					header->large_bit = large;
-					header->size = value_size;
-					header->version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-				}
-
-
 			NodeMeta* list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
 			//			new_ea.value = 0;
 			while (true)//list_nodeMeta) // try block group // group loop
@@ -1489,6 +1447,54 @@ namespace PH
 				tee(TEMP1); 
 
 #endif
+
+
+				tes(TEMP2);
+//				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
+				if (kvp_p == NULL)
+				{
+					at_unlock2(list_nodeMeta->rw_lock);
+					continue;
+				}
+				tee(TEMP2);
+
+				// lock here
+				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
+				{ // this is not new update and the key is re inserted
+				  // validation rollback
+				  //					list_nodeMeta->entryLoc[fit_index].valid = 0;
+
+					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
+					tee(TEMP1);
+					at_unlock2(list_nodeMeta->rw_lock);
+					at_unlock2(listNode->lock);
+					//				new_ea.value = kvp_p->value;
+					tee(INSERT_TO_COLD);
+					return emptyEntryAddr; // no invalidation
+				}
+				else if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now // get version after key lock
+				{
+					/*
+					   EntryHeader new_version;
+					   new_version.valid_bit = 1;
+					   new_version.delete_bit = 0;
+					//					new_version.large_bit = ((EntryHeader*)src_addr)->large_bit;
+					new_version.large_bit = large;
+					//					new_version.size = ((EntryHeader*)src_addr)->size;
+					new_version.size = value_size;
+					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
+					 */
+					EntryHeader* header = (EntryHeader*)src_addr;
+					header->valid_bit = 1;
+					header->delete_bit = 0;
+					header->large_bit = large;
+					header->size = value_size;
+					header->version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
+				}
+
+
 
 				tes(INSERT_ENTRY_TO_SLOT);
 				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
@@ -1558,6 +1564,8 @@ namespace PH
 				//failed
 				debug_error("fail here\n");
 
+				hash_index->unlock_entry2(seg_lock,read_lock);
+
 				tee(TEMP1);
 				at_unlock2(list_nodeMeta->rw_lock);
 				if (list_nodeMeta->next_node_in_group == NULL)
@@ -1565,7 +1573,6 @@ namespace PH
 				list_nodeMeta = list_nodeMeta->next_node_in_group;
 			}
 
-			hash_index->unlock_entry2(seg_lock,read_lock);
 
 			//			if (i >= NODE_SLOT_MAX) // need split
 			//			if (new_ea.value == 0)
@@ -3289,10 +3296,7 @@ namespace PH
 	{
 
 		//evict unit will be 1024 // batch evict
-#ifdef TIME_STAT
-		timespec ts1,ts2;
-		clock_gettime(CLOCK_MONOTONIC,&ts1);
-#endif
+		tes(WTC);
 		int node_num;
 		node_num = (node->data_tail%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // %16 / 4
 
@@ -3477,10 +3481,7 @@ namespace PH
 		}
 #endif
 //		at_unlock2(nodeMeta->rw_lock); // move to after copy
-#ifdef TIME_STAT
-		clock_gettime(CLOCK_MONOTONIC,&ts2);
-		wtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
+tee(WTC);
 		wtc_cnt++;
 	}
 
@@ -3568,11 +3569,7 @@ namespace PH
 		{
 			//			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
 			//				warm_to_cold(node);
-#ifdef TIME_STAT
-			_mm_sfence();
-			clock_gettime(CLOCK_MONOTONIC,&ts1);
-			_mm_sfence();
-#endif
+			tes(HTW);
 
 			node_num = (node->data_head%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // % 16 / 4
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
@@ -3708,12 +3705,7 @@ namespace PH
 				node->current_batch_index = 0;
 
 				at_unlock2(nodeMeta->rw_lock);
-#ifdef TIME_STAT
-				_mm_sfence();
-				clock_gettime(CLOCK_MONOTONIC,&ts2);
-				_mm_sfence();
-				htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
+				tee(HTW);
 
 				continue;
 			}
@@ -3878,13 +3870,9 @@ namespace PH
 
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
+
+			tee(HTW);
 		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
-#ifdef TIME_STAT
-		_mm_sfence();
-		clock_gettime(CLOCK_MONOTONIC,&ts2);
-		_mm_sfence();
-		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
 		htw_cnt++;
 
 		node->recent_entry_cnt = ex_entry_cnt;

@@ -181,7 +181,6 @@ public:
 			uint64_t wtc_cnt;
 
 #ifdef TIME_STAT
-			uint64_t htw_time,wtc_time;
 			uint64_t dtc_time;
 #endif
 
