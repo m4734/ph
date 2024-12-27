@@ -456,9 +456,16 @@ namespace PH
 		for (i=0;i<el_cnt[0];i++)
 		{
 			if (offset == entryLoc[i].offset)
-				break;
+			{
+					entryLoc[i].valid = 0;
+					size=(entryLoc[i+1].offset-entryLoc[i].offset);
+					size_sum-=size; // who need this?
+										max_empty = NODE_SIZE;
+					need_clean = true;
+					at_unlock2(rw_lock);
+					return size;
+			}
 		}
-		if (i >= el_cnt[0])
 			debug_error("errrorrr\n");
 
 			at_unlock2(rw_lock);

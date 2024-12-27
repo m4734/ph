@@ -1367,14 +1367,14 @@ namespace PH
 				z--;
 			listNode = skiplistNode->cold_nodes[z];
 
-			at_lock2(listNode->lock); // alryead held skiplsit lock ... will not fail?
-
+//			at_lock2(listNode->lock); // alryead held skiplsit lock ... will not fail?
+/*
 			if (listNode->key != skiplistNode->cold_keys[z])
 			{
 				at_unlock2(listNode->lock);
 				continue;
 			}
-
+*/
 			tee(TEMP4);
 #endif
 
@@ -1466,7 +1466,7 @@ namespace PH
 					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
 					tee(TEMP1);
 					at_unlock2(list_nodeMeta->rw_lock);
-					at_unlock2(listNode->lock);
+//					at_unlock2(listNode->lock);
 					//				new_ea.value = kvp_p->value;
 					tee(INSERT_TO_COLD);
 					return emptyEntryAddr; // no invalidation
@@ -1550,7 +1550,7 @@ namespace PH
 
 					tee(TEMP1);
 					at_unlock2(list_nodeMeta->rw_lock); // unlock dst rw lock
-					at_unlock2(listNode->lock);
+//					at_unlock2(listNode->lock);
 
 					//check
 					//					warm_to_cold_cnt++; // to cold
@@ -1592,14 +1592,16 @@ namespace PH
 				else // split
 				{
 					//					tes(SPLIT_OF_ITC);
+					at_lock2(listNode->lock); // split lock
 					try_cold_split(listNode,skiplistNode);
+					at_unlock2(listNode->lock);
 					//					cold_split_cnt++;
 					//					skiplistNode->find_half_listNode(); // use cold nodes
 					//					tes(SPLIT_OF_ITC);
 				}
 			}
 
-			at_unlock2(listNode->lock);
+//			at_unlock2(listNode->lock);
 		}
 
 		debug_error("impossbile\n");
@@ -1921,7 +1923,9 @@ namespace PH
 				warm_cache = emptyNodeAddr;
 
 			skiplistNode = get_skiplist_node(key,warm_cache);
+			at_lock2(skiplistNode->evict_lock); // gararreentteee and limit all split and write...
 			/*new_ea = */direct_to_cold(key,value_size,value,kvp,skiplistNode,large,true); // kvp becomes old one
+			at_unlock2(skiplistNode->evict_lock);
 			direct_to_cold_cnt++;
 #if 0 // moved to direct_to_cold...
 			old_ea.value = kvp.value;
