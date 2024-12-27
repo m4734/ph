@@ -58,8 +58,6 @@ namespace PH
 	extern std::atomic<uint64_t> soft_htw_sum;
 	extern std::atomic<uint64_t> hard_htw_sum;
 
-	extern std::atomic<uint64_t> htw_time_sum;
-	extern std::atomic<uint64_t> wtc_time_sum;
 	extern std::atomic<uint64_t> htw_cnt_sum;
 	extern std::atomic<uint64_t> wtc_cnt_sum;
 
@@ -183,7 +181,7 @@ namespace PH
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
 #ifdef TIME_STAT
-		dtc_time = htw_time = wtc_time = 0;
+		dtc_time = 0;
 #endif
 		htw_cnt = wtc_cnt = 0;
 
@@ -334,8 +332,6 @@ namespace PH
 		soft_htw_sum+=soft_htw_cnt;
 		hard_htw_sum+=hard_htw_cnt;
 #ifdef TIME_STAT
-		htw_time_sum+=htw_time;
-		wtc_time_sum+=wtc_time;
 		dtc_time_sum+=dtc_time;
 #endif
 		htw_cnt_sum+=htw_cnt;
@@ -3251,10 +3247,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 	{
 
 		//evict unit will be 1024 // batch evict
-#ifdef TIME_STAT
-		timespec ts1,ts2;
-		clock_gettime(CLOCK_MONOTONIC,&ts1);
-#endif
+		tes(WTC);
 		int node_num;
 		node_num = (node->data_tail%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // %16 / 4
 
@@ -3438,10 +3431,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 		}
 #endif
 		at_unlock2(nodeMeta->rw_lock);
-#ifdef TIME_STAT
-		clock_gettime(CLOCK_MONOTONIC,&ts2);
-		wtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
+
+		tee(WTC);
 		wtc_cnt++;
 	}
 
@@ -3449,9 +3440,6 @@ tee(INSERT_ENTRY_TO_SLOT);
 	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	void PH_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	{
-#ifdef TIME_STAT
-		struct timespec ts1,ts2;
-#endif
 		int node_num;
 
 		unsigned char* dst_node;
@@ -3492,11 +3480,7 @@ tee(INSERT_ENTRY_TO_SLOT);
 		{
 //			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
 //				warm_to_cold(node);
-#ifdef TIME_STAT
-			_mm_sfence();
-			clock_gettime(CLOCK_MONOTONIC,&ts1);
-			_mm_sfence();
-#endif
+			tes(HTW);
 
 			node_num = (node->data_head%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // % 16 / 4
 			dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
@@ -3631,13 +3615,8 @@ tee(INSERT_ENTRY_TO_SLOT);
 				node->current_batch_index = 0;
 
 				at_unlock2(nodeMeta->rw_lock);
-#ifdef TIME_STAT
-				_mm_sfence();
-				clock_gettime(CLOCK_MONOTONIC,&ts2);
-				_mm_sfence();
-				htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
 
+				tee(HTW);
 				continue;
 			}
 
@@ -3797,13 +3776,9 @@ tee(INSERT_ENTRY_TO_SLOT);
 
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
+		tee(HTW);
 		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
-#ifdef TIME_STAT
-		_mm_sfence();
-		clock_gettime(CLOCK_MONOTONIC,&ts2);
-		_mm_sfence();
-		htw_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
-#endif
+
 		htw_cnt++;
 
 		node->recent_entry_cnt = ex_entry_cnt;

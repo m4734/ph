@@ -393,7 +393,7 @@ namespace PH
 //			my_thread->tes(TEMP2);
 			int size;
 			start_index = 0;
-			end_index = el_cnt;//NODE_SLOT_MAX;
+			end_index = el_cnt-1;//NODE_SLOT_MAX;
 			at_lock2(rw_lock);
 //			for (i=start_index;i<end_index;i++) // track first invalid
 
