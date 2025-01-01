@@ -132,12 +132,16 @@ class SkiplistNode
 	void insert_cold_node(ListNode* cold_node);
 
 	uint64_t key;
+//	volatile uint64_t key;
 //	SkiplistNode* node_p; // tree node or leaf
 //	std::vector<std::atomic<SkiplistNode*>> next;
 //	std::vector<AtomicPointer> next;
 //	std::atomic<SkiplistNode*> *next = NULL;
 //	std::vector<SkipAddr> next; // don't want MAX LEVEL space
 	SkipAddr *next;
+//	volatile uint64_t *next;
+//	std::atomic<uint64_t> *next;
+
 	int next_size;
 
 	std::vector<uint64_t> key_list;
@@ -170,12 +174,7 @@ class SkiplistNode
 	std::atomic<uint8_t> insert_lock; // HL TO WL and evict list
 	std::atomic<uint8_t> evict_lock; // WL TO CL
 	std::atomic<uint8_t> split_lock; // WN split
-	std::atomic<uint8_t> thread_counter; // split prevent
-
-	bool inc_counter();
-	void dec_counter();
-	bool acq_split_lock();
-	//inline
+//	std::atomic<uint8_t> thread_counter; // split prevent
 
 	void setLevel();
 	void setLevel(size_t l);

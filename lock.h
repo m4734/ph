@@ -17,7 +17,7 @@ inline void at_lock2(std::atomic<uint8_t> &lock)
 	while(true)
 	{
 		z = 0;
-		if (lock.compare_exchange_strong(z,1))
+		if (lock.compare_exchange_strong(z,1))//,std::memory_order_acquire))
 			return;
 	}
 #else
@@ -25,11 +25,13 @@ inline void at_lock2(std::atomic<uint8_t> &lock)
 	{
 		lock++;
 		if (lock == 1)
+		{
+//			_mm_sfence();
 			return;
+		}
 		lock--;
 	}
 #endif
-	_mm_mfence();
 }
 
 inline void at_unlock2(std::atomic<uint8_t> &lock)
@@ -47,14 +49,16 @@ inline int try_at_lock2(std::atomic<uint8_t> &lock)
 {
 #ifdef USE_CAS
 	uint8_t z=0;
-	return lock.compare_exchange_strong(z,1);
+	return lock.compare_exchange_strong(z,1);//,std::memory_order_acquire);
 #else
+	// what is this...
 	lock++;
 	if (lock == 1)
 		return 1;
 	lock--;
 	return 0;
 #endif
+//	_mm_mfence(); // fence after return...
 }
 
 }

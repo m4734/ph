@@ -44,11 +44,11 @@ namespace PH
 	//const size_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
 	//size_t WARM_BATCH_MAX_SIZE = 1024;
 	//#define WARM_BATCH_MAX_SIZE 1024
-//	size_t WARM_BATCH_ENTRY_CNT; // 8-9
-//	size_t WARM_BATCH_CNT; // 4096/1024
-			       //size_t WARM_BATCH_SIZE; // 120 * 8-9
-//	size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
-//	size_t WARM_GROUP_BATCH_CNT; // BATCH_CNT * MAX_GROUP
+	//	size_t WARM_BATCH_ENTRY_CNT; // 8-9
+	//	size_t WARM_BATCH_CNT; // 4096/1024
+	//size_t WARM_BATCH_SIZE; // 120 * 8-9
+	//	size_t WARM_NODE_ENTRY_CNT; // 8-9 * 4
+	//	size_t WARM_GROUP_BATCH_CNT; // BATCH_CNT * MAX_GROUP
 
 	/*
 	   const size_t PMEM_UNIT = 256;
@@ -106,33 +106,33 @@ namespace PH
 		key_list_size--;
 
 	}
-/*
-	void SkiplistNode::find_half_listNode() // do we have lock?
-	{
-		SkiplistNode* node = this;
-		uint64_t current_key,next_key;
-		//		ListNode* listNode;
-		ListNode* hl;
-		ListNode* listNode;
+	/*
+	   void SkiplistNode::find_half_listNode() // do we have lock?
+	   {
+	   SkiplistNode* node = this;
+	   uint64_t current_key,next_key;
+	//		ListNode* listNode;
+	ListNode* hl;
+	ListNode* listNode;
 
-		current_key = node->key;
-//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
-		next_key = skiplist->find_next_node(node)->key;
-		listNode = node->my_listNode;
-		hl = node->my_listNode;
-		int cnt = 0;
-		node->cold_block_sum = 0;
-		while (next_key > listNode->key)
-		{
-			node->cold_block_sum+=listNode->block_cnt;
-			listNode = listNode->next;
-			++cnt;
-			if (cnt%2 == 0)
-				hl = hl->next;
-		}
-		half_listNode = hl;
+	current_key = node->key;
+	//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+	next_key = skiplist->find_next_node(node)->key;
+	listNode = node->my_listNode;
+	hl = node->my_listNode;
+	int cnt = 0;
+	node->cold_block_sum = 0;
+	while (next_key > listNode->key)
+	{
+	node->cold_block_sum+=listNode->block_cnt;
+	listNode = listNode->next;
+	++cnt;
+	if (cnt%2 == 0)
+	hl = hl->next;
 	}
-*/
+	half_listNode = hl;
+	}
+	 */
 	void SkiplistNode::update_wc() // do we have lock?
 	{
 		SkiplistNode* node = this;
@@ -141,19 +141,19 @@ namespace PH
 		ListNode* listNode;
 
 		current_key = node->key;
-//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
+		//		next_key = (skiplist->sa_to_node(node->next[0]))->key;
 		next_key = skiplist->find_next_node(node)->key;
 		int i;
 		for (i=0;i<cold_cnt;i++)
 			node->cold_nodes[i]->warm_cache = node->myAddr;
-//		listNode = node->my_listNode;
-			/*
-		while (next_key > listNode->key)
-		{
-			listNode->warm_cache = node->myAddr;
-			listNode = listNode->next;
-		}
-		*/
+		//		listNode = node->my_listNode;
+		/*
+		   while (next_key > listNode->key)
+		   {
+		   listNode->warm_cache = node->myAddr;
+		   listNode = listNode->next;
+		   }
+		 */
 	}
 
 	void SkiplistNode::setLevel(size_t l)
@@ -167,6 +167,7 @@ namespace PH
 		{
 			delete next;
 			next = new SkipAddr[l+1];
+//			next = new std::atomic<uint64_t>[l+1];
 			next_size = l+1;
 		}
 		built = 0;
@@ -183,6 +184,7 @@ namespace PH
 		{
 			delete next;
 			next = new SkipAddr[level+1];
+//			next = new std::atomic<uint64_t>[level+1];
 			next_size = level+1;
 		}
 
@@ -201,7 +203,7 @@ namespace PH
 			nodeMeta = append_group(nodeMeta,WARM_LIST);
 			node->data_node_addr[i] = nodeMeta->my_offset;
 			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
-//			nodeMeta->list_addr = node->myAddr;
+			//			nodeMeta->list_addr = node->myAddr;
 		}
 
 		return node;
@@ -209,12 +211,12 @@ namespace PH
 
 	void const_init()
 	{
-//		WARM_BATCH_CNT = 4;//NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
-//		WARM_BATCH_ENTRY_CNT = 20;//(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
-//		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
-//		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
-//		WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
-										//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE
+		//		WARM_BATCH_CNT = 4;//NODE_SIZE/(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);
+		//		WARM_BATCH_ENTRY_CNT = 20;//(WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE)/ENTRY_SIZE;
+		//		WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+		//		WARM_GROUP_ENTRY_CNT = WARM_NODE_ENTRY_CNT*WARM_MAX_NODE_GROUP; // 32*4 
+		//		WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
+		//	WARM_BATCH_SIZE = WARM_BATCH_ENTRY_CNT*ENTRY_SIZE
 	}
 
 	void Skiplist::recover_init(size_t size)
@@ -240,32 +242,32 @@ namespace PH
 		int i;
 		NodeAddr nodeAddr;
 
-//		empty_node = allocate_node();
+		//		empty_node = allocate_node();
 		empty_node = alloc_sl_node();
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
-//		empty_node->my_listNode = list->empty_node;
+		//		empty_node->my_listNode = list->empty_node;
 		empty_node->cold_cnt = 1;
 		empty_node->cold_nodes[0] = list->empty_node;
 		nodeAddr = {3,0};
 		empty_node->data_node_addr[0] = nodeAddr;
 
 
-//		start_node = allocate_node();
+		//		start_node = allocate_node();
 		start_node = alloc_sl_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
-//		start_node->my_listNode = list->start_node;
+		//		start_node->my_listNode = list->start_node;
 		start_node->cold_cnt = 1;
 		start_node->cold_nodes[0] = list->start_node;
 		nodeAddr = {1,1};
 		start_node->data_node_addr[0] = nodeAddr;
 
-//		end_node = allocate_node();
+		//		end_node = allocate_node();
 		end_node = alloc_sl_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
-//		end_node->my_listNode = list->end_node;
+		//		end_node->my_listNode = list->end_node;
 		end_node->cold_cnt = 1;
 		end_node->cold_nodes[0] = list->end_node;
 		nodeAddr = {3,1};
@@ -274,8 +276,8 @@ namespace PH
 
 		for (i=0;i<=MAX_LEVEL;i++)
 		{
-			empty_node->next[i] = start_node->my_sa;
-			start_node->next[i] = end_node->my_sa;
+			empty_node->next[i] = start_node->my_sa;//.value.load();
+			start_node->next[i] = end_node->my_sa;//.value.load();
 		}
 		start_node->built = MAX_LEVEL;
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
@@ -284,13 +286,13 @@ namespace PH
 
 		empty_node->prev = NULL;
 		start_node->prev = empty_node;// 
-/*
-		NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr[0]);
-		NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr[0]);
-		NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr[0]);
-*/
-//		nodeAllocator->linkNext(nm_empty,nm_start);
-//		nodeAllocator->linkNext(nm_start,nm_end);
+		/*
+		   NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr[0]);
+		   NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr[0]);
+		   NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr[0]);
+		 */
+		//		nodeAllocator->linkNext(nm_empty,nm_start);
+		//		nodeAllocator->linkNext(nm_start,nm_end);
 
 		//	nodeAllocator->linkNext(empty_node->data_node_addr);
 		//	nodeAllocator->linkNext(start_node->data_node_addr);
@@ -324,29 +326,29 @@ namespace PH
 		empty_node = allocate_node();
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
-//		empty_node->my_listNode = list->empty_node;
+		//		empty_node->my_listNode = list->empty_node;
 		empty_node->cold_cnt=1;
 		empty_node->cold_nodes[0] = list->empty_node;
 
 		start_node = allocate_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
-//		start_node->my_listNode = list->start_node;
+		//		start_node->my_listNode = list->start_node;
 		start_node->cold_cnt=1;
 		start_node->cold_nodes[0] = list->start_node;
 
 		end_node = allocate_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
-//		end_node->my_listNode = list->end_node;
+		//		end_node->my_listNode = list->end_node;
 		end_node->cold_cnt=1;
 		end_node->cold_nodes[0] = list->end_node;
 
 
 		for (i=0;i<=MAX_LEVEL;i++)
 		{
-			empty_node->next[i] = start_node->my_sa;
-			start_node->next[i] = end_node->my_sa;
+			empty_node->next[i] = start_node->my_sa;//.value.load();
+			start_node->next[i] = end_node->my_sa;//.value.load();
 		}
 
 		empty_node->prev = NULL;
@@ -397,17 +399,17 @@ namespace PH
 			{
 				if ( true || nodeMeta->valid[k])
 				{
-				header = (EntryHeader*)addr;
-				if (header->version > 0)
-				{
-					ow = 1;
-					key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-					if (ow)
+					header = (EntryHeader*)addr;
+					if (header->version > 0)
 					{
-						if (rv > key)
-							rv = key;
+						ow = 1;
+						key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+						if (ow)
+						{
+							if (rv > key)
+								rv = key;
+						}
 					}
-				}
 				}
 				k++;
 				addr+=ENTRY_SIZE;
@@ -434,45 +436,45 @@ namespace PH
 		//	printf("skiplist cnt %ld\n",node_pool_list_cnt);
 #ifdef SKIPLIST_TRAVERSE_TEST
 		uint64_t k1,k2;
-		   int cnt0=0;
-		   SkiplistNode* node;
-		   NodeAddr dataNode_addr;
-		   NodeAddr next_dataNode_addr;
-		   node = empty_node;
+		int cnt0=0;
+		SkiplistNode* node;
+		NodeAddr dataNode_addr;
+		NodeAddr next_dataNode_addr;
+		node = empty_node;
 
 		dataNode_addr = node->data_node_addr[0];
 		next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
 
-			k1 = 0;
+		k1 = 0;
 
-		   while(node != end_node)
-		   {
-//		   node = skiplist->sa_to_node(node->next[0]);
+		while(node != end_node)
+		{
+			//		   node = skiplist->sa_to_node(node->next[0]);
 			node = find_next_node(node);
-		   cnt0++;
+			cnt0++;
 
 			dataNode_addr = node->data_node_addr[0];
 			if (dataNode_addr != next_dataNode_addr)
 				debug_error("link brok\n");
 #if 0
-k2 = find_skip_min(node);
-if (k1 >= k2)
-{
-	debug_error("key revser\n");
-k2 = find_skip_min(node);
-}
-if (k2 == KEY_MAX)
-{
-	k2 = 0;
-}
-	k1 = k2;
+			k2 = find_skip_min(node);
+			if (k1 >= k2)
+			{
+				debug_error("key revser\n");
+				k2 = find_skip_min(node);
+			}
+			if (k2 == KEY_MAX)
+			{
+				k2 = 0;
+			}
+			k1 = k2;
 #endif
 
-//---------------
+			//---------------
 			next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
 
-		   }
-		   printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
+		}
+		printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
 #endif
 		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
 		printf("warm list cnt %ld max size %lfGB\n",cnt,double(cnt)*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
@@ -505,7 +507,7 @@ if (k2 == KEY_MAX)
 		if (node_free_head) // no pmem alloc...
 		{
 			node = node_free_head;
-//			node_free_head = sa_to_node(node_free_head->next[0]);
+			//			node_free_head = sa_to_node(node_free_head->next[0]);
 			node_free_head = node->prev;
 			at_unlock2(node_alloc_lock);
 		}
@@ -535,7 +537,7 @@ if (k2 == KEY_MAX)
 			node->my_sa.pool_num = node_pool_list_cnt;
 			node->my_sa.offset = node_pool_cnt;
 
-//			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
+			//			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
 			node->key_list.resize(WARM_KEY_LIST_MAX_TEMP);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
@@ -565,8 +567,8 @@ if (k2 == KEY_MAX)
 		node->ver = node_counter.fetch_add(1);
 		node->my_sa.ver = node->ver;
 
-//		node->cold_block_sum = 0;
-//		node->half_listNode = NULL;
+		//		node->cold_block_sum = 0;
+		//		node->half_listNode = NULL;
 
 		node->cold_cnt = 0;
 
@@ -576,15 +578,14 @@ if (k2 == KEY_MAX)
 		node->insert_lock = 0;
 		node->evict_lock = 0;
 		node->split_lock = 0;
-		node->thread_counter = 0;
-//		node->rw_lock = 0;
+		//		node->rw_lock = 0;
 
 		return node;
 	}
 
 	void Skiplist::free_sl_node(SkiplistNode* node)
 	{
-//		return; // do nothing
+		//		return; // do nothing
 		at_lock2(node_alloc_lock);
 		node->prev = node_free_head;
 		node_free_head = node;
@@ -609,36 +610,37 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 	int j;
 	SkipAddr sa;
 	uint64_t v;
-		while(true)
+	while(true)
+	{
+		sa.value = node->next[0].value.load();
+//		sa.value = node->next[0].load();
+		//			next_node = sa_to_node(sa);
+		next_node = &node_pool_list[sa.pool_num][sa.offset];
+		if (next_node->ver != sa.ver)
 		{
-			sa.value = node->next[0].value.load();
-			//			next_node = sa_to_node(sa);
-			next_node = &node_pool_list[sa.pool_num][sa.offset];
-			if (next_node->ver != sa.ver)
+			if (next_node->ver == 0)
 			{
-				if (next_node->ver == 0)
+				v = sa.value;
+				if (node->next[0].value.compare_exchange_strong(v,next_node->next[0].value.load()))
 				{
-					v = sa.value;
-					if (node->next[0].value.compare_exchange_strong(v,next_node->next[0].value.load()))
+					//						next_node->dst_cnt--; // passed cas
+					int rv = next_node->dst_cnt.fetch_sub(1);
+					if (rv == 1)
 					{
-//						next_node->dst_cnt--; // passed cas
-						int rv = next_node->dst_cnt.fetch_sub(1);
-						if (rv == 1)
+						for (j=0;j<WARM_MAX_NODE_GROUP;j++)
 						{
-							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
-							{
-//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-//									debug_error("free888\n");
-								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
-							}
-							free_sl_node(next_node);
+							//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
+							//									debug_error("free888\n");
+							nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 						}
+						free_sl_node(next_node);
 					}
 				}
-				continue;
 			}
-			break;
+			continue;
 		}
+		break;
+	}
 	return next_node;
 }
 
@@ -667,14 +669,14 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 					v = sa.value;
 					if (node->next[i].value.compare_exchange_strong(v,next_node->next[i].value.load()))
 					{
-//						next_node->dst_cnt--; // passed cas
+						//						next_node->dst_cnt--; // passed cas
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
 							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
 							{
-//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-//									debug_error("free333\n");
+								//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
+								//									debug_error("free333\n");
 								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 							}
 							free_sl_node(next_node);
@@ -689,7 +691,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 				break;
 		}
 		prev[i] = node->my_sa;
-		next[i] = node->next[i];
+		next[i] = node->next[i].value.load();
 	}
 	return node;
 }
@@ -830,7 +832,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	}
 #ifdef WARM_STAT
 	else
-//		addr2_no++;
+		//		addr2_no++;
 		my_thread->warm_no_cnt++;
 #endif
 	//addr2
@@ -877,32 +879,6 @@ void SkiplistNode::insert_cold_node(ListNode* cold_node)
 	cold_cnt++;
 }
 
-	bool SkiplistNode::inc_counter()
-	{
-		if (split_lock)
-			return false;
-		thread_counter++;
-		if (split_lock)
-		{
-			thread_counter--;
-			return false;
-		}
-		return true;
-	}
-
-	void SkiplistNode::dec_counter()
-	{
-			thread_counter--;
-	}
-
-	bool SkiplistNode::acq_split_lock()
-	{
-		if (try_at_lock2(split_lock) == false)
-			return false;
-		while(thread_counter > 1);
-		return true;
-	}
-
 //----------------------------------------------------------
 
 void Skiplist::setLimit(size_t size)
@@ -913,6 +889,7 @@ void Skiplist::setLimit(size_t size)
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
 	node->ver = 0;
+	node->key = INV64;
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);
@@ -1022,7 +999,7 @@ void Skiplist::insert_node(SkiplistNode* node, SkipAddr* prev,SkipAddr* next)
 
 void Skiplist::traverse_test()
 {
-//--------------traverse test
+	//--------------traverse test
 
 	bool sr = true;
 	SkiplistNode* skiplistNode;
@@ -1049,8 +1026,8 @@ void Skiplist::traverse_test()
 		skiplistNode = start_node;
 		while(skiplistNode != end_node)
 		{
-//			if (skiplistNode->my_listNode == NULL)
-//				debug_error("no linked listNode\n");
+			//			if (skiplistNode->my_listNode == NULL)
+			//				debug_error("no linked listNode\n");
 			ps = skiplistNode;
 			skiplistNode = find_next_node(skiplistNode);
 		}
@@ -1060,8 +1037,10 @@ void Skiplist::traverse_test()
 
 void Skiplist::recover()
 {
-
-//	NodeMeta* nodeMeta;
+//	printf("not now\n");
+//return;
+#if 1 // modify skipaddr to uint64
+	//	NodeMeta* nodeMeta;
 	SkiplistNode* skiplistNode;
 	SkiplistNode* prev_skiplistNode;
 	DataNode* dataNode;
@@ -1077,24 +1056,24 @@ void Skiplist::recover()
 	int i;
 	EntryAddr list_addr;
 
-//	ListNode* listNode = list->start_node;
+	//	ListNode* listNode = list->start_node;
 
 	SkipAddr **sa_array;
 	sa_array = new SkipAddr*[MAX_LEVEL+1];
 	for (i=0;i<=MAX_LEVEL;i++)
 		sa_array[i] = &skiplistNode->next[i];
 
-//start node
+	//start node
 	dataAddr = skiplistNode->data_node_addr[0];
 	nodeAllocator->expand(dataAddr);
 
 	list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
 	skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,list_addr,skiplistNode); // don care
 	skiplistNode->key = 0; // start node
-//	skiplist_node->my_listNode = listNode; // not now
-//	dataNode = nodeAllocator->nodeAddr_to_node(skiplistNode->data_node_addr[0]);
+			       //	skiplist_node->my_listNode = listNode; // not now
+			       //	dataNode = nodeAllocator->nodeAddr_to_node(skiplistNode->data_node_addr[0]);
 
-	// next node
+			       // next node
 	dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset); // now start node
 	dataAddr = dataNode->next_offset;
 	dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
@@ -1109,11 +1088,11 @@ void Skiplist::recover()
 		skiplistNode = alloc_sl_node();
 		skiplistNode->data_node_addr[0] = dataAddr;
 
-//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 		list_addr = nodeAddr_to_listAddr(WARM_LIST,skiplistNode->myAddr);
 
 		skiplistNode->key = recover_node(dataAddr,WARM_LIST,i,list_addr,skiplistNode); // don care
-//		if (skiplistNode->key == KEY_MAX) // no entry // delete later
+											       //		if (skiplistNode->key == KEY_MAX) // no entry // delete later
 		if (prev_skiplistNode->key != KEY_MAX && prev_skiplistNode->key >= skiplistNode->key)
 			debug_error("skip recover key error\n");
 
@@ -1125,13 +1104,13 @@ void Skiplist::recover()
 		skiplistNode->built = skiplistNode->level;
 
 		skiplistNode->prev = prev_skiplistNode;
-//		i = 0;
-//		i_dataAddr = dataAddr;
+		//		i = 0;
+		//		i_dataAddr = dataAddr;
 
-//		nodeAllocator->recover_node(i_dataAddr,WARM_LIST,i,skiplistNode);
-	/*	
-		while(i_dataAddr != emptyNodeAddr)
-		{
+		//		nodeAllocator->recover_node(i_dataAddr,WARM_LIST,i,skiplistNode);
+		/*	
+			while(i_dataAddr != emptyNodeAddr)
+			{
 			skiplistNode->data_node_addr[i++] = i_dataAddr;
 			dataNode = nodeAllocator->nodeAddr_to_node(i_dataAddr);
 
@@ -1139,10 +1118,10 @@ void Skiplist::recover()
 			nodeMeta->list_addr = skiplistNode->myAddr;
 
 			i_dataAddr = dataNode->next_offset_in_group;
-		}
-	*/	
+			}
+		 */	
 
-//------------- next
+		//------------- next
 		dataAddr = dataNode->next_offset;
 		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
@@ -1154,17 +1133,17 @@ void Skiplist::recover()
 		*sa_array[i] = end_node->my_sa;
 	delete sa_array;
 
-//	skiplistNode = end_node;	
+	//	skiplistNode = end_node;	
 
-// need my_node and warm cache
-//debug_error("stop here\n");
+	// need my_node and warm cache
+	//debug_error("stop here\n");
 
 
-//link warm and cold
-//remove empty warm
+	//link warm and cold
+	//remove empty warm
 
 	ListNode* listNode;
-//	SkiplistNode* skiplistNode;
+	//	SkiplistNode* skiplistNode;
 
 	listNode = list->start_node;
 	skiplistNode = skiplist->start_node;
@@ -1186,7 +1165,7 @@ void Skiplist::recover()
 	while(listNode != list->end_node)
 	{
 		list_next_key = listNode->next->key;
-//		if (list_key <= next_key && next_key < list_next_key)
+		//		if (list_key <= next_key && next_key < list_next_key)
 		if (next_key < list_next_key)
 		{
 			skiplistNode = next_skiplistNode;
@@ -1205,16 +1184,16 @@ void Skiplist::recover()
 			}
 			next_key = next_skiplistNode->key;
 
-//			if (listNode == NULL)
-//				debug_error("list null\n");
-//			skiplistNode->my_listNode = listNode;
+			//			if (listNode == NULL)
+			//				debug_error("list null\n");
+			//			skiplistNode->my_listNode = listNode;
 			skiplistNode->key = list_key;
 			listNode->hold = 1;
 		}
 
 		{
 			listNode->warm_cache = skiplistNode->myAddr; // cold_bl..
-//			skiplistNode->cold_block_sum+=listNode->block_cnt;
+								     //			skiplistNode->cold_block_sum+=listNode->block_cnt;
 			skiplistNode->insert_cold_node(listNode);
 		}
 
@@ -1222,16 +1201,17 @@ void Skiplist::recover()
 		listNode = listNode->next;
 	}
 
-//	traverse_test();
+	//	traverse_test();
 
-//	debug_error("end of skip recov\n");
+	//	debug_error("end of skip recov\n");
+#endif
 
 }
 //---------------------------------------------- list
 
 void PH_List::recover()
 {
-//	NodeMeta* nodeMeta;
+	//	NodeMeta* nodeMeta;
 	ListNode* listNode;
 	DataNode* dataNode;
 	NodeAddr dataAddr;
@@ -1245,73 +1225,73 @@ void PH_List::recover()
 
 	ListNode* prev=empty_node;
 
-//--
+	//--
 	dataAddr = dataNode->next_offset; // empty to start
 	nodeAllocator->expand(dataAddr);
 
 	listNode->prev = prev;
-//	if (prev)
-		prev->next = listNode;
+	//	if (prev)
+	prev->next = listNode;
 	prev = listNode;
 
 	listNode->data_node_addr = dataAddr;
 
-//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+	//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 	list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
-//	nodeMeta->list_addr = listNode->myAddr;
+	//	nodeMeta->list_addr = listNode->myAddr;
 	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt,list_addr);
 	listNode->key = 0; // start node
 
-//------------- next
+	//------------- next
 	dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
 	dataAddr = dataNode->next_offset;
 
-//---
+	//---
 #if 1
 	while(dataAddr != end_node->data_node_addr)
-//	while(dataAddr != emptyNodeAddr)
+		//	while(dataAddr != emptyNodeAddr)
 	{
-//		cnt++;
+		//		cnt++;
 		nodeAllocator->expand(dataAddr);
 
 		listNode = alloc_list_node(); // myAddr lock
-		
+
 		listNode->prev = prev;
-//		if (prev)
-			prev->next = listNode;
+		//		if (prev)
+		prev->next = listNode;
 		prev = listNode;
 
 		listNode->data_node_addr = dataAddr;
 
-//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+		//		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
 		list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
-//		nodeMeta->list_addr = listNode->myAddr;
+		//		nodeMeta->list_addr = listNode->myAddr;
 		listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt,list_addr);
 
-//------------- next
+		//------------- next
 		dataNode = nodeAllocator->nodeAddr_to_node(dataAddr);
 		dataAddr = dataNode->next_offset;
-//		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
+		//		dataNode = nodeAllocator->nodeAddr_to_node(dataNode->next_offset);
 	}
 
 	//last node
-//	nodeAllocator->expand(dataAddr);
+	//	nodeAllocator->expand(dataAddr);
 
 	listNode = end_node;
 	listNode->prev = prev;
-//		if (prev)
+	//		if (prev)
 	prev->next = listNode;
 	listNode->next = NULL;
 
-//	listNode->data_node_addr = dataAddr;
+	//	listNode->data_node_addr = dataAddr;
 
-//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
-//	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
-//	nodeMeta->list_addr = listNode->myAddr;
+	//	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(dataAddr);
+	//	nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
+	//	nodeMeta->list_addr = listNode->myAddr;
 
-//	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
+	//	listNode->key = recover_node(dataAddr,COLD_LIST,listNode->block_cnt);
 
-//	debug_error("xxx\n");
+	//	debug_error("xxx\n");
 #else
 	int cnt = 0;
 	while(dataAddr != end_node->data_node_addr)
@@ -1352,7 +1332,7 @@ void PH_List::recover_init()
 	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
-//	dataNodeMeta->list_addr = empty_node->myAddr;
+	//	dataNodeMeta->list_addr = empty_node->myAddr;
 
 
 	start_node = alloc_list_node();
@@ -1363,7 +1343,7 @@ void PH_List::recover_init()
 	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
-//	dataNodeMeta->list_addr = start_node->myAddr;
+	//	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
@@ -1373,21 +1353,21 @@ void PH_List::recover_init()
 	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
-//	dataNodeMeta->list_addr = end_node->myAddr;
+	//	dataNodeMeta->list_addr = end_node->myAddr;
 
 	//	List_Node* node = alloc_list_node();
 	/*
-	empty_node->next = start_node;
-	start_node->next = end_node;
-	start_node->prev = empty_node;
-	end_node->prev = start_node;
+	   empty_node->next = start_node;
+	   start_node->next = end_node;
+	   start_node->prev = empty_node;
+	   end_node->prev = start_node;
 
-	NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
-	NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
-	NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
-*/
-//	nodeAllocator->linkNext(nm_empty,nm_start);
-//	nodeAllocator->linkNext(nm_start,nm_end);
+	   NodeMeta* nm_empty = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
+	   NodeMeta* nm_start = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
+	   NodeMeta* nm_end = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
+	 */
+	//	nodeAllocator->linkNext(nm_empty,nm_start);
+	//	nodeAllocator->linkNext(nm_start,nm_end);
 
 }
 
@@ -1414,7 +1394,7 @@ void PH_List::init()
 	empty_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(empty_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,empty_node->myAddr);
-//	dataNodeMeta->list_addr = empty_node->myAddr;
+	//	dataNodeMeta->list_addr = empty_node->myAddr;
 
 	start_node = alloc_list_node();
 	start_node->key = KEY_MIN;
@@ -1423,7 +1403,7 @@ void PH_List::init()
 	start_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(start_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,start_node->myAddr);
-//	dataNodeMeta->list_addr = start_node->myAddr;
+	//	dataNodeMeta->list_addr = start_node->myAddr;
 
 	end_node = alloc_list_node();
 	end_node->key = KEY_MAX;
@@ -1432,7 +1412,7 @@ void PH_List::init()
 	end_node->hold = 1;
 	dataNodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(end_node->data_node_addr);
 	dataNodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,end_node->myAddr);
-//	dataNodeMeta->list_addr = end_node->myAddr;
+	//	dataNodeMeta->list_addr = end_node->myAddr;
 
 
 	//	List_Node* node = alloc_list_node();
@@ -1468,16 +1448,16 @@ void PH_List::clean()
 		while (nodeMeta)
 		{
 			gc++;
-//			if (nodeMeta->list_addr != nodeAddr_to_listAddr(COLD_LIST,node->myAddr))
-//				debug_error("node-list error\n");
+			//			if (nodeMeta->list_addr != nodeAddr_to_listAddr(COLD_LIST,node->myAddr))
+			//				debug_error("node-list error\n");
 #ifdef PER_TEST
-DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)
-	debug_error("failed\n");
+			DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+			if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group != dataNode->next_offset_in_group)
+				debug_error("failed\n");
 #endif
 			bc++;
-//			max+=NODE_SLOT_MAX;
-//			use+=nodeMeta->valid_cnt;
+			//			max+=NODE_SLOT_MAX;
+			//			use+=nodeMeta->valid_cnt;
 			use+=nodeMeta->size_sum;
 			max+=NODE_SIZE;
 			bs+=nodeMeta->size_sum;
@@ -1509,20 +1489,20 @@ if (nodeMeta->next_addr != dataNode->next_offset || nodeMeta->next_addr_in_group
 	delete[] node_pool_list;
 }
 /*
-void PH_List::expand(NodeAddr nodeAddr)
-{
-	if (node_pool_list_cnt < nodeAddr.pool_num)
-		node_pool_cnt = 0;
+   void PH_List::expand(NodeAddr nodeAddr)
+   {
+   if (node_pool_list_cnt < nodeAddr.pool_num)
+   node_pool_cnt = 0;
 
-	while (node_pool_list_cnt < nodeAddr.pool_num)
-	{
-		node_pool_list_cnt++;
-		node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];
-	}
-	if (node_pool_cnt < nodeAddr.node_offset)
-		node_pool_cnt = nodeAddr.node_offset;
-}
-*/
+   while (node_pool_list_cnt < nodeAddr.pool_num)
+   {
+   node_pool_list_cnt++;
+   node_pool_list[node_pool_list_cnt] = new ListNode[NODE_POOL_SIZE];
+   }
+   if (node_pool_cnt < nodeAddr.node_offset)
+   node_pool_cnt = nodeAddr.node_offset;
+   }
+ */
 ListNode* PH_List::alloc_list_node()
 {
 	//just use lock
@@ -1535,15 +1515,15 @@ ListNode* PH_List::alloc_list_node()
 	{
 		node = node_free_head;
 		node_free_head = node_free_head->next;
-/*
-		rv->next = NULL;
-		rv->prev = NULL;
-		rv->block_cnt = 0;
-		_mm_sfence();
-		rv->lock = 0;
-*/
+		/*
+		   rv->next = NULL;
+		   rv->prev = NULL;
+		   rv->block_cnt = 0;
+		   _mm_sfence();
+		   rv->lock = 0;
+		 */
 		at_unlock2(node_alloc_lock);
-//		return rv;
+		//		return rv;
 	}
 	else // alloc new
 	{
@@ -1565,8 +1545,8 @@ ListNode* PH_List::alloc_list_node()
 	}
 
 	node->block_cnt = 0;
-//	node->valid_cnt = 0;
-//	node->size_sum = 0;
+	//	node->valid_cnt = 0;
+	//	node->size_sum = 0;
 	node->next = NULL;
 	node->prev = NULL;
 	node->hold = 0;
@@ -1635,344 +1615,344 @@ void PH_List::insert_node(ListNode* prev, ListNode* node)
 	//	at_unlock2(prev->lock);
 }
 #if 0
-	bool need_reduce(ListNode* listNode)
-	{
-		return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
-	}
+bool need_reduce(ListNode* listNode)
+{
+	return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX) // try shorten group
+}
 #endif
-	bool try_reduce_group(ListNode* listNode) // remove last block
-	{
-		return false;
+bool try_reduce_group(ListNode* listNode) // remove last block
+{
+	return false;
 #if 0
-		bool rv = false;
-		if (try_at_lock2(listNode->lock) == false)
-			return rv;
-		if (need_reduce(listNode)) // try shorten group
-		{
-			rv = true;
-			my_thread->reduce_group_cnt++;
-//			printf("reduce----------------------------------------\n");
-
-			NodeAddr nodeAddr;
-			nodeAddr = listNode->data_node_addr;
-			NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
-			NodeMeta* src_nodeMeta;
-			int dst_i,dst_j;
-			nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-			int i;
-			for (i=0;i<listNode->block_cnt;i++)
-			{
-				at_lock2(nodeMeta_list[i]->rw_lock);
-				nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
-			}
-
-			src_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
-
-//			int entry_num = nodeMeta->valid_cnt;
-
-			DataNode* dataNode;
-			DataNode* dst_dataNode;
-			unsigned char* src_addr;
-			unsigned char* dst_addr;
-			uint64_t key;
-			std::atomic<uint8_t> *seg_lock;
-			KVP* kvp_p;
-			EntryAddr src_ea,dst_ea;
-			unsigned char* split_buffer = (unsigned char*)my_thread->split_buffer;
-
-			dataNode = nodeAllocator->nodeAddr_to_node(src_nodeMeta->my_offset);
-
-			reverse_memcpy(split_buffer,(unsigned char*)dataNode,NODE_SIZE);
-			src_addr = split_buffer+NODE_HEADER_SIZE;
-
-			dst_i = 0;
-			dst_j = 0;
-			dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
-
-			src_ea.loc = COLD_LIST;
-			src_ea.file_num = src_nodeMeta->my_offset.pool_num;
-			src_ea.offset = src_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			dst_ea.loc = COLD_LIST;
-			dst_ea.file_num = nodeMeta_list[0]->my_offset.pool_num;
-			dst_ea.offset = nodeMeta_list[0]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			for (i=0;i<NODE_SLOT_MAX;i++)
-			{
-				if (src_nodeMeta->valid[i])
-				{
-					key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
-					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
-					if (kvp_p->value == src_ea.value)
-					{
-//						while(dst_i<listNode->block_cnt-1)
-						while(nodeMeta_list[dst_i]->valid[dst_j])
-						{
-							++dst_j;
-							dst_ea.offset+=ENTRY_SIZE;
-							if (dst_j >= NODE_SLOT_MAX)
-							{
-								dst_j = 0;
-								dst_i++;
-
-								if (dst_i >= listNode->block_cnt-1)
-									debug_error("block group overflow\n");
-
-								dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
-								dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
-								dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-							}
-						}
-
-
-						dst_addr = (unsigned char*)dst_dataNode+NODE_HEADER_SIZE+ENTRY_SIZE*dst_j;
-						// copy - valid - index???
-
-						memcpy(dst_addr,src_addr,ENTRY_SIZE);// copy src to dst // mem to pmem
-						_mm_sfence();
-						nodeMeta_list[dst_i]->valid[dst_j] = true;
-						nodeMeta_list[dst_i]->valid_cnt++;
-
-						kvp_p->value = dst_ea.value;
-					}
-					_mm_sfence();
-					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
-
-				}
-				src_ea.offset+=ENTRY_SIZE;
-				src_addr+=ENTRY_SIZE;
-			}
-
-			//flush
-			for (i=0;i<listNode->block_cnt-1;i++)
-			{
-				dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[i]->my_offset);
-				pmem_persist(dataNode,NODE_SIZE);
-			}
-			_mm_sfence();
-
-			//link
-			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1-1]->my_offset);
-#if 1
-			dataNode->next_offset_in_group = emptyNodeAddr;
-			pmem_persist(&dataNode->next_offset_in_group,sizeof(NodeAddr));
-#else
-			pmem_next_in_group_write(dataNode,emptyNodeAddr);
-#endif
-			_mm_sfence();
-
-			nodeMeta_list[listNode->block_cnt-1-1]->next_addr_in_group = emptyNodeAddr;
-			nodeMeta_list[listNode->block_cnt-1-1]->next_node_in_group = NULL;
-
-			_mm_sfence(); // need?
-
-			for (i=0;i<listNode->block_cnt-1;i++)
-				at_unlock2(nodeMeta_list[i]->rw_lock);
-
-			//free
-			listNode->block_cnt--;
-			nodeAllocator->free_node(src_nodeMeta);
-
-		}
-		at_unlock2(listNode->lock);
+	bool rv = false;
+	if (try_at_lock2(listNode->lock) == false)
 		return rv;
-#endif
-	}
-
-	bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
+	if (need_reduce(listNode)) // try shorten group
 	{
-		return false;
-#if 0
-		bool rv = false;
-		if (try_at_lock2(left_listNode->lock) == false)
-			return rv;
-		if (try_at_lock2(right_listNode->lock) == false)
-		{
-			at_unlock2(left_listNode->lock);
-			return rv;
-		}
-		if (right_listNode->hold || left_listNode->valid_cnt + right_listNode->valid_cnt > NODE_SLOT_MAX)
-		{
-			at_unlock2(left_listNode->lock);
-			at_unlock2(right_listNode->lock);
-			return rv;
-		}
-
-		// OK
 		rv = true;
-		my_thread->list_merge_cnt++;
-		printf("mer?-------------------------------------------\n");
+		my_thread->reduce_group_cnt++;
+		//			printf("reduce----------------------------------------\n");
 
-		NodeMeta* left_nodeMeta_list[MAX_NODE_GROUP+1];
-		NodeMeta* right_nodeMeta_list[MAX_NODE_GROUP+1];
-
+		NodeAddr nodeAddr;
+		nodeAddr = listNode->data_node_addr;
+		NodeMeta* nodeMeta_list[MAX_NODE_GROUP+1];
+		NodeMeta* src_nodeMeta;
+		int dst_i,dst_j;
+		nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
 		int i;
-
-		left_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(left_listNode->data_node_addr);
-		for (i=0;i<left_listNode->block_cnt;i++)
+		for (i=0;i<listNode->block_cnt;i++)
 		{
-			at_lock2(left_nodeMeta_list[i]->rw_lock);
-			left_nodeMeta_list[i+1] = left_nodeMeta_list[i]->next_node_in_group;
+			at_lock2(nodeMeta_list[i]->rw_lock);
+			nodeMeta_list[i+1] = nodeMeta_list[i]->next_node_in_group;
 		}
 
-		right_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(right_listNode->data_node_addr);
-		for (i=0;i<right_listNode->block_cnt;i++)
-		{
-			at_lock2(right_nodeMeta_list[i]->rw_lock);
-			right_nodeMeta_list[i+1] = right_nodeMeta_list[i]->next_node_in_group;
-		}
+		src_nodeMeta = nodeMeta_list[listNode->block_cnt-1];
 
-		EntryAddr src_ea,dst_ea;
-		KVP* kvp_p;
-		std::atomic<uint8_t> *seg_lock;
-		uint64_t key;
+		//			int entry_num = nodeMeta->valid_cnt;
+
 		DataNode* dataNode;
-		int j;
+		DataNode* dst_dataNode;
 		unsigned char* src_addr;
 		unsigned char* dst_addr;
-		NodeMeta* dst_nodeMeta = left_nodeMeta_list[0];
-		int dst_i = 0;
-//		dst_addr = (unsigned char*)my_thread->sorted_buffer[0]+NODE_HEADER_SIZE;
-		dst_addr = (unsigned char*)nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset) + NODE_HEADER_SIZE;
+		uint64_t key;
+		std::atomic<uint8_t> *seg_lock;
+		KVP* kvp_p;
+		EntryAddr src_ea,dst_ea;
+		unsigned char* split_buffer = (unsigned char*)my_thread->split_buffer;
+
+		dataNode = nodeAllocator->nodeAddr_to_node(src_nodeMeta->my_offset);
+
+		reverse_memcpy(split_buffer,(unsigned char*)dataNode,NODE_SIZE);
+		src_addr = split_buffer+NODE_HEADER_SIZE;
+
+		dst_i = 0;
+		dst_j = 0;
+		dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
 
 		src_ea.loc = COLD_LIST;
+		src_ea.file_num = src_nodeMeta->my_offset.pool_num;
+		src_ea.offset = src_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
 
 		dst_ea.loc = COLD_LIST;
-		dst_ea.file_num = dst_nodeMeta->my_offset.pool_num;
-		dst_ea.offset = dst_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+		dst_ea.file_num = nodeMeta_list[0]->my_offset.pool_num;
+		dst_ea.offset = nodeMeta_list[0]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
 
-		//use direct copy without dram ...
-
-		NodeMeta* nodeMeta;
-
-		//left first
-		for (i=1;i<left_listNode->block_cnt;i++)
+		for (i=0;i<NODE_SLOT_MAX;i++)
 		{
-			nodeMeta = left_nodeMeta_list[i];
-			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-//			my_thread->split_buffer[i] = *dataNode;
-//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
-			src_addr = (unsigned char*)dataNode+NODE_HEADER_SIZE;
-
-			src_ea.file_num = nodeMeta->my_offset.pool_num;
-			src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			for (j=0;j<NODE_SLOT_MAX;j++)
+			if (src_nodeMeta->valid[i])
 			{
-				if (nodeMeta->valid[j])
+				key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
+				kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+				if (kvp_p->value == src_ea.value)
 				{
-					key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
-					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
-					if (kvp_p->value == src_ea.value)
+					//						while(dst_i<listNode->block_cnt-1)
+					while(nodeMeta_list[dst_i]->valid[dst_j])
 					{
-						while (dst_nodeMeta->valid[dst_i]) // check dst
+						++dst_j;
+						dst_ea.offset+=ENTRY_SIZE;
+						if (dst_j >= NODE_SLOT_MAX)
 						{
+							dst_j = 0;
 							dst_i++;
-							dst_addr+=ENTRY_SIZE;
-							dst_ea.offset+=ENTRY_SIZE;
+
+							if (dst_i >= listNode->block_cnt-1)
+								debug_error("block group overflow\n");
+
+							dst_dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[dst_i]->my_offset);
+							dst_ea.file_num = nodeMeta_list[dst_i]->my_offset.pool_num;
+							dst_ea.offset = nodeMeta_list[dst_i]->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
 						}
-
-						// copy valid index
-						memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
-
-						dst_nodeMeta->valid[dst_i] = true;
-						dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
-						kvp_p->value = dst_ea.value;
 					}
-					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+
+
+					dst_addr = (unsigned char*)dst_dataNode+NODE_HEADER_SIZE+ENTRY_SIZE*dst_j;
+					// copy - valid - index???
+
+					memcpy(dst_addr,src_addr,ENTRY_SIZE);// copy src to dst // mem to pmem
+					_mm_sfence();
+					nodeMeta_list[dst_i]->valid[dst_j] = true;
+					nodeMeta_list[dst_i]->valid_cnt++;
+
+					kvp_p->value = dst_ea.value;
 				}
-				src_addr+=ENTRY_SIZE;
-				src_ea.offset+=ENTRY_SIZE;
+				_mm_sfence();
+				hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+
 			}
+			src_ea.offset+=ENTRY_SIZE;
+			src_addr+=ENTRY_SIZE;
 		}
 
-		//right second // duplicateddd
-		for (i=0;i<right_listNode->block_cnt;i++)
+		//flush
+		for (i=0;i<listNode->block_cnt-1;i++)
 		{
-			nodeMeta = right_nodeMeta_list[i];
-			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-//			my_thread->split_buffer[i] = *dataNode;
-//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
-			src_addr = (unsigned char*)dataNode + NODE_HEADER_SIZE;
-
-			src_ea.file_num = nodeMeta->my_offset.pool_num;
-			src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
-
-			for (j=0;j<NODE_SLOT_MAX;j++)
-			{
-				if (nodeMeta->valid[j])
-				{
-					key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
-					kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
-					if (kvp_p->value == src_ea.value)
-					{
-						while (dst_nodeMeta->valid[dst_i]) // check dst
-						{
-							dst_i++;
-							dst_addr+=ENTRY_SIZE;
-							dst_ea.offset+=ENTRY_SIZE;
-						}
-
-						// copy valid index
-						memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
-
-						dst_nodeMeta->valid[dst_i] = true;
-						dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
-						kvp_p->value = dst_ea.value;
-					}
-					hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
-				}
-				src_addr+=ENTRY_SIZE;
-				src_ea.offset+=ENTRY_SIZE;
-			}
+			dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[i]->my_offset);
+			pmem_persist(dataNode,NODE_SIZE);
 		}
-
-		dataNode = nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset);
-		pmem_persist(dataNode,NODE_SIZE);
 		_mm_sfence();
 
-		dataNode->next_offset = right_nodeMeta_list[0]->next_addr;
+		//link
+		dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta_list[listNode->block_cnt-1-1]->my_offset);
+#if 1
 		dataNode->next_offset_in_group = emptyNodeAddr;
-		pmem_persist(dataNode,NODE_HEADER_SIZE);
+		pmem_persist(&dataNode->next_offset_in_group,sizeof(NodeAddr));
+#else
+		pmem_next_in_group_write(dataNode,emptyNodeAddr);
+#endif
 		_mm_sfence();
 
-		dst_nodeMeta->next_addr = right_nodeMeta_list[0]->next_addr;
-		dst_nodeMeta->next_addr_in_group = emptyNodeAddr;
-		dst_nodeMeta->next_p = right_nodeMeta_list[0]->next_p;
-		dst_nodeMeta->next_node_in_group = NULL;
+		nodeMeta_list[listNode->block_cnt-1-1]->next_addr_in_group = emptyNodeAddr;
+		nodeMeta_list[listNode->block_cnt-1-1]->next_node_in_group = NULL;
 
-		for (i=1;i<left_listNode->block_cnt;i++)
-			nodeAllocator->free_node(left_nodeMeta_list[i]);
-		for (i=0;i<right_listNode->block_cnt;i++)
-			nodeAllocator->free_node(right_nodeMeta_list[i]);
+		_mm_sfence(); // need?
 
-// cold split // cold merge ...
-		left_listNode->next = right_listNode->next;
-		left_listNode->next->prev = left_listNode;
-		list->free_list_node(right_listNode);
+		for (i=0;i<listNode->block_cnt-1;i++)
+			at_unlock2(nodeMeta_list[i]->rw_lock);
 
-		at_unlock2(left_listNode->lock);
+		//free
+		listNode->block_cnt--;
+		nodeAllocator->free_node(src_nodeMeta);
 
-		return rv;
-#endif
 	}
-#if 0
-	void test_before_free(ListNode* listNode)
-	{
-		NodeAddr nodeAddr;
-		NodeMeta* nodeMeta;
-		nodeAddr.value = listNode->data_node_addr;
+	at_unlock2(listNode->lock);
+	return rv;
+#endif
+}
 
-		while(nodeAddr.value)
+bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode)
+{
+	return false;
+#if 0
+	bool rv = false;
+	if (try_at_lock2(left_listNode->lock) == false)
+		return rv;
+	if (try_at_lock2(right_listNode->lock) == false)
+	{
+		at_unlock2(left_listNode->lock);
+		return rv;
+	}
+	if (right_listNode->hold || left_listNode->valid_cnt + right_listNode->valid_cnt > NODE_SLOT_MAX)
+	{
+		at_unlock2(left_listNode->lock);
+		at_unlock2(right_listNode->lock);
+		return rv;
+	}
+
+	// OK
+	rv = true;
+	my_thread->list_merge_cnt++;
+	printf("mer?-------------------------------------------\n");
+
+	NodeMeta* left_nodeMeta_list[MAX_NODE_GROUP+1];
+	NodeMeta* right_nodeMeta_list[MAX_NODE_GROUP+1];
+
+	int i;
+
+	left_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(left_listNode->data_node_addr);
+	for (i=0;i<left_listNode->block_cnt;i++)
+	{
+		at_lock2(left_nodeMeta_list[i]->rw_lock);
+		left_nodeMeta_list[i+1] = left_nodeMeta_list[i]->next_node_in_group;
+	}
+
+	right_nodeMeta_list[0] = nodeAllocator->nodeAddr_to_nodeMeta(right_listNode->data_node_addr);
+	for (i=0;i<right_listNode->block_cnt;i++)
+	{
+		at_lock2(right_nodeMeta_list[i]->rw_lock);
+		right_nodeMeta_list[i+1] = right_nodeMeta_list[i]->next_node_in_group;
+	}
+
+	EntryAddr src_ea,dst_ea;
+	KVP* kvp_p;
+	std::atomic<uint8_t> *seg_lock;
+	uint64_t key;
+	DataNode* dataNode;
+	int j;
+	unsigned char* src_addr;
+	unsigned char* dst_addr;
+	NodeMeta* dst_nodeMeta = left_nodeMeta_list[0];
+	int dst_i = 0;
+	//		dst_addr = (unsigned char*)my_thread->sorted_buffer[0]+NODE_HEADER_SIZE;
+	dst_addr = (unsigned char*)nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset) + NODE_HEADER_SIZE;
+
+	src_ea.loc = COLD_LIST;
+
+	dst_ea.loc = COLD_LIST;
+	dst_ea.file_num = dst_nodeMeta->my_offset.pool_num;
+	dst_ea.offset = dst_nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+	//use direct copy without dram ...
+
+	NodeMeta* nodeMeta;
+
+	//left first
+	for (i=1;i<left_listNode->block_cnt;i++)
+	{
+		nodeMeta = left_nodeMeta_list[i];
+		dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+		//			my_thread->split_buffer[i] = *dataNode;
+		//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
+		src_addr = (unsigned char*)dataNode+NODE_HEADER_SIZE;
+
+		src_ea.file_num = nodeMeta->my_offset.pool_num;
+		src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+		for (j=0;j<NODE_SLOT_MAX;j++)
 		{
-			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
-			if (nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
+			if (nodeMeta->valid[j])
 			{
-				debug_error("missmatch2\n");
-				break;
+				key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
+				kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+				if (kvp_p->value == src_ea.value)
+				{
+					while (dst_nodeMeta->valid[dst_i]) // check dst
+					{
+						dst_i++;
+						dst_addr+=ENTRY_SIZE;
+						dst_ea.offset+=ENTRY_SIZE;
+					}
+
+					// copy valid index
+					memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
+
+					dst_nodeMeta->valid[dst_i] = true;
+					dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
+					kvp_p->value = dst_ea.value;
+				}
+				hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
 			}
-			nodeAddr = nodeMeta->next_addr_in_group;
+			src_addr+=ENTRY_SIZE;
+			src_ea.offset+=ENTRY_SIZE;
 		}
 	}
+
+	//right second // duplicateddd
+	for (i=0;i<right_listNode->block_cnt;i++)
+	{
+		nodeMeta = right_nodeMeta_list[i];
+		dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
+		//			my_thread->split_buffer[i] = *dataNode;
+		//			src_addr = (unsigned char*)(my_thread->split_buffer[i])+NODE_HEADER_SIZE;
+		src_addr = (unsigned char*)dataNode + NODE_HEADER_SIZE;
+
+		src_ea.file_num = nodeMeta->my_offset.pool_num;
+		src_ea.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + NODE_HEADER_SIZE;
+
+		for (j=0;j<NODE_SLOT_MAX;j++)
+		{
+			if (nodeMeta->valid[j])
+			{
+				key = *(uint64_t*)(src_addr+ENTRY_HEADER_SIZE);
+				kvp_p = hash_index->insert(key,&seg_lock,my_thread->read_lock);
+				if (kvp_p->value == src_ea.value)
+				{
+					while (dst_nodeMeta->valid[dst_i]) // check dst
+					{
+						dst_i++;
+						dst_addr+=ENTRY_SIZE;
+						dst_ea.offset+=ENTRY_SIZE;
+					}
+
+					// copy valid index
+					memcpy(dst_addr,src_addr,ENTRY_SIZE); //pmem to pmem
+
+					dst_nodeMeta->valid[dst_i] = true;
+					dst_nodeMeta->valid_cnt++; // hold varaible block movement between warm range
+					kvp_p->value = dst_ea.value;
+				}
+				hash_index->unlock_entry2(seg_lock,my_thread->read_lock);
+			}
+			src_addr+=ENTRY_SIZE;
+			src_ea.offset+=ENTRY_SIZE;
+		}
+	}
+
+	dataNode = nodeAllocator->nodeAddr_to_node(dst_nodeMeta->my_offset);
+	pmem_persist(dataNode,NODE_SIZE);
+	_mm_sfence();
+
+	dataNode->next_offset = right_nodeMeta_list[0]->next_addr;
+	dataNode->next_offset_in_group = emptyNodeAddr;
+	pmem_persist(dataNode,NODE_HEADER_SIZE);
+	_mm_sfence();
+
+	dst_nodeMeta->next_addr = right_nodeMeta_list[0]->next_addr;
+	dst_nodeMeta->next_addr_in_group = emptyNodeAddr;
+	dst_nodeMeta->next_p = right_nodeMeta_list[0]->next_p;
+	dst_nodeMeta->next_node_in_group = NULL;
+
+	for (i=1;i<left_listNode->block_cnt;i++)
+		nodeAllocator->free_node(left_nodeMeta_list[i]);
+	for (i=0;i<right_listNode->block_cnt;i++)
+		nodeAllocator->free_node(right_nodeMeta_list[i]);
+
+	// cold split // cold merge ...
+	left_listNode->next = right_listNode->next;
+	left_listNode->next->prev = left_listNode;
+	list->free_list_node(right_listNode);
+
+	at_unlock2(left_listNode->lock);
+
+	return rv;
+#endif
+}
+#if 0
+void test_before_free(ListNode* listNode)
+{
+	NodeAddr nodeAddr;
+	NodeMeta* nodeMeta;
+	nodeAddr.value = listNode->data_node_addr;
+
+	while(nodeAddr.value)
+	{
+		nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(nodeAddr);
+		if (nodeMeta->list_addr.value != nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr).value)
+		{
+			debug_error("missmatch2\n");
+			break;
+		}
+		nodeAddr = nodeMeta->next_addr_in_group;
+	}
+}
 #endif
 }

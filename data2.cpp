@@ -400,9 +400,9 @@ namespace PH
 		{
 //			my_thread->tes(TEMP2);
 			int size;
+			at_lock2(rw_lock);
 			start_index = 0;
 			end_index = el_cnt[0]-1;//NODE_SLOT_MAX;
-			at_lock2(rw_lock);
 //			for (i=start_index;i<end_index;i++) // track first invalid
 
 #if 0 //JUST TEST DO NOT USE THIS
@@ -453,6 +453,41 @@ namespace PH
 					
 			}
 		debug_error("inv can't find2\n");
+
+			start_index = 0;
+			end_index = el_cnt[0]-1;//NODE_SLOT_MAX;
+
+			while(start_index <= end_index)
+			{
+				i = (start_index+end_index)/2;
+				if (offset == entryLoc[i].offset)
+				{
+#ifdef INV_TEST
+					if (entryLoc[i].valid == 0)
+						debug_error("inv test fail\n");
+#endif
+					entryLoc[i].valid = 0;
+					size=(entryLoc[i+1].offset-entryLoc[i].offset);
+					size_sum-=size; // who need this?
+
+//					ListNode* listNode = list->addr_to_listNode(list_addr);
+//					listNode->size_sum-=size; // need lock...
+										max_empty = NODE_SIZE;
+					need_clean = true;
+					at_unlock2(rw_lock);
+//					my_thread->tee(TEMP2);
+					return size;
+				}
+				
+				if (/*entryLoc[i].offset == 0 || */offset < entryLoc[i].offset)
+					end_index = i-1;
+				else
+					start_index = i+1;
+					
+			}
+
+		debug_error("inv can't find2 again\n");
+
 		for (i=0;i<el_cnt[0];i++)
 		{
 			if (offset == entryLoc[i].offset)

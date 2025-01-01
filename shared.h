@@ -21,7 +21,7 @@
 
 //------------------------------
 
-//#define CC // cor check
+#define CC // cor check
 
 #ifdef CC
 
@@ -32,6 +32,7 @@
 #define INV_TEST
 #define DST_CHECK
 #define SPLIT_KEY_TEST
+#define ENTRY_LIST_CHECK
 
 #define NO_EXIST
 
