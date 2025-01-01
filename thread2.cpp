@@ -406,6 +406,7 @@ namespace PH
 		}
 		return skiplistNode;
 	}
+#if 0
 	SkiplistNode* PH_Thread::get_skiplist_node_for_key_list(uint64_t key,NodeAddr warm_cache) // need prev next sa list
 	{
 		SkiplistNode* skiplistNode;
@@ -427,7 +428,7 @@ namespace PH
 		}
 		return skiplistNode;
 	}
-
+#endif
 
 	EntryAddr insert_entry_to_slot(NodeMeta* nodeMeta,unsigned char* src_addr, int value_size8) // need lock from outside
 	{
@@ -1734,9 +1735,9 @@ namespace PH
 		{
 			if (old_ea.loc == HOT_LOG)
 			{
-				at_lock2(skiplist_node->key_list_lock);
+//				at_lock2(skiplist_node->key_list_lock);
 				skiplist_node->remove_key_from_list(key); // here has evict lock and key lock and key list lock
-				at_unlock2(skiplist_node->key_list_lock);
+//				at_unlock2(skiplist_node->key_list_lock);
 			}
 
 			//			tes(TEMP1);
@@ -2048,7 +2049,8 @@ namespace PH
 #endif
 						warm_cache = emptyNodeAddr;
 
-					node = get_skiplist_node_for_key_list(key,warm_cache);
+//					node = get_skiplist_node_for_key_list(key,warm_cache);
+					node = get_skiplist_node_for_insert(key,warm_cache);
 
 					if (node->key_list_size >= WARM_KEY_LIST_MAX_TEMP) // need split
 					{
@@ -2060,11 +2062,12 @@ namespace PH
 						   }
 						 */
 
-						if (may_split_warm_node(node,3) == false) // has key list lock
+						if (may_split_warm_node(node,1/*3*/) == false) // has key list lock
 						{
 							//may impossible
 							//							at_unlock2(node->insert_lock);
-							at_unlock2(node->key_list_lock);
+//							at_unlock2(node->key_list_lock);
+							at_unlock2(node->insert_lock);
 						}
 						continue;
 					}
@@ -2082,14 +2085,16 @@ namespace PH
 						//						at_lock2(node->key_list_lock);
 						if (node->key_list_size >= WARM_KEY_LIST_MAX_TEMP)
 						{
-							at_unlock2(node->key_list_lock);
+//							at_unlock2(node->key_list_lock);
+							at_unlock2(node->insert_lock);
 							hash_index->unlock_entry2(seg_lock,read_lock);
 							continue; // try again and may split
 						}
 						node->key_list[node->key_list_size++] = key;
 					}
 
-					at_unlock2(node->key_list_lock);
+//					at_unlock2(node->key_list_lock);
+					at_unlock2(node->insert_lock);
 					//				_mm_sfence();
 					//					at_unlock2(node->lock);//here we have entry lock
 				}
@@ -2633,7 +2638,7 @@ namespace PH
 
 		//		at_lock2(skiplistNode->insert_lock);
 		at_lock2(skiplistNode->evict_lock);
-		at_lock2(skiplistNode->key_list_lock);
+//		at_lock2(skiplistNode->key_list_lock);
 
 		// locked 
 
@@ -2928,20 +2933,20 @@ namespace PH
 				}
 				break;
 			}
-			at_unlock2(skiplistNode->key_list_lock);
+//			at_unlock2(skiplistNode->key_list_lock);
 			at_unlock2(skiplistNode->evict_lock);
 			at_unlock2(skiplistNode->insert_lock);
 
 			//			at_lock2(next_skiplistNode->insert_lock);
 			at_lock2(next_skiplistNode->evict_lock);
-			at_lock2(next_skiplistNode->key_list_lock);
+//			at_lock2(next_skiplistNode->key_list_lock);
 
 			skiplistNode = next_skiplistNode;
 		}
 
 		//		at_unlock2(skiplistNode->insert_lock);
 		at_unlock2(skiplistNode->evict_lock);
-		at_unlock2(skiplistNode->key_list_lock);
+//		at_unlock2(skiplistNode->key_list_lock);
 
 #ifdef SCAN_TIME
 		_mm_mfence();
@@ -3041,7 +3046,7 @@ namespace PH
 			if (node->data_tail < node->data_head)
 				warm_to_cold(node);
 			if (node->list_tail < node->list_head)
-				hot_to_warm(node,true);//,false);
+				hot_to_warm(node);//,true);//,false);
 		}
 		if (node->current_batch_size > 0) // flus hlast batch
 			warm_to_cold(node);
@@ -3170,8 +3175,8 @@ namespace PH
 		at_lock2(child2_sl_node->insert_lock);
 		at_lock2(child1_sl_node->evict_lock);
 		at_lock2(child2_sl_node->evict_lock);
-		at_lock2(child1_sl_node->key_list_lock);
-		at_lock2(child2_sl_node->key_list_lock);
+//		at_lock2(child1_sl_node->key_list_lock);
+//		at_lock2(child2_sl_node->key_list_lock);
 
 		int z;
 		for (z=0;z<half_cold_index;z++)
@@ -3266,8 +3271,8 @@ namespace PH
 		at_unlock2(child2_sl_node->insert_lock);
 		at_unlock2(child1_sl_node->evict_lock);
 		at_unlock2(child2_sl_node->evict_lock);
-		at_unlock2(child1_sl_node->key_list_lock);
-		at_unlock2(child2_sl_node->key_list_lock);
+//		at_unlock2(child1_sl_node->key_list_lock);
+//		at_unlock2(child2_sl_node->key_list_lock);
 
 		//entry list
 		// next dataNodeHeader
@@ -3303,8 +3308,8 @@ namespace PH
 				at_lock2(node->insert_lock);
 			//			if (has_lock != 2)
 			at_lock2(node->evict_lock);
-			if (has_lock != 3)
-				at_lock2(node->key_list_lock); // conflict in hot to warm
+//			if (has_lock != 3)
+//				at_lock2(node->key_list_lock); // conflict in hot to warm
 
 			// flush all
 			flush_warm_node(node); // has key list lock
@@ -3599,7 +3604,7 @@ namespace PH
 	}
 #endif
 	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
-	void PH_Thread::hot_to_warm(SkiplistNode* node, bool has_key_list_lock = false) // skiplist lock from outside
+	void PH_Thread::hot_to_warm(SkiplistNode* node)//, bool has_key_list_lock = false) // skiplist lock from outside
 	{
 #ifdef TIME_STAT
 		struct timespec ts1,ts2;
@@ -3905,13 +3910,15 @@ namespace PH
 					_mm_sfence();
 					header->valid_bit = 0; // invalidate hot log entry
 #ifdef HOT_KEY_LIST	
+#if 0
 					if (has_key_list_lock)
 						node->remove_key_from_list(key); // here has insert lock // key lock // key list lock
 					else
+#endif
 					{
-						at_lock2(node->key_list_lock);
+//						at_lock2(node->key_list_lock);
 						node->remove_key_from_list(key);
-						at_unlock2(node->key_list_lock);
+//						at_unlock2(node->key_list_lock);
 					}
 #endif
 				}

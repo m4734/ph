@@ -574,7 +574,7 @@ namespace PH
 
 		_mm_sfence();
 
-		node->key_list_lock = 0;
+//		node->key_list_lock = 0;
 		node->insert_lock = 0;
 		node->evict_lock = 0;
 		node->split_lock = 0;

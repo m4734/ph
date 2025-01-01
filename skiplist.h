@@ -170,7 +170,7 @@ class SkiplistNode
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 //	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
-	std::atomic<uint8_t> key_list_lock; // hot key list
+//	std::atomic<uint8_t> key_list_lock; // hot key list
 	std::atomic<uint8_t> insert_lock; // HL TO WL and evict list
 	std::atomic<uint8_t> evict_lock; // WL TO CL
 	std::atomic<uint8_t> split_lock; // WN split

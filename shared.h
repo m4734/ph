@@ -21,7 +21,7 @@
 
 //------------------------------
 
-#define CC // cor check
+//#define CC // cor check
 
 #ifdef CC
 
@@ -41,6 +41,8 @@
 
 //--------------perf
 
+//#define STAT
+#ifdef STAT
 
 #define WARM_STAT
 #define TIME_STAT
@@ -50,6 +52,7 @@
 #define LIST_TRAVERSE_TEST
 #define ENTRY_WRITE_TEMP // remove this
 
+#endif
 //--------------------------------------
 
 //#define NO_EXIST
