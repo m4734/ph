@@ -52,8 +52,11 @@ void UnitPool::expand()
 	size_t rs;
 	int is_pmem;
 	unsigned char* addr;
-
+#ifdef INTERLEAVE
+	sprintf(path,"/mnt/pmem0/lv%d_%d",unit,current_pool_cnt);
+#else
 	sprintf(path,"/mnt/pmem%d/lv%d_%d",current_pool_cnt%num_pmem+1,unit,current_pool_cnt);
+#endif
 	addr = (unsigned char*)pmem_map_file(path,LARGE_POOL_MAX,PMEM_FILE_CREATE,0777,&rs,&is_pmem);
 
 	if (rs != LARGE_POOL_MAX)

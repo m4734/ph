@@ -650,7 +650,6 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 {
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
-	SkiplistNode temp;
 	node = start_node;
 	int i,j;
 	SkipAddr sa;

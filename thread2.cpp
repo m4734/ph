@@ -536,13 +536,13 @@ namespace PH
 #endif
 #endif
 		//-------------------------------------------------------
-		debug_error("try fial\n");
+//		debug_error("try fial\n");
 		int bfv;	
 		int bfi = nodeMeta->el_clean(entry_size,bfv);
 		if (bfi < 0) // no space
 			return emptyEntryAddr;
 
-		debug_error("unexpected sccuess\n"); // it doesn't happen after fill
+//		debug_error("unexpected sccuess\n"); // it doesn't happen after fill
 		bool fit;
 		//		EntryHeader jump;
 
@@ -1602,7 +1602,7 @@ namespace PH
 				}
 
 				//failed
-				debug_error("fail here\n");
+//				debug_error("fail here\n");
 
 				hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1907,7 +1907,7 @@ namespace PH
 
 		if (value_size > LARGE_VALUE_THRESHOLD)
 		{
-			debug_error("not large now\n");
+//			debug_error("not large now\n");
 #ifdef LARGE_ALLOC
 			large = true;
 
@@ -2174,7 +2174,7 @@ namespace PH
 			//--------------------------------------------------------------------------
 #else
 			warm_cache = emptyNodeAddr;
-			dst_log->insert_dram_log(new_version.value,key,value_size,value,&warm_cache);
+			dst_log->insert_dram_log(new_ver,key,value_size,value,&warm_cache);
 #endif
 
 #endif
@@ -2944,7 +2944,7 @@ namespace PH
 			skiplistNode = next_skiplistNode;
 		}
 
-		//		at_unlock2(skiplistNode->insert_lock);
+		at_unlock2(skiplistNode->insert_lock);
 		at_unlock2(skiplistNode->evict_lock);
 //		at_unlock2(skiplistNode->key_list_lock);
 
@@ -3735,7 +3735,7 @@ namespace PH
 					//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
 					kvp.value = old_ea.value;
 
-					/*new_ea = */direct_to_cold(key,value_size8,addr + ENTRY_HEADER_SIZE+KEY_SIZE,kvp,node,false);
+					/*new_ea = */direct_to_cold(key,old_ea.size/*value_size8*/,addr + ENTRY_HEADER_SIZE+KEY_SIZE,kvp,node,false,false);
 					if (kvp.value == old_ea.value) // ok
 					{
 						//					old_ea.value = kvp.value;

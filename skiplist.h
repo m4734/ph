@@ -122,7 +122,10 @@ class SkiplistNode
 {
 	public:
 	SkiplistNode() :next(NULL),next_size(0) {}
-	~SkiplistNode() { delete[] next; }
+	~SkiplistNode() 
+	{
+		 delete[] next; 
+	 }
 
 	void remove_key_from_list(uint64_t key);
 	void find_half_listNode();
