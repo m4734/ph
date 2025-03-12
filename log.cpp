@@ -106,7 +106,7 @@ void init_log(int num_pmem, int num_log)
 #ifdef INTERLEAVE
 			sprintf(path,"/mnt/pmem0/log%d",cnt);
 #else
-			sprintf(path,"/mnt/pmem%d/log%d",j+1,i+1); // 1~
+			sprintf(path,"/mnt/pmem%d/log%d",j+1,i+1); // 1~ // 1 2 3 4
 #endif
 			len = strlen(path);
 			path[len] = 0;
