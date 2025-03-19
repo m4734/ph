@@ -1398,6 +1398,8 @@ namespace PH
 				continue;
 			}
 #else // use cold nodes
+
+			//find cold_node // read_only
 			ListNode* listNode;
 			int z;
 			for (z=0;z<skiplistNode->cold_cnt-1;z++)

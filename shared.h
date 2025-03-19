@@ -112,7 +112,7 @@ namespace PH
 
 	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 	const int WARM_COLD_MIN_RATIO = 10; // merge when smaller than (after merge smaller than )
-	const int WARM_COLD_MAX_RATIO_TEMP = 20; // for cold nodes
+//	const int WARM_COLD_MAX_RATIO_TEMP = 20; // for cold nodes
 
 #if 1
 	struct NodeAddr

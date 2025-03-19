@@ -542,8 +542,10 @@ namespace PH
 			node->entry_list.resize(NODE_SLOT_MAX);
 
 			node->cold_cnt = 0;
-			node->cold_keys.resize(WARM_COLD_MAX_RATIO_TEMP);
-			node->cold_nodes.resize(WARM_COLD_MAX_RATIO_TEMP);
+//			node->cold_keys.resize(WARM_COLD_MAX_RATIO_TEMP);
+//			node->cold_nodes.resize(WARM_COLD_MAX_RATIO_TEMP);
+			node->cold_keys.resize(WARM_COLD_MAX_RATIO);
+			node->cold_nodes.resize(WARM_COLD_MAX_RATIO);
 
 			node_pool_cnt++;
 
@@ -858,6 +860,13 @@ void SkiplistNode::insert_cold_node(ListNode* cold_node)
 {
 	const uint64_t key = cold_node->key;
 	int i;
+
+	if (cold_cnt >= cold_nodes.size()) // expand cold array
+	{
+		cold_nodes.push_back(NULL);
+		cold_keys.push_back(0);
+	}
+
 	for (i=cold_cnt;i>0;i--)
 	{
 		if (key > cold_keys[i-1])
