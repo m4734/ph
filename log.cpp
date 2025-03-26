@@ -70,9 +70,11 @@ void init_log(int num_pmem, int num_log)
 
 #if 1
 //	HARD_EVICT_SPACE = log_size/10; // 5% 5%
-	HARD_EVICT_SPACE = log_size/20; // 5% 5%
+//	HARD_EVICT_SPACE = log_size/20; // 5% 5%
+	HARD_EVICT_SPACE = log_size*HARD_EVICT_RATIO/100;
 //	HARD_EVICT_SPACE = log_size/100; // 5% 1%
-	SOFT_EVICT_SPACE = log_size/2; // 10% 50%
+//	SOFT_EVICT_SPACE = log_size/2; // 10% 50%
+	SOFT_EVICT_SPACE = log_size*SOFT_EVICT_RATIO/100;
 //	SOFT_EVICT_SPACE = log_size/10; // 10% 50%
 #else
 	HARD_EVICT_SPACE = (ENTRY_SIZE * 1000 * 50) * 2; // 5MB
