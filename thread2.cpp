@@ -1901,11 +1901,13 @@ namespace PH
 		//NEED INDEX LOCK TO PREVENT MOVING
 		int rv;
 		bool dtc;
-		DoubleLog* dst_log;
+		DoubleLog* dst_log = my_log;
 		Loc dst_loc;
 		bool large = false;
 
 		dtc = false;
+
+		int value_size8 = get_v8(value_size);
 
 		if (value_size > LARGE_VALUE_THRESHOLD)
 		{
@@ -1941,6 +1943,8 @@ namespace PH
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
 				dtc = true;
 		}
+//		else if (ex && old_ea.loc == WARM_LIST &&  dst_log->is_ready(HARD_EVICT_SPACE/2) == false) // just dtc if hot blocked
+//			dtc = true;
 #endif
 
 		if (dtc)
@@ -1993,7 +1997,6 @@ namespace PH
 			dst_log = my_log;
 			dst_loc = HOT_LOG;
 
-			int value_size8 = get_v8(value_size);
 			dst_log->ready_log(value_size8);
 
 			const uint64_t z = 0;

@@ -356,6 +356,20 @@ void DoubleLog::ready_log(int value_size8)
 	}
 
 }
+bool DoubleLog::is_ready(int value_size8)
+{
+	size_t offset = head_sum % my_size;
+	uint32_t required_size;
+
+	required_size = LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8 + JUMP_SIZE;
+//	if (offset+required_size >= my_size) // check the space
+	if (offset+NODE_SIZE > my_size)
+		head_sum+=(my_size-offset);
+
+	if (tail_sum + my_size < head_sum + required_size)
+		return false;
+	return true;
+}
 void DoubleLog::insert_pmem_log(uint64_t key,int value_size, unsigned char *value)
 {
 	// use checksum or write twice
