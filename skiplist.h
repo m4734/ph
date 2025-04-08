@@ -185,8 +185,8 @@ class SkiplistNode
 
 	int list_head,list_tail;
 	int list_size_sum;
-	int current_batch_size;
-	int current_batch_index;
+//	int current_batch_size;
+//	int current_batch_index;
 
 	int data_head,data_tail;
 //	int remain_cnt;

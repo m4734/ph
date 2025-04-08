@@ -3053,8 +3053,8 @@ namespace PH
 			if (node->list_tail < node->list_head)
 				hot_to_warm(node);//,true);//,false);
 		}
-		if (node->current_batch_size > 0) // flus hlast batch
-			warm_to_cold(node);
+//		if (node->current_batch_size > 0) // flus hlast batch
+//			warm_to_cold(node);
 	}
 
 #define SPLIT_WITH_LIST_LOCK
@@ -3572,7 +3572,11 @@ namespace PH
 
 	inline bool need_hot_to_warm(SkiplistNode* node)
 	{
-		return (node->list_head-node->list_tail >= 8); // TEMP
+		//minimum soft
+//		return (node->list_head-node->list_tail >= 8); // TEMP // TODO calc size
+		//maximaum soft		
+		return (node->list_head-node->list_tail >= NODE_SLOT_MAX-8); // TEMP // TODO calc size
+
 	}
 #if 0
 	bool PH_Thread::try_hot_to_warm(SkiplistNode* node)
@@ -3608,6 +3612,7 @@ namespace PH
 		return false;
 	}
 #endif
+
 	//	void PH_Evict_Thread::hot_to_warm(SkiplistNode* node,bool evict_all) // skiplist lock from outside
 	void PH_Thread::hot_to_warm(SkiplistNode* node)//, bool has_key_list_lock = false) // skiplist lock from outside
 	{
@@ -3650,7 +3655,8 @@ namespace PH
 		wk1 = node->key;
 		wk2 = skiplist->find_next_node(node)->key;
 #endif
-		do
+		// just flush a batch
+//		do
 		{
 			//			if ((node->data_head-node->data_tail) >= WARM_GROUP_BATCH_CNT-1) // if no space // batch >= 4 * 4
 			//				warm_to_cold(node);
@@ -3665,23 +3671,16 @@ namespace PH
 
 			base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
 			base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
-			start_index = base_index + node->current_batch_index;
+			start_index = base_index;
 			end_offset = base_offset + WARM_BATCH_MAX_SIZE;
 
-			if (batch_num == 0)
-			{
-				//				written_size = NODE_HEADER_SIZE;
-				start_offset = base_offset + node->current_batch_size+NODE_HEADER_SIZE; // < 1024
-			}
+			if (batch_num == 0) // add header size
+				start_offset = base_offset + NODE_HEADER_SIZE; // < 1024
 			else
-			{
-				//				written_size = 0;
-				start_offset = base_offset + node->current_batch_size;
-			}
+				start_offset = base_offset;
 
 			memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
 #if 1 
-			if (node->current_batch_size == 0) // set zero for parital write // zero - payload - first header
 			{
 				//				node->el_cnt[batch_num] = 2; // will not need ...
 				if (batch_num == 0)
@@ -3695,6 +3694,7 @@ namespace PH
 			write_cnt = 0;
 			//			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
 
+			//flush each entry
 			for (i=node->list_tail;i<node->list_head;i++)
 			{
 				li = i % NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT; // need list max
@@ -3757,13 +3757,10 @@ namespace PH
 
 				if (start_offset + written_size + entry_size > end_offset) // batch 1024 full
 					break; 
-				if (node->current_batch_index + write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
+				if (write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
 					break;
 
-				//				else
 				{
-					//					if ((start_index+write_cnt)/20 != (start_offset+written_size)/WARM_BATCH_MAX_SIZE)
-					//						debug_error("mispamthc\n");
 					nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
 					nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset + written_size; // 0~NODE_SIZE
 
@@ -3782,22 +3779,6 @@ namespace PH
 				}
 			}
 
-			if (write_cnt == 0) // nothing to evict...
-			{
-				node->list_tail = i; //restart from i
-				node->data_head++;
-				node->current_batch_size = 0;
-				node->current_batch_index = 0;
-
-				at_unlock2(nodeMeta->rw_lock);
-				tee(HTW);
-
-				continue;
-			}
-
-			//			if ((start_index+write_cnt)/20 != (start_offset+written_size-1)/WARM_BATCH_MAX_SIZE)
-			//				debug_error("mispamthc\n");
-
 			nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
 			nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset +written_size;
 			nodeMeta->entryLoc[start_index+write_cnt+1].valid = 0;
@@ -3805,7 +3786,7 @@ namespace PH
 
 			nodeMeta->el_cnt[batch_num] = start_index+write_cnt+1+1-base_index;
 
-			i_dst = i;
+			i_dst = i; // end index of flushed entry
 
 			//------------------------------- evict buffer filled
 
@@ -3839,22 +3820,6 @@ namespace PH
 #endif
 
 			}
-
-			node->current_batch_size+=written_size;
-			node->current_batch_index+=write_cnt;
-#if 0
-			if (node->data_head % WARM_BATCH_ENTRY_CNT) // not aligned // always algined...
-				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE + start_offset,buffer_start,written_size);
-			else
-			{
-#if 0
-				pmem_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
-#else
-				pmem_reverse_nt_write(dst_node + batch_num*WARM_BATCH_MAX_SIZE,evict_buffer,WARM_BATCH_MAX_SIZE);
-
-#endif
-			}
-#endif
 
 			//------------------------------- pmem write
 
@@ -3953,18 +3918,13 @@ namespace PH
 			node->list_tail = i_dst;
 			//			node->data_head+= write_cnt;
 
-			if (node->list_tail < node->list_head)
-			{
-				node->data_head++;
-				node->current_batch_size = 0;
-				node->current_batch_index = 0;
-			}
+			node->data_head++; // alwyas next batch
 
 
 			at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
 
 			tee(HTW);
-		}while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
+		}//while(false && node->list_head-node->list_tail >= WARM_BATCH_ENTRY_CNT);
 		htw_cnt++;
 
 		node->recent_entry_cnt = ex_entry_cnt;
@@ -4064,7 +4024,6 @@ namespace PH
 		//	if (dl->tail_sum + HARD_EVICT_SPACE > dl->head_sum)
 		//	if (dl->tail_sum + ble_len + dl->my_size > dl->head_sum + HARD_EVICT_SPACE)
 		//		return rv;
-
 		while(dl->tail_sum + dl->my_size <= dl->head_sum + dl->hard_evict_space && dl->head_sum + dl->hard_evict_space < dl->soft_adv_offset + dl->my_size)//HARD_EVICT_SPACE)
 																				   //		if (dl->tail_sum + dl->my_size <= dl->head_sum + HARD_EVICT_SPACE)
 		{
@@ -4357,7 +4316,6 @@ namespace PH
 		return 0;
 #else
 		int diff=0;
-
 		if (try_soft_evict(dl))
 			diff = 1;
 		if (try_push(dl))
