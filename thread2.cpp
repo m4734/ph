@@ -38,7 +38,6 @@ namespace PH
 
 	// need to be private...
 
-	//PH_Thread thred_list[QUERY_THREAD_MAX+EVICT_THREAD_MAX];
 	PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 	PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 

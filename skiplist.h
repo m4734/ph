@@ -113,6 +113,60 @@ class PH_List
 
 };
 
+class FBB
+{
+	FBB() : FBB_space(NULL),fst(0),used_count(0) {}
+	~FBB()
+	{
+		free(FBB_space);
+	}
+
+
+	unsigned char* FBB_space; //flexible batch buffer // need memalign
+	int free_stack[FBB_SIZE/BB_SIZE];
+	int fst; //free stack top
+	int used_count;
+
+	public:
+
+	void init()
+	{
+		posix_memalign((void**)&node->FBB_space,FBB_SIZE,FBB_SIZE); // 4096 aligb
+	}
+	void reset()
+	{
+		fst = 0;
+		used_count = 0;
+	}
+	unsigned char* get_FBB_space()
+	{
+		return FBB_space;
+	}
+	int get_used_count()
+	{
+		return used_count;
+	}
+	int alloc_buffer()
+	{
+		if (fst > 0)
+		{
+			return free_stack[fst--];
+		}
+		if (used_count >= FBB_SIZE/BB_SIZE)
+		{
+			printf("fbb overflow\n");
+			return -1;
+		}
+		return used_count++;
+	}
+	void free_buffer(int offset)
+	{
+		free_stack[fst++] = offset;
+	}
+
+
+};
+
 bool try_reduce_group(ListNode* listNode);
 bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
 
@@ -124,7 +178,7 @@ class SkiplistNode
 	SkiplistNode() :next(NULL),next_size(0) {}
 	~SkiplistNode() 
 	{
-		 delete next; 
+		 delete next;
 	}
 
 	void remove_key_from_list(uint64_t key);
@@ -204,6 +258,7 @@ class SkiplistNode
 	std::vector<uint64_t> cold_keys;
 	std::vector<ListNode*> cold_nodes; 
 
+	FBB fbb;
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];

@@ -301,7 +301,7 @@ namespace PH
 
 	void Skiplist::init(size_t size)
 	{
-		const_init;
+		const_init();
 
 		setLimit(size);
 		//	node_pool_list = (Tree_Node**)malloc(sizeof(SkiplistNode*) * NODE_POOL_LIST_SIZE);
@@ -513,7 +513,7 @@ namespace PH
 		}
 		else
 		{
-			if (node_pool_cnt >= NODE_POOL_SIZE)
+			if (node_pool_cnt >= NODE_POOL_SIZE) // alloc new pool
 			{
 
 				if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
@@ -529,7 +529,7 @@ namespace PH
 				node_pool_cnt = 0;
 			}
 
-			node = &node_pool_list[node_pool_list_cnt][node_pool_cnt]; // first alloc
+			node = &node_pool_list[node_pool_list_cnt][node_pool_cnt]; // first alloc // need init
 			node->myAddr.pool_num = node_pool_list_cnt;
 			node->myAddr.node_offset = node_pool_cnt;
 			//		node->next = NULL;
@@ -546,6 +546,8 @@ namespace PH
 //			node->cold_nodes.resize(WARM_COLD_MAX_RATIO_TEMP);
 			node->cold_keys.resize(WARM_COLD_MAX_RATIO);
 			node->cold_nodes.resize(WARM_COLD_MAX_RATIO);
+
+			node->fbb.init(); // need 'new' not malloc
 
 			node_pool_cnt++;
 
@@ -573,6 +575,8 @@ namespace PH
 		//		node->half_listNode = NULL;
 
 		node->cold_cnt = 0;
+
+		node->fbb.reset();
 
 		_mm_sfence();
 
