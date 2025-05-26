@@ -259,6 +259,8 @@ class SkiplistNode
 	std::vector<ListNode*> cold_nodes; 
 
 	FBB fbb;
+	int fbb_next_list[FBB_SIZE/BB_SIZE];
+	int fbb_filled_cnt[FBB_SIZE/BB_SIZE];
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];

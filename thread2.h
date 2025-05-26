@@ -85,6 +85,7 @@ namespace PH
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 			unsigned char *entry_buffer;
+			unsigned char *batch_read_buffer; // hot to warm 
 
 			DataNode* sorted_buffer1;
 			DataNode* sorted_buffer2;
