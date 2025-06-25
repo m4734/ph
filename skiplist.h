@@ -113,59 +113,92 @@ class PH_List
 
 };
 
+const uint32_t FBB_SIZE = 4096;
+const uint32_t BB_SIZE = 256;
+const uint32_t BB_PER_FBB = FBB_SIZE/BB_SIZE;
+const uint32_t FBB_MAX = 1024*1024; // 4GB / 4096 = 1M
+
+
+// we do not have exit implementaiton we need free?
+
 class FBB
 {
-	FBB() : FBB_space(NULL),fst(0),used_count(0) {}
+	FBB() : FBBA(NULL),FBBAi(0) {}
 	~FBB()
 	{
-		free(FBB_space);
+		int i;
+		for (i=0;i<used_count;i+=BB_PER_FBB)
+			free(FBBA[i]);
+		free(FBBA);
 	}
 
+	unsigned char** FBBA; //flexible batch buffer // need memalign
+	thread_local int th_free_head;
 
-	unsigned char* FBB_space; //flexible batch buffer // need memalign
-	int free_stack[FBB_SIZE/BB_SIZE];
-	int fst; //free stack top
-	int used_count;
+	thread_local int th_used_count;
+	thread_local int th_FBBAi;
+
+	std::atomic<int> FBBAi;
 
 	public:
 
+	// BB = 256
+	// FBB = 1MB...
+	// FBBA < 1TB
+	// FBBA / FBB = 1M
+
 	void init()
 	{
-		posix_memalign((void**)&node->FBB_space,FBB_SIZE,FBB_SIZE); // 4096 aligb
+		FBBA = (unsigned char*)malloc(sizeof(unsigned char*) * FBB_MAX);
+		FBBAi = 0;
 	}
-	void reset()
+
+	void local_init()
 	{
-		fst = 0;
-		used_count = 0;
+		th_free_head = -1;
+		th_used_count = BB_PER_FBB;
+		th_FBBAi = 0;
 	}
-	unsigned char* get_FBB_space()
-	{
-		return FBB_space;
-	}
-	int get_used_count()
-	{
-		return used_count;
-	}
+
 	int alloc_buffer()
 	{
-		if (fst > 0)
+		if (th_free_head >= 0)
 		{
-			return free_stack[fst--];
+			int rv;
+			unsigned char* bb;
+			rv = th_free_head;
+			bb = get_buffer(rv);
+			th_free_head = *(int*)bb;
+			return rv;
 		}
-		if (used_count >= FBB_SIZE/BB_SIZE)
+		if (used_count >= BB_PER_FBB)
 		{
-			printf("fbb overflow\n");
-			return -1;
+			th_FBBAi = FBBAi.fetch_add(1);
+			if (th_FBBAi >= FBB_MAX) // 256GB / BB_SIZE(256B) == 1G?
+			{
+				printf("fbb alloc buffer overflow\n");
+				return -1;
+			}
+			posix_memalign(FBBA[th_FBBAi],FBB_SIZE,FBB_SIZE); // 4096 aligb
+			th_used_count = 0;
 		}
-		return used_count++;
+		return th_used_count++;
 	}
-	void free_buffer(int offset)
+	
+	void free_buffer(int index)
 	{
-		free_stack[fst++] = offset;
+		unsigned char* bb = get_FBB(index);
+		*(int*)bb = th_free_head;
+		th_free_head = index;
 	}
-
-
+	
+	unsigned char* get_FBB(int index) // actually its get BB
+	{
+		return &FBBA[index/BB_PER_FBB][(index%BB_PER_FBB)*BB_SIZE];
+	}
 };
+
+FBB global_fbb;
 
 bool try_reduce_group(ListNode* listNode);
 bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
@@ -255,12 +288,47 @@ class SkiplistNode
 */
 
 	int cold_cnt;
+	/*
 	std::vector<uint64_t> cold_keys;
 	std::vector<ListNode*> cold_nodes; 
+	*/
+	// merge to cold fbb info
 
-	FBB fbb;
-	int fbb_next_list[FBB_SIZE/BB_SIZE];
-	int fbb_filled_cnt[FBB_SIZE/BB_SIZE];
+	// 50% hot 50% fbb = 5% all
+	// warm is 10% 
+
+	struct COLD_INFO
+	{
+		int uint64_t key;
+		ListNode* node;
+
+		int fbb_start; // start fbb index
+		int remain; // remiain size in last fbb
+		int fbb_cnt; // lenght of the list
+		int fbb_end; // last fbb index
+	}
+
+	std::vector<COLD_INFO> cold_info;
+
+//shared fbb
+//	FBB fbb;
+//	FBB* global_fbb;
+	int fbb_next_list[FBB_SIZE/BB_SIZE]; // index to next fbb
+	int fbb_filled_cnt[FBB_SIZE/BB_SIZE]; // size of data in fbb
+
+	int alloc_new_fbb(int cold_node_index)
+	{
+		int new_buffer_index = global_fbb.alloc_buffer();
+		if (new_buffer_index >= 0)
+		{
+		cold_info[cold_node_index].remain = FBB_SIZE;
+		cold_info[cold_node_index].fbb_end = new_buffer_index;
+		cold_info[cold_node_index].fbb_cnt++;
+		if (cold_info[cold_node_index].fbb_cnt == 1)
+			cold_info[cold_node_index].fbb_start = new_buffer_index;
+		}
+		return new_buffer_index;
+	}
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];

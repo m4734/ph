@@ -240,6 +240,74 @@ namespace PH
 
 				write_cnt++;
 				hot_to_warm_cnt++;
+
+				// FBB write here
+				// 1 find cold node
+				// 2 (alloc new fbb)
+				// 3 append the kv
+				
+
+				// fbb invalidaiton .... about new kv insertion
+				// split need flush...
+				// addr modificatoin need...
+
+				// for fbb flush
+				// 1 append all
+				// 2 check addr
+				// 3 flush only valid.. .. addr check is not good
+
+				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				int z;
+				for (z=0;i<node->cold_cnt-1;z++)
+				{
+//					if (key < node->cold_keys[z+1])
+					if (key < node->cold_info[z+1].key)
+						break;
+				}
+				if (z == node->cold_cnt)
+					z--;
+				//cold_nodes[z] // insert to fbb z
+
+				{
+					// copy form addr to fbb
+					int entry_size2 = entry_size;
+					int copy_size;
+					unsigned char* dst_addr; // fbb
+					unsigned char* src_addr = addr; // addr
+					while(entry_size2) // more write
+					{
+						if (node->cold_info[z]->remain == 0)
+						{
+							// alloc new fbb
+							int ret;
+							while (true)
+							{
+							ret = node->alloc_new_fbb(z); // what if fail???
+							if (ret < 0) //fail // need flush
+							{
+								//need global flush
+							}
+							else
+								break;
+							}
+						
+						}
+						dst_addr = global_fbb.get_FBB(node->cold_info[z]->fbb_end);
+						dst_addr+=FBB_SIZE-cold_info[z]->remain;
+
+						if (entry_size2 < node->cold_info[z]->remain)
+							copy_size = node->cold_info[z]->remain;
+						else
+							copy_size = entry_size2; // end
+
+						memcpy(dst_addr,src_addr,copy_size);
+						src_addr+=copy_size;
+						entry_size2-=copy_size;
+					}
+				}
+
+
 			}
 		}
 
@@ -351,16 +419,12 @@ namespace PH
 //						_mm_sfence();
 					} // else new kv is inserted during ....
 					// nothing happoend
-
 					slot_index++;
 					_mm_sfence(); // need?
 					hash_index->unlock_entry2(seg_lock,read_lock);
 					//				dst_addr.offset+=ENTRY_SIZE;
-
-
 				}
 			}
-
 		}
 
 		// invalidate log
