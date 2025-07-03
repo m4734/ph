@@ -218,8 +218,8 @@ class SkiplistNode
 	void find_half_listNode();
 	void update_wc();
 
-	void update_cold_node(ListNode* cold_node);
-	void insert_cold_node(ListNode* cold_node);
+//	void update_cold_node(ListNode* cold_node);
+//	void insert_cold_node(ListNode* cold_node);
 
 	uint64_t key;
 //	volatile uint64_t key;
@@ -282,50 +282,29 @@ class SkiplistNode
 //	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
 
-/*
-	int cold_block_sum;
-	ListNode* half_listNode;
-*/
-
-	int cold_cnt;
-	/*
-	std::vector<uint64_t> cold_keys;
-	std::vector<ListNode*> cold_nodes; 
-	*/
-	// merge to cold fbb info
-
-	// 50% hot 50% fbb = 5% all
-	// warm is 10% 
-
-	struct COLD_INFO
+	struct FBB_INFO
 	{
-		int uint64_t key;
-		ListNode* node;
-
 		int fbb_start; // start fbb index
 		int remain; // remiain size in last fbb
 		int fbb_cnt; // lenght of the list
 		int fbb_end; // last fbb index
+
+		int fbb_next_list[FBB_SIZE/BB_SIZE]; // index to next fbb
+		int fbb_filled_cnt[FBB_SIZE/BB_SIZE]; // size of data in fbb
 	}
 
-	std::vector<COLD_INFO> cold_info;
+	FBB_INFO fbb_info;
 
-//shared fbb
-//	FBB fbb;
-//	FBB* global_fbb;
-	int fbb_next_list[FBB_SIZE/BB_SIZE]; // index to next fbb
-	int fbb_filled_cnt[FBB_SIZE/BB_SIZE]; // size of data in fbb
-
-	int alloc_new_fbb(int cold_node_index)
+	int alloc_new_fbb()
 	{
 		int new_buffer_index = global_fbb.alloc_buffer();
 		if (new_buffer_index >= 0)
 		{
-		cold_info[cold_node_index].remain = FBB_SIZE;
-		cold_info[cold_node_index].fbb_end = new_buffer_index;
-		cold_info[cold_node_index].fbb_cnt++;
-		if (cold_info[cold_node_index].fbb_cnt == 1)
-			cold_info[cold_node_index].fbb_start = new_buffer_index;
+		fbb_info.remain = FBB_SIZE;
+		fbb_info.fbb_end = new_buffer_index;
+		fbb_info.fbb_cnt++;
+		if (fbb_info.fbb_cnt == 1)
+			fbb_info.fbb_start = new_buffer_index;
 		}
 		return new_buffer_index;
 	}
