@@ -113,93 +113,6 @@ class PH_List
 
 };
 
-const uint32_t FBB_SIZE = 4096;
-const uint32_t BB_SIZE = 256;
-const uint32_t BB_PER_FBB = FBB_SIZE/BB_SIZE;
-const uint32_t FBB_MAX = 1024*1024; // 4GB / 4096 = 1M
-
-
-// we do not have exit implementaiton we need free?
-
-class FBB
-{
-	FBB() : FBBA(NULL),FBBAi(0) {}
-	~FBB()
-	{
-		int i;
-		for (i=0;i<used_count;i+=BB_PER_FBB)
-			free(FBBA[i]);
-		free(FBBA);
-	}
-
-	unsigned char** FBBA; //flexible batch buffer // need memalign
-	thread_local int th_free_head;
-
-	thread_local int th_used_count;
-	thread_local int th_FBBAi;
-
-	std::atomic<int> FBBAi;
-
-	public:
-
-	// BB = 256
-	// FBB = 1MB...
-	// FBBA < 1TB
-	// FBBA / FBB = 1M
-
-	void init()
-	{
-		FBBA = (unsigned char*)malloc(sizeof(unsigned char*) * FBB_MAX);
-		FBBAi = 0;
-	}
-
-	void local_init()
-	{
-		th_free_head = -1;
-		th_used_count = BB_PER_FBB;
-		th_FBBAi = 0;
-	}
-
-	int alloc_buffer()
-	{
-		if (th_free_head >= 0)
-		{
-			int rv;
-			unsigned char* bb;
-			rv = th_free_head;
-			bb = get_buffer(rv);
-			th_free_head = *(int*)bb;
-			return rv;
-		}
-		if (used_count >= BB_PER_FBB)
-		{
-			th_FBBAi = FBBAi.fetch_add(1);
-			if (th_FBBAi >= FBB_MAX) // 256GB / BB_SIZE(256B) == 1G?
-			{
-				printf("fbb alloc buffer overflow\n");
-				return -1;
-			}
-			posix_memalign(FBBA[th_FBBAi],FBB_SIZE,FBB_SIZE); // 4096 aligb
-			th_used_count = 0;
-		}
-		return th_used_count++;
-	}
-	
-	void free_buffer(int index)
-	{
-		unsigned char* bb = get_FBB(index);
-		*(int*)bb = th_free_head;
-		th_free_head = index;
-	}
-	
-	unsigned char* get_FBB(int index) // actually its get BB
-	{
-		return &FBBA[index/BB_PER_FBB][(index%BB_PER_FBB)*BB_SIZE];
-	}
-};
-
-FBB global_fbb;
-
 bool try_reduce_group(ListNode* listNode);
 bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
 
@@ -217,9 +130,6 @@ class SkiplistNode
 	void remove_key_from_list(uint64_t key);
 	void find_half_listNode();
 	void update_wc();
-
-//	void update_cold_node(ListNode* cold_node);
-//	void insert_cold_node(ListNode* cold_node);
 
 	uint64_t key;
 //	volatile uint64_t key;
@@ -281,33 +191,6 @@ class SkiplistNode
 
 //	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;
-
-	struct FBB_INFO
-	{
-		int fbb_start; // start fbb index
-		int remain; // remiain size in last fbb
-		int fbb_cnt; // lenght of the list
-		int fbb_end; // last fbb index
-
-		int fbb_next_list[FBB_SIZE/BB_SIZE]; // index to next fbb
-		int fbb_filled_cnt[FBB_SIZE/BB_SIZE]; // size of data in fbb
-	}
-
-	FBB_INFO fbb_info;
-
-	int alloc_new_fbb()
-	{
-		int new_buffer_index = global_fbb.alloc_buffer();
-		if (new_buffer_index >= 0)
-		{
-		fbb_info.remain = FBB_SIZE;
-		fbb_info.fbb_end = new_buffer_index;
-		fbb_info.fbb_cnt++;
-		if (fbb_info.fbb_cnt == 1)
-			fbb_info.fbb_start = new_buffer_index;
-		}
-		return new_buffer_index;
-	}
 
 //	unsigned char* group_node_p[WARM_MAX_NODE_GROUP];
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];

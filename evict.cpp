@@ -111,6 +111,40 @@ namespace PH
 		else
 			start_offset = base_offset;
 
+		//------------------------------------------
+		//before evict, check wheater it needs split
+
+		
+		{
+			int src_end_offset;
+			src_end_offset = src_base_offset + WARM_BATCH_MAX_SIZE;
+			int read_sum=0;
+			for(i=src_start_index;i < NODE_SLOT_MAX;i++)
+			{
+				if (src_nodeMeta->entryLoc[src_start_index+i].offset >= src_end_offset)
+					break;
+				if (src_nodeMeta->entryLoc[src_start_index+i].valid) // the entry is valid shoud move
+				{
+					entry_size = src_nodeMeta->entryLoc[src_start_index+i+1].offset-src_nodeMeta->entryLoc[src_start_index+i].offset;
+					read_sum+=entry_size;
+				}
+			}
+
+			if (read_sum * 2 > WARM_BATCH_MAX_SIZE)
+			{
+				//need split here
+				// what about node lock...
+
+				//split or append...
+				// may continute the code
+			}
+		}
+
+
+
+
+		// init buffers
+
 		memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
 #if 1 
 		//				node->el_cnt[batch_num] = 2; // will not need ...
@@ -155,7 +189,6 @@ namespace PH
 
 		//flush each entry
 		// fill evict buffer form hot log
-		// need FBB write
 		// 
 		for (i=node->list_tail;i<node->list_head;i++)
 		{
@@ -180,44 +213,6 @@ namespace PH
 				continue;
 			}
 
-			//				else if (/*true ||*/ (/*header->prev_loc == 3 && */false)) // cold // hot to cold
-#if 0
-			{
-#ifdef FORCE_HOT_TO_COLD
-				//					printf("impossible\n");
-				// direct to cold here
-				// set old ea
-				// direct to cold
-				// invalidate old ea
-				// unlock index
-
-				old_ea.loc = HOT_LOG;
-				old_ea.file_num = ll.log_num;
-				old_ea.large = header->large_bit;
-				//					old_ea.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
-				old_ea.size = ((EntryHeader*)addr)->size;
-				old_ea.offset = ll.offset;
-
-				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
-				//					bool ex = hash_index->read(key,&kvp,&kvp_p,&seg_depth,&seg_depth_p);
-				kvp.value = old_ea.value;
-
-				/*new_ea = */direct_to_cold(key,old_ea.size/*value_size8*/,addr + ENTRY_HEADER_SIZE+KEY_SIZE,kvp,node,false,false);
-				if (kvp.value == old_ea.value) // ok
-				{
-					//					old_ea.value = kvp.value;
-					//	invalidate_entry(old_ea);
-					//	hash_index->unlock_entry2(seg_lock,read_lock);
-
-					hot_to_cold_cnt++;
-				}
-
-				node->entry_list[li].log_num = INV_LOG;
-				continue;
-#endif
-			}
-#endif
 			if (start_offset + written_size + entry_size > end_offset) // batch 1024 full
 				break; 
 			if (write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
@@ -241,73 +236,6 @@ namespace PH
 				write_cnt++;
 				hot_to_warm_cnt++;
 
-				// FBB write here
-				// 1 find cold node
-				// 2 (alloc new fbb)
-				// 3 append the kv
-				
-
-				// fbb invalidaiton .... about new kv insertion
-				// split need flush...
-				// addr modificatoin need...
-
-				// for fbb flush
-				// 1 append all
-				// 2 check addr
-				// 3 flush only valid.. .. addr check is not good
-
-				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-
-				int z;
-				for (z=0;i<node->cold_cnt-1;z++)
-				{
-//					if (key < node->cold_keys[z+1])
-					if (key < node->cold_info[z+1].key)
-						break;
-				}
-				if (z == node->cold_cnt)
-					z--;
-				//cold_nodes[z] // insert to fbb z
-
-				{
-					// copy form addr to fbb
-					int entry_size2 = entry_size;
-					int copy_size;
-					unsigned char* dst_addr; // fbb
-					unsigned char* src_addr = addr; // addr
-					while(entry_size2) // more write
-					{
-						if (node->cold_info[z]->remain == 0)
-						{
-							// alloc new fbb
-							int ret;
-							while (true)
-							{
-							ret = node->alloc_new_fbb(z); // what if fail???
-							if (ret < 0) //fail // need flush
-							{
-								//need global flush
-							}
-							else
-								break;
-							}
-						
-						}
-						dst_addr = global_fbb.get_FBB(node->cold_info[z]->fbb_end);
-						dst_addr+=FBB_SIZE-cold_info[z]->remain;
-
-						if (entry_size2 < node->cold_info[z]->remain)
-							copy_size = node->cold_info[z]->remain;
-						else
-							copy_size = entry_size2; // end
-
-						memcpy(dst_addr,src_addr,copy_size);
-						src_addr+=copy_size;
-						entry_size2-=copy_size;
-					}
-				}
-
-
 			}
 		}
 
@@ -325,6 +253,10 @@ namespace PH
 		//evict current batch size (+ NODE_HEADER) ~ written size...
 		// start offset always header
 		// write header zero write payload write header real
+
+		//------------------------------- pmem write
+		//buffer to pmem dst
+
 
 		if (false && start_offset == NODE_HEADER_SIZE) // need node head flush
 		{
@@ -353,9 +285,10 @@ namespace PH
 
 		}
 
-		//------------------------------- pmem write
 
 		_mm_sfence();
+
+		//-------------------- ref change hash index
 
 		EntryAddr dst_addr,src_addr;
 		int slot_index = 0;
