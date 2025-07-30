@@ -167,6 +167,7 @@ class SkiplistNode
 	NodeAddr myAddr; // nodeMeta addr // skiplist addr?
 //	NodeAddr prev;
 	SkiplistNode* volatile prev;
+	int data_node_cnt;
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 //	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
@@ -196,6 +197,7 @@ class SkiplistNode
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];
 
 //	inline unsigned char* get_entry(int index);
+	int empty_batch;
 };
 
 class Skiplist

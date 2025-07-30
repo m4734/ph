@@ -19,7 +19,7 @@ namespace PH
 //	extern uint32_t WARM_GROUP_ENTRY_CNT;
 
 	extern PH_List* list;
-#if 0
+#if 1
 	uint64_t recover_block(int loc, NodeAddr &nodeAddr)
 	{
 		return 0;

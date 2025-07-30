@@ -133,6 +133,8 @@ namespace PH
 	half_listNode = hl;
 	}
 	 */
+	 
+	 #if 0 // no third
 	void SkiplistNode::update_wc() // do we have lock?
 	{
 		SkiplistNode* node = this;
@@ -155,7 +157,7 @@ namespace PH
 		   }
 		 */
 	}
-
+#endif
 	void SkiplistNode::setLevel(size_t l)
 	{
 		level = l;
@@ -247,8 +249,6 @@ namespace PH
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
 		//		empty_node->my_listNode = list->empty_node;
-		empty_node->cold_cnt = 1;
-		empty_node->cold_nodes[0] = list->empty_node;
 		nodeAddr = {3,0};
 		empty_node->data_node_addr[0] = nodeAddr;
 
@@ -258,8 +258,6 @@ namespace PH
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
 		//		start_node->my_listNode = list->start_node;
-		start_node->cold_cnt = 1;
-		start_node->cold_nodes[0] = list->start_node;
 		nodeAddr = {1,1};
 		start_node->data_node_addr[0] = nodeAddr;
 
@@ -268,8 +266,6 @@ namespace PH
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
 		//		end_node->my_listNode = list->end_node;
-		end_node->cold_cnt = 1;
-		end_node->cold_nodes[0] = list->end_node;
 		nodeAddr = {3,1};
 		end_node->data_node_addr[0] = nodeAddr;
 
@@ -327,23 +323,16 @@ namespace PH
 		empty_node->setLevel(MAX_LEVEL);
 		empty_node->key = KEY_MIN;
 		//		empty_node->my_listNode = list->empty_node;
-		empty_node->cold_cnt=1;
-		empty_node->cold_nodes[0] = list->empty_node;
 
 		start_node = allocate_node();
 		start_node->setLevel(MAX_LEVEL);
 		start_node->key = KEY_MIN;
 		//		start_node->my_listNode = list->start_node;
-		start_node->cold_cnt=1;
-		start_node->cold_nodes[0] = list->start_node;
 
 		end_node = allocate_node();
 		end_node->setLevel(MAX_LEVEL);
 		end_node->key = KEY_MAX;
 		//		end_node->my_listNode = list->end_node;
-		end_node->cold_cnt=1;
-		end_node->cold_nodes[0] = list->end_node;
-
 
 		for (i=0;i<=MAX_LEVEL;i++)
 		{
@@ -541,14 +530,6 @@ namespace PH
 			node->key_list.resize(WARM_KEY_LIST_MAX_TEMP);
 			node->entry_list.resize(NODE_SLOT_MAX);
 
-			node->cold_cnt = 0;
-//			node->cold_keys.resize(WARM_COLD_MAX_RATIO_TEMP);
-//			node->cold_nodes.resize(WARM_COLD_MAX_RATIO_TEMP);
-			node->cold_keys.resize(WARM_COLD_MAX_RATIO);
-			node->cold_nodes.resize(WARM_COLD_MAX_RATIO);
-
-			node->fbb.init(); // need 'new' not malloc
-
 			node_pool_cnt++;
 
 			at_unlock2(node_alloc_lock);
@@ -573,10 +554,6 @@ namespace PH
 
 		//		node->cold_block_sum = 0;
 		//		node->half_listNode = NULL;
-
-		node->cold_cnt = 0;
-
-		node->fbb.reset();
 
 		_mm_sfence();
 
@@ -846,6 +823,9 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	return node;
 }
 
+
+// will be removed
+/*
 void SkiplistNode::update_cold_node(ListNode* cold_node) // will not use
 {
 	const uint64_t key = cold_node->key;
@@ -890,7 +870,7 @@ void SkiplistNode::insert_cold_node(ListNode* cold_node)
 
 	cold_cnt++;
 }
-
+*/
 //----------------------------------------------------------
 
 void Skiplist::setLimit(size_t size)
@@ -1051,7 +1031,7 @@ void Skiplist::recover()
 {
 //	printf("not now\n");
 //return;
-#if 1 // modify skipaddr to uint64
+#if 0 // modify skipaddr to uint64 // not now
 	//	NodeMeta* nodeMeta;
 	SkiplistNode* skiplistNode;
 	SkiplistNode* prev_skiplistNode;

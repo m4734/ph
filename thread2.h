@@ -61,14 +61,15 @@ namespace PH
 			void buffer_clean();
 
 			void hot_to_warm(SkiplistNode* node);// ,bool has_key_list_lock);
-			void warm_to_cold(SkiplistNode* node);
+			void hot_to_warm(SkiplistNode* node,int target_batch);
+//			void warm_to_cold(SkiplistNode* node);
 			//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
-			void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
+//			void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
 			void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
 			void split_empty_warm_node(SkiplistNode* old_skiplistNode);
 			bool may_split_warm_node(SkiplistNode* node,const int has_lock);
 			void flush_warm_node(SkiplistNode* node);
-			void try_cold_split(ListNode* listNode,SkiplistNode* node);
+//			void try_cold_split(ListNode* listNode,SkiplistNode* node);
 			//	void try_reduce_group(ListNode* listNode);
 
 			//	void invalidate_entry(EntryAddr &ea);
@@ -80,7 +81,7 @@ namespace PH
 			SkiplistNode* get_skiplist_node_for_evict(uint64_t key,NodeAddr warm_cache);
 			SkiplistNode* get_skiplist_node_for_key_list(uint64_t key,NodeAddr warm_cache);
 
-			bool try_warm_to_cold(SkiplistNode* node);
+//			bool try_warm_to_cold(SkiplistNode* node);
 //			bool try_hot_to_warm(SkiplistNode* node);
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];

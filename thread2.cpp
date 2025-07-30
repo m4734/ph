@@ -431,6 +431,8 @@ namespace PH
 	}
 #endif
 
+#if 0 // split cold 
+
 	void PH_Thread::split_listNode_group(ListNode *listNode,SkiplistNode *skiplistNode) // MAKE MANY BUGS
 	{
 		cold_split_cnt++;
@@ -1040,6 +1042,8 @@ namespace PH
 #endif
 
 	}
+
+#endif
 	int calc_th(DoubleLog* dl)
 	{
 		//		const size_t threshold = HARD_EVICT_SPACE;
@@ -1118,6 +1122,7 @@ namespace PH
 		return wc;
 	}
 
+#if 0 // need to remove
 	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large) // have skiplist lock // return old ea // need invalidation and kv unlock after this
 	{
 		tes(INSERT_TO_COLD);
@@ -1405,6 +1410,7 @@ namespace PH
 		tee(INSERT_TO_COLD);
 		return real_old_ea;
 	}
+#endif
 
 	void list_gc(SkiplistNode* skiplistNode) // need node lock
 	{
@@ -2144,7 +2150,7 @@ namespace PH
 	{
 		//	update_free_cnt();
 		op_check();
-
+#if 0 // not now
 #ifdef SCAN_TIME
 		struct timespec ts1,ts2;
 		struct timespec ts3,ts4;
@@ -2531,6 +2537,8 @@ namespace PH
 #endif
 
 		return scan_result.getCnt();
+#endif
+		return 0;
 	}
 	int PH_Query_Thread::next_op(unsigned char* buf)
 	{
@@ -2625,7 +2633,7 @@ namespace PH
 		SkiplistNode* child1_sl_node;
 		SkiplistNode* child2_sl_node;
 		ListNode* half_listNode;
-
+#if 0 // compile
 #if 0 // find half 
 
 		//		if (old_skiplistNode->half_listNode == NULL)
@@ -2850,14 +2858,17 @@ namespace PH
 #ifdef SPLIT_WITH_LIST_LOCK
 		at_unlock2(half_listNode->lock);
 #endif
+#endif
 	}
 
 	// need split // do not need split // node is invalid? -- have lock
 	bool PH_Thread::may_split_warm_node(SkiplistNode *node, const int has_lock) // had warm node lock // didn't had rw_lock
 	{
+#if 0
 		//		node->find_half_listNode();
 		//		if (node->cold_block_sum > WARM_COLD_MAX_RATIO * WARM_MAX_NODE_GROUP || node->key_list_size >= WARM_KEY_LIST_MAX) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
-		if (node->cold_cnt > WARM_COLD_MAX_RATIO || node->key_list_size >= WARM_KEY_LIST_MAX_TEMP) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+//		if (node->cold_cnt > WARM_COLD_MAX_RATIO || node->key_list_size >= WARM_KEY_LIST_MAX_TEMP) //WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT) // (WARM / COLD) RATIO
+		// if // valid ratio
 		{
 
 			if (try_at_lock2(node->split_lock) == false)
@@ -2901,8 +2912,8 @@ namespace PH
 			}
 			return true;
 		}
+#endif
 		return false;
-
 	}
 
 	inline bool need_hot_to_warm(SkiplistNode* node)
@@ -3100,8 +3111,10 @@ namespace PH
 				at_lock2(node->evict_lock);
 				at_unlock2(node->insert_lock);
 				//				try_warm_to_cold(node);
-				if (need_warm_to_cold(node))
-					warm_to_cold(node);
+
+				// may need warm split or something
+//				if (need_warm_to_cold(node))
+//					warm_to_cold(node);
 				split_warm_node = may_split_warm_node(node,2); // lock???
 									       //				at_unlock2(node->evict_lock);
 									       //	at_unlock2(nodeMeta->rw_lock);
@@ -3260,13 +3273,15 @@ namespace PH
 					list_gc(node);
 					if (need_hot_to_warm(node))
 					{
-
-						hot_to_warm(node);//,false);
+//						hot_to_warm(node,target_batch);//,false);
+						hot_to_warm(node);
 						at_lock2(node->evict_lock);
 						at_unlock2(node->insert_lock); // ------------------
 									       //					try_warm_to_cold(node);
-						if (need_warm_to_cold(node))
-							warm_to_cold(node);
+
+						// may warm split or something
+//						if (need_warm_to_cold(node))
+//							warm_to_cold(node);
 						//					at_unlock2(node->evict_lock);
 
 						soft_htw_cnt++;

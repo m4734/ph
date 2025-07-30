@@ -121,7 +121,8 @@ namespace PH
 			for (j=0;j<node_cnt[i];j++)
 			{
 				nodeMeta = (NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j);
-				free(nodeMeta->entryLoc);
+//				free(nodeMeta->entryLoc);
+				//need el free
 			}
 			munmap(nodeMetaPoolList[i],sizeof(NodeMeta)*POOL_NODE_MAX);
 			pmem_unmap(nodePoolList[i],POOL_SIZE);
@@ -180,8 +181,11 @@ namespace PH
 				printf("is not pmem\n");
 			if (my_size != req_size)
 				printf("my size is not req size\n");
+				//need el init
+				/*
 			for (j=0;j<POOL_NODE_MAX;j++)
 				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->entryLoc = NULL;
+				*/
 			if (fill)
 				node_cnt[pool_cnt+i] = POOL_NODE_MAX;
 			else
@@ -193,6 +197,10 @@ namespace PH
 	void NodeAllocator::collect_free_node()
 	{
 		//		free_head_p = NULL;
+
+// find unused node after recovery and add to free list
+
+#if 0 // not now
 		int i,j;
 		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)
@@ -204,11 +212,13 @@ namespace PH
 				{
 					nodeMeta->my_offset.pool_num = i;
 					nodeMeta->my_offset.node_offset = j;
-					nodeMeta->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
+//					nodeMeta->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
+// need new vector init
 					free_node(nodeMeta);
 				}
 			}
 		}
+#endif
 	}
 
 	NodeAddr NodeAllocator::alloc_node(int loc)
@@ -237,7 +247,8 @@ namespace PH
 			++node_cnt[pool_num];
 			++alloc_cnt;
 
-			nm->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
+//			nm->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
+// need new entrylist init
 
 			at_unlock2(lock);
 			//			nm->alloc_cnt_for_test = 0;
@@ -262,10 +273,12 @@ namespace PH
 
 		nm->next_addr = nm->next_addr_in_group = emptyNodeAddr;
 
+#if 0 // need new el init
 		if (loc == WARM_LIST)
 			nm->init_warm_el();
 		else if (loc == COLD_LIST)
 			nm->init_cold_el();
+#endif
 		nm->last_index = 0;
 
 		//pmem memset
@@ -325,41 +338,10 @@ namespace PH
 		*/
 	}
 
-	void NodeMeta::init_warm_el() // only for 4KB
-	{
-		int i,offset;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			entryLoc[i].valid = entryLoc[i].offset = 0;
-
-		for (i=0;i<WARM_BATCH_CNT;i++) // 4
-		{
-			offset = i * WARM_BATCH_ENTRY_CNT;
-
-			entryLoc[offset].valid = 0;
-			entryLoc[offset].offset = WARM_BATCH_MAX_SIZE*i;
-
-			entryLoc[offset+1].valid = 0;
-			entryLoc[offset+1].offset = WARM_BATCH_MAX_SIZE*(i+1);
-		}
-		entryLoc[0].offset = NODE_HEADER_SIZE;
-	}
-	void NodeMeta::init_cold_el()
-	{
-		int i;
-		for (i=0;i<NODE_SLOT_MAX;i++)
-			entryLoc[i].valid = entryLoc[i].offset = 0;
-
-		entryLoc[0].valid = 0;
-		entryLoc[0].offset = NODE_HEADER_SIZE;
-		entryLoc[1].valid = 0;
-		entryLoc[1].offset = NODE_SIZE;
-		max_empty = NODE_SIZE - NODE_HEADER_SIZE;
-		need_clean = false;
-		el_cnt[0] = 2;
-	}
 
 	int NodeMeta::invalidate(EntryAddr ea)
 	{
+#if 0
 		int offset = ea.offset%NODE_SIZE;
 		int start_index,end_index;
 		int i;
@@ -508,93 +490,8 @@ namespace PH
 
 
 		}
+#endif
 		return 0;
-	}
-
-	int NodeMeta::find_nfi(int entry_size)
-	{
-		int start_index = last_index;//+1;
-
-		while(last_index+2 <= el_cnt[0])
-		{
-			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
-				return last_index;
-			last_index++;
-		}
-
-		last_index = 0;
-
-		while(last_index < start_index)
-		{
-			if (entryLoc[last_index].valid == false && entryLoc[last_index+1].offset - entryLoc[last_index].offset == entry_size)
-				return last_index;
-			last_index++;
-		}
-
-		return -1;
-		
-	}
-
-	int NodeMeta::el_clean(int entry_size,int &bfv) // return best fit // push offset array
-	{
-		int src_idx,dst_idx;
-		int bfi=-1;
-		bfv=NODE_SIZE;
-
-		src_idx = 1;
-		dst_idx = 1;
-
-		max_empty = 0;
-		//		while(nodeMeta->entryLoc[src_idx].offset > 0)
-		while(entryLoc[src_idx].offset < NODE_SIZE)
-		{
-			if (entryLoc[src_idx].valid)
-			{
-				//				if (src_idx != dst_idx)
-				entryLoc[dst_idx] = entryLoc[src_idx];
-				if (entryLoc[dst_idx-1].valid == 0)
-				{
-					int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
-					if (es >= entry_size && bfv > es)
-					{
-						bfv = es;
-						bfi = dst_idx-1;
-					}
-					if (es > max_empty)
-						max_empty = es;
-						
-				}
-				dst_idx++;
-			}
-			else if (entryLoc[src_idx-1].valid)
-			{
-				//				if (src_idx != dst_idx)
-				entryLoc[dst_idx] = entryLoc[src_idx];
-				dst_idx++;
-			}
-			src_idx++;
-		}
-		entryLoc[src_idx].offset = 0;
-
-		entryLoc[dst_idx].offset = NODE_SIZE;
-		entryLoc[dst_idx].valid = 0;
-
-		if (entryLoc[dst_idx-1].valid == 0)
-		{
-			int es = entryLoc[dst_idx].offset - entryLoc[dst_idx-1].offset;
-			if (es >= entry_size && bfv > es)
-			{
-				bfv = es;
-				bfi = dst_idx-1;
-			}
-			if (es > max_empty)
-				max_empty = es;
-		}
-
-		dst_idx++;
-		el_cnt[0] = dst_idx;
-
-		return bfi;
 	}
 
 

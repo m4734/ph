@@ -6,7 +6,7 @@
 
 #include "global2.h"
 
-#if 0
+#if 1
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
@@ -81,7 +81,8 @@ void *run(void *parameter)
 			//		key = rand() % KEY_RANGE;
 //			key = key_gen();
 			*(uint64_t*)value = key+1;
-			para->phi->insert_op(key,value);
+//			para->phi->insert_op(key,value);
+			para->phi->insert_op(key,value_size,value);
 			//		printf("insert key %lu value %lu\n",key,(*(uint64_t*)value));
 #ifdef PRINT_OPS
 			clock_gettime(CLOCK_MONOTONIC,&ts4);
@@ -195,7 +196,7 @@ int main()
 
 	PH::PH_Interface phi;
 
-	phi.global_init(value_size,key_range,THREAD_NUM,PMEM_NUM,EVICT_NUM);
+	phi.global_init(value_size,key_range,THREAD_NUM,PMEM_NUM,EVICT_NUM,0); // recovery 0
 
 #if 1
 	phi.run_evict_thread();

@@ -86,8 +86,8 @@ struct NodeMeta
 //	std::atomic<uint8_t> valid_cnt;
 //	int valid_cnt;
 
-	EntryLoc* entryLoc;
-	int el_cnt[WARM_BATCH_CNT]; // temp??
+//	EntryLoc* entryLoc;
+//	int el_cnt[WARM_BATCH_CNT]; // temp??
 	int last_index;//next fit
 //	std::atomic<int> size_sum;
 	int size_sum; // rw lock will ...
@@ -98,6 +98,13 @@ struct NodeMeta
 
 	//test
 //	int test=0;
+	struct BatchInfo
+	{
+		std::vector<EntryLoc> el;//element_list;
+		std::atomic<int> size_sum;
+	};
+
+	BatchInfo batch_info[WARM_BATCH_CNT]; // 4096/1024 == node size / batch size // use dynamic...
 };
 
 

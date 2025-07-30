@@ -32,8 +32,6 @@ thread_local PH_Thread* my_thread;
 
 size_t TOTAL_DATA_SIZE;
 
-extern FBB global_fbb;
-
 // should be private....
 int num_thread;
 int num_pmem;
