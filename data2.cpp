@@ -37,7 +37,7 @@ namespace PH
 		NodeAddr new_nodeAddr = nodeAllocator->alloc_node(loc);
 		NodeMeta* new_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr);
 		DataNode* new_dataNode = nodeAllocator->nodeAddr_to_node(new_nodeAddr);
-		if (list_nodeMeta)
+		if (list_nodeMeta) // not first
 		{
 			pmem_next_in_group_write(nodeAllocator->nodeAddr_to_node(list_nodeMeta->my_offset),new_nodeAddr); // persist
 			list_nodeMeta->next_node_in_group = new_nodeMeta;
@@ -114,6 +114,7 @@ namespace PH
 	{
 		size_t sum = 0;
 		int i,j;
+		int k;
 		NodeMeta* nodeMeta;
 		for (i=0;i<pool_cnt;i++)
 		{
@@ -123,6 +124,8 @@ namespace PH
 				nodeMeta = (NodeMeta*)(nodeMetaPoolList[i]+sizeof(NodeMeta)*j);
 //				free(nodeMeta->entryLoc);
 				//need el free
+
+				nodeMeta->el_init();
 			}
 			munmap(nodeMetaPoolList[i],sizeof(NodeMeta)*POOL_NODE_MAX);
 			pmem_unmap(nodePoolList[i],POOL_SIZE);
@@ -182,10 +185,10 @@ namespace PH
 			if (my_size != req_size)
 				printf("my size is not req size\n");
 				//need el init
-				/*
 			for (j=0;j<POOL_NODE_MAX;j++)
-				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->entryLoc = NULL;
-				*/
+//				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->entryLoc = NULL;
+				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->el_init();
+
 			if (fill)
 				node_cnt[pool_cnt+i] = POOL_NODE_MAX;
 			else
@@ -249,6 +252,7 @@ namespace PH
 
 //			nm->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
 // need new entrylist init
+//			nm->el_init(); // it is not alloc ...
 
 			at_unlock2(lock);
 			//			nm->alloc_cnt_for_test = 0;
@@ -279,6 +283,8 @@ namespace PH
 		else if (loc == COLD_LIST)
 			nm->init_cold_el();
 #endif
+		nm->el_init();
+
 		nm->last_index = 0;
 
 		//pmem memset
@@ -303,11 +309,13 @@ namespace PH
 		free_head_p = nm;
 		at_unlock2(lock);
 	}
-
+#if 0
 	uint64_t find_half_in_node(NodeMeta* nm,DataNode* node) // USE DRAM NODE!!!!
 	{
 		printf("find half in node what is this\n");
 		return 0;
+		// find half key in node
+		// but it is not in group and just a node...
 		/*
 		int i,j;
 		uint64_t keys[NODE_SLOT_MAX];
@@ -337,15 +345,41 @@ namespace PH
 		return keys[cnt/2];
 		*/
 	}
+#endif
 
 
 	int NodeMeta::invalidate(EntryAddr ea)
 	{
-#if 0
+		// find batch // find el // valid = 0 // -= size_sum
+#if 1
 		int offset = ea.offset%NODE_SIZE;
 		int start_index,end_index;
 		int i;
 
+		int batch_index,size;
+
+		at_lock2(rw_lock);
+
+		batch_index = (offset / WARM_BATCH_MAX_SIZE);
+		size = batch_info[batch_index].el.size();
+		for (i=0;i<size;i++) // linaer search // may use binary
+		{
+			if (offset == batch_info[batch_index].el[i].offset)
+			{
+#ifdef INV_TEST
+					if (batch_info[batch_index].el[i].valid == 0)
+						debug_error("inv test fail\n");
+#endif
+					batch_info[batch_index].el[i].valid = 0;
+					//			size_sum-=(entryLoc[i+1].offset-entryLoc[i].offset);
+					at_unlock2(rw_lock);
+					return 0;
+
+			}
+
+		}
+		printf("failed to invalideate\n");
+#else
 		if (ea.loc == WARM_LIST) // still have key lock // also warm to cold will be cancelled if it is invalid
 		{
 			at_lock2(rw_lock);

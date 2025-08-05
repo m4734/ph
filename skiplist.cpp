@@ -199,14 +199,17 @@ namespace PH
 		NodeMeta* nodeMeta;
 		node = alloc_sl_node();
 		nodeMeta = NULL;
-		int i;
-		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
+		int i=0;
+//		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // append full
 		{
 			nodeMeta = append_group(nodeMeta,WARM_LIST);
 			node->data_node_addr[i] = nodeMeta->my_offset;
 			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
 			//			nodeMeta->list_addr = node->myAddr;
 		}
+		for (i=1;i<WARM_MAX_NODE_GROUP;i++)
+			node->data_node_addr[i] = emptyNodeAddr;
+
 
 		return node;
 	}
@@ -251,6 +254,7 @@ namespace PH
 		//		empty_node->my_listNode = list->empty_node;
 		nodeAddr = {3,0};
 		empty_node->data_node_addr[0] = nodeAddr;
+		empty_node->data_node_cnt = 1;
 
 
 		//		start_node = allocate_node();
@@ -260,6 +264,7 @@ namespace PH
 		//		start_node->my_listNode = list->start_node;
 		nodeAddr = {1,1};
 		start_node->data_node_addr[0] = nodeAddr;
+		start_node->data_node_cnt = 1;
 
 		//		end_node = allocate_node();
 		end_node = alloc_sl_node();
@@ -268,7 +273,7 @@ namespace PH
 		//		end_node->my_listNode = list->end_node;
 		nodeAddr = {3,1};
 		end_node->data_node_addr[0] = nodeAddr;
-
+		empty_node->data_node_cnt = 1;
 
 		for (i=0;i<=MAX_LEVEL;i++)
 		{
@@ -534,6 +539,8 @@ namespace PH
 
 			at_unlock2(node_alloc_lock);
 		}
+
+		//common init
 		//	node->next = NULL;
 		node->setLevel();
 		node->dst_cnt = node->level+1;
@@ -552,14 +559,21 @@ namespace PH
 		node->ver = node_counter.fetch_add(1);
 		node->my_sa.ver = node->ver;
 
+		node->empty_batch = -1;//0;
+
 		//		node->cold_block_sum = 0;
 		//		node->half_listNode = NULL;
+
+		node->data_node_cnt = 0;
+		int i;
+		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
+			node->data_node_addr[i] = emptyNodeAddr;
 
 		_mm_sfence();
 
 //		node->key_list_lock = 0;
 		node->insert_lock = 0;
-		node->evict_lock = 0;
+//		node->evict_lock = 0;
 		node->split_lock = 0;
 		//		node->rw_lock = 0;
 

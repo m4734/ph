@@ -65,9 +65,9 @@ namespace PH
 //			void warm_to_cold(SkiplistNode* node);
 			//	bool try_evict_to_listNode(ListNode* listNode,uint64_t key,unsigned char* addr);
 //			void split_listNode(ListNode* listNode,SkiplistNode* skiplistNode);
-			void split_warm_node(SkiplistNode* old_skipListNode, ListNode* half_listNode);
-			void split_empty_warm_node(SkiplistNode* old_skiplistNode);
-			bool may_split_warm_node(SkiplistNode* node,const int has_lock);
+			void split_warm_node(SkiplistNode* old_skiplistNode);
+//			void split_empty_warm_node(SkiplistNode* old_skiplistNode);
+			int may_split_warm_node(SkiplistNode* node,const int has_lock); // return target batch if didin't split
 			void flush_warm_node(SkiplistNode* node);
 //			void try_cold_split(ListNode* listNode,SkiplistNode* node);
 			//	void try_reduce_group(ListNode* listNode);

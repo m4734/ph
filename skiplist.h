@@ -128,7 +128,7 @@ class SkiplistNode
 	}
 
 	void remove_key_from_list(uint64_t key);
-	void find_half_listNode();
+//	void find_half_listNode();
 	void update_wc();
 
 	uint64_t key;
@@ -173,7 +173,7 @@ class SkiplistNode
 
 //	std::atomic<uint8_t> key_list_lock; // hot key list
 	std::atomic<uint8_t> insert_lock; // HL TO WL and evict list
-	std::atomic<uint8_t> evict_lock; // WL TO CL
+//	std::atomic<uint8_t> evict_lock; // WL TO CL
 	std::atomic<uint8_t> split_lock; // WN split
 //	std::atomic<uint8_t> thread_counter; // split prevent
 

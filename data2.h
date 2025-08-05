@@ -105,6 +105,16 @@ struct NodeMeta
 	};
 
 	BatchInfo batch_info[WARM_BATCH_CNT]; // 4096/1024 == node size / batch size // use dynamic...
+
+	void el_init()
+	{
+		int i;
+		for (i=0;i<WARM_BATCH_CNT;i++)
+		{
+			batch_info[i].el.clear();
+			batch_info[i].size_sum = 0;
+		}
+	}
 };
 
 
