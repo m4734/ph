@@ -199,17 +199,19 @@ namespace PH
 		NodeMeta* nodeMeta;
 		node = alloc_sl_node();
 		nodeMeta = NULL;
-		int i=0;
 //		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // append full
 		{
 			nodeMeta = append_group(nodeMeta,WARM_LIST);
-			node->data_node_addr[i] = nodeMeta->my_offset;
+			node->data_node_addr[0] = nodeMeta->my_offset;
 			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr);
 			//			nodeMeta->list_addr = node->myAddr;
 		}
-		for (i=1;i<WARM_MAX_NODE_GROUP;i++)
-			node->data_node_addr[i] = emptyNodeAddr;
 
+// already initalized in alloc_sl_node
+//		for (i=1;i<WARM_MAX_NODE_GROUP;i++)
+//			node->data_node_addr[i] = emptyNodeAddr;
+
+		node->data_node_cnt = 1;
 
 		return node;
 	}

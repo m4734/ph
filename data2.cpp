@@ -178,7 +178,7 @@ namespace PH
 				printf("alloc_pool error1----------------------------------------------\n");
 			nodePoolList[pool_cnt + i] = (unsigned char*)pmem_map_file(path,POOL_SIZE,PMEM_FILE_CREATE,0777,&my_size,&is_pmem);
 			if (!nodePoolList[pool_cnt +i])
-				printf("alloc_pool error2----------------------------------------------\n");
+				printf("alloc_pool error2---%s\n",path);
 
 			if (is_pmem == 0)
 				printf("is not pmem\n");

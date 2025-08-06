@@ -24,7 +24,7 @@ namespace PH
 
 	int find_evict_target_batch(SkiplistNode* node) // return evict target batch num // or -1 to fail // i expect lock for node
 	{
-		int target_batch;
+		int target_batch=-1;
 		int i,j;
 		int cur_batch = -1;
 		int min_size=WARM_BATCH_MAX_SIZE;
@@ -157,9 +157,7 @@ namespace PH
 		else
 			start_offset = base_offset;
 
-
 		// init buffers
-
 		memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
 #if 1 
 		//				node->el_cnt[batch_num] = 2; // will not need ...
@@ -169,12 +167,10 @@ namespace PH
 			pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,WARM_BATCH_MAX_SIZE);
 		//batch is clean now
 #endif
-
 		written_size = 0;
 		write_cnt = 0;
 
 		// read form src buffer and write to evict buffer if the entry is valid
-
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
 		nodeMeta->batch_info[batch_num].el.clear();
@@ -197,11 +193,7 @@ namespace PH
 			}
 		}
 
-		//
-
 		//			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
-
-
 		int entry_from_log_start_index = write_cnt;
 
 		//flush each entry
@@ -309,7 +301,6 @@ namespace PH
 #endif
 
 		}
-
 
 		_mm_sfence();
 
@@ -634,7 +625,7 @@ namespace PH
 
 		int entry_cnt = split_key_list.size();
 
-		if (group0_size_sum > NODE_SIZE) // what does it mean?
+		if (group0_size_sum > NODE_SIZE) // what does it mean? // it means split by key list // if key list is too large we will split the node by key range half
 		{
 			split_type = 1; // based size
 
@@ -670,7 +661,7 @@ namespace PH
 			}
 			m_key = split_key_list[i].first;
 		}
-		else
+		else // key range based split for key list overflow
 		{
 			split_type = 2; // based key
 			uint64_t half1,half2;
@@ -1274,6 +1265,49 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 
 #endif
 
+	bool PH_Thread::split_warm_node_by_key_list(SkiplistNode *node)
+	{
+			if (try_at_lock2(node->split_lock) == false) // somone split this node
+				return false;
+
+			// need lock order insert - evict
+#if 0
+			if (has_lock == 2)
+				at_unlock2(node->evict_lock); // htw wtc dead lock
+			if (has_lock != 1)
+				at_lock2(node->insert_lock);
+			//			if (has_lock != 2)
+			at_lock2(node->evict_lock);
+//			if (has_lock != 3)
+//				at_lock2(node->key_list_lock); // conflict in hot to warm
+
+#endif
+			SkiplistNode *next_node;
+			while(1) // blocking next also blocks prev split // we can modify prev tooo
+			{
+				next_node = skiplist->find_next_node(node);
+				//				at_lock2(next_node->lock);
+				//				if (try_at_lock2(next_node->lock) == false)
+				//					continue;
+				if (try_at_lock2(next_node->split_lock) == false)
+					continue;
+				if (next_node == skiplist->find_next_node(node))
+					break;
+				//				at_unlock2(next_node->lock);
+			}
+			// split non empty node now // may refer cold split
+			{
+				//				NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+				//				at_lock2(nodeMeta->rw_lock);
+				//				hot_to_warm(node,true); // flush all
+//				split_empty_warm_node(node); // always success...
+				split_warm_node(node);
+							     //				at_unlock2(nodeMeta->rw_lock);
+							     //				at_unlock2(next_node->lock);
+				at_unlock2(next_node->split_lock);
+			}
+			return true;
+	}
 
 
 // need split // do not need split // node is invalid? -- have lock
@@ -1289,7 +1323,7 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 		target_batch = find_evict_target_batch(node);
 
 		if (target_batch >= 0)
-			return target_batch;
+			return target_batch; // no split
 
 		if (node->data_node_cnt < WARM_MAX_NODE_GROUP) // append
 		{
@@ -1307,7 +1341,6 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 		}
 		else // split
 		{
-
 			if (try_at_lock2(node->split_lock) == false) // somone split this node
 				return -1;
 
@@ -1323,9 +1356,6 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 //				at_lock2(node->key_list_lock); // conflict in hot to warm
 
 #endif
-			// flush all
-//			flush_warm_node(node); // has key list lock
-
 			SkiplistNode *next_node;
 			while(1) // blocking next also blocks prev split // we can modify prev tooo
 			{
@@ -1352,11 +1382,9 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 							     //				at_unlock2(next_node->lock);
 				at_unlock2(next_node->split_lock);
 			}
-//			return true;			
+			return -1; // it is split and needs new target batch in new node
 		}
 #endif
-		return -1;
-//		return false;
 	}
 
 

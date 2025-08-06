@@ -22,11 +22,18 @@ const size_t total_ops = 5*200*1000; // 1G ops
 					//#define PMEM_NUM 4
 					//#define EVICT_NUM 8
 
+/*
 #define THREAD_NUM 16
 #define PMEM_NUM 4
 #define EVICT_NUM 8
-
 #define PRINT_OPS
+*/
+
+//debug
+#define THREAD_NUM 1
+#define PMEM_NUM 4
+#define EVICT_NUM 1
+
 
 enum OP_TYPE
 {

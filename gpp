@@ -1,1 +1,1 @@
-g++ *.cpp -lpmem
+g++ *.cpp -lpmem -lpthread

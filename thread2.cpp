@@ -1000,7 +1000,7 @@ namespace PH
 			new_ea.file_num = dst_log->log_num;
 			new_ea.offset = dst_log->head_sum;// % dst_log->my_size; // use head sum without mod because it distinguoish overwrite;
 #ifdef HOT_KEY_LIST
-			while(1) // add key list
+			while(1) // add key list // if is in hot log skip it and update ref
 			{
 				if (ex == 0 || old_ea.loc != HOT_LOG)
 				{
@@ -1032,16 +1032,8 @@ namespace PH
 						   continue;
 						   }
 						 */
-						int target_batch;
-						target_batch = may_split_warm_node(node,1/*3*/);
-						if (target_batch >= 0) // has key list lock
-						{
-							// i don't now but didn't split
-							//may impossible
-							//							at_unlock2(node->insert_lock);
-//							at_unlock2(node->key_list_lock);
+						if (split_warm_node_by_key_list(node) == false) // split failed
 							at_unlock2(node->insert_lock);
-						}
 						continue;
 					}
 
@@ -1087,6 +1079,8 @@ namespace PH
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			old_ea.value = kvp_p->value;
 #endif
+
+			//-------------- here has key index lock
 
 			uint64_t new_ver; //valid dele size ver
 			new_version_for_insert.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
