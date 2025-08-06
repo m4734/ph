@@ -175,7 +175,7 @@ namespace PH
 		entryLoc.valid = 0;
 		nodeMeta->batch_info[batch_num].el.clear();
 
-		for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-2;i++) // last is end and max
+		for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-1;i++) // last is end and max
 		{
 			if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
 			{
@@ -320,7 +320,7 @@ namespace PH
 			int offset;
 			src_end_offset = src_base_offset + WARM_BATCH_MAX_SIZE;
 //			for(i=src_start_index;i < NODE_SLOT_MAX;i++)
-			for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-2;i++)
+			for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-1;i++)
 			{
 				if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
 				{
@@ -551,7 +551,7 @@ namespace PH
 
 			for (k=0;k<WARM_BATCH_CNT;k++)
 			{
-			for (i=0;i<nodeMeta->batch_info[k].el.size();i++) // find valid entries
+			for (i=0;i<nodeMeta->batch_info[k].el.size()-1;i++) // find valid entries
 			{
 				if (nodeMeta->batch_info[k].el[i].valid)
 				{
@@ -584,8 +584,8 @@ namespace PH
 		// 2 alloc...
 
 		int entry_size;
-		EntryHeader end_jump;
-		end_jump.value = 0;
+//		EntryHeader end_jump;
+//		end_jump.value = 0;
 
 		int j;
 		unsigned char* src_addr;
@@ -773,7 +773,7 @@ namespace PH
 			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 
-		new_nodeAddr2[0] = new_skiplistNode1->data_node_addr[0];
+		new_nodeAddr2[0] = new_skiplistNode2->data_node_addr[0];
 		new_nodeMeta2[0] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[0]);
 		at_lock2(new_nodeMeta2[0]->rw_lock);
 
