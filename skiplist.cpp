@@ -649,7 +649,8 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 {
 	SkiplistNode* node;// = start_node;
 	SkiplistNode* next_node;
-	node = start_node;
+//	node = start_node;
+	node = empty_node;
 	int i,j;
 	SkipAddr sa;
 	uint64_t v;
@@ -662,7 +663,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 			next_node = &node_pool_list[sa.pool_num][sa.offset];
 			if (next_node->ver != sa.ver)
 			{
-				if (next_node->ver == 0)
+				if (next_node->ver == 0) // delete node need free
 				{
 					v = sa.value;
 					if (node->next[i].value.compare_exchange_strong(v,next_node->next[i].value.load()))
@@ -671,7 +672,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
-							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
+							for (j=0;j<next_node->data_node_cnt/*WARM_MAX_NODE_GROUP*/;j++)
 							{
 								//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
 								//									debug_error("free333\n");
@@ -683,7 +684,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 				}
 				continue;
 			}
-			if (next_node->key <= key) // == for split
+			if (next_node->key <= key) // == for split // will find last node if key == key
 				node = next_node;
 			else
 				break;

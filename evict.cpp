@@ -551,7 +551,9 @@ namespace PH
 
 			for (k=0;k<WARM_BATCH_CNT;k++)
 			{
-			for (i=0;i<nodeMeta->batch_info[k].el.size()-1;i++) // find valid entries
+				int el_size = nodeMeta->batch_info[k].el.size(); // what the bug;
+//			for (i=0;i<nodeMeta->batch_info[k].el.size()-1;i++) // find valid entries
+				for (i=0;i<el_size-1;i++)
 			{
 				if (nodeMeta->batch_info[k].el[i].valid)
 				{
@@ -744,6 +746,10 @@ namespace PH
 			offset+=entry_size;
 			j++;
 		}
+
+		// set skiplist key
+		new_skiplistNode1->key = old_skiplistNode->key;
+		new_skiplistNode2->key = m_key;
 
 		//alloc dst -------------------------------------------------
 		NodeAddr new_nodeAddr1[MAX_NODE_GROUP];
@@ -1194,6 +1200,8 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 		skiplist->insert_node(child1_sl_node,prev_sa_list,next_sa_list);
 		skiplist->insert_node(child2_sl_node,prev_sa_list,next_sa_list);
 
+		skiplist->delete_node(old_skiplistNode); // delete duringn find node
+
 //----------------- unlock and delete
 
 		for (i=0;i<=group1_idx;i++)
@@ -1202,15 +1210,16 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 			at_unlock2(new_nodeMeta2[i]->rw_lock);		
 
 		// free the nodes...
+		/* // skiplist node will be freed by delete node ...
 		for (i=0;i<group0_idx;i++)
 			nodeAllocator->free_node(old_nodeMeta[i]);
+			*/
 
 		at_unlock2(new_skiplistNode1->split_lock);
 		at_unlock2(new_skiplistNode2->split_lock);
 		at_unlock2(new_skiplistNode1->insert_lock);
 		at_unlock2(new_skiplistNode2->insert_lock);
 
-		skiplist->delete_node(old_skiplistNode); // delete duringn find node
 
 #if 0 // test old
 
