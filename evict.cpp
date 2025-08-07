@@ -24,20 +24,30 @@ namespace PH
 
 	int find_evict_target_batch(SkiplistNode* node) // return evict target batch num // or -1 to fail // i expect lock for node
 	{
+		// find empty batch and min batch // dst and src
+
 		int target_batch=-1;
 		int i,j;
 		int cur_batch = -1;
 		int min_size=WARM_BATCH_MAX_SIZE;
 		NodeMeta* nodeMeta;
 
+		node->empty_batch = -1;
 		for (i=0;i<node->data_node_cnt;i++)
 		{
 			nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[i]);
 			for (j = 0;j < WARM_BATCH_CNT;j++)
 			 {
 				 cur_batch++;
+				 /*
 				 if (node->empty_batch == cur_batch)
 					 continue;
+					 */
+				if (node->empty_batch < 0 && nodeMeta->batch_info[j].size_sum == 0)
+				{
+					node->empty_batch = cur_batch;
+					continue;
+				}
 
 				if (min_size > nodeMeta->batch_info[j].size_sum) 
 				{
@@ -47,7 +57,7 @@ namespace PH
 			 }
 		}
 
-		if (min_size > WARM_EVICT_THRESHOLD)
+		if (min_size > WARM_EVICT_THRESHOLD || node->empty_batch < 0)
 			return -1;
 		return target_batch;
 
@@ -103,6 +113,7 @@ namespace PH
 
 		int entry_size;
 
+		bool same_batch;
 
 #ifdef HTW_KEY_CHECK
 		uint64_t wk1,wk2;
@@ -129,7 +140,12 @@ namespace PH
 		unsigned char *src_node;
 		src_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[src_node_num]);
 		NodeMeta* src_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[src_node_num]);
-		at_lock2(src_nodeMeta->rw_lock);//------------------------------------------------lock here // dead lock when the src and dst node is same!!!
+		if (node_num == src_node_num)
+			same_batch = true;
+		else
+			same_batch = false;
+		if (same_batch == false)
+			at_lock2(src_nodeMeta->rw_lock);//------------------------------------------------lock here // dead lock when the src and dst node is same!!!
 
 		int src_start_offset,src_base_offset; // need to check valid entries form start offset
 		int src_batch_num;
@@ -471,6 +487,8 @@ namespace PH
 
 
 		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
+		if (same_batch == false)
+			at_unlock2(src_nodeMeta->rw_lock);
 
 		tee(HTW);
 		htw_cnt++;
@@ -1346,7 +1364,7 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 			node->data_node_cnt++;
 
 			node->empty_batch = (node->data_node_cnt-1)*WARM_BATCH_CNT+1;
-			return (node->data_node_cnt-1)*WARM_BATCH_CNT;
+			return node->empty_batch;//(node->data_node_cnt-1)*WARM_BATCH_CNT;
 		}
 		else // split
 		{
