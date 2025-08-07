@@ -86,7 +86,7 @@ namespace PH
 #if 1 // big
 	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 8; // 2 4 8?
+	const uint32_t WARM_MAX_NODE_GROUP = 4;//8; // 2 4 8?
 	const uint32_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
@@ -100,10 +100,11 @@ namespace PH
 	const uint32_t NODE_HEADER_SIZE = 16; //8 + 8
 	const uint32_t NODE_BUFFER_SIZE = NODE_SIZE-NODE_HEADER_SIZE; // unstable
 
-	const uint32_t WARM_BATCH_ENTRY_CNT = 20;
+//	const uint32_t WARM_BATCH_ENTRY_CNT = 20;
 	const uint32_t WARM_BATCH_CNT = NODE_SIZE/WARM_BATCH_MAX_SIZE;////4;
 
-	const uint32_t WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+//	const uint32_t WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
+	const uint32_t WARM_LOG_LIST_MAX = 20*WARM_MAX_NODE_GROUP; //1024/200 = 5... // 4096 / 200 // 4096 * 4 / 200
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
 	const uint32_t NODE_SLOT_MAX = 80; // 4096/50

@@ -103,9 +103,9 @@ namespace PH
 
 		int written_size,base_offset;
 		int start_offset;
-		int start_index;
+//		int start_index;
 		int end_offset;
-		int write_cnt,base_index;
+		int write_cnt;//,base_index;
 		int batch_num;
 		int i_dst;
 
@@ -149,7 +149,7 @@ namespace PH
 
 		int src_start_offset,src_base_offset; // need to check valid entries form start offset
 		int src_batch_num;
-		int src_start_index;
+//		int src_start_index;
 //		src_batch_num = (node->data->tail)%WARM_BATCH_CNT;
 		src_batch_num = target_batch%WARM_BATCH_CNT;
 		src_base_offset = src_batch_num*WARM_BATCH_MAX_SIZE;
@@ -159,13 +159,13 @@ namespace PH
 			src_start_offset = src_base_offset;
 		memcpy(batch_read_buffer, src_node+src_base_offset, WARM_BATCH_MAX_SIZE);
 
-		src_start_index = src_batch_num*WARM_BATCH_ENTRY_CNT;
+//		src_start_index = src_batch_num*WARM_BATCH_ENTRY_CNT;
 
 		//------------------------------------------
 
 		base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
-		base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
-		start_index = base_index;
+//		base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
+//		start_index = base_index;
 		end_offset = base_offset + WARM_BATCH_MAX_SIZE;
 
 		if (batch_num == 0) // add header size
@@ -190,8 +190,9 @@ namespace PH
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
 		nodeMeta->batch_info[batch_num].el.clear();
-
-		for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-1;i++) // last is end and max
+		int el_size;
+		el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
+		for (i=0;i<el_size-1;i++) // last is end and max
 		{
 			if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
 			{
@@ -240,8 +241,10 @@ namespace PH
 
 			if (start_offset + written_size + entry_size > end_offset) // batch 1024 full
 				break; 
+				/* // use vector
 			if (write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
 				break;
+				*/
 
 			// move to evict batch from hot log
 
@@ -272,10 +275,8 @@ namespace PH
 		nodeMeta->entryLoc[start_index+write_cnt+1].valid = 0;
 		nodeMeta->entryLoc[start_index+write_cnt+1].offset = base_offset+WARM_BATCH_MAX_SIZE;
 		*/
-		entryLoc.offset = start_offset + written_size;
-		nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
-		entryLoc.offset = start_offset + base_offset + WARM_BATCH_MAX_SIZE;
-		nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
+		entryLoc.offset = start_offset + written_size; // start offset includes header...
+		nodeMeta->batch_info[batch_num].el.push_back(entryLoc); // length of last leement
 
 //		nodeMeta->el_cnt[batch_num] = start_index+write_cnt+1+1-base_index;
 
@@ -336,7 +337,8 @@ namespace PH
 			int offset;
 			src_end_offset = src_base_offset + WARM_BATCH_MAX_SIZE;
 //			for(i=src_start_index;i < NODE_SLOT_MAX;i++)
-			for (i=0;i<src_nodeMeta->batch_info[src_batch_num].el.size()-1;i++)
+			el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
+			for (i=0;i<el_size-1;i++)
 			{
 				if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
 				{
