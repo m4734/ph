@@ -813,7 +813,7 @@ namespace PH
 		dst = skiplistNode->list_head-1;
 		for (i=skiplistNode->list_head-1;i>=skiplistNode->list_tail;i--)
 		{
-			li = i % WARM_NODE_ENTRY_CNT;
+			li = i % WARM_LOG_LIST_MAX;
 			ll = skiplistNode->entry_list[li];
 			dl = &doubleLogList[ll.log_num];
 			addr = dl->dramLogAddr + (ll.offset%dl->my_size);
@@ -825,7 +825,7 @@ namespace PH
 				continue;
 			}
 			if (dst != i)
-				skiplistNode->entry_list[dst%WARM_NODE_ENTRY_CNT] = skiplistNode->entry_list[li];
+				skiplistNode->entry_list[dst%WARM_LOG_LIST_MAX] = skiplistNode->entry_list[li];
 			dst--;
 		}
 
@@ -1974,8 +1974,8 @@ namespace PH
 		for (i=log_cnt;i<ln;i++)
 			log_list[i] = NULL;
 
-		child1_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
-		child2_path = (int*)malloc(WARM_NODE_ENTRY_CNT * sizeof(int));
+		child1_path = (int*)malloc(WARM_LOG_LIST_MAX * sizeof(int));
+		child2_path = (int*)malloc(WARM_LOG_LIST_MAX * sizeof(int));
 
 		temp_seg = hash_index->ret_seg();
 		read_lock = 0;

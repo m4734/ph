@@ -282,6 +282,7 @@ namespace PH
 			empty_node->next[i] = start_node->my_sa;//.value.load();
 			start_node->next[i] = end_node->my_sa;//.value.load();
 		}
+		start_node->dst_cnt = start_node->level+1; // empty and end can not be freed...
 		start_node->built = MAX_LEVEL;
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
 		empty_node->built = MAX_LEVEL;
@@ -352,6 +353,8 @@ namespace PH
 		end_node->prev = start_node;
 
 		start_node->built = MAX_LEVEL;
+		start_node->dst_cnt = start_node->level+1; // empty and end can not be freed...
+
 		//	start_node->dataNodeHeader = start_node->data_node_addr[0];
 		empty_node->built = MAX_LEVEL;
 		//	empty_node->dataNodeHeader = empty_node->data_node_addr[0];
@@ -493,7 +496,10 @@ namespace PH
 		//just use lock
 
 		if (node_pool_cnt >= NODE_POOL_SIZE && node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)
+		{
+			printf("nos pacese for node skiplilit\n");
 			return NULL;
+		}
 
 		while(node_alloc_lock);
 		at_lock2(node_alloc_lock);
@@ -626,7 +632,7 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 					int rv = next_node->dst_cnt.fetch_sub(1);
 					if (rv == 1)
 					{
-						for (j=0;j<WARM_MAX_NODE_GROUP;j++)
+						for (j=0;j<next_node->data_node_cnt;j++)
 						{
 							//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
 							//									debug_error("free888\n");
@@ -898,7 +904,7 @@ void Skiplist::setLimit(size_t size)
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
 	node->ver = 0;
-	node->key = INV64;
+//	node->key = INV64; // what does it means???
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);

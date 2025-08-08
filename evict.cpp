@@ -190,6 +190,7 @@ namespace PH
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
 		nodeMeta->batch_info[batch_num].el.clear();
+		nodeMeta->batch_info[batch_num].size_sum = 0;
 		int el_size;
 		el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
 		for (i=0;i<el_size-1;i++) // last is end and max
@@ -230,6 +231,10 @@ namespace PH
 			value_size8 = header->size;
 			value_size8 = get_v8(value_size8);
 			entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
+
+key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+if (key == 120)
+				debug_error("debug 120\n");
 
 			if (dl->tail_sum > ll.offset || header->valid_bit == false) // expired
 			{
@@ -378,6 +383,7 @@ namespace PH
 
 						//					nodeMeta->valid[slot_index] = true; // validate
 						nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
+						nodeMeta->batch_info[batch_num].size_sum+=entry_size;
 						//					++nodeMeta->valid_cnt;
 						//					if (src_addr.large) // not understand
 						//						invalidate_large_from_addr(addr);
@@ -437,11 +443,9 @@ namespace PH
 #ifdef DST_CHECK
 				EA_test(key,dst_addr);
 #endif
-
-				//					nodeMeta->valid[slot_index] = true; // validate
-//				nodeMeta->entryLoc[slot_index].valid = 1;
 				nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
-				//					++nodeMeta->valid_cnt;
+				nodeMeta->batch_info[batch_num].size_sum+=entry_size;
+
 				//					if (src_addr.large) // not understand
 				//						invalidate_large_from_addr(addr);
 				_mm_sfence();
@@ -490,7 +494,11 @@ namespace PH
 
 		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
 		if (same_batch == false)
+		{
+			src_nodeMeta->batch_info[src_batch_num].el.clear();
+			src_nodeMeta->batch_info[src_batch_num].size_sum=0;
 			at_unlock2(src_nodeMeta->rw_lock);
+		}
 
 		tee(HTW);
 		htw_cnt++;
@@ -638,6 +646,8 @@ namespace PH
 		uint64_t m_key;
 		int batch_cnt;
 
+		int entry_cnt = split_key_list.size();
+
 		size_t group1_size_sum = 0;
 		int group1_idx = 0;
 		memset(&sorted_buffer1[0],0,NODE_SIZE);
@@ -645,7 +655,7 @@ namespace PH
 		offset = NODE_HEADER_SIZE;
 		i = 0; // entry iterator
 
-		int entry_cnt = split_key_list.size();
+		batch_cnt = 0;
 
 		if (group0_size_sum > NODE_SIZE) // what does it mean? // it means split by key list // if key list is too large we will split the node by key range half
 		{
@@ -789,6 +799,7 @@ namespace PH
 		{
 			new_nodeMeta1[i] = append_group(new_nodeMeta1[i-1],WARM_LIST);
 			new_nodeAddr1[i] = new_nodeMeta1[i]->my_offset;
+			new_skiplistNode1->data_node_addr[i] = new_nodeAddr1[i];
 			/*
 			new_nodeAddr1[i] = nodeAllocator->alloc_node(WARM_LIST);
 			new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
@@ -798,6 +809,7 @@ namespace PH
 			*/
 			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
+		new_skiplistNode1->data_node_cnt = group1_idx+1;
 
 		new_nodeAddr2[0] = new_skiplistNode2->data_node_addr[0];
 		new_nodeMeta2[0] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[0]);
@@ -807,6 +819,7 @@ namespace PH
 		{
 			new_nodeMeta2[i] = append_group(new_nodeMeta1[i-1],WARM_LIST);
 			new_nodeAddr2[i] = new_nodeMeta2[i]->my_offset;
+			new_skiplistNode2->data_node_addr[i] = new_nodeAddr2[i];
 			/*
 			new_nodeAddr2[i] = nodeAllocator->alloc_node(WARM_LIST);
 			new_nodeMeta2[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr2[i]);
@@ -816,6 +829,7 @@ namespace PH
 			*/
 			at_lock2(new_nodeMeta2[i]->rw_lock); // ------------------------------- lock here!!!
 		}
+		new_skiplistNode2->data_node_cnt = group2_idx+1; // do we use this? // yes
 
 		for (i=0;i<group1_idx;i++) // connect // already appended in skiplist
 		{
@@ -839,6 +853,9 @@ namespace PH
 		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->next_addr;
 		new_nodeMeta1[0]->next_p = new_nodeMeta2[0];
 		new_nodeMeta1[0]->next_addr = new_nodeMeta2[0]->my_offset;
+
+		if (new_nodeMeta2[0]->next_p == NULL || new_nodeMeta1[0]->next_p == NULL)
+			debug_error("efef");
 
 		// 0 -> half -> next
 		// [0 -> 1 ..] / [half -> half+1 ..]
@@ -876,6 +893,7 @@ namespace PH
 		EntryAddr dst_ea;
 		EntryLoc el;
 
+		int old_group1_idx = group1_idx;
 		group1_idx = 0;
 		offset = NODE_HEADER_SIZE;
 		start_offset = new_nodeMeta1[0]->my_offset.node_offset * NODE_SIZE;
@@ -888,9 +906,8 @@ namespace PH
 		{
 			entry_size = sorted_entry_size[i];
 //			if (offset + entry_size > NODE_SIZE || j >= NODE_SLOT_MAX-1)
-			if (offset + entry_size > WARM_BATCH_MAX_SIZE)
+			if (offset + entry_size > WARM_BATCH_MAX_SIZE * (batch_cnt+1))
 			{
-				batch_cnt++;
 //				if (offset < NODE_SIZE)
 				{ // always write last length
 //					new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
@@ -902,6 +919,7 @@ namespace PH
 					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
 				}
 
+				batch_cnt++;
 				if (batch_cnt >= WARM_BATCH_CNT)
 				{
 					/*
@@ -915,6 +933,9 @@ namespace PH
 					dst_ea.file_num = new_nodeMeta1[group1_idx]->my_offset.pool_num;
 					batch_cnt = 0;
 				}
+				else
+					offset = batch_cnt*WARM_BATCH_MAX_SIZE;
+
 			}
 			//			key = key_list_buffer[i];
 			key = split_key_list[i].first;
@@ -925,7 +946,6 @@ namespace PH
 				debug_error("split erorrr1\n");
 #endif
 			el.offset = offset;
-			el.valid = 0;
 //			new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
 
 			//			if (ea.value == old_ea_list_buffer[i].value)
@@ -935,7 +955,7 @@ namespace PH
 //				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 1;
 //				new_nodeMeta1[group1_idx]->size_sum+=entry_size;
 				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].size_sum+=entry_size;
-				
+				// update ref				
 				dst_ea.large = ea.large;
 				dst_ea.size = ea.size;
 				dst_ea.offset = start_offset + offset;
@@ -944,14 +964,8 @@ namespace PH
 				EA_test(key,dst_ea);
 #endif
 			}
-			/*
 			else
-			{
-//				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
 				el.valid = 0;
-				//				new_nodeMeta1[group1_idx]->valid[j] = false;
-			}
-			*/
 
 			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
 
@@ -975,6 +989,7 @@ namespace PH
 		new_nodeMeta1[group1_idx]->el_cnt[0] = j+1;
 		*/
 //-------------------------- right part
+		int old_group2_idx = group2_idx;
 		group2_idx = 0;
 		offset = NODE_HEADER_SIZE;
 		start_offset = new_nodeMeta2[0]->my_offset.node_offset * NODE_SIZE;
@@ -987,14 +1002,14 @@ namespace PH
 		{
 			entry_size = sorted_entry_size[i];
 //			if (offset + entry_size > NODE_SIZE || j >= NODE_SLOT_MAX-1)
-			if (offset + entry_size > WARM_BATCH_MAX_SIZE)
+			if (offset + entry_size > WARM_BATCH_MAX_SIZE * (batch_cnt+1))
 			{
-				batch_cnt++;
 
 				el.valid = 0;
 				el.offset = offset;
 				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
 
+				batch_cnt++;
 /*
 				if (offset < NODE_SIZE)
 				{
@@ -1018,6 +1033,8 @@ namespace PH
 				dst_ea.file_num = new_nodeMeta2[group2_idx]->my_offset.pool_num;
 				batch_cnt = 0;
 				}
+				else
+					offset = batch_cnt*WARM_BATCH_MAX_SIZE;
 			}
 
 			//			key = key_list_buffer[i];
@@ -1032,8 +1049,6 @@ namespace PH
 
 //			new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
 			el.offset = offset;
-			el.valid = 0;
-
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
 			{
@@ -1050,13 +1065,9 @@ namespace PH
 				EA_test(key,dst_ea);
 #endif
 			}
-			/*
 			else
-			{
-				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-				//				new_nodeMeta2[group2_idx]->valid[j] = false;
-			}
-			*/
+				el.valid = 0;
+
 			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1084,10 +1095,10 @@ namespace PH
 
 		_mm_sfence();
 
-//----------------------------------------------------------
+		if (old_group1_idx != group1_idx || old_group2_idx != group2_idx)
+			debug_error("gorup miss\n");
 
-		new_skiplistNode1->data_node_cnt = group1_idx+1;
-		new_skiplistNode2->data_node_cnt = group2_idx+1; // do we use this?
+//----------------------------------------------------------
 
 #if 0
 

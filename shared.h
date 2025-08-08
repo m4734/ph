@@ -120,7 +120,7 @@ namespace PH
 	const int HARD_EVICT_RATIO = 5;
 	const int SOFT_EVICT_RATIO = 50;
 
-	const uint32_t WARM_EVICT_THRESHOLD = WARM_BATCH_MAX_SIZE*100/50;
+	const uint32_t WARM_EVICT_THRESHOLD = WARM_BATCH_MAX_SIZE*50/100;
 
 #if 1
 	struct NodeAddr

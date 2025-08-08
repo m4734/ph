@@ -277,13 +277,7 @@ namespace PH
 
 		nm->next_addr = nm->next_addr_in_group = emptyNodeAddr;
 
-#if 0 // need new el init
-		if (loc == WARM_LIST)
-			nm->init_warm_el();
-		else if (loc == COLD_LIST)
-			nm->init_cold_el();
-#endif
-		nm->el_init();
+		nm->el_init(); // warm element list init
 
 		nm->last_index = 0;
 
@@ -362,7 +356,7 @@ namespace PH
 
 		batch_index = (offset / WARM_BATCH_MAX_SIZE);
 		size = batch_info[batch_index].el.size();
-		for (i=0;i<size;i++) // linaer search // may use binary
+		for (i=0;i<size-1;i++) // linaer search // may use binary
 		{
 			if (offset == batch_info[batch_index].el[i].offset)
 			{
@@ -379,6 +373,7 @@ namespace PH
 
 		}
 		printf("failed to invalideate\n");
+		debug_error("fti\n");
 #else
 		if (ea.loc == WARM_LIST) // still have key lock // also warm to cold will be cancelled if it is invalid
 		{

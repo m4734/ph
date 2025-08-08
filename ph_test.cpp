@@ -7,33 +7,29 @@
 #include "global2.h"
 
 #if 1
+/*
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
-const size_t key_range = 200*1000*1000; // 100M *100B = 10GB
-const size_t total_ops = 5*200*1000*1000; // 1G ops
-/*
-const size_t key_range = 200*1000; // 100M *100B = 10GB
-const size_t total_ops = 5*200*1000; // 1G ops
-*/
+const size_t key_range = 100*1000*1000; // 100M *100B = 10GB
+//const size_t total_ops = 5*200*1000*1000; // 1G ops
+const size_t total_ops = 500*1000*1000; // 500Mops
 
-					//#define KEY_RANGE 1000000000 //100M = 10G
-
-					//#define THREAD_NUM 16
-					//#define PMEM_NUM 4
-					//#define EVICT_NUM 8
-
-/*
 #define THREAD_NUM 16
 #define PMEM_NUM 4
 #define EVICT_NUM 8
-#define PRINT_OPS
 */
 
-//debug
+const size_t value_size = 100;
+const size_t key_range = 100*1000; // 100k *100B = 10MB
+//const size_t total_ops = 5*200*1000*1000; // 1G ops
+const size_t total_ops = 500*1000; // 500kops
+
 #define THREAD_NUM 1
 #define PMEM_NUM 4
 #define EVICT_NUM 1
 
+//debug
+#define PRINT_OPS2
 
 enum OP_TYPE
 {
@@ -82,11 +78,12 @@ void *run(void *parameter)
 		size_t old_ops=0;
 		clock_gettime(CLOCK_MONOTONIC,&ts3);
 #endif
+		printf("run insert_op\n");
 		for (i=0;i<para->ops;i++)
 		{
 					key = (para->op_id+i)%key_range;
 			//		key = rand() % KEY_RANGE;
-//			key = key_gen();
+//			key = key_gen(); // too heavy
 			*(uint64_t*)value = key+1;
 //			para->phi->insert_op(key,value);
 			para->phi->insert_op(key,value_size,value);
@@ -102,6 +99,11 @@ void *run(void *parameter)
 				ts3 = ts4;
 
 			}
+#endif
+
+#ifdef PRINT_OPS2
+			if ((i+1) % 1000000 == 0)
+				printf("PRINT_OPS2 %ld\n",i+1);
 #endif
 
 		}
@@ -203,7 +205,7 @@ int main()
 
 	PH::PH_Interface phi;
 
-	phi.global_init(value_size,key_range,THREAD_NUM,PMEM_NUM,EVICT_NUM,0); // recovery 0
+	phi.global_init(value_size,key_range*value_size*2,THREAD_NUM,PMEM_NUM,EVICT_NUM,0); // recovery 0
 
 #if 1
 	phi.run_evict_thread();
