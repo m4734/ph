@@ -172,7 +172,7 @@ class SkiplistNode
 	//--------------------------entry in log
 
 	std::vector<uint64_t> key_list;
-	/*volatile*/ int key_list_size; 
+//	/*volatile*/ int key_list_size; 
 
 	std::vector<LogLoc> entry_list;
 //	std::queue<LogLoc> entry_list;

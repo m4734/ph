@@ -231,11 +231,11 @@ namespace PH
 			value_size8 = header->size;
 			value_size8 = get_v8(value_size8);
 			entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
-
+/*
 key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 if (key == 120)
 				debug_error("debug 120\n");
-
+*/
 			if (dl->tail_sum > ll.offset || header->valid_bit == false) // expired
 			{
 				//					node->list_size_sum-=value_size8;
@@ -1158,13 +1158,13 @@ if (key == 120)
 		 */
 
 //warm list key list redistribution --------------------------
-
-for (i=0;i<old_skiplistNode->key_list_size;i++)
+int size = old_skiplistNode->key_list.size();
+for (i=0;i<size;i++)
 {
 			if (old_skiplistNode->key_list[i] < m_key)
-				new_skiplistNode1->key_list[new_skiplistNode1->key_list_size++] = old_skiplistNode->key_list[i];
+				new_skiplistNode1->key_list.push_back(old_skiplistNode->key_list[i]);
 			else
-				new_skiplistNode2->key_list[new_skiplistNode2->key_list_size++] = old_skiplistNode->key_list[i];
+				new_skiplistNode2->key_list.push_back(old_skiplistNode->key_list[i]);
 
 }
 

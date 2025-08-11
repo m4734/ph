@@ -293,7 +293,8 @@ void DoubleLog::recover() // should be last...
 				{
 					skiplistNode = skiplist->find_node(key,prev_sa_list,next_sa_list);
 					// need lock if multi thread
-					skiplistNode->key_list[skiplistNode->key_list_size++] = key;
+					//skiplistNode->key_list[skiplistNode->key_list_size++] = key;
+					skiplistNode->key_list.push_back(key);
 					// hot to hot.... unless it is deleted
 				}
 			}

@@ -1023,7 +1023,7 @@ namespace PH
 //					node = get_skiplist_node_for_key_list(key,warm_cache);
 					node = get_skiplist_node_for_insert(key,warm_cache);
 
-					if (node->key_list_size >= WARM_KEY_LIST_MAX_TEMP) // need split
+					if (node->key_list.size() >= WARM_KEY_LIST_MAX) // need split
 					{
 						/*
 						   if (try_at_lock2(node->insert_lock) == false)
@@ -1048,14 +1048,15 @@ namespace PH
 												     //							debug_error("over\n");
 						 */
 						//						at_lock2(node->key_list_lock);
-						if (node->key_list_size >= WARM_KEY_LIST_MAX_TEMP)
+						if (node->key_list.size() >= WARM_KEY_LIST_MAX)
 						{
 //							at_unlock2(node->key_list_lock);
 							at_unlock2(node->insert_lock);
 							hash_index->unlock_entry2(seg_lock,read_lock);
 							continue; // try again and may split
 						}
-						node->key_list[node->key_list_size++] = key;
+//						node->key_list[node->key_list_size++] = key;
+						node->key_list.push_back(key);
 					}
 
 //					at_unlock2(node->key_list_lock);
@@ -1668,7 +1669,8 @@ namespace PH
 			_mm_sfence();
 #endif
 			sklt = 0;
-			for (i=0;i<skiplistNode->key_list_size;i++)
+			size = skiplistNode->key_list.size();
+			for (i=0;i<size;i++)
 			{
 				key = skiplistNode->key_list[i];
 				if (key < start_key)

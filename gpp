@@ -1,1 +1,4 @@
 g++ *.cpp -lpmem -lpthread
+g++ *.cpp -lpmem -lpthread -g
+
+sudo numactl -N 0 ./a.out

@@ -110,7 +110,8 @@ namespace PH
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
 //	const uint32_t NODE_SLOT_MAX = 80; // 4096/50 // may use WARM_LOG_LIST_MAX
-	const uint32_t WARM_KEY_LIST_MAX_TEMP = WARM_MAX_NODE_GROUP * 20; //4096/200 = 20
+	const uint32_t WARM_KEY_LIST_DEFAULT = WARM_MAX_NODE_GROUP * NODE_SIZE/EXPECTED_VALUE_SIZE;
+	const uint32_t WARM_KEY_LIST_MAX = WARM_KEY_LIST_DEFAULT * 10; //4096/200 = 20
 
 //	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than  // about 10%

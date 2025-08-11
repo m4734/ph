@@ -88,7 +88,8 @@ namespace PH
 		//remove the key from key list	
 		int j;
 		uint64_t temp1,temp2=0;	
-		for (j=key_list_size-1;j>=0;j--)
+		int size = key_list.size();
+		for (j=size-1;j>=0;j--)
 		{
 			if (key_list[j] == key)
 			{
@@ -102,9 +103,8 @@ namespace PH
 
 		if (j < 0)
 			debug_error("key is not found\n");
-
-		key_list_size--;
-
+//		key_list_size--;
+		key_list.pop_back();
 	}
 	/*
 	   void SkiplistNode::find_half_listNode() // do we have lock?
@@ -498,6 +498,7 @@ namespace PH
 		if (node_pool_cnt >= NODE_POOL_SIZE && node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)
 		{
 			printf("nos pacese for node skiplilit\n");
+			debug_error("alloc sl node space erorr\n");
 			return NULL;
 		}
 
@@ -521,6 +522,7 @@ namespace PH
 				if (node_pool_list_cnt >= SKIPLIST_NODE_POOL_LIMIT)//NODE_POOL_LIST_SIZE)
 				{
 					printf("no space for node1!\n");
+					debug_error("no space\n");
 					at_unlock2(node_alloc_lock);
 					return NULL;
 				}
@@ -540,7 +542,7 @@ namespace PH
 			node->my_sa.offset = node_pool_cnt;
 
 			//			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
-			node->key_list.resize(WARM_KEY_LIST_MAX_TEMP);
+			node->key_list.resize(WARM_KEY_LIST_DEFAULT);
 			node->entry_list.resize(WARM_LOG_LIST_MAX);//NODE_SLOT_MAX);
 
 			node_pool_cnt++;
@@ -562,7 +564,8 @@ namespace PH
 		//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 		//	node->data_node_addr = nodeAllocator->alloc_node();
 
-		node->key_list_size = 0;
+//		node->key_list_size = 0;
+		node->key_list.clear();
 
 		node->ver = node_counter.fetch_add(1);
 		node->my_sa.ver = node->ver;
