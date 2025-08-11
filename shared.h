@@ -95,6 +95,8 @@ namespace PH
 	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #endif
 
+	const uint32_t EXPECTED_VALUE_SIZE = 200;
+
 	const uint32_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
 
 	const uint32_t NODE_HEADER_SIZE = 16; //8 + 8
@@ -104,12 +106,11 @@ namespace PH
 	const uint32_t WARM_BATCH_CNT = NODE_SIZE/WARM_BATCH_MAX_SIZE;////4;
 
 //	const uint32_t WARM_NODE_ENTRY_CNT = WARM_BATCH_ENTRY_CNT*(WARM_BATCH_CNT);//(NODE_SIZE/(WARM_BATCH_SIZE+NODE_HEADER_SIZE)); //8-9 * 4
-	const uint32_t WARM_LOG_LIST_MAX = 20*WARM_MAX_NODE_GROUP; //1024/200 = 5... // 4096 / 200 // 4096 * 4 / 200
+	const uint32_t WARM_LOG_LIST_MAX = 20*WARM_MAX_NODE_GROUP; //1024/200 = 5... // 4096 / 200 // 4096 * 4 / 200 // scan list max(size) from warm node
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
-	const uint32_t NODE_SLOT_MAX = 80; // 4096/50
-
-	const uint32_t WARM_KEY_LIST_MAX_TEMP = WARM_MAX_NODE_GROUP * NODE_SLOT_MAX;
+//	const uint32_t NODE_SLOT_MAX = 80; // 4096/50 // may use WARM_LOG_LIST_MAX
+	const uint32_t WARM_KEY_LIST_MAX_TEMP = WARM_MAX_NODE_GROUP * 20; //4096/200 = 20
 
 //	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than  // about 10%

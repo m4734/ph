@@ -2252,7 +2252,7 @@ namespace PH
 		//minimum soft
 //		return (node->list_head-node->list_tail >= 8); // TEMP // TODO calc size
 		//maximaum soft		
-		return (node->list_head-node->list_tail >= NODE_SLOT_MAX-8); // TEMP // TODO calc size
+		return (node->list_head-node->list_tail >= WARM_LOG_LIST_MAX - WARM_BATCH_MAX_SIZE / EXPECTED_VALUE_SIZE);//NODE_SLOT_MAX-8); // TEMP // TODO calc size
 
 	}
 #if 0
@@ -2592,10 +2592,10 @@ namespace PH
 					//						node->entry_list[node->list_head%WARM_NODE_ENTRY_CNT] = ll;
 
 #ifdef ENTRY_LIST_CHECK
-					if (node->list_head-node->list_tail >= NODE_SLOT_MAX)
+					if (node->list_head-node->list_tail >= WARM_LOG_LIST_MAX)//NODE_SLOT_MAX)
 						debug_error("entry lsit full!!\n");
 #endif
-					node->entry_list[node->list_head%NODE_SLOT_MAX] = ll;
+					node->entry_list[node->list_head%WARM_LOG_LIST_MAX] = ll;
 					//	node->entry_list.push_back(ll);
 					//	node->entry_size_sum+=ENTRY_SIZE;
 					node->list_head++; // lock...

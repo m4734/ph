@@ -541,7 +541,7 @@ namespace PH
 
 			//			node->key_list.resize(WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT);
 			node->key_list.resize(WARM_KEY_LIST_MAX_TEMP);
-			node->entry_list.resize(NODE_SLOT_MAX);
+			node->entry_list.resize(WARM_LOG_LIST_MAX);//NODE_SLOT_MAX);
 
 			node_pool_cnt++;
 
@@ -558,7 +558,7 @@ namespace PH
 		node->list_size_sum = 0;
 //		node->current_batch_size = 0;
 //		node->current_batch_index = 0;
-		node->data_head = node->data_tail = 0;
+//		node->data_head = node->data_tail = 0;
 		//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 		//	node->data_node_addr = nodeAllocator->alloc_node();
 

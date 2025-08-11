@@ -144,18 +144,6 @@ class SkiplistNode
 
 	int next_size;
 
-	std::vector<uint64_t> key_list;
-	/*volatile*/ int key_list_size; 
-
-	std::vector<LogLoc> entry_list;
-//	std::queue<LogLoc> entry_list;
-	/*
-	LogLoc torn_entry;
-	size_t torn_left=0;
-	size_t torn_right=0;
-	*/
-//	size_t entry_size_sum=0;
-
 	volatile uint32_t ver;
 	std::atomic<int> dst_cnt;
 
@@ -181,14 +169,30 @@ class SkiplistNode
 	void setLevel(size_t l);
 //	void free();
 
+	//--------------------------entry in log
+
+	std::vector<uint64_t> key_list;
+	/*volatile*/ int key_list_size; 
+
+	std::vector<LogLoc> entry_list;
+//	std::queue<LogLoc> entry_list;
+	/*
+	LogLoc torn_entry;
+	size_t torn_left=0;
+	size_t torn_right=0;
+	*/
+//	size_t entry_size_sum=0;
+
 	int list_head,list_tail;
 	int list_size_sum;
 //	int current_batch_size;
 //	int current_batch_index;
 
-	int data_head,data_tail;
+//	int data_head,data_tail; // was linar log
 //	int remain_cnt;
 	int recent_entry_cnt;
+
+//----------------------------------------------------
 
 //	NodeAddr dataNodeHeader;
 	SkipAddr my_sa;

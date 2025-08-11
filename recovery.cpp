@@ -235,7 +235,7 @@ namespace PH
 	}
 #endif
 
-#if 0
+#if 1 // not now
 	uint64_t recover_node(NodeAddr nodeAddr,int loc,int &group_idx, EntryAddr list_addr,SkiplistNode* skiplistNode)
 	{
 		return 0;

@@ -219,7 +219,7 @@ namespace PH
 		// 
 		for (i=node->list_tail;i<node->list_head;i++)
 		{
-			li = i % NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT; // need list max
+			li = i % WARM_LOG_LIST_MAX;//NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT; // need list max
 
 			ll = node->entry_list[li];
 			dl = &doubleLogList[ll.log_num];
@@ -410,7 +410,7 @@ if (key == 120)
 
 		for (i=node->list_tail;i<i_dst;i++)
 		{
-			li = i % NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT;
+			li = i % WARM_LOG_LIST_MAX;//NODE_SLOT_MAX;//WARM_NODE_ENTRY_CNT;
 			ll = node->entry_list[li];
 			if (ll.log_num == INV_LOG)
 				continue;
@@ -489,7 +489,7 @@ if (key == 120)
 		node->list_tail = i_dst;
 		//			node->data_head+= write_cnt;
 
-		node->data_head++; // alwyas next batch
+//		node->data_head++; // alwyas next batch
 
 
 		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
@@ -974,20 +974,11 @@ if (key == 120)
 			offset+=entry_size;
 		}
 
-//		if (offset < NODE_SIZE)
-		{
-//			new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-//			new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
-			el.valid = 0;
-			el.offset = offset;
-			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
-		}
+		// what if fit
+		el.valid = 0;
+		el.offset = offset;
+		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
 
-/*
-		new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-		new_nodeMeta1[group1_idx]->entryLoc[j].offset = NODE_SIZE;
-		new_nodeMeta1[group1_idx]->el_cnt[0] = j+1;
-		*/
 //-------------------------- right part
 		int old_group2_idx = group2_idx;
 		group2_idx = 0;
@@ -1021,12 +1012,6 @@ if (key == 120)
 
 				if (batch_cnt >= WARM_BATCH_CNT)
 				{
-					/*
-				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-				new_nodeMeta2[group2_idx]->entryLoc[j].offset = NODE_SIZE;
-				new_nodeMeta2[group2_idx]->el_cnt[0] = j+1;
-				*/
-
 				group2_idx++;
 				offset = NODE_HEADER_SIZE;
 				start_offset = new_nodeMeta2[group2_idx]->my_offset.node_offset * NODE_SIZE;
@@ -1053,8 +1038,6 @@ if (key == 120)
 			if (ea.value == split_key_list[i].second.ea.value)
 			{
 				el.valid = 1;
-//				new_nodeMeta2[group2_idx]->entryLoc[j].valid = 1;
-//				new_nodeMeta2[group2_idx]->size_sum+=entry_size;
 				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].size_sum+=entry_size;
 
 				dst_ea.large = ea.large;
@@ -1075,23 +1058,9 @@ if (key == 120)
 			offset+=entry_size;
 		}
 
-/*
-		if (offset < NODE_SIZE)
-		{
-			new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-			new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
-			j++;
-		}
-		*/
 		el.valid = 0;
 		el.offset = offset;
 		new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
-
-/*
-		new_nodeMeta2[group2_idx]->entryLoc[j].valid = 0;
-		new_nodeMeta2[group2_idx]->entryLoc[j].offset = NODE_SIZE;
-		new_nodeMeta2[group2_idx]->el_cnt[0] = j+1;
-		*/
 
 		_mm_sfence();
 
@@ -1197,6 +1166,34 @@ for (i=0;i<old_skiplistNode->key_list_size;i++)
 			else
 				new_skiplistNode2->key_list[new_skiplistNode2->key_list_size++] = old_skiplistNode->key_list[i];
 
+}
+
+//warm log scan distribution
+int li;
+LogLoc ll;
+//unsigned char* addr;
+DoubleLog* dl;
+EntryHeader* header;
+
+new_skiplistNode1->list_tail = 0;
+new_skiplistNode2->list_tail = 0;
+
+for (i=old_skiplistNode->list_tail;i<old_skiplistNode->list_head;i++)
+{
+	li = i % WARM_LOG_LIST_MAX;
+	ll = old_skiplistNode->entry_list[li];
+	dl = &doubleLogList[ll.log_num];
+	addr = dl->dramLogAddr + (ll.offset%dl->my_size);
+	header = (EntryHeader*)addr;
+	if (dl->tail_sum > ll.offset || header->valid_bit == false)
+		continue;
+
+	key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+	if (key < m_key)
+		new_skiplistNode1->entry_list[new_skiplistNode1->list_head++] = ll;
+	else
+		new_skiplistNode2->entry_list[new_skiplistNode2->list_head++] = ll;
 }
 
 //skiplist link -------------------------------------------
