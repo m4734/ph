@@ -906,6 +906,9 @@ void Skiplist::setLimit(size_t size)
 
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
+	if (node->data_node_addr[1].pool_num == 2 && node->data_node_addr[1].node_offset == 1149)
+			debug_error("ehre\n");
+
 	node->ver = 0;
 //	node->key = INV64; // what does it means???
 #if 0

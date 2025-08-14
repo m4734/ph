@@ -18,6 +18,12 @@
 
 namespace PH
 {
+
+#ifdef SYNCER
+	extern std::atomic<int> evict_counter;
+	extern std::atomic<int> query_counter;
+#endif
+
 	extern thread_local PH_Thread* my_thread;
 
 	extern NodeAllocator* nodeAllocator;
@@ -2555,7 +2561,7 @@ namespace PH
 
 				// regist the log num and size_t
 #ifdef WARM_CACHE 
-				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/+value_size8);
+				warm_cache = *(NodeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE+value_size8);
 #else
 				warm_cache = emptyNodeAddr;
 #endif
@@ -2577,6 +2583,63 @@ namespace PH
 				}
 #endif
 				//					at_lock2(node->insert_lock);
+
+				// need to try flush
+				//			node->try_hot_to_warm();
+				//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
+				//					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+				//					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+				if (need_hot_to_warm(node))
+					//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
+				{
+					list_gc(node);
+					if (need_hot_to_warm(node))
+					{
+//						hot_to_warm(node,target_batch);//,false);
+						int target_batch;
+						target_batch = may_split_warm_node(node,2);
+						if (target_batch < 0)
+						{
+							continue; // node split and retry
+//							at_unlock2(node->evict_lock);
+						}
+
+						hot_to_warm(node,target_batch);
+//						at_lock2(node->evict_lock);
+//						at_unlock2(node->insert_lock); // ------------------
+									       //					try_warm_to_cold(node);
+
+						// may warm split or something
+//						if (need_warm_to_cold(node))
+//							warm_to_cold(node);
+						//					at_unlock2(node->evict_lock);
+
+						soft_htw_cnt++;
+						//							at_unlock2(node->insert_lock);
+					}
+//					else
+//						at_unlock2(node->insert_lock);
+					//						else
+					//							at_unlock2(node->insert_lock);
+#if 0
+					//						if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
+					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
+										   //						if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
+					{
+						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
+						//	at_lock2(nodeMeta->rw_lock);
+						hot_to_warm(node,false);
+						at_unlock2(node->insert_lock);
+						may_split_warm_node(node);
+						//	at_unlock2(nodeMeta->rw_lock);
+						//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
+						//	warm_to_cold(node); // in lock???
+						soft_htw_cnt++;
+					}
+#endif
+				}
+
+				// anyway hot to warm or not , the node is locked and can be inserted
 				//add entry
 				ll.log_num = dl->log_num;
 				ll.offset = dl->soft_adv_offset;
@@ -2598,76 +2661,11 @@ namespace PH
 						debug_error("entry lsit full!!\n");
 #endif
 					node->entry_list[node->list_head%WARM_LOG_LIST_MAX] = ll;
-					//	node->entry_list.push_back(ll);
-					//	node->entry_size_sum+=ENTRY_SIZE;
 					node->list_head++; // lock...
-							   //						node->list_size_sum+=ENTRY_SIZE_WITHOUT_VALUE+value_size8;
 					node->list_size_sum+=ll.size;
-
-					//						at_unlock2(node->lock);
-					//						break; // in the list // 
 				}
-				//					at_unlock2(node->insert_lock);
 
-				//					set_checked((uint64_t*)addr);
-
-				// need to try flush
-				//			node->try_hot_to_warm();
-				//	if (node->entry_size_sum >= SOFT_BATCH_SIZE)
-				//					if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-				//					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
-				if (need_hot_to_warm(node))
-					//					if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
-				{
-					list_gc(node);
-					if (need_hot_to_warm(node))
-					{
-//						hot_to_warm(node,target_batch);//,false);
-						int target_batch;
-						target_batch = may_split_warm_node(node,2);
-						if (target_batch < 0)
-						{
-							continue;
-//							at_unlock2(node->evict_lock);
-						}
-
-						hot_to_warm(node,target_batch);
-//						at_lock2(node->evict_lock);
-						at_unlock2(node->insert_lock); // ------------------
-									       //					try_warm_to_cold(node);
-
-						// may warm split or something
-//						if (need_warm_to_cold(node))
-//							warm_to_cold(node);
-						//					at_unlock2(node->evict_lock);
-
-						soft_htw_cnt++;
-						//							at_unlock2(node->insert_lock);
-					}
-					else
-						at_unlock2(node->insert_lock);
-					//						else
-					//							at_unlock2(node->insert_lock);
-#if 0
-					//						if (node->current_batch_size + node->list_size_sum > WARM_BATCH_MAX_SIZE || node->list_head - node->list_tail >= NODE_SLOT_MAX)
-					if (node->list_head - node->list_tail >= 8)//NODE_SLOT_MAX) // temp
-										   //						if (node->list_head - node->list_tail >= NODE_SLOT_MAX) // temp
-					{
-						//	NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
-						//	at_lock2(nodeMeta->rw_lock);
-						hot_to_warm(node,false);
-						at_unlock2(node->insert_lock);
-						may_split_warm_node(node);
-						//	at_unlock2(nodeMeta->rw_lock);
-						//	if (node->data_tail + (WARM_NODE_ENTRY_CNT-WARM_BATCH_ENTRY_CNT) <= node->data_head)
-						//	warm_to_cold(node); // in lock???
-						soft_htw_cnt++;
-					}
-#endif
-				}
-				else
-					at_unlock2(node->insert_lock);
-				//					at_unlock2(node->lock);
+				at_unlock2(node->insert_lock);
 			}
 
 			dl->soft_adv_offset+=LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;//LOG_ENTRY_SIZE;
@@ -2712,6 +2710,13 @@ namespace PH
 		{
 			//		update_free_cnt();
 			op_check();
+#ifdef SYNCER
+			if (evict_counter >= query_counter)
+			{
+				usleep(1);
+				continue;
+			}
+#endif
 
 			done = 1;
 			for (i=0;i<log_cnt;i++)
@@ -2749,6 +2754,9 @@ namespace PH
 				if (sleep_time > 1000*2)
 					sleep_time*=0.5;
 			}
+#endif
+#ifdef SYNCER
+	evict_counter++;
 #endif
 		}
 		run = 0;

@@ -39,14 +39,10 @@ namespace PH
 			for (j = 0;j < WARM_BATCH_CNT;j++)
 			{
 				cur_batch++;
-				/*
-				   if (node->empty_batch == cur_batch)
-				   continue;
-				 */
 				if (node->empty_batch < 0 && nodeMeta->batch_info[j].size_sum == 0)
 				{
 					node->empty_batch = cur_batch;
-					continue;
+					continue; // empty can not be target
 				}
 
 				if (min_size > nodeMeta->batch_info[j].size_sum) 
@@ -84,7 +80,7 @@ namespace PH
 #endif
 		int node_num;
 
-		unsigned char* dst_node;
+		unsigned char* dst_node_addr;
 		int i;
 		unsigned char* addr;
 		EntryHeader* header;
@@ -113,8 +109,6 @@ namespace PH
 
 		int entry_size;
 
-		bool same_batch;
-
 #ifdef HTW_KEY_CHECK
 		uint64_t wk1,wk2;
 		wk1 = node->key;
@@ -124,63 +118,57 @@ namespace PH
 
 		tes(HTW);
 
-		//		node_num = (node->data_head%WARM_GROUP_BATCH_CNT)/WARM_BATCH_CNT; // % 16 / 4
 		node_num = node->empty_batch / WARM_BATCH_CNT;
-		dst_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
+		dst_node_addr = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[node_num]);
 		NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[node_num]);
 		at_lock2(nodeMeta->rw_lock);//------------------------------------------------lock here
 
-		//		batch_num = (node->data_head)%WARM_BATCH_CNT; // % 4
 		batch_num = node->empty_batch%WARM_BATCH_CNT;
 
 		// src batch to read buffer
 
-		int src_node_num;// = (node->data_tail)%WARM_BATCH_CNT; // tail +1 ?
+		int src_node_num;
 		src_node_num = target_batch / WARM_BATCH_CNT;
-		unsigned char *src_node;
-		src_node = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[src_node_num]);
+		unsigned char *src_node_addr;
+		src_node_addr = (unsigned char*)nodeAllocator->nodeAddr_to_node(node->data_node_addr[src_node_num]);
 		NodeMeta* src_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[src_node_num]);
-		if (node_num == src_node_num)
-			same_batch = true;
-		else
-			same_batch = false;
-		if (same_batch == false)
+		
+		if (node_num != src_node_num)
 			at_lock2(src_nodeMeta->rw_lock);//------------------------------------------------lock here // dead lock when the src and dst node is same!!!
 
-		int src_start_offset,src_base_offset; // need to check valid entries form start offset
+		//batch bae offset 0 1024 2048 ... / batch_start_offset 16 1024 2048 ...
+		int src_batch_start_offset,src_batch_base_offset; // need to check valid entries form start offset
 		int src_batch_num;
-		//		int src_start_index;
-		//		src_batch_num = (node->data->tail)%WARM_BATCH_CNT;
 		src_batch_num = target_batch%WARM_BATCH_CNT;
-		src_base_offset = src_batch_num*WARM_BATCH_MAX_SIZE;
-		if (src_batch_num == 0)
-			src_start_offset = src_base_offset + NODE_HEADER_SIZE;
-		else
-			src_start_offset = src_base_offset;
-		memcpy(batch_read_buffer, src_node+src_base_offset, WARM_BATCH_MAX_SIZE);
+		src_batch_base_offset = src_batch_num*WARM_BATCH_MAX_SIZE;
 
-		//		src_start_index = src_batch_num*WARM_BATCH_ENTRY_CNT;
+		if (target_batch == node->empty_batch)
+			debug_error("src dst batch same\n");
+
+		if (src_batch_num == 0)
+			src_batch_start_offset = src_batch_base_offset + NODE_HEADER_SIZE;
+		else
+			src_batch_start_offset = src_batch_base_offset;
+		memcpy(batch_read_buffer+src_batch_base_offset, src_node_addr+src_batch_base_offset, WARM_BATCH_MAX_SIZE); // read only src batch (1024)
 
 		//------------------------------------------
 
-		base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
-							     //		base_index = batch_num*WARM_BATCH_ENTRY_CNT; // batch * 20
-							     //		start_index = base_index;
-		end_offset = base_offset + WARM_BATCH_MAX_SIZE;
+		int dst_batch_base_offset,dst_batch_start_offset;
+		dst_batch_base_offset = batch_num*WARM_BATCH_MAX_SIZE; // batch * 1024
+		end_offset = dst_batch_base_offset + WARM_BATCH_MAX_SIZE;
 
 		if (batch_num == 0) // add header size
-			start_offset = base_offset + NODE_HEADER_SIZE; // < 1024
+			dst_batch_start_offset = dst_batch_base_offset + NODE_HEADER_SIZE; // < 1024
 		else
-			start_offset = base_offset;
+			dst_batch_start_offset = dst_batch_base_offset;
 
 		// init buffers
-		memset(evict_buffer+base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
-#if 1 
-		//				node->el_cnt[batch_num] = 2; // will not need ...
+		memset(evict_buffer+dst_batch_base_offset,0,WARM_BATCH_MAX_SIZE); // 1024
+#if 0  // we dont need this ... entry header will be parsable
 		if (batch_num == 0)
-			pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE); // exccpt header
+			pmem_nt_write(dst_node+dst_batch_start_offset,evict_buffer+dst_batch_start_offset,WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE); // exccpt header
 		else
-			pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,WARM_BATCH_MAX_SIZE);
+			pmem_nt_write(dst_node+dst_batch_start_offset,evict_buffer+dst_batch_start_offset,WARM_BATCH_MAX_SIZE);
 		//batch is clean now
 #endif
 		written_size = 0;
@@ -189,8 +177,9 @@ namespace PH
 		// read form src buffer and write to evict buffer if the entry is valid
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
-		nodeMeta->batch_info[batch_num].el.clear();
+		nodeMeta->batch_info[batch_num].el.clear(); // it is dst...
 		nodeMeta->batch_info[batch_num].size_sum = 0;
+
 		int el_size;
 		el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
 		for (i=0;i<el_size-1;i++) // last is end and max
@@ -198,11 +187,9 @@ namespace PH
 			if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
 			{
 				entry_size = src_nodeMeta->batch_info[src_batch_num].el[i+1].offset-src_nodeMeta->batch_info[src_batch_num].el[i].offset;
-				memcpy(evict_buffer+written_size,batch_read_buffer+src_nodeMeta->batch_info[src_batch_num].el[i].offset,entry_size);
+				memcpy(evict_buffer+dst_batch_start_offset+written_size,batch_read_buffer+src_nodeMeta->batch_info[src_batch_num].el[i].offset,entry_size);
 
-				//				nodeMeta->batch_info[batch_num][write_cnt].valid = 0; // it is just init of dst node
-				//				nodeMeta->batch_info[batch_num][write_cnt].offset = start_offset + written_size; // 0~NODE_SIZE
-				entryLoc.offset = start_offset + written_size;
+				entryLoc.offset = dst_batch_start_offset + written_size;
 				nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
 
 				written_size+=entry_size;
@@ -211,7 +198,6 @@ namespace PH
 			}
 		}
 
-		//			target_cnt = WARM_BATCH_ENTRY_CNT - node->data_head%WARM_BATCH_ENTRY_CNT;
 		int entry_from_log_start_index = write_cnt;
 
 		//flush each entry
@@ -231,20 +217,19 @@ namespace PH
 			value_size8 = header->size;
 			value_size8 = get_v8(value_size8);
 			entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
-			/*
+			#if 0
 			   key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
-			   if (key == 120)
-			   debug_error("debug 120\n");
-			 */
+			  if (key == 194)
+			   debug_error("debug 194\n");
+			 #endif
 			if (dl->tail_sum > ll.offset || header->valid_bit == false) // expired
 			{
-				//					node->list_size_sum-=value_size8;
 				node->list_size_sum-=ll.size;
 				node->entry_list[li].log_num = INV_LOG; // invalid
 				continue;
 			}
 
-			if (start_offset + written_size + entry_size > end_offset) // batch 1024 full
+			if (dst_batch_start_offset + written_size + entry_size > end_offset) // batch 1024 full
 				break; 
 			/* // use vector
 			   if (write_cnt >= WARM_BATCH_ENTRY_CNT-1-1)//20
@@ -254,15 +239,12 @@ namespace PH
 			// move to evict batch from hot log
 
 			{
-				//				nodeMeta->batch_info[batch_num][write_cnt].valid = 0;
-				//				nodeMeta->batch_info[batch_num][write_cnt].offset = start_offset + written_size; // 0~NODE_SIZE
-				entryLoc.offset = start_offset + written_size;
+				entryLoc.offset = dst_batch_start_offset + written_size;
 				nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
 
-				//					node->list_size_sum-=value_size8;
 				node->list_size_sum-=ll.size;
 
-				memcpy(evict_buffer + start_offset + written_size,addr,entry_size);
+				memcpy(evict_buffer + dst_batch_start_offset + written_size,addr,entry_size);
 
 				written_size+=entry_size;
 				//					if (header->prev_loc != 0)
@@ -270,17 +252,10 @@ namespace PH
 
 				write_cnt++;
 				hot_to_warm_cnt++;
-
 			}
 		}
 
-		/*
-		   nodeMeta->entryLoc[start_index+write_cnt].valid = 0;
-		   nodeMeta->entryLoc[start_index+write_cnt].offset = start_offset +written_size;
-		   nodeMeta->entryLoc[start_index+write_cnt+1].valid = 0;
-		   nodeMeta->entryLoc[start_index+write_cnt+1].offset = base_offset+WARM_BATCH_MAX_SIZE;
-		 */
-		entryLoc.offset = start_offset + written_size; // start offset includes header...
+		entryLoc.offset = dst_batch_start_offset + written_size; // start offset includes header...
 		nodeMeta->batch_info[batch_num].el.push_back(entryLoc); // length of last leement
 
 		//		nodeMeta->el_cnt[batch_num] = start_index+write_cnt+1+1-base_index;
@@ -296,43 +271,33 @@ namespace PH
 		//------------------------------- pmem write
 		//buffer to pmem dst
 
+		// for pariatla write
+		// 1. write the batch except first header
+		// 2. flush and fence // need 0 end
+		// 3. write first header
+		// requries double write... // does not touch node header..
 
-		if (false && start_offset == NODE_HEADER_SIZE) // need node head flush
-		{
-			memcpy(evict_buffer,&nodeMeta->next_addr,sizeof(NodeAddr)); // warm node must be fixed
-			memcpy(evict_buffer+sizeof(NodeAddr),&nodeMeta->next_addr_in_group,sizeof(NodeAddr)); // warm node must be fixed
-			pmem_nt_write(dst_node,evict_buffer,NODE_HEADER_SIZE+written_size+ENTRY_HEADER_SIZE);
-		}
-		else
-		{
-			// we may need memset 0 
-			// we need 256 align
-#if 1
-			int padding = end_offset-start_offset-written_size;
-			padding%=256;
-			uint64_t first_header = *(uint64_t*)(evict_buffer+start_offset);
-			*(uint64_t*)(evict_buffer+start_offset) = 0;
-			pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,written_size+padding);
-			_mm_sfence();
-			//				pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,ENTRY_HEADER_SIZE); // persist--------------------
-			pmem_nt_write(dst_node+start_offset,(unsigned char*)&first_header,ENTRY_HEADER_SIZE); // persist--------------------
-			_mm_sfence();
-#else
-			pmem_nt_write(dst_node+start_offset,evict_buffer+start_offset,written_size);
-			_mm_sfence();
-#endif
-
-		}
-
+		int padding;
+		padding = WARM_BATCH_MAX_SIZE-(dst_batch_start_offset%WARM_BATCH_MAX_SIZE)-written_size;
+		pmem_nt_write(dst_node_addr+dst_batch_start_offset+ENTRY_HEADER_SIZE,evict_buffer+dst_batch_start_offset+ENTRY_HEADER_SIZE,written_size-ENTRY_HEADER_SIZE+padding);
+		_mm_sfence();
+		pmem_nt_write(dst_node_addr+dst_batch_start_offset,evict_buffer+dst_batch_start_offset,ENTRY_HEADER_SIZE); // persist--------------------
 		_mm_sfence();
 
 		//-------------------- ref change hash index
 
 		EntryAddr dst_addr,src_addr;
 		int slot_index = 0;
-		int node_offset = nodeMeta->my_offset.node_offset * NODE_SIZE;
+		int dst_node_offset = nodeMeta->my_offset.node_offset * NODE_SIZE;
+		int src_node_offset = src_nodeMeta->my_offset.node_offset * NODE_SIZE;
 
-		// invalidate from here
+		src_addr.loc = WARM_LIST;
+		src_addr.file_num = src_nodeMeta->my_offset.pool_num;
+
+		dst_addr.loc = WARM_LIST;
+		dst_addr.file_num = nodeMeta->my_offset.pool_num;
+
+		//---------------------------------------- warm to warm
 
 		// invalidate warm
 		// the node is locked and ....
@@ -340,8 +305,7 @@ namespace PH
 		{
 			int src_end_offset;
 			int offset;
-			src_end_offset = src_base_offset + WARM_BATCH_MAX_SIZE;
-			//			for(i=src_start_index;i < NODE_SLOT_MAX;i++)
+			src_end_offset = src_batch_base_offset + WARM_BATCH_MAX_SIZE;
 			el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
 			for (i=0;i<el_size-1;i++)
 			{
@@ -352,43 +316,48 @@ namespace PH
 					write_cnt++;
 					// need path information
 
-					offset = src_base_offset+src_nodeMeta->batch_info[src_batch_num].el[i].offset;
-					addr = src_node+offset;
+					offset = src_nodeMeta->batch_info[src_batch_num].el[i].offset;
+					addr = src_node_addr+offset;
 					header = (EntryHeader*)(batch_read_buffer+offset); // entry header?? // it is in node
 					key = *(uint64_t*)(batch_read_buffer+offset+ENTRY_HEADER_SIZE);
 
-					src_addr.loc = WARM_LIST;
 					src_addr.large = header->large_bit;
-					//				src_addr.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 					src_addr.size = ((EntryHeader*)addr)->size;
-					src_addr.file_num = src_nodeMeta->my_offset.pool_num;
-					src_addr.offset = offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
+					src_addr.offset = src_node_offset+offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
 
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 					if (kvp_p->value == src_addr.value)
 					{
-
 #ifdef HTW_KEY_CHECK
 						if (key < wk1 || key >= wk2)
 							debug_error("HTW_KEY_CHECK FAIL\n");
 #endif
-						// just change location
+							// valid before index...?
+
+							nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
+						nodeMeta->batch_info[batch_num].size_sum+=entry_size;
+
+					// just change location
 						dst_addr.large = src_addr.large;
 						dst_addr.size = src_addr.size;
-						dst_addr.offset = node_offset + nodeMeta->batch_info[batch_num].el[slot_index].offset;
+						dst_addr.offset = dst_node_offset + nodeMeta->batch_info[batch_num].el[slot_index].offset;
 						kvp_p->value = dst_addr.value;
 #ifdef DST_CHECK
 						EA_test(key,dst_addr);
 #endif
 
-						//					nodeMeta->valid[slot_index] = true; // validate
-						nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
-						nodeMeta->batch_info[batch_num].size_sum+=entry_size;
-						//					++nodeMeta->valid_cnt;
 						//					if (src_addr.large) // not understand
 						//						invalidate_large_from_addr(addr);
 						//						_mm_sfence();
-					} // else new kv is inserted during ....
+					}
+#if 0
+					else
+					{
+						debug_error("not now\n");
+					}
+#endif
+
+					// else new kv is inserted during ....
 					  // nothing happoend
 					slot_index++;
 					_mm_sfence(); // need?
@@ -398,10 +367,11 @@ namespace PH
 			}
 		}
 
-		// invalidate log
+//--------------------------------------------------------------
+//log to list
 
-		dst_addr.loc = 2; // warm	
-		dst_addr.file_num = nodeMeta->my_offset.pool_num;
+		src_addr.loc = HOT_LOG;
+
 		//			dst_addr.offset = nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + start_offset; //nodeMeta->my_offset.node_offset * NODE_SIZE + batch_num*WARM_BATCH_MAX_SIZE + NODE_HEADER_SIZE + (node->data_head%WARM_BATCH_ENTRY_CNT)*ENTRY_SIZE;
 
 		//			src_addr.loc = 1; //hot
@@ -420,7 +390,6 @@ namespace PH
 			header = (EntryHeader*)addr;
 			key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
 
-			src_addr.loc = HOT_LOG;
 			src_addr.large = header->large_bit;
 			//				src_addr.size = *(uint64_t*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE);
 			src_addr.size = ((EntryHeader*)addr)->size;
@@ -435,16 +404,17 @@ namespace PH
 				if (key < wk1 || key >= wk2)
 					debug_error("HTW_KEY_CHECK FAIL\n");
 #endif
+				nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
+				nodeMeta->batch_info[batch_num].size_sum+=entry_size;
+
 				// just change location
 				dst_addr.large = src_addr.large;
 				dst_addr.size = src_addr.size;
-				dst_addr.offset = node_offset + nodeMeta->batch_info[batch_num].el[slot_index].offset;
+				dst_addr.offset = dst_node_offset + nodeMeta->batch_info[batch_num].el[slot_index].offset;
 				kvp_p->value = dst_addr.value;
 #ifdef DST_CHECK
 				EA_test(key,dst_addr);
 #endif
-				nodeMeta->batch_info[batch_num].el[slot_index].valid = 1;
-				nodeMeta->batch_info[batch_num].size_sum+=entry_size;
 
 				//					if (src_addr.large) // not understand
 				//						invalidate_large_from_addr(addr);
@@ -487,18 +457,77 @@ namespace PH
 		}
 
 		node->list_tail = i_dst;
-		//			node->data_head+= write_cnt;
 
-		//		node->data_head++; // alwyas next batch
+#if 0 // DEBUG
 
+		int offset;
+		// src inde xtest here
+
+		el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
+
+		for (i=0;i<el_size-1;i++)
+		{
+			if (src_nodeMeta->batch_info[src_batch_num].el[i].valid)
+			{
+				entry_size = src_nodeMeta->batch_info[src_batch_num].el[i+1].offset-src_nodeMeta->batch_info[src_batch_num].el[i].offset;
+
+				offset = src_nodeMeta->batch_info[src_batch_num].el[i].offset;
+				addr = src_node_addr+offset;
+				header = (EntryHeader*)(addr); // entry header?? // it is in node
+				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				src_addr.large = header->large_bit;
+				src_addr.size = ((EntryHeader*)addr)->size;
+				src_addr.offset = src_node_offset+offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
+
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				if (kvp_p->value == src_addr.value)
+					debug_error("index error3\n");
+				hash_index->unlock_entry2(seg_lock,read_lock);
+			}
+		}
+		//------------------------------------------
+
+		// dst index test here ---------------------
+		el_size = nodeMeta->batch_info[batch_num].el.size();
+
+		if (el_size > 9)
+			debug_error("not now\n");
+
+		for (i=0;i<el_size-1;i++)
+		{
+			if (nodeMeta->batch_info[batch_num].el[i].valid)
+			{
+				entry_size = nodeMeta->batch_info[batch_num].el[i+1].offset-nodeMeta->batch_info[batch_num].el[i].offset;
+
+				offset = nodeMeta->batch_info[batch_num].el[i].offset;
+				addr = dst_node_addr+offset;
+				header = (EntryHeader*)(addr); // entry header?? // it is in node
+				key = *(uint64_t*)(addr+ENTRY_HEADER_SIZE);
+
+				dst_addr.large = header->large_bit;
+				dst_addr.size = ((EntryHeader*)addr)->size;
+				dst_addr.offset = dst_node_offset+offset;//%dl->my_size; // WE NEED %dl->my_size // do not use mod we need to check - overwrite
+
+				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+				if (kvp_p->value != dst_addr.value)
+					debug_error("index error\n");
+
+				hash_index->unlock_entry2(seg_lock,read_lock);
+			}
+			else
+				debug_error("index error2\n");
+		}
+		//------------------------------------------
+#endif
+
+		src_nodeMeta->batch_info[src_batch_num].el.clear();
+		src_nodeMeta->batch_info[src_batch_num].size_sum=0;
 
 		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
-		if (same_batch == false)
-		{
-			src_nodeMeta->batch_info[src_batch_num].el.clear();
-			src_nodeMeta->batch_info[src_batch_num].size_sum=0;
+
+		if (src_node_num != node_num)
 			at_unlock2(src_nodeMeta->rw_lock);
-		}
 
 		tee(HTW);
 		htw_cnt++;
@@ -817,7 +846,7 @@ namespace PH
 
 		for (i=1;i<=group2_idx;i++)
 		{
-			new_nodeMeta2[i] = append_group(new_nodeMeta1[i-1],WARM_LIST);
+			new_nodeMeta2[i] = append_group(new_nodeMeta2[i-1],WARM_LIST);
 			new_nodeAddr2[i] = new_nodeMeta2[i]->my_offset;
 			new_skiplistNode2->data_node_addr[i] = new_nodeAddr2[i];
 			/*
@@ -853,9 +882,10 @@ namespace PH
 		new_nodeMeta2[0]->next_addr = old_nodeMeta[0]->next_addr;
 		new_nodeMeta1[0]->next_p = new_nodeMeta2[0];
 		new_nodeMeta1[0]->next_addr = new_nodeMeta2[0]->my_offset;
-
+#if 0
 		if (new_nodeMeta2[0]->next_p == NULL || new_nodeMeta1[0]->next_p == NULL)
 			debug_error("efef");
+#endif
 
 		// 0 -> half -> next
 		// [0 -> 1 ..] / [half -> half+1 ..]
@@ -942,16 +972,17 @@ namespace PH
 			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
 			ea.value = kvp_p->value;
 #ifdef SPLIT_KEY_TEST
-			if (key >= new_listNode->key)
-				debug_error("split erorrr1\n");
+	//		if (key >= new_listNode->key)
+	//			debug_error("split erorrr1\n");
 #endif
 			el.offset = offset;
-			//			new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
+			el.valid = 1;
+			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
 
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
 			{
-				el.valid = 1;
+//				el.valid = 1;
 				//				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 1;
 				//				new_nodeMeta1[group1_idx]->size_sum+=entry_size;
 				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].size_sum+=entry_size;
@@ -965,9 +996,11 @@ namespace PH
 #endif
 			}
 			else
-				el.valid = 0;
-
-			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+			{
+				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.back().valid = 0;
+//				debug_error("not now\n");
+			}
+//				el.valid = 0;
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1028,16 +1061,18 @@ namespace PH
 			ea.value = kvp_p->value;
 
 #ifdef SPLIT_KEY_TEST
-			if (key < new_listNode->key)
-				debug_error("split erorrr2\n");
+//			if (key < new_listNode->key)
+//				debug_error("split erorrr2\n");
 #endif
 
 			//			new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
 			el.offset = offset;
+			el.valid = 1;
+			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
 			{
-				el.valid = 1;
 				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].size_sum+=entry_size;
 
 				dst_ea.large = ea.large;
@@ -1049,9 +1084,12 @@ namespace PH
 #endif
 			}
 			else
-				el.valid = 0;
+			{
+				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.back().valid = 0;
+//				debug_error("not now\n");
+			}
+//				el.valid = 0;
 
-			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
 
@@ -1373,8 +1411,8 @@ namespace PH
 			//			nodeMeta->list_addr = nodeAddr_to_listAddr(WARM_LIST,node->myAddr); // from other place
 			node->data_node_cnt++;
 
-			node->empty_batch = (node->data_node_cnt-1)*WARM_BATCH_CNT+1;
-			return node->empty_batch;//(node->data_node_cnt-1)*WARM_BATCH_CNT;
+			node->empty_batch = (node->data_node_cnt-1)*WARM_BATCH_CNT;
+			return node->empty_batch+1;//(node->data_node_cnt-1)*WARM_BATCH_CNT;
 		}
 		else // split
 		{

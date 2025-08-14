@@ -19,6 +19,11 @@
 namespace PH
 {
 
+#ifdef SYNCER
+extern std::atomic<int> evict_counter;
+extern std::atomic<int> query_counter;
+#endif
+
 //extern void recover_counter(uint64_t key,uint64_t version);
 
 extern CCEH* hash_index;
@@ -352,6 +357,10 @@ void DoubleLog::ready_log(int value_size8)
 		block_cnt++;
 	while(tail_sum + my_size < head_sum + required_size)
 	{
+#ifdef SYNCER
+if (evict_counter >= query_counter)
+	query_counter++;
+#endif
 		usleep(1);// sleep
 //		asm("nop");
 	}

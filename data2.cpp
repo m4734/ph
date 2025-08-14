@@ -125,7 +125,7 @@ namespace PH
 //				free(nodeMeta->entryLoc);
 				//need el free
 
-				nodeMeta->el_init();
+				//nodeMeta->el_init(); // it is not free
 			}
 			munmap(nodeMetaPoolList[i],sizeof(NodeMeta)*POOL_NODE_MAX);
 			pmem_unmap(nodePoolList[i],POOL_SIZE);
@@ -184,10 +184,13 @@ namespace PH
 				printf("is not pmem\n");
 			if (my_size != req_size)
 				printf("my size is not req size\n");
-				//need el init
+			
+			//need el init // it was alloc not init
+/*
 			for (j=0;j<POOL_NODE_MAX;j++)
 //				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->entryLoc = NULL;
 				((NodeMeta*)(nodeMetaPoolList[pool_cnt+i] + sizeof(NodeMeta)*j))->el_init();
+				*/
 
 			if (fill)
 				node_cnt[pool_cnt+i] = POOL_NODE_MAX;
@@ -365,7 +368,7 @@ namespace PH
 						debug_error("inv test fail\n");
 #endif
 					batch_info[batch_index].el[i].valid = 0;
-					//			size_sum-=(entryLoc[i+1].offset-entryLoc[i].offset);
+					batch_info[batch_index].size_sum -= (batch_info[batch_index].el[i+1].offset - batch_info[batch_index].el[i].offset);
 					at_unlock2(rw_lock);
 					return 0;
 

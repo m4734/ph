@@ -21,7 +21,9 @@
 
 //------------------------------
 
-//#define CC // cor check
+//#define SYNCER // single thread order syncer for debug
+
+//#define CC // correctness check
 
 #ifdef CC
 

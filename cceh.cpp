@@ -1161,8 +1161,10 @@ retry:
 
 	KVP* CCEH::insert(uint64_t &key,std::atomic<uint8_t> **unlock_p,volatile uint8_t &read_lock)
 	{
-//		if (key == 7UL)
-//			debug_error("hash key test\n");
+#if 0 // debug
+		if (key == 386UL)
+			debug_error("hash key test\n");
+#endif
 		KVP* ret;
 		while(true)
 		{

@@ -23,6 +23,10 @@ namespace PH
 	std::atomic<uint64_t> time_cnt[TIME_LIST_END];
 //	thread_local TimeEntry timeEntry[TIME_LIST_END];
 
+#ifdef SYNCER
+	std::atomic<int> evict_counter;
+	std::atomic<int> query_counter;
+#endif
 
 	void debug_error(const char* msg)
 	{
