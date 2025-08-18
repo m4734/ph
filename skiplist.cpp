@@ -553,6 +553,10 @@ namespace PH
 		//common init
 		//	node->next = NULL;
 		node->setLevel();
+		#if 1
+		if (node->dst_cnt != 0)
+			debug_error("dst+cnt\n");
+#endif
 		node->dst_cnt = node->level+1;
 		node->recent_entry_cnt = 0;
 
@@ -681,7 +685,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
-							for (j=0;j<next_node->data_node_cnt/*WARM_MAX_NODE_GROUP*/;j++)
+							for (j=0;j<next_node->data_node_cnt;j++)
 							{
 								//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
 								//									debug_error("free333\n");
@@ -906,11 +910,8 @@ void Skiplist::setLimit(size_t size)
 
 void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
 {
-	if (node->data_node_addr[1].pool_num == 2 && node->data_node_addr[1].node_offset == 1149)
-			debug_error("ehre\n");
-
 	node->ver = 0;
-//	node->key = INV64; // what does it means???
+	node->key = INV64; // what does it means??? // IT PREVENT WARM CACHE BUG AND DEADLOCK
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);

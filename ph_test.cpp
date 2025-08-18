@@ -7,7 +7,7 @@
 #include "global2.h"
 
 #if 1
-#if 0
+#if 1
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
 const size_t key_range = 100*1000*1000; // 100M *100B = 10GB
@@ -23,7 +23,7 @@ const size_t key_range = 100*1000*mul; // 100k *100B = 10MB
 const size_t total_ops = 500*1000*mul; // 500kops
 #endif
 
-#if 0
+#if 1
 #define THREAD_NUM 16
 #define PMEM_NUM 4
 #define EVICT_NUM 8
