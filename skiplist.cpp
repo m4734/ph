@@ -436,6 +436,7 @@ namespace PH
 #ifdef SKIPLIST_TRAVERSE_TEST
 		uint64_t k1,k2;
 		int cnt0=0;
+		int node_cnt=0;
 		SkiplistNode* node;
 		NodeAddr dataNode_addr;
 		NodeAddr next_dataNode_addr;
@@ -444,40 +445,22 @@ namespace PH
 		dataNode_addr = node->data_node_addr[0];
 		next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
 
-		k1 = 0;
-
 		while(node != end_node)
 		{
-			//		   node = skiplist->sa_to_node(node->next[0]);
 			node = find_next_node(node);
 			cnt0++;
 
+			node_cnt+=node->data_node_cnt;
 			dataNode_addr = node->data_node_addr[0];
 			if (dataNode_addr != next_dataNode_addr)
 				debug_error("link brok\n");
-#if 0
-			k2 = find_skip_min(node);
-			if (k1 >= k2)
-			{
-				debug_error("key revser\n");
-				k2 = find_skip_min(node);
-			}
-			if (k2 == KEY_MAX)
-			{
-				k2 = 0;
-			}
-			k1 = k2;
-#endif
-
 			//---------------
 			next_dataNode_addr = nodeAllocator->nodeAddr_to_node(dataNode_addr)->next_offset;
 
 		}
-		printf("warm node cnt %d = %lfGB?\n",cnt0,(double)cnt0*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
+		printf("warm list cnt %d\n",cnt0);
+		printf("warm node cnt %d = %lfGB\n",node_cnt,(double)node_cnt*NODE_SIZE/1024/1024/1024);
 #endif
-		size_t cnt = node_pool_list_cnt*NODE_POOL_SIZE+node_pool_cnt;
-		printf("warm list cnt %ld max size %lfGB\n",cnt,double(cnt)*WARM_MAX_NODE_GROUP*NODE_SIZE/1024/1024/1024);
-
 		int i,j;
 		for (i=0;i<=node_pool_list_cnt;i++)
 		{
@@ -630,12 +613,13 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 					int rv = next_node->dst_cnt.fetch_sub(1);
 					if (rv == 1)
 					{
+						/* // no lazy delete
 						for (j=0;j<next_node->data_node_cnt;j++)
 						{
 							//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-							//									debug_error("free888\n");
 							nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 						}
+						*/
 						free_sl_node(next_node);
 					}
 				}
@@ -676,12 +660,13 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
+							/* no lazy delete
 							for (j=0;j<next_node->data_node_cnt;j++)
 							{
 								//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-								//									debug_error("free333\n");
 								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
 							}
+							*/
 							free_sl_node(next_node);
 						}
 					}
@@ -900,6 +885,14 @@ void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next
 {
 	node->ver = 0;
 	node->key = INV64; // what does it means??? // IT PREVENT WARM CACHE BUG AND DEADLOCK
+
+	//delete data node now
+	// lazy delete will consume capacity until all scan
+
+	int i;
+	for (i=0;i<node->data_node_cnt;i++)
+		nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[i])); // it should be clear that no one access here
+
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);
@@ -1031,17 +1024,43 @@ void Skiplist::traverse_test()
 	}
 #endif
 
+	uint64_t size_sum=0;
+	int entry_cnt=0;
+	int node_cnt=0;
+	int list_cnt=0;
+	int i,j,k,size;
+
 	if (sr)
 	{
-		skiplistNode = start_node;
+		skiplistNode = empty_node;
 		while(skiplistNode != end_node)
 		{
+			list_cnt++;
+			node_cnt+=skiplistNode->data_node_cnt;
 			//			if (skiplistNode->my_listNode == NULL)
 			//				debug_error("no linked listNode\n");
+			for (i=0;i<skiplistNode->data_node_cnt;i++)
+			{
+				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplistNode->data_node_addr[i]);
+				for (j=0;j<WARM_BATCH_CNT;j++)
+				{
+					size = nodeMeta->batch_info[j].el.size();
+					for (k=0;k<size-1;k++)
+					{
+						if (nodeMeta->batch_info[j].el[k].valid)
+							entry_cnt++;
+					}
+					size_sum+=nodeMeta->batch_info[j].size_sum;
+				}
+			}
+
+
 			ps = skiplistNode;
 			skiplistNode = find_next_node(skiplistNode);
 		}
 	}
+	printf("entry cnt %d size_sum %lu\n",entry_cnt,size_sum);
+	printf("list cnt %d node cnt %d\n",list_cnt,node_cnt);
 
 }
 

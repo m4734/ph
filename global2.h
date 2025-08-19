@@ -69,6 +69,8 @@ namespace PH
 
 			void global_reset_test();
 
+			void test();
+
 			//Skiplist* skiplist;
 			//PH_List* list;
 

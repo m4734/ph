@@ -107,6 +107,11 @@ void PH_Interface::global_reset_test()
 	timeInit();
 }
 
+void PH_Interface::test()
+{
+	skiplist->traverse_test();
+}
+
 void PH_Interface::new_query_thread()
 {
 	if (my_query_thread)

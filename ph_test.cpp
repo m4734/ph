@@ -20,7 +20,7 @@ const int mul = 1;
 const size_t value_size = 100;
 const size_t key_range = 1000;//*1000*mul; // 100k *100B = 10MB
 //const size_t total_ops = 5*200*1000*1000; // 1G ops
-const size_t total_ops = 100;//*1000*mul; // 500kops
+const size_t total_ops = 1000;//*1000*mul; // 500kops
 #endif
 
 #if 1
@@ -222,8 +222,12 @@ int main()
 
 	printf("loaded-----------------------------------------\n");
 
+	phi.test();
+
 //	work(phi,ops,READ_OP);
 	work(phi,ops,INSERT_OP);
+
+	phi.test();
 #endif
 	phi.global_clean();
 	printf("ph_test end\n");
