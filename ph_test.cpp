@@ -15,12 +15,12 @@ const size_t key_range = 100*1000*1000; // 100M *100B = 10GB
 const size_t total_ops = 500*1000*1000; // 500Mops
 #else
 //test
-const int mul = 100;
+const int mul = 1;
 
 const size_t value_size = 100;
-const size_t key_range = 100*1000*mul; // 100k *100B = 10MB
+const size_t key_range = 1000;//*1000*mul; // 100k *100B = 10MB
 //const size_t total_ops = 5*200*1000*1000; // 1G ops
-const size_t total_ops = 500*1000*mul; // 500kops
+const size_t total_ops = 100;//*1000*mul; // 500kops
 #endif
 
 #if 1

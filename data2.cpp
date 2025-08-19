@@ -44,7 +44,7 @@ namespace PH
 			list_nodeMeta->next_addr_in_group = new_nodeMeta->my_offset;
 			new_nodeMeta->group_cnt = list_nodeMeta->group_cnt+1;
 
-			//			new_nodeMeta->list_addr.value = list_nodeMeta->list_addr.value;
+			new_nodeMeta->list_addr.value = list_nodeMeta->list_addr.value; // skiplist addr
 		}
 		else
 		{

@@ -369,6 +369,7 @@ namespace PH
 		//		scan_result.clean();
 
 		check_end();
+		reset_test();
 	}	
 
 	SkiplistNode* PH_Thread::get_skiplist_node_for_insert(uint64_t key,NodeAddr warm_cache) // need prev next sa list
@@ -482,6 +483,7 @@ namespace PH
 		}
 		else if (ea.loc == WARM_LIST)
 		{
+#if 1
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
 			if (nm->list_addr.loc != WARM_LIST)
 				return emptyNodeAddr;
@@ -494,26 +496,8 @@ namespace PH
 			else
 				wc = nm->list_addr;
 #endif
-		}
-		else
-		{
-			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
-			if (nm->list_addr.loc != COLD_LIST)
-				return emptyNodeAddr;
-#if 1
-			ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.file_num][nm->list_addr.offset];
-			wc = listNode->warm_cache;
-#else
-			if (nm->list_addr.pool_num > list->node_pool_list_cnt || (nm->list_addr.pool_num == list->node_pool_list_cnt && nm->list_addr.node_offset > list->node_pool_cnt))
-				wc = emptyNodeAddr;
-			else
-			{
-				ListNode* listNode = (ListNode*)&list->node_pool_list[nm->list_addr.pool_num][nm->list_addr.node_offset];
-				wc = listNode->warm_cache;
-			}
 #endif
 		}
-
 		return wc;
 	}
 
@@ -2014,6 +1998,7 @@ namespace PH
 		evict_thread_list[thread_id].exit = 0;
 
 		check_end();
+		reset_test();
 	}
 
 #define SPLIT_WITH_LIST_LOCK

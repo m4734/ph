@@ -553,22 +553,13 @@ namespace PH
 		//common init
 		//	node->next = NULL;
 		node->setLevel();
-		#if 1
-		if (node->dst_cnt != 0)
-			debug_error("dst+cnt\n");
-#endif
 		node->dst_cnt = node->level+1;
 		node->recent_entry_cnt = 0;
 
 		node->list_head = node->list_tail = 0;
 		node->list_size_sum = 0;
-//		node->current_batch_size = 0;
-//		node->current_batch_index = 0;
-//		node->data_head = node->data_tail = 0;
-		//	node->remain_cnt = WARM_BATCH_ENTRY_CNT; //8
 		//	node->data_node_addr = nodeAllocator->alloc_node();
 
-//		node->key_list_size = 0;
 		node->key_list.clear();
 
 		node->ver = node_counter.fetch_add(1);
@@ -821,25 +812,22 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next, Node
 	return find_node(key,prev,next);
 #endif
 	SkiplistNode* node;// = start_node;
-	SkiplistNode* next_node;
-	SkipAddr next_sa;
 	if (warm_cache != emptyNodeAddr)
 	{
 		node = &skiplist->node_pool_list[warm_cache.pool_num][warm_cache.node_offset];
-		return node;	
-		//	node = sa_to_node(sa);
-		next_sa.value = node->next[0].value.load();
-		next_node = sa_to_node(next_sa);
-		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
-		{
 #ifdef WARM_STAT
+//		if (node->key <= key && key < next_node->key && next_node->ver == next_sa.ver) 
+		if (node->ver == 0 || node->key > key || find_next_node(node)->key <= key)
+		{
+			my_thread->warm_miss_cnt++;
+		}
+		else
+		{
 			my_thread->warm_hit_cnt++;
-#endif
 			return node;
 		}
-#ifdef WARM_STAT
-		else
-			my_thread->warm_miss_cnt++;
+#else
+		return node;	
 #endif
 	}
 #ifdef WARM_STAT
