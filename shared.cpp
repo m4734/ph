@@ -15,7 +15,6 @@ namespace PH
 	extern NodeAllocator* nodeAllocator;
 	//	extern size_t WARM_BATCH_ENTRY_CNT;
 	//	extern size_t ENTRY_SIZE;
-	extern PH_List* list;
 	extern Skiplist* skiplist;
 	extern LargeAlloc* largeAlloc;
 
@@ -181,7 +180,6 @@ namespace PH
 	void invalidate_entry(EntryAddr &ea,bool inv_large, bool try_merge) // need kv lock
 	{
 		unsigned char* addr;
-
 
 		if (ea.loc == HOT_LOG)// || ea.loc == WARM_LOG) // hot log
 		{

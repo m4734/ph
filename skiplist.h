@@ -42,80 +42,6 @@ struct LogLoc
 	size_t offset;
 };
 
-class ListNode
-{
-	public:
-	ListNode() : key(0), next(NULL), prev(NULL), lock(0),block_cnt(0) {};
-
-	size_t key;
-	ListNode* volatile next; // pointer should be voaltile
-	ListNode* volatile prev;
-
-	NodeAddr myAddr;
-
-//	NodeMeta* my_node;
-	/*volatile*/ NodeAddr warm_cache;
-
-	NodeAddr data_node_addr; // changed by split // in lock
-//	std::atomic<NodeAddr> data_node_addr;
-//	/*volatile*/ uint64_t data_node_addr;
-
-	int block_cnt;
-	int hold;
-
-//	std::atomic<uint8_t> valid_cnt; // 256 ...
-//	std::atomic<uint64_t> size_sum;
-//	int size_sum;
-	std::atomic<uint8_t> lock;
-};
-
-class PH_List
-{
-	public:
-
-	ListNode* empty_node;
-	ListNode* start_node;
-	ListNode* end_node;
-
-	ListNode** node_pool_list;
-//	std::vector<ListNode*> node_pool_list;
-	size_t node_pool_cnt;
-	size_t node_pool_list_cnt;
-
-	std::atomic<uint8_t> node_alloc_lock;
-	ListNode* node_free_head;
-
-	void init();
-	void clean();
-
-	ListNode* alloc_list_node();
-	void free_list_node(ListNode* node);
-
-	ListNode* find_node(size_t key,ListNode* node);
-	void insert_node(ListNode* prev,ListNode* node);
-	void delete_node(ListNode* node);
-
-	void recover();
-	void recover_init();
-/*
-	inline ListNode* addr_to_listNode(NodeAddr &list_addr) // have to be loc 3
-	{
-		return (ListNode*)&node_pool_list[list_addr.pool_num][list_addr.node_offset];
-	}
-	*/
-
-
-	inline ListNode* addr_to_listNode(EntryAddr &list_addr) // have to be loc 3
-	{
-		return (ListNode*)&node_pool_list[list_addr.file_num][list_addr.offset];
-	}
-	
-
-};
-
-bool try_reduce_group(ListNode* listNode);
-bool try_merge_listNode(ListNode* left_listNode,ListNode* right_listNode);
-
 //struct SkiplistNode
 
 class SkiplistNode
@@ -266,19 +192,5 @@ class Skiplist
 
 	void traverse_test();
 };
-
-//	bool need_reduce(ListNode* listNode);
-#if 1
-	inline bool need_reduce(ListNode* listNode)
-	{
-//		return (listNode->valid_cnt + NODE_SLOT_MAX*2 < listNode->block_cnt * NODE_SLOT_MAX); // try shorten group
-//		return (((listNode->valid_cnt-1) / NODE_SLOT_MAX + 1)+1 < listNode->block_cnt); // try shorten group
-		return false;
-
-	}
-#endif
-
-
-//void test_before_free(ListNode* listNode);
 
 }

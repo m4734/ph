@@ -21,7 +21,6 @@ extern PH_Query_Thread query_thread_list[QUERY_THREAD_MAX];
 extern PH_Evict_Thread evict_thread_list[EVICT_THREAD_MAX];
 
 extern Skiplist* skiplist;
-extern PH_List* list;
 extern LargeAlloc* largeAlloc;
 
 extern NodeAllocator* nodeAllocator;
@@ -210,11 +209,6 @@ void PH_Interface::global_init(int VS,size_t max_data_size,int n_t,int n_p,int n
 // alloc 1 list end
 // alloc 2 skiplist start
 // alloc 3 skiplist end
-	list = new PH_List;
-	if (recover)
-		list->recover_init();
-	else
-		list->init();
 	skiplist = new Skiplist;
 	if (recover)
 		skiplist->recover_init(TOTAL_DATA_SIZE);
@@ -235,8 +229,6 @@ void PH_Interface::global_init(int VS,size_t max_data_size,int n_t,int n_p,int n
 
 		new_query_thread();
 
-		list->recover();
-		printf("cold list\n");
 		skiplist->recover();
 		printf("warm list\n");
 		recover_log();
@@ -331,8 +323,6 @@ void PH_Interface::global_clean()
 printf("cc\n");
 	skiplist->clean();
 	delete skiplist;
-	list->clean();
-	delete list;
 printf("ccc\n");
 	nodeAllocator->clean();
 

@@ -80,7 +80,6 @@ namespace PH
 #endif
 
 	extern Skiplist* skiplist;
-	extern PH_List* list;
 
 	uint64_t test_the_index(KVP kvp)
 	{
