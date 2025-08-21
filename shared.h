@@ -11,10 +11,7 @@
 #define HOT_KEY_LIST
 #define WARM_CACHE
 #define SCAN_SORT
-#define USE_DTC
 #define LARGE_ALLOC
-//#define FORCE_HOT_TO_COLD
-//#define FORCE_DTC
 //-----------------------------
 
 //#define SCAN_TIME
@@ -43,7 +40,7 @@
 
 //--------------perf
 
-#define STAT
+//#define STAT
 #ifdef STAT
 
 #define WARM_STAT
@@ -88,8 +85,8 @@ namespace PH
 #if 1 // big
 	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 4;//8; // 2 4 8?
-	const uint32_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
+	const uint32_t WARM_MAX_NODE_GROUP = 4*2;//8; // 2 4 8?
+	const uint32_t MAX_NODE_GROUP = WARM_MAX_NODE_GROUP;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
 
@@ -97,7 +94,7 @@ namespace PH
 	const size_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #endif
 
-	const uint32_t EXPECTED_VALUE_SIZE = 200;
+	const uint32_t EXPECTED_ENTRY_SIZE = 100+20;//200; // temp
 
 	const uint32_t WARM_BATCH_MAX_SIZE = 1024; // 1KB
 
@@ -112,7 +109,7 @@ namespace PH
 	const uint32_t WARM_GROUP_BATCH_CNT = WARM_BATCH_CNT * WARM_MAX_NODE_GROUP; // 4*4 = 16
 
 //	const uint32_t NODE_SLOT_MAX = 80; // 4096/50 // may use WARM_LOG_LIST_MAX
-	const uint32_t WARM_KEY_LIST_DEFAULT = WARM_MAX_NODE_GROUP * NODE_SIZE/EXPECTED_VALUE_SIZE;
+	const uint32_t WARM_KEY_LIST_DEFAULT = WARM_MAX_NODE_GROUP * NODE_SIZE/EXPECTED_ENTRY_SIZE;
 	const uint32_t WARM_KEY_LIST_MAX = WARM_KEY_LIST_DEFAULT * 10; //4096/200 = 20
 
 //	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
@@ -123,8 +120,9 @@ namespace PH
 
 	const int HARD_EVICT_RATIO = 5;
 	const int SOFT_EVICT_RATIO = 50;
-
-	const uint32_t WARM_EVICT_THRESHOLD = WARM_BATCH_MAX_SIZE*50/100;
+	
+	const int VALID_RATIO = 50;
+	const uint32_t WARM_EVICT_THRESHOLD = WARM_BATCH_MAX_SIZE*VALID_RATIO/*80*//100; // NODE_HEADER_SIZE
 
 #if 1
 	struct NodeAddr
@@ -133,7 +131,7 @@ namespace PH
 		//	size_t pool_num : 10;
 		//	size_t offset : 52;
 		uint32_t pool_num;
-		uint32_t node_offset;
+		uint32_t node_offset; // 2^31-1
 //		uint16_t pool_num;
 //		uint16_t node_offset; // need * NODE_SIZE
 		bool operator==(const NodeAddr &na)

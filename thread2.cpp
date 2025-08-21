@@ -2241,10 +2241,9 @@ namespace PH
 
 	inline bool need_hot_to_warm(SkiplistNode* node)
 	{
-		//minimum soft
-//		return (node->list_head-node->list_tail >= 8); // TEMP // TODO calc size
-		//maximaum soft		
-		return (node->list_head-node->list_tail >= WARM_LOG_LIST_MAX - WARM_BATCH_MAX_SIZE / EXPECTED_VALUE_SIZE);//NODE_SLOT_MAX-8); // TEMP // TODO calc size
+		if (node->list_head - node->list_tail >= WARM_LOG_LIST_MAX)
+			return true;
+		return ((node->list_head-node->list_tail)*EXPECTED_ENTRY_SIZE >= WARM_BATCH_MAX_SIZE-NODE_HEADER_SIZE);// TEMP // TODO calc size // may use size sum
 
 	}
 #if 0
@@ -2430,18 +2429,16 @@ namespace PH
 
 				//				tee(SKIP_LOCK);
 
-				int target_batch;
-				target_batch = may_split_warm_node(node,2);
-				if (target_batch < 0)
-				{
+				if (may_split_warm_node(node,2))
 					continue;
-				}
+				//if (target_batch < 0) // split suceesss
+				//	continue;
 
 				//NodeMeta* nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr);
 				//at_lock2(nodeMeta->rw_lock);
 				//				hot_to_warm(node,false); // always partial...
 				//				at_lock2(node->insert_lock);
-				hot_to_warm(node,target_batch);
+				hot_to_warm(node);
 //				at_lock2(node->evict_lock);
 				at_unlock2(node->insert_lock);
 				//				try_warm_to_cold(node);
@@ -2580,6 +2577,7 @@ namespace PH
 					if (need_hot_to_warm(node))
 					{
 //						hot_to_warm(node,target_batch);//,false);
+/*
 						int target_batch;
 						target_batch = may_split_warm_node(node,2);
 						if (target_batch < 0)
@@ -2587,16 +2585,15 @@ namespace PH
 							continue; // node split and retry
 //							at_unlock2(node->evict_lock);
 						}
+						*/
+						if (may_split_warm_node(node,2))
+							continue;
 
-						hot_to_warm(node,target_batch);
+						hot_to_warm(node);
 //						at_lock2(node->evict_lock);
 //						at_unlock2(node->insert_lock); // ------------------
 									       //					try_warm_to_cold(node);
 
-						// may warm split or something
-//						if (need_warm_to_cold(node))
-//							warm_to_cold(node);
-						//					at_unlock2(node->evict_lock);
 
 						soft_htw_cnt++;
 						//							at_unlock2(node->insert_lock);
@@ -2652,6 +2649,7 @@ namespace PH
 				at_unlock2(node->insert_lock);
 			}
 
+			// padding
 			dl->soft_adv_offset+=LOG_ENTRY_SIZE_WITHOUT_VALUE + value_size8;//LOG_ENTRY_SIZE;
 			if ((dl->soft_adv_offset)%dl->my_size  + NODE_SIZE/*LOG_ENTRY_SIZE*/ > dl->my_size)
 				dl->soft_adv_offset+=(dl->my_size-(dl->soft_adv_offset%dl->my_size));

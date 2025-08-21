@@ -70,6 +70,7 @@ namespace PH
 //			void split_empty_warm_node(SkiplistNode* old_skiplistNode);
 			int may_split_warm_node(SkiplistNode* node,const int has_lock); // return target batch if didin't split
 			void flush_warm_node(SkiplistNode* node);
+			void compact_node(SkiplistNode *old_skiplistNode);
 //			void try_cold_split(ListNode* listNode,SkiplistNode* node);
 			//	void try_reduce_group(ListNode* listNode);
 

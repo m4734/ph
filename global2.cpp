@@ -353,10 +353,7 @@ printf("ccc\n");
 	printf("soft htw %lu hard htw %lu\n",soft_htw_sum.load(),hard_htw_sum.load());
 
 	if (soft_htw_sum + hard_htw_sum > 0)
-		printf("avg evict %lf\n",double(hot_to_warm_sum.load()+warm_to_warm_sum.load())/(soft_htw_sum.load()+hard_htw_sum.load()));
-
-	if (direct_to_cold_sum > 0)
-		printf("dtc time avg %lu\n",dtc_time_sum/direct_to_cold_sum);
+		printf("avg evict %lf\n",double(hot_to_warm_sum.load()/*+warm_to_warm_sum.load()*/)/(soft_htw_sum.load()+hard_htw_sum.load()));
 
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());

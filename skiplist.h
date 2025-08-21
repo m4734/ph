@@ -127,6 +127,7 @@ class SkiplistNode
 //	NodeMeta* nodeMeta_p[WARM_MAX_NODE_GROUP];
 
 //	inline unsigned char* get_entry(int index);
+	int target_batch;
 	int empty_batch;
 };
 

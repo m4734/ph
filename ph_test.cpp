@@ -6,7 +6,8 @@
 
 #include "global2.h"
 
-#if 1
+#if 1 // ph_test main build
+
 #if 1
 //#define VALUE_SIZE 100
 const size_t value_size = 100;
@@ -18,9 +19,9 @@ const size_t total_ops = 500*1000*1000; // 500Mops
 const int mul = 1;
 
 const size_t value_size = 100;
-const size_t key_range = 1000;//*1000*mul; // 100k *100B = 10MB
+const size_t key_range = 1000*1000*mul; // 100k *100B = 10MB
 //const size_t total_ops = 5*200*1000*1000; // 1G ops
-const size_t total_ops = 1000;//*1000*mul; // 500kops
+const size_t total_ops = 1000*1000*mul; // 500kops
 #endif
 
 #if 1
