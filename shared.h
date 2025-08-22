@@ -40,7 +40,7 @@
 
 //--------------perf
 
-//#define STAT
+#define STAT
 #ifdef STAT
 
 #define WARM_STAT
@@ -85,7 +85,7 @@ namespace PH
 #if 1 // big
 	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 4*2;//8; // 2 4 8?
+	const uint32_t WARM_MAX_NODE_GROUP = 4*4;//8; // 2 4 8?
 	const uint32_t MAX_NODE_GROUP = WARM_MAX_NODE_GROUP;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
@@ -110,7 +110,7 @@ namespace PH
 
 //	const uint32_t NODE_SLOT_MAX = 80; // 4096/50 // may use WARM_LOG_LIST_MAX
 	const uint32_t WARM_KEY_LIST_DEFAULT = WARM_MAX_NODE_GROUP * NODE_SIZE/EXPECTED_ENTRY_SIZE;
-	const uint32_t WARM_KEY_LIST_MAX = WARM_KEY_LIST_DEFAULT * 10; //4096/200 = 20
+	const uint32_t WARM_KEY_LIST_MAX = WARM_KEY_LIST_DEFAULT * 2; //4096/200 = 20
 
 //	const int WARM_COLD_MAX_RATIO = 14; // split when bigger than  // about 10%
 	const int WARM_COLD_MAX_RATIO = 20; // split when bigger than  // about 10%
@@ -122,6 +122,7 @@ namespace PH
 	const int SOFT_EVICT_RATIO = 50;
 	
 	const int VALID_RATIO = 50;
+	const int COMPACT_RATIO = 80;
 	const uint32_t WARM_EVICT_THRESHOLD = WARM_BATCH_MAX_SIZE*VALID_RATIO/*80*//100; // NODE_HEADER_SIZE
 
 #if 1

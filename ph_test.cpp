@@ -6,7 +6,7 @@
 
 #include "global2.h"
 
-#if 1 // ph_test main build
+#if 0 // ph_test main build
 
 #if 1
 //#define VALUE_SIZE 100

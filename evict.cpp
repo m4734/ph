@@ -2310,7 +2310,7 @@ namespace PH
 			for (j=0;j<WARM_BATCH_CNT;j++)
 				size_sum+=nodeMeta->batch_info[j].size_sum;
 		}
-		if (size_sum < WARM_MAX_NODE_GROUP * NODE_SIZE * VALID_RATIO/100) //compaction
+		if (size_sum < WARM_MAX_NODE_GROUP * NODE_SIZE * COMPACT_RATIO/100) //compaction
 		{
 			compact_node(node);
 			return 1; // retry without unlock
