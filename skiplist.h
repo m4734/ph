@@ -64,7 +64,7 @@ class SkiplistNode
 //	std::vector<AtomicPointer> next;
 //	std::atomic<SkiplistNode*> *next = NULL;
 //	std::vector<SkipAddr> next; // don't want MAX LEVEL space
-	SkipAddr *next;
+	SkipAddr *next; // may need atomic
 //	volatile uint64_t *next;
 //	std::atomic<uint64_t> *next;
 

@@ -991,9 +991,6 @@ namespace PH
 		// 2 alloc...
 
 		int entry_size;
-		//		EntryHeader end_jump;
-		//		end_jump.value = 0;
-
 		int j;
 		unsigned char* src_addr;
 		int value_size8;
@@ -1220,7 +1217,9 @@ namespace PH
 			sorted_buffer2[i].next_offset_in_group = new_nodeMeta2[i+1]->my_offset;
 		}
 
+		sorted_buffer1[group1_idx].next_offset = emptyNodeAddr;
 		sorted_buffer1[group1_idx].next_offset_in_group = emptyNodeAddr;
+		sorted_buffer2[group2_idx].next_offset = emptyNodeAddr;
 		sorted_buffer2[group2_idx].next_offset_in_group = emptyNodeAddr;
 
 		new_nodeMeta2[0]->next_p = old_nodeMeta[0]->next_p;
@@ -1450,94 +1449,6 @@ namespace PH
 */
 		//----------------------------------------------------------
 
-#if 0
-
-		// link the list
-		// link pmem first then dram...
-
-		// don't alloc new node...
-		listNode->data_node_addr = new_nodeMeta1[0]->my_offset;
-		new_listNode->data_node_addr = new_nodeMeta2[0]->my_offset;
-
-
-		if (new_listNode->key > listNode->next->key)
-			debug_error("reverse key\n");
-		if (listNode->key == new_listNode->key)
-			debug_error("split key error\n");
-		if (new_listNode->key == 0)
-			debug_error("eku0\n");
-
-		new_listNode->prev = listNode;
-
-		listNode->block_cnt = group1_idx+1;
-		new_listNode->block_cnt = group2_idx+1;
-
-		_mm_sfence();
-
-		listNode->next->prev = new_listNode;
-		new_listNode->next = listNode->next;
-		listNode->next = new_listNode;
-
-		_mm_sfence();
-#if 0
-		ListNode* prev;
-		while(1)
-		{
-			prev = listNode->prev;
-			at_lock2(prev->lock);
-			if (prev->next != listNode)
-			{
-				at_unlock2(prev->lock);
-				continue;
-			}
-			break;
-		}
-
-		NodeMeta* prev_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(prev->data_node_addr);
-		nodeAllocator->linkNext(prev_nodeMeta,new_nodeMeta1[0]);
-
-		at_unlock2(prev->lock);
-		_mm_sfence();
-#else
-		ListNode* prev = listNode->prev;
-		NodeMeta* prev_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(prev->data_node_addr);
-		nodeAllocator->linkNext(prev_nodeMeta,new_nodeMeta1[0]);
-
-		_mm_sfence();
-
-#endif
-
-#endif
-
-#if 0
-		// listNode is never deleted just split
-		SkiplistNode* next_skiplistNode;
-		while(true)
-		{
-			next_skiplistNode = skiplist->sa_to_node(skiplistNode->next[0]);
-			if (try_at_lock2(next_skiplistNode->lock) == false)
-				continue;
-			if (skiplistNode->next[0].value != next_skiplistNode->my_sa.value)
-			{
-				at_unlock2(next_skiplistNode->lock);
-				continue;
-			}
-			break;
-		}
-		if (next_skiplistNode->key >= new_listNode->key)
-			next_skiplistNode->my_listNode = new_listNode;
-		at_unlock2(next_skiplistNode->lock);
-#endif
-		// unlock
-		/*
-		   listNode->size_sum = 0;
-		   for (i=0;i<=group1_idx;i++)
-		   listNode->size_sum+=new_nodeMeta1[i]->size_sum;
-		   new_listNode->size_sum = 0;
-		   for (i=0;i<=group2_idx;i++)
-		   new_listNode->size_sum+=new_nodeMeta2[i]->size_sum;
-		 */
-
 		//warm list key list redistribution --------------------------
 		int size = old_skiplistNode->key_list.size();
 		for (i=0;i<size;i++)
@@ -1748,7 +1659,7 @@ namespace PH
 		// free---- need versio nnumber???
 
 		split_key_list.clear();
-		//		NodeMeta *list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
+		
 		DataNode *old_dataNode_p[MAX_NODE_GROUP];
 		NodeMeta *old_nodeMeta[MAX_NODE_GROUP];
 
@@ -1787,7 +1698,6 @@ namespace PH
 			for (k=0;k<WARM_BATCH_CNT;k++)
 			{
 				int el_size = nodeMeta->batch_info[k].el.size(); // what the bug;
-										 //			for (i=0;i<nodeMeta->batch_info[k].el.size()-1;i++) // find valid entries
 				for (i=0;i<el_size-1;i++)
 				{
 					if (nodeMeta->batch_info[k].el[i].valid)
@@ -1819,16 +1729,12 @@ namespace PH
 		// 2 alloc...
 
 		int entry_size;
-		//		EntryHeader end_jump;
-		//		end_jump.value = 0;
-
 		int j;
 		unsigned char* src_addr;
 		int value_size8;
 		//-------------------------------------------------------------------------------
 
 		SkiplistNode* new_skiplistNode1;
-
 		new_skiplistNode1 = skiplist->allocate_node();
 
 		if (new_skiplistNode1 == NULL)
@@ -1852,8 +1758,6 @@ namespace PH
 		i = 0; // entry iterator
 
 		batch_cnt = 0;
-
-		{
 			while(i < entry_cnt)
 			{
 				src_addr = split_key_list[i].second.addr;
@@ -1883,16 +1787,13 @@ namespace PH
 				i++;
 				group1_size_sum+=entry_size;
 			}
-		}
 
 		// set skiplist key
-		new_skiplistNode1->key = old_skiplistNode->key;
+//		new_skiplistNode1->key = old_skiplistNode->key;
 
 		//alloc dst -------------------------------------------------
 		NodeAddr new_nodeAddr1[MAX_NODE_GROUP];
 		NodeMeta* new_nodeMeta1[MAX_NODE_GROUP];
-
-		// do not change listNode just link new nodemeta
 
 		// first node is already allocated
 
@@ -1905,25 +1806,17 @@ namespace PH
 			new_nodeMeta1[i] = append_group(new_nodeMeta1[i-1],WARM_LIST);
 			new_nodeAddr1[i] = new_nodeMeta1[i]->my_offset;
 			new_skiplistNode1->data_node_addr[i] = new_nodeAddr1[i];
-			/*
-			   new_nodeAddr1[i] = nodeAllocator->alloc_node(WARM_LIST);
-			   new_nodeMeta1[i] = nodeAllocator->nodeAddr_to_nodeMeta(new_nodeAddr1[i]);
-			   new_nodeMeta1[i]->group_cnt = i+1;
-			   new_nodeMeta1[i]->list_addr = nodeAddr_to_listAddr(WARM_LIST,listNode->myAddr);
-			//			new_nodeMeta1[i]->list_addr = listNode->myAddr;
-			 */
 			at_lock2(new_nodeMeta1[i]->rw_lock); // ------------------------------- lock here!!!
 		}
 		new_skiplistNode1->data_node_cnt = group1_idx+1;
 
 		for (i=0;i<group1_idx;i++) // connect // already appended in skiplist
 		{
-			//			new_nodeMeta1[i]->next_node_in_group = new_nodeMeta1[i+1];
-			//			new_nodeMeta1[i]->next_addr_in_group = new_nodeMeta1[i+1]->my_offset;
 			sorted_buffer1[i].next_offset = emptyNodeAddr;
 			sorted_buffer1[i].next_offset_in_group = new_nodeMeta1[i+1]->my_offset;
 		}
 
+		sorted_buffer1[group1_idx].next_offset = emptyNodeAddr;
 		sorted_buffer1[group1_idx].next_offset_in_group = emptyNodeAddr;
 
 		new_nodeMeta1[0]->next_p = old_nodeMeta[0]->next_p;
@@ -1938,8 +1831,9 @@ namespace PH
 
 		//memcpy to pmem
 
-		// link!?
-		//		sorted_temp_dataNode[MAX_NODE_GROUP/2-1].next_offset_in_group = emptyNodeAddr;
+		if (old_nodeMeta[0]->my_offset != old_skiplistNode->data_node_addr[0])
+			debug_error("sfsefsefse\n");
+
 		sorted_buffer1[0].next_offset = old_nodeMeta[0]->next_p->my_offset; // thread bug here old_nodeMeta[0]->next is null // TODO fix this // may fixed..
 
 		// fill new nodes
@@ -1980,8 +1874,6 @@ namespace PH
 			{
 				//				if (offset < NODE_SIZE)
 				{ // always write last length
-				  //					new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-				  //					new_nodeMeta1[group1_idx]->entryLoc[j].offset = offset;
 					el.valid = 0;
 					el.offset = offset;
 					//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[j].valid = 0;
@@ -1992,11 +1884,6 @@ namespace PH
 				batch_cnt++;
 				if (batch_cnt >= WARM_BATCH_CNT)
 				{
-					/*
-					   new_nodeMeta1[group1_idx]->entryLoc[j].valid = 0;
-					   new_nodeMeta1[group1_idx]->entryLoc[j].offset = NODE_SIZE;
-					   new_nodeMeta1[group1_idx]->el_cnt[0] = j+1;
-					 */ // last element.. we may not need it
 					group1_idx++;
 					offset = NODE_HEADER_SIZE;
 					start_offset = new_nodeMeta1[group1_idx]->my_offset.node_offset * NODE_SIZE;
@@ -2023,8 +1910,6 @@ namespace PH
 			if (ea.value == split_key_list[i].second.ea.value)
 			{
 //				el.valid = 1;
-				//				new_nodeMeta1[group1_idx]->entryLoc[j].valid = 1;
-				//				new_nodeMeta1[group1_idx]->size_sum+=entry_size;
 				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].size_sum+=entry_size;
 				// update ref				
 				dst_ea.large = ea.large;
@@ -2133,15 +2018,8 @@ namespace PH
 		at_unlock2(next_skiplistNode->lock);
 #endif
 		// unlock
-		/*
-		   listNode->size_sum = 0;
-		   for (i=0;i<=group1_idx;i++)
-		   listNode->size_sum+=new_nodeMeta1[i]->size_sum;
-		   new_listNode->size_sum = 0;
-		   for (i=0;i<=group2_idx;i++)
-		   new_listNode->size_sum+=new_nodeMeta2[i]->size_sum;
-		 */
 
+#if 0 // no redistirubiton if we use old skiplist node
 		//warm list key list redistribution --------------------------
 		int size = old_skiplistNode->key_list.size();
 		for (i=0;i<size;i++)
@@ -2173,34 +2051,39 @@ namespace PH
 				new_skiplistNode1->entry_list[new_skiplistNode1->list_head++] = ll;
 				new_skiplistNode1->list_size_sum+=ll.size;
 		}
-
+#endif
 		//skiplist link -------------------------------------------
 
 		NodeMeta* child1_meta;
 		NodeMeta* next_meta;
 		SkiplistNode* child1_sl_node = new_skiplistNode1;
-
-		child1_meta = nodeAllocator->nodeAddr_to_nodeMeta(new_skiplistNode1->data_node_addr[0]);
-		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist->find_next_node(old_skiplistNode)->data_node_addr[0]);
-
-		nodeAllocator->linkNext(child1_meta,next_meta);
-
 		SkiplistNode* prev_skiplistNode = old_skiplistNode->prev;
 		SkiplistNode* next_skiplistNode = skiplist->find_next_node(old_skiplistNode);
+
+		child1_meta = nodeAllocator->nodeAddr_to_nodeMeta(new_skiplistNode1->data_node_addr[0]);
+		next_meta = nodeAllocator->nodeAddr_to_nodeMeta(next_skiplistNode->data_node_addr[0]);
+
+		nodeAllocator->linkNext(child1_meta,next_meta); // persist data node link next
+
 		NodeMeta* prev_meta = nodeAllocator->nodeAddr_to_nodeMeta(prev_skiplistNode->data_node_addr[0]);
 
-		child1_sl_node->prev = prev_skiplistNode;
-		next_skiplistNode->prev = child1_sl_node;
+//		child1_sl_node->prev = prev_skiplistNode;
+//		next_skiplistNode->prev = child1_sl_node;
+// threre is no next...
 
 		_mm_sfence();
 		nodeAllocator->linkNext(prev_meta,child1_meta);		//persiste htere------
 
 		_mm_sfence();
 
-
+/*
 		skiplist->insert_node(child1_sl_node,prev_sa_list,next_sa_list);
-
 		skiplist->delete_node(old_skiplistNode); // delete duringn find node
+		*/
+
+		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // new to old.. only data
+			old_skiplistNode->data_node_addr[i] = new_skiplistNode1->data_node_addr[i];
+		old_skiplistNode->data_node_cnt = new_skiplistNode1->data_node_cnt;
 
 		//----------------- unlock and delete
 
@@ -2208,15 +2091,19 @@ namespace PH
 			at_unlock2(new_nodeMeta1[i]->rw_lock);		
 
 		// free the nodes...
-		/* // skiplist node will be freed by delete node ...
+		 // skiplist node will be freed by delete node ...
 		   for (i=0;i<group0_idx;i++)
 		   nodeAllocator->free_node(old_nodeMeta[i]);
-		 */
+		 
 
 		at_unlock2(new_skiplistNode1->split_lock);
 		at_unlock2(new_skiplistNode1->insert_lock);
+		at_unlock2(old_skiplistNode->split_lock);
+		at_unlock2(old_skiplistNode->insert_lock);
 
-
+		new_skiplistNode1->ver = 0;
+		new_skiplistNode1->key = INV64;
+		skiplist->free_sl_node(new_skiplistNode1); // no delete...
 #if 0 // test old
 
 		group0_idx = 0;
@@ -2310,12 +2197,14 @@ namespace PH
 			for (j=0;j<WARM_BATCH_CNT;j++)
 				size_sum+=nodeMeta->batch_info[j].size_sum;
 		}
-		if (size_sum < WARM_MAX_NODE_GROUP * NODE_SIZE * COMPACT_RATIO/100) //compaction
+		/* // compact need split lock because of data node next meta
+		if (false && size_sum < WARM_MAX_NODE_GROUP * NODE_SIZE * COMPACT_RATIO/100) //compaction
 		{
 			compact_node(node);
 			return 1; // retry without unlock
 		}
 		else // split
+			*/
 		{
 			if (try_at_lock2(node->split_lock) == false) // somone split this node
 			{
@@ -2357,7 +2246,10 @@ namespace PH
 				//				at_lock2(nodeMeta->rw_lock);
 				//				hot_to_warm(node,true); // flush all
 				//				split_empty_warm_node(node); // always success...
-				split_warm_node(node);
+				if (size_sum < WARM_MAX_NODE_GROUP * NODE_SIZE * COMPACT_RATIO/100) //compaction
+					compact_node(node);
+				else
+					split_warm_node(node);
 				//				at_unlock2(nodeMeta->rw_lock);
 				//				at_unlock2(next_node->lock);
 				at_unlock2(next_node->split_lock);

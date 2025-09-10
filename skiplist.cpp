@@ -166,30 +166,25 @@ namespace PH
 		//	next.resize(l+1);
 		if (next_size < l+1)
 		{
-			delete next;
-			next = new SkipAddr[l+1];
+			SkipAddr *old_next,*new_next;
+			old_next = next;
+			new_next = new SkipAddr[l+1];
 //			next = new std::atomic<uint64_t>[l+1];
 			next_size = l+1;
+	
+			int i;
+			for (i=0;i<=l;i++)
+				new_next[i].value = 0;
+			next = new_next;
+
+			delete old_next;
 		}
 		built = 0;
 	}
 
 	void SkiplistNode::setLevel()
 	{
-		level = getRandomLevel();
-		//	delete next;
-		//	next = new std::atomic<SkiplistNode*>[level+1];
-		//	next.clear();
-		//	next.resize(level+1);
-		if (next_size < level+1)
-		{
-			delete next;
-			next = new SkipAddr[level+1];
-//			next = new std::atomic<uint64_t>[level+1];
-			next_size = level+1;
-		}
-
-		built = 0;
+		setLevel(getRandomLevel());
 	}
 
 	SkiplistNode* Skiplist::allocate_node()
@@ -544,19 +539,17 @@ namespace PH
 
 		node->key_list.clear();
 
-		node->ver = node_counter.fetch_add(1);
-		node->my_sa.ver = node->ver;
 
 		node->empty_batch = -1;//0;
-
-		//		node->cold_block_sum = 0;
-		//		node->half_listNode = NULL;
 
 		node->data_node_cnt = 0;
 		int i;
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
 			node->data_node_addr[i] = emptyNodeAddr;
 
+		_mm_sfence();
+		node->ver = node_counter.fetch_add(1);
+		node->my_sa.ver = node->ver;
 		_mm_sfence();
 
 //		node->key_list_lock = 0;
@@ -598,8 +591,8 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 	while(true)
 	{
 		sa.value = node->next[0].value.load();
-//		sa.value = node->next[0].load();
-		//			next_node = sa_to_node(sa);
+		if (sa.ver == 0)
+			continue;
 		next_node = &node_pool_list[sa.pool_num][sa.offset];
 		if (next_node->ver != sa.ver)
 		{
@@ -623,6 +616,8 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 					}
 				}
 			}
+//			else // may temporally possible
+//				debug_error("skiplist impossible\n");
 			continue;
 		}
 		break;
