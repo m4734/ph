@@ -53,10 +53,10 @@ extern int log_max;
 	std::atomic<uint64_t> warm_log_write_sum;
 	std::atomic<uint64_t> log_write_sum;
 	std::atomic<uint64_t> hot_to_warm_sum;
-	std::atomic<uint64_t> warm_to_cold_sum;
+	std::atomic<uint64_t> compact_sum;
 	std::atomic<uint64_t> direct_to_cold_sum;
 	std::atomic<uint64_t> hot_to_hot_sum;
-	std::atomic<uint64_t> cold_split_sum;
+	std::atomic<uint64_t> split_sum;
 	std::atomic<uint64_t> hot_to_cold_sum;
 
 	std::atomic<uint64_t> soft_htw_sum;
@@ -89,8 +89,8 @@ void PH_Interface::global_reset_test()
 	for (i=0;i<log_max;i++)
 		doubleLogList[i].block_cnt = 0;
 
-	cold_split_sum = 0;
-	warm_log_write_sum = log_write_sum = hot_to_warm_sum = warm_to_cold_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	split_sum = 0;
+	warm_log_write_sum = log_write_sum = hot_to_warm_sum = compact_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
 	dtc_time_sum = 0;
@@ -344,7 +344,7 @@ printf("ccc\n");
 	printf("addr2 hit %ld miss %ld no %ld\n",warm_hit_sum.load(),warm_miss_sum.load(),warm_no_sum.load());
 #endif
 
-	printf("log_write %lu warm_log_write %lu hot_to_warm %lu warm_to cold %lu\n",log_write_sum.load(),warm_log_write_sum.load(),hot_to_warm_sum.load(),warm_to_cold_sum.load());
+	printf("log_write %lu warm_log_write %lu hot_to_warm %lu compact %lu\n",log_write_sum.load(),warm_log_write_sum.load(),hot_to_warm_sum.load(),compact_sum.load());
 	printf("warm_to_warm %lu\n",warm_to_warm_sum.load());
 	printf("direct to cold %lu\n",direct_to_cold_sum.load());
 	printf("hot to hot %lu\n",hot_to_hot_sum.load());
@@ -358,7 +358,7 @@ printf("ccc\n");
 	printf("reducd group sum %lu\n",reduce_group_sum.load());
 	printf("list merge sum %lu\n",list_merge_sum.load());
 
-	printf("cold split sum %lu\n",cold_split_sum.load());
+	printf("split sum %lu\n",split_sum.load());
 
 	printf("data sum sum %lfGB large sum %lu large cnt %lu\n",double(data_sum_sum)/1024/1024/1024,ld_sum_sum.load(),ld_cnt_sum.load());
 

@@ -343,6 +343,8 @@ void DoubleLog::clean()
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
+#define READY_LOG_TIME
+
 void DoubleLog::ready_log(int value_size8)
 {
 	size_t offset = head_sum % my_size;
@@ -355,6 +357,15 @@ void DoubleLog::ready_log(int value_size8)
 
 	if (tail_sum + my_size < head_sum + required_size)
 		block_cnt++;
+
+#ifdef READY_LOG_TIME
+		struct timespec ts1,ts2;
+		_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts1);
+		_mm_sfence();
+		bool print = false;
+#endif
+
 	while(tail_sum + my_size < head_sum + required_size)
 	{
 #ifdef SYNCER
@@ -363,7 +374,29 @@ if (evict_counter >= query_counter)
 #endif
 		usleep(1);// sleep
 //		asm("nop");
+#ifdef READY_LOG_TIME
+		if (print == false)
+		{
+		_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
+		if (ts2.tv_sec-ts1.tv_sec > 10)
+		{
+			print = true;
+			printf("ready sec\n");
+		}
+		}
+#endif
 	}
+#ifdef READY_LOG_TIME
+	if (print)
+	{
+		_mm_sfence();
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		_mm_sfence();
+		printf("ready time %ld\n",(ts2.tv_sec-ts1.tv_sec)*1000000000+ts2.tv_nsec-ts1.tv_nsec);
+	}
+#endif
 
 }
 bool DoubleLog::is_ready(int value_size8)

@@ -905,7 +905,7 @@ namespace PH
 		//split old-skiplistNode
 
 		//		warm_split_cnt++;
-		cold_split_cnt++; // do not want change the name
+		split_cnt++; // do not want change the name
 
 		// lock all the nodes
 		// copy
@@ -1647,7 +1647,7 @@ namespace PH
 	void PH_Thread::compact_node(SkiplistNode *old_skiplistNode) // read all and write all // alloc new
 	{
 
-		//		warm_split_cnt++;
+		compact_cnt++;
 
 		// lock all the nodes
 		// copy
@@ -2083,6 +2083,9 @@ namespace PH
 
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // new to old.. only data
 			old_skiplistNode->data_node_addr[i] = new_skiplistNode1->data_node_addr[i];
+		for (i=0;i<=group1_idx;i++)
+			new_nodeMeta1[i]->list_addr.value = old_nodeMeta[0]->list_addr.value;
+
 		old_skiplistNode->data_node_cnt = new_skiplistNode1->data_node_cnt;
 
 		//----------------- unlock and delete

@@ -52,10 +52,10 @@ namespace PH
 	extern std::atomic<uint64_t> warm_log_write_sum;
 	extern std::atomic<uint64_t> log_write_sum;
 	extern std::atomic<uint64_t> hot_to_warm_sum;
-	extern std::atomic<uint64_t> warm_to_cold_sum;
+	extern std::atomic<uint64_t> compact_sum;
 	extern std::atomic<uint64_t> direct_to_cold_sum;
 	extern std::atomic<uint64_t> hot_to_hot_sum;
-	extern std::atomic<uint64_t> cold_split_sum;
+	extern std::atomic<uint64_t> split_sum;
 	extern std::atomic<uint64_t> hot_to_cold_sum;
 
 	extern std::atomic<uint64_t> soft_htw_sum;
@@ -166,8 +166,8 @@ namespace PH
 
 	void PH_Thread::reset_test()
 	{
-		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = warm_to_cold_cnt = direct_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
-		cold_split_cnt = 0;
+		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = compact_cnt = direct_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
+		split_cnt = 0;
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
 #ifdef TIME_STAT
@@ -310,11 +310,10 @@ namespace PH
 		warm_log_write_sum+=warm_log_write_cnt;
 		log_write_sum+=log_write_cnt;
 		hot_to_warm_sum+=hot_to_warm_cnt;
-		warm_to_cold_sum+=warm_to_cold_cnt;
+		compact_sum+=compact_cnt;
 		//		printf("warm to cold cnt %lu\n",warm_to_cold_cnt);
-		cold_split_sum+=cold_split_cnt;
 		direct_to_cold_sum+=direct_to_cold_cnt;
-		cold_split_sum+=cold_split_cnt;
+		split_sum+=split_cnt;
 		hot_to_hot_sum+=hot_to_hot_cnt;
 		hot_to_cold_sum+=hot_to_cold_cnt;
 
@@ -482,6 +481,7 @@ namespace PH
 		}
 		else if (ea.loc == WARM_LIST)
 		{
+			//ea is not warm cache // ea is data node and warm cahce is skiplist node
 #if 1
 			NodeMeta* nm = (NodeMeta*)(nodeAllocator->nodeMetaPoolList[ea.file_num] + sizeof(NodeMeta) * (ea.offset/NODE_SIZE));
 			if (nm->list_addr.loc != WARM_LIST)

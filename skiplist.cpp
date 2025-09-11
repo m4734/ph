@@ -175,6 +175,7 @@ namespace PH
 			int i;
 			for (i=0;i<=l;i++)
 				new_next[i].value = 0;
+			_mm_sfence();
 			next = new_next;
 
 			delete old_next;
