@@ -54,6 +54,7 @@ namespace PH
 	extern std::atomic<uint64_t> hot_to_warm_sum;
 	extern std::atomic<uint64_t> compact_sum;
 	extern std::atomic<uint64_t> direct_to_cold_sum;
+	extern std::atomic<uint64_t> dtc_fail_sum;
 	extern std::atomic<uint64_t> hot_to_hot_sum;
 	extern std::atomic<uint64_t> split_sum;
 	extern std::atomic<uint64_t> hot_to_cold_sum;
@@ -166,7 +167,7 @@ namespace PH
 
 	void PH_Thread::reset_test()
 	{
-		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = compact_cnt = direct_to_cold_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
+		warm_log_write_cnt = log_write_cnt = hot_to_warm_cnt = compact_cnt = direct_to_cold_cnt = dtc_fail_cnt = hot_to_hot_cnt = hot_to_cold_cnt = 0;
 		split_cnt = 0;
 		warm_to_warm_cnt = 0;
 		soft_htw_cnt = hard_htw_cnt = 0;
@@ -313,6 +314,7 @@ namespace PH
 		compact_sum+=compact_cnt;
 		//		printf("warm to cold cnt %lu\n",warm_to_cold_cnt);
 		direct_to_cold_sum+=direct_to_cold_cnt;
+		dtc_fail_sum+=dtc_fail_cnt;
 		split_sum+=split_cnt;
 		hot_to_hot_sum+=hot_to_hot_cnt;
 		hot_to_cold_sum+=hot_to_cold_cnt;
@@ -658,7 +660,7 @@ namespace PH
 			//			dtc = true;
 		}
 
-#ifdef DIRECT_TO_COLD
+#ifdef USE_DTC
 		if (old_ea.loc == WARM_LIST)
 		{
 			rv = rand_r(&seed_for_dtc);
@@ -703,6 +705,8 @@ namespace PH
 
 			if (dtc)
 				direct_to_cold_cnt++;
+			else
+				dtc_fail_cnt++;
 #if 0 // moved to direct_to_cold...
 			old_ea.value = kvp.value;
 			//			if (ex)

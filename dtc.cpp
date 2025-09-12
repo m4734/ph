@@ -343,6 +343,12 @@ namespace PH
 
 
 						kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+						old_ea.value = kvp_p->value;
+						if (old_ea.loc != WARM_LIST) // it is inserted
+						{
+							hash_index->unlock_entry2(seg_lock,read_lock);
+							return false;
+						}
 
 						//alwyas new update //get new version
 						header->version = global_seq_num[key%COUNTER_MAX].fetch_add(1);

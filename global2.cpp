@@ -55,6 +55,7 @@ extern int log_max;
 	std::atomic<uint64_t> hot_to_warm_sum;
 	std::atomic<uint64_t> compact_sum;
 	std::atomic<uint64_t> direct_to_cold_sum;
+	std::atomic<uint64_t> dtc_fail_sum;
 	std::atomic<uint64_t> hot_to_hot_sum;
 	std::atomic<uint64_t> split_sum;
 	std::atomic<uint64_t> hot_to_cold_sum;
@@ -90,7 +91,7 @@ void PH_Interface::global_reset_test()
 		doubleLogList[i].block_cnt = 0;
 
 	split_sum = 0;
-	warm_log_write_sum = log_write_sum = hot_to_warm_sum = compact_sum = direct_to_cold_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
+	warm_log_write_sum = log_write_sum = hot_to_warm_sum = compact_sum = direct_to_cold_sum = dtc_fail_sum = hot_to_hot_sum = hot_to_cold_sum = 0;
 	warm_to_warm_sum = 0;
 	soft_htw_sum = hard_htw_sum = 0;
 	dtc_time_sum = 0;
@@ -346,7 +347,7 @@ printf("ccc\n");
 
 	printf("log_write %lu warm_log_write %lu hot_to_warm %lu compact %lu\n",log_write_sum.load(),warm_log_write_sum.load(),hot_to_warm_sum.load(),compact_sum.load());
 	printf("warm_to_warm %lu\n",warm_to_warm_sum.load());
-	printf("direct to cold %lu\n",direct_to_cold_sum.load());
+	printf("direct to cold %lu dtc fail sum %lu\n",direct_to_cold_sum.load(),dtc_fail_sum.load());
 	printf("hot to hot %lu\n",hot_to_hot_sum.load());
 	printf("hot to cold %lu\n",hot_to_cold_sum.load());
 

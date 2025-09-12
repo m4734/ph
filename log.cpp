@@ -343,7 +343,7 @@ void DoubleLog::clean()
 	pmem_unmap(pmemLogAddr,my_size);
 }
 
-#define READY_LOG_TIME
+//#define READY_LOG_TIME
 
 void DoubleLog::ready_log(int value_size8)
 {

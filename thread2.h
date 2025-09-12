@@ -177,6 +177,7 @@ public:
 			uint64_t warm_to_warm_cnt;
 			uint64_t compact_cnt;
 			uint64_t direct_to_cold_cnt;
+			uint64_t dtc_fail_cnt;
 			uint64_t hot_to_hot_cnt;
 			uint64_t split_cnt;
 			uint64_t hot_to_cold_cnt;

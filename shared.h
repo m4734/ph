@@ -12,7 +12,7 @@
 #define WARM_CACHE
 #define SCAN_SORT
 #define LARGE_ALLOC
-//#define DIRECT_TO_COLD
+#define USE_DTC
 //-----------------------------
 
 //#define SCAN_TIME
@@ -41,7 +41,7 @@
 
 //--------------perf
 
-#define STAT
+//#define STAT
 #ifdef STAT
 
 #define WARM_STAT
@@ -55,7 +55,7 @@
 #endif
 //--------------------------------------
 
-#define INTERLEAVE
+//#define INTERLEAVE
 //#define NO_EXIST
 
 //-----------------------------------
