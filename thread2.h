@@ -217,7 +217,7 @@ public:
 		protected:
 			void split_listNode_group(ListNode* listNode,SkiplistNode* skiplistNode);
 
-			EntryAddr direct_to_cold(uint64_t key, int value_size,unsigned char* value,KVP &kvp, SkiplistNode* skiplist_from_warm, bool large, bool new_update);
+			bool direct_to_cold(uint64_t key, int value_size,unsigned char* value, SkiplistNode* skiplist_from_warm, bool large);
 			EntryAddr insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large); // have skiplist lock // return old ea // need invalidation and kv unlock
 
 			//	void invalidate_entry(EntryAddr &ea);

@@ -500,296 +500,6 @@ namespace PH
 		return wc;
 	}
 
-#if 0 // need to remove
-	EntryAddr PH_Thread::insert_to_cold(SkiplistNode* skiplistNode,unsigned char* src_addr, uint64_t key, int value_size, std::atomic<uint8_t>* &seg_lock, EntryAddr old_ea, bool large) // have skiplist lock // return old ea // need invalidation and kv unlock after this
-	{
-		tes(INSERT_TO_COLD);
-
-		EntryAddr new_ea;
-		EntryAddr real_old_ea;
-		KVP* kvp_p;
-
-		int value_size8 = get_v8(value_size);
-
-		while(true) // always success unless re updated // split retry loop
-		{
-			tes(TEMP4);
-#if 0
-			ListNode* listNode = skiplistNode->my_listNode;
-			while (key >= listNode->next->key)
-				listNode = listNode->next;
-#if 1
-			at_lock2(listNode->lock);//-------------------------------------lock dst cold
-#else
-			if (try_at_lock2(listNode->lock) == false)
-			{
-				printf("lock fail1\n");
-				at_lock2(listNode->lock);
-			}
-#endif
-			if (key >= listNode->next->key) // split??
-			{
-				at_unlock2(listNode->lock);
-				continue;
-			}
-#else // use cold nodes
-
-			//find cold_node // read_only
-			ListNode* listNode;
-			int z;
-			for (z=0;z<skiplistNode->cold_cnt-1;z++)
-			{
-				if (key < skiplistNode->cold_keys[z+1])
-					break;
-			}
-			if (z == skiplistNode->cold_cnt)
-				z--;
-			listNode = skiplistNode->cold_nodes[z];
-
-			//			at_lock2(listNode->lock); // alryead held skiplsit lock ... will not fail?
-			/*
-			   if (listNode->key != skiplistNode->cold_keys[z])
-			   {
-			   at_unlock2(listNode->lock);
-			   continue;
-			   }
-			 */
-			tee(TEMP4);
-#endif
-
-#if 0
-			// lock here
-			kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-			//					if (kvp_p->value != (uint64_t)addr) // moved
-			if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish
-			{ // this is not new update and the key is re inserted
-				hash_index->unlock_entry2(seg_lock,read_lock); // unlock
-				at_unlock2(listNode->lock);
-				//				new_ea.value = kvp_p->value; 
-				return emptyEntryAddr; // no invalidation
-			}
-
-			if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now
-			{
-				EntryHeader new_version;
-				new_version.valid_bit = 1;
-				new_version.delete_bit = 0;
-				if (value_size8 == INV64)
-					new_version.large_bit = true;
-				else
-					new_version.large_bit = false;
-				new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-				memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
-			}
-
-			// What happen if we failed once and retry here...
-
-			//------------------------------ entry locked!!
-#endif
-
-			NodeMeta* list_nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(listNode->data_node_addr);
-			//			new_ea.value = 0;
-			while (true)//list_nodeMeta) // try block group // group loop
-			{
-#if 1
-
-				// check space before lock
-				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
-					//				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty)// || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE)
-					//				if (value_size8 > list_nodeMeta->max_empty)
-				{
-					if (list_nodeMeta->next_node_in_group == NULL)
-						break;
-					list_nodeMeta = list_nodeMeta->next_node_in_group;
-					continue;
-				}
-
-#if 1
-				at_lock2(list_nodeMeta->rw_lock);
-				if (ENTRY_SIZE_WITHOUT_VALUE + value_size8 > list_nodeMeta->max_empty || ENTRY_SIZE_WITHOUT_VALUE + value_size8+list_nodeMeta->size_sum > NODE_SIZE-NODE_HEADER_SIZE) // check again after lock
-				{
-					at_unlock2(list_nodeMeta->rw_lock);
-					continue;
-				}
-
-#else
-				if (try_at_lock2(list_nodeMeta->rw_lock) == false)
-				{
-					printf("lock fail2\n");
-					at_lock2(list_nodeMeta->rw_lock);
-				}
-#endif
-
-
-				tes(TEMP1); 
-
-#endif
-
-
-				tes(TEMP2);
-				//				kvp_p = hash_index->insert(key,&seg_lock,read_lock);
-				kvp_p = hash_index->insert_with_fail(key,&seg_lock,read_lock);
-				if (kvp_p == NULL)
-				{
-					at_unlock2(list_nodeMeta->rw_lock);
-					continue;
-				}
-				tee(TEMP2);
-
-				// lock here
-				if (old_ea.value != emptyEntryAddr.value && kvp_p->value != old_ea.value) //by new update // warm to cold can finish-escape
-				{ // this is not new update and the key is re inserted
-				  // validation rollback
-				  //					list_nodeMeta->entryLoc[fit_index].valid = 0;
-
-					hash_index->unlock_entry2(seg_lock,read_lock); // unlock if we fail ( no invalidation)
-					tee(TEMP1);
-					at_unlock2(list_nodeMeta->rw_lock);
-					//					at_unlock2(listNode->lock);
-					//				new_ea.value = kvp_p->value;
-					tee(INSERT_TO_COLD);
-					return emptyEntryAddr; // no invalidation
-				}
-				else if (old_ea.value == emptyEntryAddr.value) // it is new update get new version now // get version after key lock
-				{
-					/*
-					   EntryHeader new_version;
-					   new_version.valid_bit = 1;
-					   new_version.delete_bit = 0;
-					//					new_version.large_bit = ((EntryHeader*)src_addr)->large_bit;
-					new_version.large_bit = large;
-					//					new_version.size = ((EntryHeader*)src_addr)->size;
-					new_version.size = value_size;
-					new_version.version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-					memcpy(src_addr,&new_version,ENTRY_HEADER_SIZE);
-					 */
-					EntryHeader* header = (EntryHeader*)src_addr;
-					header->valid_bit = 1;
-					header->delete_bit = 0;
-					header->large_bit = large;
-					header->size = value_size;
-					header->version = global_seq_num[key%COUNTER_MAX].fetch_add(1);
-				}
-
-
-
-				tes(INSERT_ENTRY_TO_SLOT);
-				new_ea = insert_entry_to_slot(list_nodeMeta,src_addr,value_size8);
-				tee(INSERT_ENTRY_TO_SLOT);
-
-				if (new_ea.value != 0)
-				{
-
-					//success from here
-
-					// What happen if we failed once and retry here...
-
-					//			if (kvp_p->key == key)
-					if (kvp_p->value != INV0)
-						real_old_ea.value = kvp_p->value;
-					else // first update
-					{
-						real_old_ea = emptyEntryAddr;
-						kvp_p->key = key;
-					}
-					//------------------------------ entry locked!!
-					/*
-					   if (kvp_p->value == INV0) // just statistics
-					   {
-					//						if (value_size8 == LARGE_SIZE)
-					if (new_ea.large)
-					{
-					value_size8 = last_value_size;
-					ld_sum+=last_value_size+KEY_SIZE;
-					ld_cnt++;
-					}
-					data_sum+=value_size8+KEY_SIZE;
-					if (value_size8 >= LARGE_VALUE_THRESHOLD)
-					{
-					ld_sum+=value_size8+KEY_SIZE;
-					ld_cnt++;
-					}
-					//						else
-					//							debug_error("???\n");
-					}
-					 */
-
-					//					new_ea.large = old_ea.large;//... did in insert entyr to slot
-					kvp_p->value = new_ea.value;
-#ifdef DST_CHECK
-					EA_test(key,new_ea);
-#endif
-					_mm_sfence();	
-
-					//					list_nodeMeta->entryLoc[i].valid = 0; // src inv  not here
-					//					nodeMeta->valid_cnt--;
-
-					//need invalidation before unlock...
-					//					hash_index->unlock_entry2(seg_lock,read_lock);
-
-					tee(TEMP1);
-					at_unlock2(list_nodeMeta->rw_lock); // unlock dst rw lock
-									    //					at_unlock2(listNode->lock);
-
-									    //check
-									    //					warm_to_cold_cnt++; // to cold
-					tee(INSERT_TO_COLD);
-					return real_old_ea; // still have kv lock
-					break;
-				}
-
-				//failed
-//				debug_error("fail here\n");
-
-				hash_index->unlock_entry2(seg_lock,read_lock);
-
-				tee(TEMP1);
-				at_unlock2(list_nodeMeta->rw_lock);
-				if (list_nodeMeta->next_node_in_group == NULL)
-					break;
-				list_nodeMeta = list_nodeMeta->next_node_in_group;
-			}
-
-
-			//			if (i >= NODE_SLOT_MAX) // need split
-			//			if (new_ea.value == 0)
-			//			if (list_nodeMeta == NULL) // cold split
-			{
-				//				hash_index->unlock_entry2(seg_lock,read_lock);
-				//				at_unlock2(list_nodeMeta->rw_lock);
-
-				if (list_nodeMeta->group_cnt < MAX_NODE_GROUP) // append
-									       //				if (listNode->block_cnt < MAX_NODE_GROUP)
-				{
-					//					tes(APPEND_OF_ITC);
-					listNode->block_cnt++;
-					NodeMeta* append_nodeMeta = append_group(list_nodeMeta,COLD_LIST); // have to be last
-					append_nodeMeta->list_addr = nodeAddr_to_listAddr(COLD_LIST,listNode->myAddr);
-					//					append_nodeMeta->list_addr = listNode->myAddr;
-					//					tee(APPEND_OF_ITC);
-				}
-				else // split
-				{
-					//					tes(SPLIT_OF_ITC);
-					at_lock2(listNode->lock); // split lock
-					try_cold_split(listNode,skiplistNode);
-					at_unlock2(listNode->lock);
-					//					cold_split_cnt++;
-					//					skiplistNode->find_half_listNode(); // use cold nodes
-					//					tes(SPLIT_OF_ITC);
-				}
-			}
-
-			//			at_unlock2(listNode->lock);
-		}
-
-		debug_error("impossbile\n");
-
-		tee(INSERT_TO_COLD);
-		return real_old_ea;
-	}
-#endif
-
 	void list_gc(SkiplistNode* skiplistNode) // need node lock
 	{
 		DoubleLog* dl;
@@ -923,6 +633,7 @@ namespace PH
 		DoubleLog* dst_log = my_log;
 		Loc dst_loc;
 		bool large = false;
+		bool dtc = false;
 
 		int value_size8 = get_v8(value_size);
 
@@ -940,12 +651,78 @@ namespace PH
 			//			value_size = INV64; // for dtc
 			value = (unsigned char*)&large_addr;
 #else
+			//dtc = true;
 #endif
 
 			//			return 0;
 			//			dtc = true;
 		}
 
+#ifdef DIRECT_TO_COLD
+		if (old_ea.loc == WARM_LIST)
+		{
+			rv = rand_r(&seed_for_dtc);
+			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
+				dtc = true;
+		}
+#endif
+
+		if (dtc)
+		{
+			tes(INSERT_DTC);
+			//			dst_loc = COLD_LIST;
+			//		kvp_p = hash_index->insert(key,&seg_lock,read_lock);
+			//			kvp.value = 0;
+			//			KVP test_kvp = kvp;
+			//			if (large_value)
+			//				value_size = LARGE_PTR_SIZE;
+
+			SkiplistNode* skiplistNode;
+
+#ifdef WARM_CACHE
+			if (ex)
+			{
+				EntryAddr old_ea;
+				old_ea.value = kvp.value;
+				warm_cache = get_warm_cache(old_ea);
+			}
+			else
+#endif
+				warm_cache = emptyNodeAddr;
+
+			//			skiplistNode = get_skiplist_node(key,warm_cache);
+			//			at_lock2(skiplistNode->evict_lock); // gararreentteee and limit all split and write...
+			skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
+			/*new_ea = */
+			dtc = direct_to_cold(key,value_size,value,skiplistNode,large); // kvp becomes old one
+//			if (dtc) // success // fail == full node
+//				invalidate_entry(old_ea,old_ea.large);
+
+//			hash_index->unlock_entry2(seg_lock,read_lock);
+			at_unlock2(skiplistNode->insert_lock);
+
+			if (dtc)
+				direct_to_cold_cnt++;
+#if 0 // moved to direct_to_cold...
+			old_ea.value = kvp.value;
+			//			if (ex)
+			if (kvp.key == key)
+				invalidate_entry(old_ea);
+			_mm_sfence();
+			hash_index->unlock_entry2(seg_lock,read_lock);
+#endif
+
+#if 0 // direct to cold will fail if there is no space
+			//			if (may_split_warm_node(skiplistNode) == 0)
+			//				at_unlock2(skiplistNode->lock);
+			if (may_split_warm_node(skiplistNode,2) == false) // if the dtc made new cold node
+				at_unlock2(skiplistNode->evict_lock);
+#endif
+			tee(INSERT_DTC);
+
+		}
+
+		if (dtc == false)
 		{
 			tes(INSERT_LOG);
 
@@ -1030,7 +807,7 @@ namespace PH
 					kvp_p = hash_index->insert(key,&seg_lock,read_lock); // prevent htw evict
 					old_ea.value = kvp_p->value;
 
-					if (old_ea.loc != HOT_LOG)
+					if (old_ea.loc != HOT_LOG) // alwyas ture...
 					{
 						/*
 						   if (node->key_list_size >= WARM_KEY_LIST_MAX_TEMP)//WARM_MAX_NODE_GROUP*WARM_NODE_ENTRY_CNT)

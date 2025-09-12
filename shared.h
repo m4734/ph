@@ -12,6 +12,7 @@
 #define WARM_CACHE
 #define SCAN_SORT
 #define LARGE_ALLOC
+//#define DIRECT_TO_COLD
 //-----------------------------
 
 //#define SCAN_TIME
