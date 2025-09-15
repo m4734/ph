@@ -347,6 +347,13 @@ namespace PH
 						if (old_ea.loc != WARM_LIST) // it is inserted
 						{
 							hash_index->unlock_entry2(seg_lock,read_lock);
+
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+#endif
+		tee(DIRECT_TO_COLD);
+
 							return false;
 						}
 
@@ -408,12 +415,16 @@ namespace PH
 
 							//need invalidation before unlock...
 							if (old_ea != emptyEntryAddr)
-								invalidate_entry(old_ea,old_ea.large);
+								invalidate_entry(old_ea);
 							hash_index->unlock_entry2(seg_lock,read_lock);
 
-							//check
-							//					warm_to_cold_cnt++; // to cold
+#ifdef TIME_STAT
+		clock_gettime(CLOCK_MONOTONIC,&ts2);
+		dtc_time+=(ts2.tv_sec-ts1.tv_sec)*1000000000+(ts2.tv_nsec-ts1.tv_nsec);
+#endif
+
 							tee(DIRECT_TO_COLD);
+
 							return true;
 						}
 						else

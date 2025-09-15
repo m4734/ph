@@ -41,12 +41,12 @@
 
 //--------------perf
 
-//#define STAT
+#define STAT
 #ifdef STAT
 
 #define WARM_STAT
 #define TIME_STAT
-//#define TIME_STAT2
+#define TIME_STAT2
 
 #define SKIPLIST_TRAVERSE_TEST
 #define LIST_TRAVERSE_TEST
@@ -86,7 +86,7 @@ namespace PH
 #if 1 // big
 	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 4*4;//8; // 2 4 8?
+	const uint32_t WARM_MAX_NODE_GROUP = 16;//8; // 2 4 8?
 	const uint32_t MAX_NODE_GROUP = WARM_MAX_NODE_GROUP;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...
@@ -275,7 +275,7 @@ union EntryHeader
 		unsigned char buffer[NODE_BUFFER_SIZE];
 	};
 
-	void invalidate_entry(EntryAddr &ea,bool inv_large,bool try_merge = true);
+	void invalidate_entry(EntryAddr &ea,bool try_merge = true);
 
 //	   void pmem_node_nt_write(DataNode* dst_node,DataNode* src_node, size_t offset, size_t len);
 	void pmem_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len);

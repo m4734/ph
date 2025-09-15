@@ -278,7 +278,7 @@ void DoubleLog::recover() // should be last...
 					header1->valid_bit = false;// if it is on HOTLOG
 				}
 				else
-					invalidate_entry(ea2,ea2.large,false);
+					invalidate_entry(ea2,false);
 			}
 			else
 				ea2.loc = NONE;

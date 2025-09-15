@@ -177,7 +177,7 @@ namespace PH
 	// hth kv
 	// htw kv skip
 
-	void invalidate_entry(EntryAddr &ea,bool inv_large, bool try_merge) // need kv lock
+	void invalidate_entry(EntryAddr &ea, bool try_merge) // need kv lock
 	{
 		unsigned char* addr;
 
@@ -191,7 +191,7 @@ namespace PH
 			((EntryHeader*)addr)->valid_bit = 0; // invalidate // is this need volatiele????
 							     //			hot_to_hot_cnt++; // log to hot
 //			if (ea.size == LARGE_SIZE)
-			if (inv_large)
+			if (ea.large)
 			{
 				LargeAddr la;
 				la = *(LargeAddr*)(addr+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);
@@ -215,7 +215,7 @@ namespace PH
 			nm->invalidate(ea);
 
 //			if (ea.size == LARGES_SIZE)
-			if (inv_large)
+			if (ea.large)
 			{
 				LargeAddr la;
 				la = *(LargeAddr*)(nodeAllocator->nodePoolList[ea.file_num]+ea.offset+ENTRY_HEADER_SIZE+KEY_SIZE/*+SIZE_SIZE*/);

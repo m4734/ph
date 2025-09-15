@@ -692,8 +692,6 @@ namespace PH
 #endif
 				warm_cache = emptyNodeAddr;
 
-			//			skiplistNode = get_skiplist_node(key,warm_cache);
-			//			at_lock2(skiplistNode->evict_lock); // gararreentteee and limit all split and write...
 			skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
 			/*new_ea = */
 			dtc = direct_to_cold(key,value_size,value,skiplistNode,large); // kvp becomes old one
@@ -945,7 +943,8 @@ namespace PH
 			{
 				//				if (old_ea.loc == HOT_LOG)
 				//					hot_to_hot_cnt++; // need warm to hot?
-				invalidate_entry(old_ea,large); // log write test
+				invalidate_entry(old_ea);//,large); // log write test
+				// it was not old_ea.large ... why??
 			}
 #ifdef DST_CHECK
 			EA_test(key,new_ea);
