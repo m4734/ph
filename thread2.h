@@ -83,12 +83,15 @@ namespace PH
 			SkiplistNode* get_skiplist_node_for_evict(uint64_t key,NodeAddr warm_cache);
 			SkiplistNode* get_skiplist_node_for_key_list(uint64_t key,NodeAddr warm_cache);
 
+			void find_empty_batch(SkiplistNode* skiplist_node);
+
 //			bool try_warm_to_cold(SkiplistNode* node);
 //			bool try_hot_to_warm(SkiplistNode* node);
 
 			unsigned char *evict_buffer;//[WARM_BATCH_MAX_SIZE];
 			unsigned char *entry_buffer;
 			unsigned char *batch_read_buffer; // hot to warm 
+			unsigned char *zero_buffer;
 
 			DataNode* sorted_buffer1;
 			DataNode* sorted_buffer2;

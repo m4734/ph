@@ -142,6 +142,13 @@ namespace PH
 #endif
 	}
 
+	void pmem_entry_write0(unsigned char* dst, unsigned char* src, size_t len)
+	{
+		memcpy(dst,src,len);
+		pmem_persist(dst,len);
+		_mm_sfence();
+	}
+
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* temp_header,unsigned char* jump_p)
 	{
 #ifndef ENTRY_WRITE_TEMP // should be here

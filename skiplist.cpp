@@ -548,6 +548,9 @@ namespace PH
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
 			node->data_node_addr[i] = emptyNodeAddr;
 
+		node->dtc_batch_num = -1;
+		node->dtc_batch_size = 0;
+
 		_mm_sfence();
 		node->ver = node_counter.fetch_add(1);
 		node->my_sa.ver = node->ver;

@@ -83,6 +83,10 @@ class SkiplistNode
 	SkiplistNode* volatile prev;
 	int data_node_cnt;
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
+
+	int dtc_batch_num;
+	int dtc_batch_size;
+
 //	/*volatile*/ uint64_t data_node_addr[WARM_MAX_NODE_GROUP];
 
 //	std::atomic<uint8_t> key_list_lock; // hot key list

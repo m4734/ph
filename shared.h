@@ -282,6 +282,8 @@ union EntryHeader
 	void pmem_reverse_nt_write(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
 	void reverse_memcpy(unsigned char* dst_addr,unsigned char* src_addr, size_t len); //need len align
 	void pmem_entry_write(unsigned char* dst, unsigned char* src, size_t len, unsigned char* temp_header);
+	void pmem_entry_write0(unsigned char* dst, unsigned char* src, size_t len);
+
 	void pmem_next_write(DataNode* dst_node,NodeAddr nodeAddr);
 
 	/*inline */unsigned char* get_entry(EntryAddr &ea);

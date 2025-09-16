@@ -234,6 +234,9 @@ namespace PH
 			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&batch_read_buffer,NODE_SIZE,NODE_SIZE) != 0)
 			printf("thread buffer alloc fail\n");
+		if (posix_memalign((void**)&zero_buffer,NODE_SIZE,NODE_SIZE) != 0)
+			printf("thread buffer alloc fail\n");
+		memset(zero_buffer,0,NODE_SIZE);
 
 	}
 	void PH_Thread::buffer_clean()
@@ -246,6 +249,8 @@ namespace PH
 		free(sorted_buffer2);
 
 		free(batch_read_buffer);
+
+		free(zero_buffer);
 
 	}
 
@@ -638,6 +643,7 @@ namespace PH
 		bool dtc = false;
 
 		int value_size8 = get_v8(value_size);
+		const int entry_size = value_size8 + ENTRY_SIZE_WITHOUT_VALUE;
 
 		if (value_size > LARGE_VALUE_THRESHOLD)
 		{
@@ -693,7 +699,30 @@ namespace PH
 				warm_cache = emptyNodeAddr;
 
 			skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
+
+			if (skiplistNode->dtc_batch_size + entry_size > NODE_SIZE) // clsoe the batch
+			{
+				skiplistNode->dtc_batch_num = -1;
+				skiplistNode->dtc_batch_size = 0;
+			}
+
+while(skiplistNode->dtc_batch_num == -1) // find safe empty batch using split
+{
 			/*new_ea = */
+
+			find_empty_batch(skiplistNode);
+
+			if (skiplistNode->empty_batch == -1)
+			{
+				if (may_split_warm_node(skiplistNode,2) == 0)
+					at_unlock2(skiplistNode->insert_lock);
+				else
+					skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
+			}
+			else
+				skiplistNode->dtc_batch_num = skiplistNode->empty_batch;
+}
+
 			dtc = direct_to_cold(key,value_size,value,skiplistNode,large); // kvp becomes old one
 //			if (dtc) // success // fail == full node
 //				invalidate_entry(old_ea,old_ea.large);

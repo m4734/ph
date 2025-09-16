@@ -2081,6 +2081,8 @@ namespace PH
 		skiplist->delete_node(old_skiplistNode); // delete duringn find node
 		*/
 
+		old_skiplistNode->dtc_batch_num = -1;
+		old_skiplistNode->dtc_batch_size = 0;
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // new to old.. only data
 			old_skiplistNode->data_node_addr[i] = new_skiplistNode1->data_node_addr[i];
 		for (i=0;i<=group1_idx;i++)
