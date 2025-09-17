@@ -84,6 +84,13 @@ class SkiplistNode
 	int data_node_cnt;
 	NodeAddr data_node_addr[WARM_MAX_NODE_GROUP];
 
+	//here it protectd by skiplist lock...
+	/*
+	std::atomic<int> dtc_batch_num;
+	std::atomic<int> dtc_batch_size;
+	*/
+//	volatile int dtc_batch_num;
+//	volatile int dtc_batch_size;
 	int dtc_batch_num;
 	int dtc_batch_size;
 

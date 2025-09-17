@@ -255,7 +255,7 @@ namespace PH
 
 //			nm->entryLoc = (EntryLoc*)malloc(sizeof(EntryLoc) * NODE_SLOT_MAX);
 // need new entrylist init
-//			nm->el_init(); // it is not alloc ...
+			nm->el_alloc();
 
 			at_unlock2(lock);
 			//			nm->alloc_cnt_for_test = 0;
@@ -357,7 +357,8 @@ namespace PH
 		at_lock2(rw_lock);
 
 		batch_index = (offset / WARM_BATCH_MAX_SIZE);
-		size = batch_info[batch_index].el.size();
+//		size = batch_info[batch_index].el.size();
+		size = batch_info[batch_index].el_cnt;
 		for (i=0;i<size-1;i++) // linaer search // may use binary
 		{
 			if (offset == batch_info[batch_index].el[i].offset)

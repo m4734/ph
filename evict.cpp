@@ -39,6 +39,8 @@ namespace PH
 			for (j = 0;j < WARM_BATCH_CNT;j++)
 			{
 				cur_batch++;
+				if (cur_batch == node->dtc_batch_num)
+					continue;
 				if (node->empty_batch < 0 && nodeMeta->batch_info[j].size_sum == 0)
 				{
 					node->empty_batch = cur_batch;
@@ -147,11 +149,13 @@ namespace PH
 		// read form src buffer and write to evict buffer if the entry is valid
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
-		nodeMeta->batch_info[batch_num].el.clear(); // it is dst...
+//		nodeMeta->batch_info[batch_num].el.clear(); // it is dst...
+		nodeMeta->batch_info[batch_num].el_cnt = 0;
 		nodeMeta->batch_info[batch_num].size_sum = 0;
 
 		int el_size;
 		int entry_from_log_start_index = write_cnt;
+		int el_cnt=0;
 
 		//flush each entry
 		// fill evict buffer form hot log
@@ -189,7 +193,8 @@ namespace PH
 
 			{
 				entryLoc.offset = dst_batch_start_offset + written_size;
-				nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
+//				nodeMeta->batch_info[batch_num].el.push_back(entryLoc);
+				nodeMeta->batch_info[batch_num].el[el_cnt++] = entryLoc;
 
 				node->list_size_sum-=ll.size;
 
@@ -205,7 +210,10 @@ namespace PH
 		}
 
 		entryLoc.offset = dst_batch_start_offset + written_size; // start offset includes header...
-		nodeMeta->batch_info[batch_num].el.push_back(entryLoc); // length of last leement
+//		nodeMeta->batch_info[batch_num].el.push_back(entryLoc); // length of last leement
+		nodeMeta->batch_info[batch_num].el[el_cnt++] = entryLoc;
+		nodeMeta->batch_info[batch_num].el_cnt = el_cnt;
+
 
 		//		nodeMeta->el_cnt[batch_num] = start_index+write_cnt+1+1-base_index;
 
@@ -534,11 +542,12 @@ namespace PH
 		// read form src buffer and write to evict buffer if the entry is valid
 		EntryLoc entryLoc;
 		entryLoc.valid = 0;
-		nodeMeta->batch_info[batch_num].el.clear(); // it is dst...
+//		nodeMeta->batch_info[batch_num].el.clear(); // it is dst...
+		nodeMeta->batch_info[batch_num].el_cnt = 0;
 		nodeMeta->batch_info[batch_num].size_sum = 0;
 
 		int el_size;
-		el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
+		el_size = src_nodeMeta->batch_info[src_batch_num].el_cnt;//.size();
 		for (i=0;i<el_size-1;i++) // last is end and max
 		{
 			if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
@@ -659,7 +668,7 @@ namespace PH
 			int src_end_offset;
 			int offset;
 			src_end_offset = src_batch_base_offset + WARM_BATCH_MAX_SIZE;
-			el_size = src_nodeMeta->batch_info[src_batch_num].el.size();
+			el_size = src_nodeMeta->batch_info[src_batch_num].el_cnt;//.size();
 			for (i=0;i<el_size-1;i++)
 			{
 				if (src_nodeMeta->batch_info[src_batch_num].el[i].valid) // the entry is valid shoud move
@@ -868,7 +877,8 @@ namespace PH
 		//------------------------------------------
 #endif
 
-		src_nodeMeta->batch_info[src_batch_num].el.clear();
+//		src_nodeMeta->batch_info[src_batch_num].el.clear();
+		src_nodeMeta->batch_info[src_batch_num].el_cnt = 0;
 		src_nodeMeta->batch_info[src_batch_num].size_sum=0;
 
 		at_unlock2(nodeMeta->rw_lock);//--------------------------------------------- unlock here
@@ -956,7 +966,7 @@ namespace PH
 
 			for (k=0;k<WARM_BATCH_CNT;k++)
 			{
-				int el_size = nodeMeta->batch_info[k].el.size(); // what the bug;
+				int el_size = nodeMeta->batch_info[k].el_cnt;//.size(); // what the bug;
 										 //			for (i=0;i<nodeMeta->batch_info[k].el.size()-1;i++) // find valid entries
 				for (i=0;i<el_size-1;i++)
 				{
@@ -1275,6 +1285,7 @@ namespace PH
 		dst_ea.loc = WARM_LIST;
 
 		batch_cnt = 0;
+		int el_cnt = 0;
 
 		for (i=0;i<ih;i++) // mvoing kvp
 		{
@@ -1290,7 +1301,10 @@ namespace PH
 					el.offset = offset;
 					//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[j].valid = 0;
 					//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[j].offset = offset;
-					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+					el_cnt = 0;
 				}
 
 				batch_cnt++;
@@ -1321,7 +1335,8 @@ namespace PH
 #endif
 			el.offset = offset;
 			el.valid = 1;
-			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt] = el;
 
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
@@ -1341,8 +1356,9 @@ namespace PH
 			}
 			else
 			{
-				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.back().valid = 0;
+				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt].valid = 0;//.back().valid = 0;
 			}
+			el_cnt++;
 //				el.valid = 0;
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1353,7 +1369,10 @@ namespace PH
 		// what if fit
 		el.valid = 0;
 		el.offset = offset;
-		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+		el_cnt = 0;
 
 		//-------------------------- right part
 		int old_group2_idx = group2_idx;
@@ -1364,6 +1383,7 @@ namespace PH
 		dst_ea.loc = WARM_LIST;
 
 		batch_cnt = 0;
+		el_cnt = 0;
 
 		for (;i<entry_cnt;i++)
 		{
@@ -1374,7 +1394,10 @@ namespace PH
 
 				el.valid = 0;
 				el.offset = offset;
-				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+//				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+				el_cnt = 0;
 
 				batch_cnt++;
 				/*
@@ -1411,7 +1434,8 @@ namespace PH
 			//			new_nodeMeta2[group2_idx]->entryLoc[j].offset = offset;
 			el.offset = offset;
 			el.valid = 1;
-			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+//			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+			new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el[el_cnt] = el;
 
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
@@ -1428,8 +1452,9 @@ namespace PH
 			}
 			else
 			{
-				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.back().valid = 0;
+				new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el[el_cnt].valid = 0;//.back().valid = 0;
 			}
+			el_cnt++;
 //				el.valid = 0;
 
 
@@ -1440,7 +1465,10 @@ namespace PH
 
 		el.valid = 0;
 		el.offset = offset;
-		new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+//		new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el.push_back(el);
+		new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+		new_nodeMeta2[group2_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+		el_cnt = 0;
 
 		_mm_sfence();
 /*
@@ -1697,7 +1725,7 @@ namespace PH
 
 			for (k=0;k<WARM_BATCH_CNT;k++)
 			{
-				int el_size = nodeMeta->batch_info[k].el.size(); // what the bug;
+				int el_size = nodeMeta->batch_info[k].el_cnt;//.size(); // what the bug;
 				for (i=0;i<el_size-1;i++)
 				{
 					if (nodeMeta->batch_info[k].el[i].valid)
@@ -1856,6 +1884,7 @@ namespace PH
 		size_t start_offset;
 		EntryAddr dst_ea;
 		EntryLoc el;
+		int el_cnt;
 
 		int old_group1_idx = group1_idx;
 		group1_idx = 0;
@@ -1865,6 +1894,7 @@ namespace PH
 		dst_ea.loc = WARM_LIST;
 
 		batch_cnt = 0;
+		el_cnt = 0;
 
 		for (i=0;i<entry_cnt;i++) // mvoing kvp
 		{
@@ -1878,7 +1908,11 @@ namespace PH
 					el.offset = offset;
 					//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[j].valid = 0;
 					//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[j].offset = offset;
-					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+					new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+					el_cnt = 0;
+
 				}
 
 				batch_cnt++;
@@ -1904,7 +1938,8 @@ namespace PH
 #endif
 			el.offset = offset;
 			el.valid = 1;
-			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+			new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt] = el;
 
 			//			if (ea.value == old_ea_list_buffer[i].value)
 			if (ea.value == split_key_list[i].second.ea.value)
@@ -1922,8 +1957,9 @@ namespace PH
 			}
 			else
 			{
-				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.back().valid = 0;
+				new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt].valid = 0;//.back().valid = 0;
 			}
+			el_cnt++;
 //				el.valid = 0;
 
 			hash_index->unlock_entry2(seg_lock,read_lock);
@@ -1934,7 +1970,10 @@ namespace PH
 		// what if fit
 		el.valid = 0;
 		el.offset = offset;
-		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+//		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el.push_back(el);
+		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el[el_cnt++] = el;
+		new_nodeMeta1[group1_idx]->batch_info[batch_cnt].el_cnt = el_cnt;
+		el_cnt = 0;
 
 		_mm_sfence();
 		//----------------------------------------------------------
@@ -2081,7 +2120,7 @@ namespace PH
 		skiplist->delete_node(old_skiplistNode); // delete duringn find node
 		*/
 
-		old_skiplistNode->dtc_batch_num = -1;
+		old_skiplistNode->dtc_batch_num = -1; // in compact
 		old_skiplistNode->dtc_batch_size = 0;
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++) // new to old.. only data
 			old_skiplistNode->data_node_addr[i] = new_skiplistNode1->data_node_addr[i];

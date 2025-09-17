@@ -100,7 +100,9 @@ struct NodeMeta
 //	int test=0;
 	struct BatchInfo
 	{
-		std::vector<EntryLoc> el;//element_list;
+//		std::vector<EntryLoc> el;//element_list;
+		EntryLoc* el;
+		std::atomic<int> el_cnt;
 		std::atomic<int> size_sum;
 	};
 
@@ -111,9 +113,21 @@ struct NodeMeta
 		int i;
 		for (i=0;i<WARM_BATCH_CNT;i++)
 		{
-			batch_info[i].el.clear();
+			batch_info[i].el_cnt = 0;
 			batch_info[i].size_sum = 0;
 		}
+	}
+	void el_alloc()
+	{
+		int i;
+		for (i=0;i<WARM_BATCH_CNT;i++)
+			batch_info[i].el = new EntryLoc[BATCH_SLOT_MAX];
+	}
+	void el_free()
+	{
+		int i;
+		for (i=0;i<WARM_BATCH_CNT;i++)
+			delete batch_info[i].el;
 	}
 };
 

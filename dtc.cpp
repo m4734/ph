@@ -26,7 +26,7 @@ namespace PH
 
 	extern std::atomic<uint64_t> global_seq_num[COUNTER_MAX];
 
-	EntryAddr append_entry_to_batch(NodeMeta* nodeMeta,unsigned char* src_addr, int value_size8,int j,int k) // need lock from outside
+	EntryAddr append_entry_to_batch(NodeMeta* nodeMeta,unsigned char* src_addr, const int entry_size,int j) // need lock from outside
 	{
 		/*
 		   bool large_value;
@@ -38,25 +38,17 @@ namespace PH
 		   else
 		   large_value = false;
 		 */
-
-		const int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
-
-		// anyway we will scan the array
-		// try best fit...
-
-		// 1 scan and merge invalid entries
-		// 2 insert..
+		const int k = nodeMeta->batch_info[j].el_cnt-1; // last index
+//		const int entry_size = ENTRY_SIZE_WITHOUT_VALUE + value_size8;
 
 		EntryAddr new_ea;
 		new_ea.loc = WARM_LIST;
 		new_ea.large = ((EntryHeader*)src_addr)->large_bit;
 		new_ea.size = ((EntryHeader*)src_addr)->size;
 		new_ea.file_num = nodeMeta->my_offset.pool_num;
-		new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->batch_info[j].el[k-1].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
+		new_ea.offset = nodeMeta->my_offset.node_offset*NODE_SIZE + nodeMeta->batch_info[j].el[k].offset; //NODE_HEADER_SIZE + ENTRY_SIZE*slot_idx;
 		//-------------------------------------------- //try next fit
 
-		EntryLoc lel = nodeMeta->batch_info[j].el.back();
-		nodeMeta->batch_info[j].el.push_back(lel);
 
 		{
 			//			old_ea.offset = node->data_node_addr.node_offset*NODE_SIZE + src_offset;
@@ -68,13 +60,16 @@ namespace PH
 			//				pmem_entry_write((unsigned char*)dataNode + nodeMeta->entryLoc[nfi].offset , src_addr, ENTRY_SIZE_WITHOUT_VALUE);
 
 #if 1 // may need header last
-		pmem_entry_write0((unsigned char*)dataNode + nodeMeta->batch_info[j].el[k-1].offset , src_addr, entry_size);
+		pmem_entry_write0((unsigned char*)dataNode + nodeMeta->batch_info[j].el[k].offset , src_addr, entry_size);
 #endif
 
 			my_thread->tee(TEMP3);
-			nodeMeta->batch_info[j].el[k].offset = nodeMeta->batch_info[j].el[k-1].offset + entry_size;
+
+			nodeMeta->batch_info[j].el[k+1].offset = nodeMeta->batch_info[j].el[k].offset+entry_size;
+
 			nodeMeta->batch_info[j].el[k].valid = 1;
 			nodeMeta->batch_info[j].size_sum+=entry_size;
+			nodeMeta->batch_info[j].el_cnt++;
 
 		}
 		return new_ea;
@@ -92,12 +87,32 @@ namespace PH
 			{
 				if (nodeMeta->batch_info[j].size_sum == 0)
 				{
+					int nho=0;
+					if (j == 0)
+						nho = NODE_HEADER_SIZE;
 					DataNode* dataNode = nodeAllocator->nodeAddr_to_node(nodeMeta->my_offset);
-					memcpy((unsigned char*)dataNode+WARM_BATCH_MAX_SIZE*j,zero_buffer,NODE_HEADER_SIZE);
+					memcpy((unsigned char*)dataNode+WARM_BATCH_MAX_SIZE*j+nho,zero_buffer,ENTRY_HEADER_SIZE);
 					_mm_sfence(); // partial write					
-					memcpy((unsigned char*)dataNode+WARM_BATCH_MAX_SIZE*j,zero_buffer,NODE_SIZE);
+					memcpy((unsigned char*)dataNode+WARM_BATCH_MAX_SIZE*j+nho,zero_buffer,WARM_BATCH_MAX_SIZE-nho);
+
 					skiplist_node->empty_batch = bc;
 //					return bc;
+
+//					nodeMeta->batch_info[j].el.clear();
+//					nodeMeta->batch_info[j].el_cnt = 0;
+//					nodeMeta->batch_info[j].size_sum = 0; // size sum is already 0
+
+					EntryLoc el; // empty el init...
+					if (j == 0)
+						el.offset = NODE_HEADER_SIZE;
+					else
+						el.offset = j*WARM_BATCH_MAX_SIZE;
+					el.valid = 0;
+					nodeMeta->batch_info[j].el[0] = el;
+					nodeMeta->batch_info[j].el_cnt = 1;
+
+//					el.offset+= WARM_BATCH_MAX_SIZE;
+//					nodeMeta->batch_info[j].el.push_back(el);
 					return;
 				}
 				bc++;
@@ -203,7 +218,6 @@ namespace PH
 				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist_node->data_node_addr[i]);
 
 				{
-					k = nodeMeta->batch_info[j].el.size()-1; // was batch end
 
 					{
 						// found pos // already has skiplist node lock
@@ -234,8 +248,14 @@ namespace PH
 
 						at_lock2(nodeMeta->rw_lock);
 
+//						k = nodeMeta->batch_info[j].el.size()-1; // was batch end
+						k = nodeMeta->batch_info[j].el_cnt-1; // was batch end
+
+
 						tes(INSERT_ENTRY_TO_SLOT);
-						new_ea = append_entry_to_batch(nodeMeta,entry_buffer,value_size8,j,k);
+//						new_ea = append_entry_to_batch(nodeMeta,entry_buffer,value_size8,j,k);
+						new_ea = append_entry_to_batch(nodeMeta,entry_buffer,entry_size,j);
+
 						tee(INSERT_ENTRY_TO_SLOT);
 
 						skiplist_node->dtc_batch_size+=entry_size;

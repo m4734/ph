@@ -301,7 +301,6 @@ namespace PH
 		run = 1;
 
 		seed_for_dtc = thread_id;
-		//		printf("sfd %u\n",seed_for_dtc);
 
 		new_version_for_insert.valid_bit = 1;
 		new_version_for_insert.delete_bit = 0;
@@ -539,6 +538,28 @@ namespace PH
 
 	}
 
+
+#if 1
+void skiplist_dtc_check(SkiplistNode *skiplist_node)
+{
+	if (skiplist_node->dtc_batch_num == -1)
+		return;
+	NodeMeta *nodeMeta;
+	int i,j,k;
+
+	i = skiplist_node->dtc_batch_num / WARM_BATCH_CNT;
+	j = skiplist_node->dtc_batch_num % WARM_BATCH_CNT;
+
+	nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplist_node->data_node_addr[i]);
+
+
+	k = nodeMeta->batch_info[j].el_cnt-1;//.size()-1; // was batch end
+
+	if (nodeMeta->batch_info[j].el[k].offset % WARM_BATCH_MAX_SIZE != skiplist_node->dtc_batch_size)
+		debug_error("missmathp\n");
+}
+#endif
+
 #define INDEX
 
 	int PH_Query_Thread::insert_op(uint64_t key, int value_size, unsigned char* value)
@@ -700,13 +721,14 @@ namespace PH
 
 			skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
 
-			if (skiplistNode->dtc_batch_size + entry_size > NODE_SIZE) // clsoe the batch
+			if (skiplistNode->dtc_batch_size + entry_size > WARM_BATCH_MAX_SIZE) // clsoe the batch
 			{
 				skiplistNode->dtc_batch_num = -1;
 				skiplistNode->dtc_batch_size = 0;
 			}
 
-while(skiplistNode->dtc_batch_num == -1) // find safe empty batch using split
+//while(skiplistNode->dtc_batch_num == -1) // find safe empty batch using split
+if (skiplistNode->dtc_batch_num == -1)
 {
 			/*new_ea = */
 
@@ -714,18 +736,29 @@ while(skiplistNode->dtc_batch_num == -1) // find safe empty batch using split
 
 			if (skiplistNode->empty_batch == -1)
 			{
-				if (may_split_warm_node(skiplistNode,2) == 0)
-					at_unlock2(skiplistNode->insert_lock);
-				else
-					skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
+//				if (may_split_warm_node(skiplistNode,2) == 1)
+//					skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
 			}
 			else
+			{
 				skiplistNode->dtc_batch_num = skiplistNode->empty_batch;
-}
 
+				if (skiplistNode->empty_batch % WARM_BATCH_CNT == 0)
+					skiplistNode->dtc_batch_size = NODE_HEADER_SIZE;
+				else
+					skiplistNode->dtc_batch_size = 0;
+
+			}
+}
+//skiplist_dtc_check(skiplistNode);
+if (skiplistNode->dtc_batch_num >= 0)
 			dtc = direct_to_cold(key,value_size,value,skiplistNode,large); // kvp becomes old one
+			else
+				dtc = false;
 //			if (dtc) // success // fail == full node
 //				invalidate_entry(old_ea,old_ea.large);
+
+//skiplist_dtc_check(skiplistNode);
 
 //			hash_index->unlock_entry2(seg_lock,read_lock);
 			at_unlock2(skiplistNode->insert_lock);

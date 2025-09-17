@@ -548,7 +548,7 @@ namespace PH
 		for (i=0;i<WARM_MAX_NODE_GROUP;i++)
 			node->data_node_addr[i] = emptyNodeAddr;
 
-		node->dtc_batch_num = -1;
+		node->dtc_batch_num = -1; // skiplisti nit
 		node->dtc_batch_size = 0;
 
 		_mm_sfence();
@@ -1042,7 +1042,7 @@ void Skiplist::traverse_test()
 				nodeMeta = nodeAllocator->nodeAddr_to_nodeMeta(skiplistNode->data_node_addr[i]);
 				for (j=0;j<WARM_BATCH_CNT;j++)
 				{
-					size = nodeMeta->batch_info[j].el.size();
+					size = nodeMeta->batch_info[j].el_cnt;//.size();
 					for (k=0;k<size-1;k++)
 					{
 						if (nodeMeta->batch_info[j].el[k].valid)
