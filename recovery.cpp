@@ -199,7 +199,7 @@ namespace PH
 //								nodeMeta->valid[cnt] = false;
 							}
 							else
-								invalidate_entry(old_ea,false);
+								invalidate_entry(old_ea,old_ea.large,false);
 						}
 
 						if (update)

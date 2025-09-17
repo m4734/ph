@@ -719,6 +719,8 @@ void skiplist_dtc_check(SkiplistNode *skiplist_node)
 #endif
 				warm_cache = emptyNodeAddr;
 
+			//			skiplistNode = get_skiplist_node(key,warm_cache);
+			//			at_lock2(skiplistNode->evict_lock); // gararreentteee and limit all split and write...
 			skiplistNode = get_skiplist_node_for_insert(key,warm_cache); // was evict
 
 			if (skiplistNode->dtc_batch_size + entry_size > WARM_BATCH_MAX_SIZE) // clsoe the batch
@@ -1005,8 +1007,7 @@ if (skiplistNode->dtc_batch_num >= 0)
 			{
 				//				if (old_ea.loc == HOT_LOG)
 				//					hot_to_hot_cnt++; // need warm to hot?
-				invalidate_entry(old_ea);//,large); // log write test
-				// it was not old_ea.large ... why??
+				invalidate_entry(old_ea,large); // log write test
 			}
 #ifdef DST_CHECK
 			EA_test(key,new_ea);
