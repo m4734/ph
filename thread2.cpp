@@ -1937,7 +1937,7 @@ namespace PH
 #ifdef USE_DTC
 		if (ex == 0 && false)
 			dtc = true;
-		else if(ex && old_ea.loc == COLD_LIST)
+		else if(ex && old_ea.loc >= WARM_LIST)// == COLD_LIST)
 		{
 			rv = rand_r(&seed_for_dtc);
 			if (/*reset_test_cnt || */(rv % 100) <= calc_th(my_log) )// && false) // to cold // ratio condition
@@ -1994,7 +1994,6 @@ namespace PH
 		{
 			tes(INSERT_LOG);
 
-			dst_log = my_log;
 			dst_loc = HOT_LOG;
 
 			dst_log->ready_log(value_size8);

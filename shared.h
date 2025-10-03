@@ -40,13 +40,14 @@
 #endif
 
 //--------------perf
+//#define ENTRY_WRITE_TEMP // remove this
 
-#define STAT
+//#define STAT
 #ifdef STAT
 
 #define WARM_STAT
 #define TIME_STAT
-//#define TIME_STAT2
+#define TIME_STAT2
 
 #define SKIPLIST_TRAVERSE_TEST
 #define LIST_TRAVERSE_TEST
