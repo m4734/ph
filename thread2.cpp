@@ -181,6 +181,9 @@ namespace PH
 
 		timeReset();
 
+//		if (reset_test_cnt > 0)
+//		skiplist->traverse_test();
+
 		reset_test_cnt++;
 	}
 
@@ -223,11 +226,18 @@ namespace PH
 			printf("thread buffer alloc fail\n");
 		if (posix_memalign((void**)&entry_buffer,NODE_SIZE,NODE_SIZE) != 0)
 			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&split_buffer,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+
+		uint32_t alloc_cnt;
+		if (WARM_MAX_NODE_GROUP > MAX_NODE_GROUP)
+			alloc_cnt = WARM_MAX_NODE_GROUP;
+			else
+				alloc_cnt = MAX_NODE_GROUP;
+
+		if (posix_memalign((void**)&split_buffer,NODE_SIZE,NODE_SIZE*alloc_cnt) != 0)
 			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&sorted_buffer1,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+		if (posix_memalign((void**)&sorted_buffer1,NODE_SIZE,NODE_SIZE*alloc_cnt) != 0)
 			printf("thread buffer alloc fail\n");
-		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*MAX_NODE_GROUP) != 0)
+		if (posix_memalign((void**)&sorted_buffer2,NODE_SIZE,NODE_SIZE*alloc_cnt) != 0)
 			printf("thread buffer alloc fail\n");
 
 	}
@@ -2308,7 +2318,11 @@ namespace PH
 				 */
 				if (ea.offset < doubleLogList[ea.file_num].tail_sum)
 					continue;
+#ifndef READ_PMEM
 				addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
+#else
+				addr = doubleLogList[ea.file_num].pmemLogAddr + get_log_offset(ea);
+#endif
 				if (ea.large)
 				{
 					unsigned char* vsp;
@@ -2727,7 +2741,11 @@ namespace PH
 						}
 						if (ea.offset < doubleLogList[ea.file_num].tail_sum)
 							continue;
+#ifndef READ_PMEM
 						addr = doubleLogList[ea.file_num].dramLogAddr + get_log_offset(ea);
+#else
+						addr = doubleLogList[ea.file_num].pmemLogAddr + get_log_offset(ea);
+#endif
 						//						memcpy(scan_result.key_list_list[skiplist_cnt-1]+ (ENTRY_SIZE * key_list_index),addr,ENTRY_SIZE);
 						if (seg_depth_p != NULL && seg_depth != *seg_depth_p)
 							continue;

@@ -56,6 +56,7 @@
 #endif
 //--------------------------------------
 
+//#define READ_PMEM // just check effect
 //#define INTERLEAVE
 //#define NO_EXIST
 
@@ -87,7 +88,7 @@ namespace PH
 #if 1 // big
 	const uint32_t NODE_SIZE = 4096;//*2; // 4KB // 2KB // 1KB by value size...
 
-	const uint32_t WARM_MAX_NODE_GROUP = 8; // 2 4 8?
+	const uint32_t WARM_MAX_NODE_GROUP = 2; // 2 4 8?
 	const uint32_t MAX_NODE_GROUP = 4;  // 4KB * 4 = 16KB
 #else // small
 	const size_t NODE_SIZE = 1024; // 4KB // 2KB // 1KB by value size...

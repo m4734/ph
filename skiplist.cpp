@@ -629,12 +629,11 @@ SkiplistNode* Skiplist::find_next_node(SkiplistNode* node) // what if max
 					int rv = next_node->dst_cnt.fetch_sub(1);
 					if (rv == 1)
 					{
-						for (j=0;j<WARM_MAX_NODE_GROUP;j++)
-						{
-							//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-							//									debug_error("free888\n");
-							nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
-						}
+	for (j=0;j<WARM_MAX_NODE_GROUP;j++)
+	{
+		nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
+	}
+
 						free_sl_node(next_node);
 					}
 				}
@@ -662,6 +661,7 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 		{
 			sa.value = node->next[i].value.load();
 			//			next_node = sa_to_node(sa);
+
 			next_node = &node_pool_list[sa.pool_num][sa.offset];
 			if (next_node->ver != sa.ver)
 			{
@@ -674,12 +674,11 @@ SkiplistNode* Skiplist::find_node(size_t key,SkipAddr* prev,SkipAddr* next) // w
 						int rv = next_node->dst_cnt.fetch_sub(1);
 						if (rv == 1)
 						{
-							for (j=0;j<WARM_MAX_NODE_GROUP;j++)
-							{
-								//								if (nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j])->list_addr.value != nodeAddr_to_listAddr(WARM_LIST,next_node->myAddr).value)
-								//									debug_error("free333\n");
-								nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
-							}
+	for (j=0;j<WARM_MAX_NODE_GROUP;j++)
+	{
+		nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(next_node->data_node_addr[j]));
+	}
+
 							free_sl_node(next_node);
 						}
 					}
@@ -894,10 +893,19 @@ void Skiplist::setLimit(size_t size)
 	SKIPLIST_NODE_POOL_LIMIT = size / (NODE_POOL_SIZE * NODE_SIZE) +1;
 }
 
-void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next)
+void Skiplist::delete_node(SkiplistNode* node)//,SkipAddr** prev,SkipAddr** next) // will be safe with lock
 {
 	node->ver = 0;
 	node->key = INV64;
+
+// it was needed but not now
+/*
+	int i;
+	for (i=0;i<WARM_MAX_NODE_GROUP;i++)
+	{
+		nodeAllocator->free_node(nodeAllocator->nodeAddr_to_nodeMeta(node->data_node_addr[i]));
+	}
+*/
 #if 0
 	//	size_t key = node->key;
 	//	at_lock2(node->delete_lock);
